@@ -6,7 +6,7 @@ const Apply = () => {
       <Image
         src="/stifi.jpg"
         alt="Haus"
-        layout="fill"
+        fill={true}
         className="blur-sm filter"
       />
       <a

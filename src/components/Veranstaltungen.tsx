@@ -11,7 +11,7 @@ const Veranstaltungen = () => {
         </div>
         <div className="flex flex-col items-center space-y-1">
           <p className="text-2xl text-sky-950">6.-8. Oktober</p>
-          <p className="text-xl">Hüttenwocheende</p>
+          <p className="text-xl">Hüttenwochenende</p>
         </div>
         <div className="flex flex-col items-center space-y-1">
           <p className="text-2xl text-sky-950">14. Oktober</p>

@@ -6,9 +6,11 @@ export default function Haus() {
     "/Haus0.png",
     "/Haus1.png",
     "/Haus2.png",
+    "/Bad.png",
     "/Haus3.png",
     "/Haus4.png",
     "/Haus5.png",
+    "/Haus6.gif",
   ];
 
   return (
