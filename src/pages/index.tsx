@@ -19,7 +19,13 @@ const Home: NextPage = () => {
       </Head>
       <main className="relative min-h-screen w-screen">
         <Navbar />
-        <Image src="/bckg.png" alt="background" className="z-10" fill={true} priority/>
+        <Image
+          src="/background.png"
+          alt="background"
+          className="z-10"
+          fill={true}
+          priority
+        />
       </main>
       <Welcome />
       <Aktive />
