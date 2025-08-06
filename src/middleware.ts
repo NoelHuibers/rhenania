@@ -23,52 +23,48 @@ const PUBLIC_PATHS = [
   "/datenschutz", // privacy policy
   "/impressum", // imprint
   "/api/auth/(.*)", // all NextAuth endpoints
-  "/favicon.ico",
-  "/public/(.*)", // static assets in /public
 ];
 
-// helper to test literal vs pattern:
+// Helper to test literal vs pattern:
 function isPublic(pathname: string) {
-  const result = PUBLIC_PATHS.some((p) =>
+  return PUBLIC_PATHS.some((p) =>
     p.includes("(.*)")
       ? new RegExp(`^${p.replace("(.*)", ".*")}$`).test(pathname)
       : pathname === p
   );
-  return result;
 }
 
 // Wrap every request in your Auth.js logic:
 export default auth((req: AuthenticatedRequest) => {
   const { pathname } = req.nextUrl;
 
-  // 1) allow any public URL
+  // 1) Allow any public URL
   if (isPublic(pathname)) {
     return;
   }
 
-  // 2) if not signed in, redirect to /api/auth/signin with callbackUrl
+  // 2) If not signed in, redirect to /api/auth/signin with callbackUrl
   if (!req.auth?.user) {
     const signInUrl = req.nextUrl.clone();
     signInUrl.pathname = "/api/auth/signin";
-
     // Add the current URL as callbackUrl parameter
     // This will preserve the original route for redirect after login
     signInUrl.searchParams.set("callbackUrl", req.nextUrl.href);
-
     return NextResponse.redirect(signInUrl);
   }
 });
 
-// never run middleware on _next internals or static files:
+// Never run middleware on _next internals, static files, or public assets:
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
+     * Match all request paths except:
+     * - api routes
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * - favicon.ico
+     * - All files with extensions (images, fonts, etc.)
      */
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(png|jpg|jpeg|svg|gif|webp)).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|.*\\..*).*)",
   ],
 };
