@@ -1,13 +1,12 @@
 "use client";
 
-import { Upload } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import Image from "next/image";
 import { useState, useTransition } from "react";
-
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { addDrink, type AddDrinkInput } from "~/server/actions/drinks";
+import { addDrink } from "~/server/actions/drinks";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +27,7 @@ import {
 interface AddDrinkDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onDrinkAdded?: () => void; // Optional callback to refresh data
+  onDrinkAdded?: () => void;
 }
 
 export function AddDrinkDialog({
@@ -39,9 +38,9 @@ export function AddDrinkDialog({
   const [formData, setFormData] = useState({
     name: "",
     price: "",
-    picture: "",
     isCurrentlyAvailable: "true",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [isPending, startTransition] = useTransition();
 
@@ -58,24 +57,43 @@ export function AddDrinkDialog({
         return;
       }
 
+      // Check file type
+      if (!file.type.startsWith("image/")) {
+        toast.error("Bitte wählen Sie eine Bilddatei aus");
+        return;
+      }
+
+      setSelectedFile(file);
+
+      // Create preview
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setImagePreview(result);
-        setFormData((prev) => ({ ...prev, picture: result }));
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const removeImage = () => {
+    setSelectedFile(null);
+    setImagePreview("");
+    // Reset file input
+    const fileInput = document.getElementById("picture") as HTMLInputElement;
+    if (fileInput) fileInput.value = "";
   };
 
   const resetForm = () => {
     setFormData({
       name: "",
       price: "",
-      picture: "",
       isCurrentlyAvailable: "true",
     });
+    setSelectedFile(null);
     setImagePreview("");
+    // Reset file input
+    const fileInput = document.getElementById("picture") as HTMLInputElement;
+    if (fileInput) fileInput.value = "";
   };
 
   const handleSubmit = () => {
@@ -90,26 +108,31 @@ export function AddDrinkDialog({
       return;
     }
 
-    const drinkData: AddDrinkInput = {
-      name: formData.name.trim(),
-      price: parseFloat(formData.price),
-      picture: formData.picture || undefined,
-      isCurrentlyAvailable: formData.isCurrentlyAvailable === "true",
-    };
-
     startTransition(async () => {
       try {
-        const result = await addDrink(drinkData);
+        // Create FormData for file upload
+        const submitFormData = new FormData();
+        submitFormData.append("name", formData.name.trim());
+        submitFormData.append("price", formData.price);
+        submitFormData.append(
+          "isCurrentlyAvailable",
+          formData.isCurrentlyAvailable
+        );
+
+        if (selectedFile) {
+          submitFormData.append("picture", selectedFile);
+        }
+
+        const result = await addDrink(submitFormData);
 
         if (result.success) {
           toast.success(result.message);
           resetForm();
           onOpenChange(false);
-          onDrinkAdded?.(); // Trigger refresh if callback provided
+          onDrinkAdded?.();
         } else {
           toast.error(result.error || "Unbekannter Fehler");
 
-          // Show validation errors if available
           if (result.details) {
             result.details.forEach((error) => {
               toast.error(`${error.path.join(".")}: ${error.message}`);
@@ -184,11 +207,11 @@ export function AddDrinkDialog({
                 disabled={isPending}
               >
                 <Upload className="mr-2 h-4 w-4" />
-                {imagePreview ? "Anderes Bild wählen" : "Bild hochladen"}
+                {selectedFile ? "Anderes Bild wählen" : "Bild hochladen"}
               </Button>
             </div>
             {imagePreview && (
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-2 p-2 border rounded-md">
                 <Image
                   src={imagePreview}
                   alt="Vorschau"
@@ -196,17 +219,22 @@ export function AddDrinkDialog({
                   height={64}
                   className="rounded-md object-cover"
                 />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{selectedFile?.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedFile &&
+                      (selectedFile.size / 1024 / 1024).toFixed(2)}{" "}
+                    MB
+                  </p>
+                </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setImagePreview("");
-                    setFormData((prev) => ({ ...prev, picture: "" }));
-                  }}
+                  onClick={removeImage}
                   disabled={isPending}
                 >
-                  Entfernen
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
             )}

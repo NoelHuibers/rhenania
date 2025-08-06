@@ -19,6 +19,7 @@ export const env = createEnv({
     TOMAIL: z.string().email().optional(),
     DATABASE_URL: z.string().url(),
     DATABASE_AUTH_TOKEN: z.string().optional(),
+    VERCEL_BLOB_STORAGE_URL: z.string().url().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -46,6 +47,7 @@ export const env = createEnv({
     TOMAIL: process.env.TOMAIL,
     DATABASE_URL: process.env.DATABASE_URL,
     DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN,
+    VERCEL_BLOB_STORAGE_URL: process.env.VERCEL_BLOB_STORAGE_URL,
     NODE_ENV: process.env.NODE_ENV,
   },
   /**
