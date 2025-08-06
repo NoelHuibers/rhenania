@@ -18,6 +18,7 @@ export const env = createEnv({
     GMAIL_PASSWORD: z.string().optional(),
     TOMAIL: z.string().email().optional(),
     DATABASE_URL: z.string().url(),
+    DATABASE_AUTH_TOKEN: z.string().optional(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
       .default("development"),
@@ -44,6 +45,7 @@ export const env = createEnv({
     GMAIL_PASSWORD: process.env.GMAIL_PASSWORD,
     TOMAIL: process.env.TOMAIL,
     DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN,
     NODE_ENV: process.env.NODE_ENV,
   },
   /**
