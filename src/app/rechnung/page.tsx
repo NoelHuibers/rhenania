@@ -49,6 +49,15 @@ export default function BillingDashboard() {
   const [billingError, setBillingError] = useState<string | null>(null);
   const [currentBillPeriod, setCurrentBillPeriod] = useState<any>(null);
 
+  // State for previous billing
+  const [previousBilling, setPreviousBilling] = useState<BillingEntry[]>([]);
+  const [isLoadingPreviousBilling, setIsLoadingPreviousBilling] =
+    useState(false);
+  const [previousBillingError, setPreviousBillingError] = useState<
+    string | null
+  >(null);
+  const [previousBillPeriod, setPreviousBillPeriod] = useState<any>(null);
+
   // State for all bill periods
   const [allBillPeriods, setAllBillPeriods] = useState<any[]>([]);
   const [billPeriodsData, setBillPeriodsData] = useState<
@@ -74,12 +83,17 @@ export default function BillingDashboard() {
     fetchCurrentOrders();
   }, []);
 
-  // Load current billing when tab is switched or component mounts
+  // Load all bill periods on component mount
   useEffect(() => {
     const fetchAllBillPeriods = async () => {
       try {
         const periods = await getAllBillPeriods();
-        setAllBillPeriods(periods);
+        // Sort periods by creation date (newest first)
+        const sortedPeriods = periods.sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setAllBillPeriods(sortedPeriods);
       } catch (err) {
         console.error("Error fetching bill periods:", err);
       }
@@ -88,6 +102,7 @@ export default function BillingDashboard() {
     fetchAllBillPeriods();
   }, []);
 
+  // Handle tab changes and data loading
   useEffect(() => {
     if (activeTab === "current-billing") {
       const fetchCurrentBilling = async () => {
@@ -113,23 +128,51 @@ export default function BillingDashboard() {
       };
 
       fetchCurrentBilling();
-    } else {
-      // Load data for historical periods
-      const periodId = activeTab;
-      const period = allBillPeriods.find((p) => p.id === periodId);
+    } else if (activeTab === "previous-billing") {
+      const fetchPreviousBilling = async () => {
+        try {
+          setIsLoadingPreviousBilling(true);
+          setPreviousBillingError(null);
 
-      if (period && !billPeriodsData.has(periodId)) {
-        const fetchPeriodData = async () => {
-          try {
-            const bills = await getBillsForPeriod(periodId);
-            setBillPeriodsData((prev) => new Map(prev.set(periodId, bills)));
-          } catch (err) {
-            console.error(`Error fetching data for period ${periodId}:`, err);
+          // Get the second most recent period (previous billing)
+          if (allBillPeriods.length > 1) {
+            const previousPeriod = allBillPeriods[1]; // Second in the sorted array
+            setPreviousBillPeriod(previousPeriod);
+            const bills = await getBillsForPeriod(previousPeriod.id);
+            setPreviousBilling(bills);
+          } else {
+            setPreviousBilling([]);
+            setPreviousBillPeriod(null);
           }
-        };
+        } catch (err) {
+          setPreviousBillingError("Fehler beim Laden der letzten Abrechnungen");
+          console.error("Fehler beim Abrufen der letzten Abrechnungen:", err);
+        } finally {
+          setIsLoadingPreviousBilling(false);
+        }
+      };
 
-        fetchPeriodData();
-      }
+      fetchPreviousBilling();
+    } else if (activeTab === "older-bills") {
+      // Load data for older periods (skip the first two periods)
+      const olderPeriods = allBillPeriods.slice(2);
+
+      olderPeriods.forEach((period) => {
+        if (!billPeriodsData.has(period.id)) {
+          const fetchPeriodData = async () => {
+            try {
+              const bills = await getBillsForPeriod(period.id);
+              setBillPeriodsData((prev) => new Map(prev.set(period.id, bills)));
+            } catch (err) {
+              console.error(
+                `Error fetching data for period ${period.id}:`,
+                err
+              );
+            }
+          };
+          fetchPeriodData();
+        }
+      });
     }
   }, [activeTab, allBillPeriods]);
 
@@ -223,6 +266,7 @@ export default function BillingDashboard() {
       toast.error("An error occurred while updating the bill status");
     }
   };
+  const olderPeriods = allBillPeriods.slice(2);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -264,13 +308,18 @@ export default function BillingDashboard() {
             Aktuelle Bestellungen
           </TabsTrigger>
           <TabsTrigger value="current-billing" className="text-sm">
-            Aktuelle Abrechnungen
+            Aktuelle Abrechnung
           </TabsTrigger>
-          {allBillPeriods.map((period) => (
-            <TabsTrigger key={period.id} value={period.id} className="text-sm">
-              Rechnung {period.billNumber}
+          {allBillPeriods.length > 1 && (
+            <TabsTrigger value="previous-billing" className="text-sm">
+              Letzte Abrechnung
             </TabsTrigger>
-          ))}
+          )}
+          {olderPeriods.length > 0 && (
+            <TabsTrigger value="older-bills" className="text-sm">
+              Ältere Rechnungen
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="current-orders" className="space-y-4">
@@ -312,34 +361,74 @@ export default function BillingDashboard() {
           />
         </TabsContent>
 
-        {allBillPeriods.map((period) => {
-          const periodEntries = billPeriodsData.get(period.id) || [];
-          const isLoadingPeriod = !billPeriodsData.has(period.id);
+        <TabsContent value="previous-billing" className="space-y-4">
+          <TabContent
+            entries={previousBilling}
+            isLoading={isLoadingPreviousBilling}
+            error={previousBillingError}
+            cardTitle="Letzte Abrechnungsperiode"
+            cardDescription={
+              previousBillPeriod
+                ? `Rechnung ${
+                    previousBillPeriod.billNumber
+                  } - Gesamtbetrag: ${formatCurrency(
+                    previousBillPeriod.totalAmount
+                  )}`
+                : "Zusammenfassung der letzten Abrechnungsperiode"
+            }
+            headerDate={
+              previousBillPeriod?.createdAt
+                ? new Date(previousBillPeriod.createdAt).toLocaleDateString(
+                    "de-DE"
+                  )
+                : undefined
+            }
+            showStatus={true}
+            emptyMessage="Keine vorherigen Abrechnungen gefunden"
+            onStatusChange={handleStatusChange}
+          />
+        </TabsContent>
 
-          return (
-            <TabsContent
-              key={period.id}
-              value={period.id}
-              className="space-y-4"
-            >
-              <TabContent
-                entries={periodEntries}
-                isLoading={isLoadingPeriod}
-                error={null}
-                cardTitle={`Rechnung ${period.billNumber}`}
-                cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatCurrency(
-                  period.totalAmount
-                )}`}
-                headerDate={new Date(period.createdAt).toLocaleDateString(
-                  "de-DE"
-                )}
-                showStatus={true}
-                emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
-                onStatusChange={handleStatusChange}
-              />
-            </TabsContent>
-          );
-        })}
+        <TabsContent value="older-bills" className="space-y-4">
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold mb-2">Ältere Rechnungen</h2>
+              <p className="text-muted-foreground">
+                Alle älteren Abrechnungsperioden
+              </p>
+            </div>
+            {olderPeriods.map((period) => {
+              const periodEntries = billPeriodsData.get(period.id) || [];
+              const isLoadingPeriod = !billPeriodsData.has(period.id);
+
+              return (
+                <TabContent
+                  key={period.id}
+                  entries={periodEntries}
+                  isLoading={isLoadingPeriod}
+                  error={null}
+                  cardTitle={`Rechnung ${period.billNumber}`}
+                  cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatCurrency(
+                    period.totalAmount
+                  )}`}
+                  headerDate={new Date(period.createdAt).toLocaleDateString(
+                    "de-DE"
+                  )}
+                  showStatus={true}
+                  emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
+                  onStatusChange={handleStatusChange}
+                />
+              );
+            })}
+            {olderPeriods.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">
+                  Keine älteren Rechnungen vorhanden
+                </p>
+              </div>
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
     </div>
   );
