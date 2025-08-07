@@ -1,5 +1,10 @@
 import { relations, sql } from "drizzle-orm";
-import { index, primaryKey, sqliteTableCreator } from "drizzle-orm/sqlite-core";
+import {
+  foreignKey,
+  index,
+  primaryKey,
+  sqliteTableCreator,
+} from "drizzle-orm/sqlite-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
 /**
@@ -129,5 +134,40 @@ export const drinks = createTable(
   (t) => [
     index("drink_name_idx").on(t.name),
     index("drink_available_idx").on(t.isCurrentlyAvailable),
+  ]
+);
+
+export const orders = createTable(
+  "order",
+  (o) => ({
+    id: o
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: o.text({ length: 255 }).notNull(),
+    userName: o.text({ length: 255 }).notNull(),
+    drinkId: o.text({ length: 255 }).notNull(),
+    drinkName: o.text({ length: 255 }).notNull(),
+    amount: o.integer().notNull(),
+    pricePerUnit: o.real().notNull(), // Store price at time of order
+    total: o.real().notNull(),
+
+    createdAt: o
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: o.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    index("order_user_idx").on(t.userId),
+    index("order_drink_idx").on(t.drinkId),
+    index("order_created_idx").on(t.createdAt),
+    // Foreign key constraint
+    foreignKey({
+      columns: [t.drinkId],
+      foreignColumns: [drinks.id],
+      name: "order_drink_fk"
+    }),
   ]
 );

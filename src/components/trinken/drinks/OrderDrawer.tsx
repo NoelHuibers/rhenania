@@ -3,7 +3,8 @@
 
 import { Minus, Plus, ShoppingCart } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -16,21 +17,17 @@ import {
 } from "~/components/ui/drawer";
 import { Input } from "~/components/ui/input";
 import { type MenuItem } from "~/server/actions/menu";
+import { createOrder } from "~/server/actions/orders";
 
 interface OrderDrawerProps {
   drink: MenuItem | null;
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (drink: MenuItem, quantity: number) => void;
 }
 
-export function OrderDrawer({
-  drink,
-  isOpen,
-  onClose,
-  onConfirm,
-}: OrderDrawerProps) {
+export function OrderDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
   const [quantity, setQuantity] = useState(1);
+  const [isPending, startTransition] = useTransition();
 
   const handleQuantityChange = (value: string) => {
     const num = parseInt(value, 10);
@@ -49,11 +46,35 @@ export function OrderDrawer({
   };
 
   const handleConfirm = () => {
-    if (drink) {
-      onConfirm(drink, quantity);
-      onClose();
-      setQuantity(1); // Reset quantity
-    }
+    if (!drink) return;
+
+    startTransition(async () => {
+      try {
+        const orderResult = await createOrder({
+          drinkId: drink.id,
+          drinkName: drink.name,
+          amount: quantity,
+          pricePerUnit: drink.price,
+          total: drink.price * quantity,
+        });
+
+        if (orderResult.success) {
+          toast.success(
+            `${quantity}x ${drink.name} bestellt (€${(
+              drink.price * quantity
+            ).toFixed(2)})`
+          );
+          // Call the original onConfirm if provided (for backward compatibility)
+
+          handleClose();
+        } else {
+          toast.error(orderResult.error || "Ein Fehler ist aufgetreten.");
+        }
+      } catch (error) {
+        console.error("Order error:", error);
+        toast.error("Ein unerwarteter Fehler ist aufgetreten.");
+      }
+    });
   };
 
   const handleClose = () => {
@@ -95,7 +116,7 @@ export function OrderDrawer({
                 variant="outline"
                 size="icon"
                 onClick={() => adjustQuantity(-1)}
-                disabled={quantity <= 1}
+                disabled={quantity <= 1 || isPending}
               >
                 <Minus className="h-4 w-4" />
               </Button>
@@ -106,12 +127,14 @@ export function OrderDrawer({
                 onChange={(e) => handleQuantityChange(e.target.value)}
                 className="w-20 text-center font-bold text-lg"
                 min="1"
+                disabled={isPending}
               />
 
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => adjustQuantity(1)}
+                disabled={isPending}
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -123,6 +146,7 @@ export function OrderDrawer({
                 variant="secondary"
                 onClick={() => setPresetQuantity(2)}
                 className="px-6"
+                disabled={isPending}
               >
                 BJ
               </Button>
@@ -130,6 +154,7 @@ export function OrderDrawer({
                 variant="secondary"
                 onClick={() => setPresetQuantity(drink.kastengroesse ?? 20)}
                 className="px-6"
+                disabled={isPending}
               >
                 K
               </Button>
@@ -152,15 +177,21 @@ export function OrderDrawer({
         </div>
 
         <DrawerFooter className="flex flex-row gap-3">
-          <Button variant="outline" onClick={handleClose} className="flex-1">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            className="flex-1"
+            disabled={isPending}
+          >
             Abbrechen
           </Button>
           <Button
             onClick={handleConfirm}
             className="flex-1 bg-green-500 hover:bg-green-600"
+            disabled={isPending}
           >
             <ShoppingCart className="h-4 w-4 mr-2" />
-            Bestätigen
+            {isPending ? "Bestelle..." : "Bestätigen"}
           </Button>
         </DrawerFooter>
       </DrawerContent>

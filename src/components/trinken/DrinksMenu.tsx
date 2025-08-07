@@ -45,20 +45,6 @@ export default function DrinksMenu() {
     setSelectedDrink(null);
   };
 
-  const handleOrderConfirm = (drink: MenuItem, quantity: number) => {
-    // Here you would typically handle the order submission
-    toast.success(
-      `${quantity}x ${drink.name} bestellt (€${(drink.price * quantity).toFixed(
-        2
-      )})`
-    );
-    console.log("Order confirmed:", {
-      drink: drink.name,
-      quantity,
-      total: drink.price * quantity,
-    });
-  };
-
   // Group drinks by availability
   const availableDrinks = drinks.filter((drink) => drink.isCurrentlyAvailable);
   const unavailableDrinks = drinks.filter(
@@ -105,7 +91,6 @@ export default function DrinksMenu() {
         drink={selectedDrink}
         isOpen={isDrawerOpen}
         onClose={handleDrawerClose}
-        onConfirm={handleOrderConfirm}
       />
     </>
   );
