@@ -2,7 +2,7 @@
 
 import { ArrowUpDown, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { formatCurrency, type BillingEntry } from "~/app/rechnung/page";
+import { type BillingEntry } from "~/app/rechnung/page";
 import { Button } from "../ui/button";
 import {
   Table,
@@ -27,6 +27,14 @@ interface BillingTableProps {
 
 type SortField = "name" | "totalDue";
 type SortDirection = "asc" | "desc";
+
+// Utility function
+export const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(amount);
+};
 
 export const BillingTable = ({
   entries,

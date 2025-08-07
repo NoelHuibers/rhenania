@@ -1,4 +1,4 @@
-import { formatCurrency, type BillingEntry } from "~/app/rechnung/page";
+import { type BillingEntry } from "~/app/rechnung/page";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
+import { formatCurrency } from "./BillingTable";
 
 // Default Details Dialog Component
 export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (

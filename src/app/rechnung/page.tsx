@@ -2,6 +2,7 @@
 
 import { Loader2, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { formatCurrency } from "~/components/rechnungen/BillingTable";
 import { TabContent } from "~/components/rechnungen/TabContent";
 import { Button } from "~/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
@@ -29,14 +30,6 @@ export interface BillingEntry {
   status?: "Bezahlt" | "Unbezahlt" | "Gestundet";
   items: DrinkItem[];
 }
-
-// Utility function
-export const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  }).format(amount);
-};
 
 // Main Dashboard Component
 export default function BillingDashboard() {
