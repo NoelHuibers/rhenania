@@ -100,7 +100,7 @@ export async function getUserOrders(userId?: string) {
       .select()
       .from(orders)
       .where(eq(orders.userId, targetUserId))
-      .orderBy(desc(orders.createdAt));
+      .orderBy(orders.createdAt);
 
     return userOrders;
   } catch (error) {
