@@ -2,6 +2,7 @@
 
 import { Loader2, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { formatCurrency } from "~/components/rechnungen/BillingTable";
 import { TabContent } from "~/components/rechnungen/TabContent";
 import { Button } from "~/components/ui/button";
@@ -11,6 +12,7 @@ import {
   getAllBillPeriods,
   getBillsForPeriod,
   getLatestBillPeriod,
+  updateBillStatus,
 } from "~/server/actions/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 
@@ -151,19 +153,75 @@ export default function BillingDashboard() {
     }
   };
 
-  const handleStatusChange = (
+  const handleStatusChange = async (
     entryId: string,
     newStatus: BillingEntry["status"]
   ) => {
-    // Update the status in current billing
-    setCurrentBilling((prev) =>
-      prev.map((entry) =>
-        entry.id === entryId ? { ...entry, status: newStatus } : entry
-      )
-    );
+    // Store the original status for potential rollback
+    const originalEntry = currentBilling.find((entry) => entry.id === entryId);
+    const originalStatus = originalEntry?.status;
 
-    // TODO: Send update to backend
-    console.log(`Status changed for ${entryId} to ${newStatus}`);
+    try {
+      setCurrentBilling((prev) =>
+        prev.map((entry) =>
+          entry.id === entryId ? { ...entry, status: newStatus } : entry
+        )
+      );
+
+      if (
+        newStatus === "Bezahlt" ||
+        newStatus === "Unbezahlt" ||
+        newStatus === "Gestundet"
+      ) {
+        const result = await updateBillStatus(entryId, newStatus);
+
+        if (result.success) {
+          console.log(
+            `Status successfully changed for ${entryId} to ${newStatus}`
+          );
+          // Optionally update other related state like paidAt timestamp
+          if (newStatus === "Bezahlt") {
+            setCurrentBilling((prev) =>
+              prev.map((entry) =>
+                entry.id === entryId
+                  ? { ...entry, status: newStatus, paidAt: new Date() }
+                  : entry
+              )
+            );
+          } else if (newStatus === "Unbezahlt" || newStatus === "Gestundet") {
+            setCurrentBilling((prev) =>
+              prev.map((entry) =>
+                entry.id === entryId
+                  ? { ...entry, status: newStatus, paidAt: null }
+                  : entry
+              )
+            );
+          }
+        } else {
+          setCurrentBilling((prev) =>
+            prev.map((entry) =>
+              entry.id === entryId
+                ? { ...entry, status: originalStatus }
+                : entry
+            )
+          );
+          console.error(`Failed to update status for ${entryId}`);
+          toast.error("Failed to update bill status");
+        }
+      } else {
+        console.error("Invalid status value provided to updateBillStatus");
+        toast.error("Ungültiger Statuswert");
+      }
+    } catch (error) {
+      // Revert the optimistic update on error
+      setCurrentBilling((prev) =>
+        prev.map((entry) =>
+          entry.id === entryId ? { ...entry, status: originalStatus } : entry
+        )
+      );
+      console.error("Error updating status:", error);
+      toast.error("An error occurred while updating the bill status");
+    }
   };
 
   return (
