@@ -5,6 +5,7 @@ import { Minus, Plus, ShoppingCart } from "lucide-react";
 import Image from "next/image";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { NumericInput } from "~/components/NumericInput";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -15,7 +16,6 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "~/components/ui/drawer";
-import { Input } from "~/components/ui/input";
 import { type MenuItem } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
 
@@ -29,10 +29,9 @@ export function OrderDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
   const [quantity, setQuantity] = useState(1);
   const [isPending, startTransition] = useTransition();
 
-  const handleQuantityChange = (value: string) => {
-    const num = parseInt(value, 10);
-    if (!isNaN(num) && num >= 1) {
-      setQuantity(num);
+  const handleQuantityChange = (value: number) => {
+    if (!isNaN(value) && value >= 1) {
+      setQuantity(value);
     }
   };
 
@@ -121,13 +120,13 @@ export function OrderDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
                 <Minus className="h-4 w-4" />
               </Button>
 
-              <Input
-                type="number"
+              <NumericInput
                 value={quantity}
-                onChange={(e) => handleQuantityChange(e.target.value)}
+                onChange={handleQuantityChange}
                 className="w-20 text-center font-bold text-lg"
-                min="1"
+                min={1}
                 disabled={isPending}
+                max={200}
               />
 
               <Button
