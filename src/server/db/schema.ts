@@ -152,6 +152,7 @@ export const orders = createTable(
     amount: o.integer().notNull(),
     pricePerUnit: o.real().notNull(), // Store price at time of order
     total: o.real().notNull(),
+    inBill: o.integer({ mode: "boolean" }).notNull().default(false),
 
     createdAt: o
       .integer({ mode: "timestamp" })
@@ -167,7 +168,138 @@ export const orders = createTable(
     foreignKey({
       columns: [t.drinkId],
       foreignColumns: [drinks.id],
-      name: "order_drink_fk"
+      name: "order_drink_fk",
     }),
   ]
 );
+
+export const billPeriods = createTable(
+  "bill_period",
+  (bp) => ({
+    id: bp
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    billNumber: bp.integer().notNull().unique(), // 0, 1, 2, 3... auto-incrementing
+    totalAmount: bp.real().notNull().default(0), // Total amount across all bills
+    createdAt: bp
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: bp.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+    closedAt: bp.integer({ mode: "timestamp" }), // When the billing period was closed
+  }),
+  (t) => [
+    index("bill_period_number_idx").on(t.billNumber),
+    index("bill_period_dates_idx").on(t.createdAt),
+  ]
+);
+
+// Updated bills table - now references billPeriodId instead of individual dates
+export const bills = createTable(
+  "bill",
+  (b) => ({
+    id: b
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    billPeriodId: b.text({ length: 255 }).notNull(), // Foreign key to billPeriods
+    userId: b.text({ length: 255 }).notNull(),
+    userName: b.text({ length: 255 }).notNull(),
+    status: b
+      .text({
+        enum: ["Bezahlt", "Unbezahlt", "Gestundet"],
+      })
+      .notNull()
+      .default("Unbezahlt"),
+    oldBillingAmount: b.real().notNull().default(0), // Previous outstanding balance
+    fees: b.real().notNull().default(0), // Additional fees
+    drinksTotal: b.real().notNull(), // Total from drinks only
+    total: b.real().notNull(), // Final total (drinks + oldBillingAmount + fees)
+    createdAt: b
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: b.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+    paidAt: b.integer({ mode: "timestamp" }), // When the bill was paid
+  }),
+  (t) => [
+    index("bill_period_idx").on(t.billPeriodId),
+    index("bill_user_idx").on(t.userId),
+    index("bill_status_idx").on(t.status),
+    index("bill_created_idx").on(t.createdAt),
+    // Foreign key constraint
+    foreignKey({
+      columns: [t.billPeriodId],
+      foreignColumns: [billPeriods.id],
+      name: "bill_period_fk",
+    }),
+  ]
+);
+
+// Bill items table remains the same
+export const billItems = createTable(
+  "bill_item",
+  (bi) => ({
+    id: bi
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    billId: bi.text({ length: 255 }).notNull(),
+    drinkName: bi.text({ length: 255 }).notNull(),
+    amount: bi.integer().notNull(), // Quantity of this drink
+    pricePerDrink: bi.real().notNull(), // Price per unit at time of billing
+    totalPricePerDrink: bi.real().notNull(), // amount * pricePerDrink
+    createdAt: bi
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    index("bill_item_bill_idx").on(t.billId),
+    index("bill_item_drink_idx").on(t.drinkName),
+    // Foreign key constraint
+    foreignKey({
+      columns: [t.billId],
+      foreignColumns: [bills.id],
+      name: "bill_item_bill_fk",
+    }).onDelete("cascade"),
+  ]
+);
+
+// Updated relations
+export const billPeriodsRelations = {
+  bills: {
+    relation: "one-to-many",
+    target: bills,
+    fields: [billPeriods.id],
+    references: [bills.billPeriodId],
+  },
+};
+
+export const billsRelations = {
+  billPeriod: {
+    relation: "many-to-one",
+    target: billPeriods,
+    fields: [bills.billPeriodId],
+    references: [billPeriods.id],
+  },
+  items: {
+    relation: "one-to-many",
+    target: billItems,
+    fields: [bills.id],
+    references: [billItems.billId],
+  },
+};
+
+export const billItemsRelations = {
+  bill: {
+    relation: "many-to-one",
+    target: bills,
+    fields: [billItems.billId],
+    references: [bills.id],
+  },
+};

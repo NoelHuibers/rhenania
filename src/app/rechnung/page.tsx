@@ -1,8 +1,7 @@
 "use client";
 
 import { ArrowUpDown, Loader2, Plus } from "lucide-react";
-import { useState } from "react";
-import { Badge } from "~/components/ui/badge";
+import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
@@ -21,8 +20,15 @@ import {
   TableRow,
 } from "~/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+  createNewBilling,
+  getAllBillPeriods,
+  getBillsForPeriod,
+  getLatestBillPeriod,
+} from "~/server/actions/billings";
+import { getCurrentOrders } from "~/server/actions/currentOrders";
 
-// Mock data types
+// Types
 interface DrinkItem {
   id: string;
   name: string;
@@ -31,11 +37,11 @@ interface DrinkItem {
   subtotal: number;
 }
 
-interface BillingEntry {
+export interface BillingEntry {
   id: string;
   name: string;
   totalDue: number;
-  status?: "Paid" | "Unpaid";
+  status?: "Bezahlt" | "Unbezahlt" | "Gestundet";
   items: DrinkItem[];
 }
 
@@ -45,203 +51,180 @@ interface BillingPeriod {
   entries: BillingEntry[];
 }
 
-// Mock data
-const mockCurrentOrders: BillingEntry[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    totalDue: 45.5,
-    items: [
-      { id: "1", name: "Beer", quantity: 3, unitPrice: 8.0, subtotal: 24.0 },
-      { id: "2", name: "Wine", quantity: 2, unitPrice: 12.0, subtotal: 24.0 },
-      { id: "3", name: "Soda", quantity: 1, unitPrice: 3.5, subtotal: 3.5 },
-    ],
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    totalDue: 32.0,
-    items: [
-      {
-        id: "4",
-        name: "Cocktail",
-        quantity: 2,
-        unitPrice: 15.0,
-        subtotal: 30.0,
-      },
-      { id: "5", name: "Water", quantity: 1, unitPrice: 2.0, subtotal: 2.0 },
-    ],
-  },
-  {
-    id: "3",
-    name: "Mike Davis",
-    totalDue: 18.5,
-    items: [
-      { id: "6", name: "Beer", quantity: 2, unitPrice: 8.0, subtotal: 16.0 },
-      { id: "7", name: "Chips", quantity: 1, unitPrice: 2.5, subtotal: 2.5 },
-    ],
-  },
-];
-
-const mockCurrentBilling: BillingEntry[] = [
-  {
-    id: "4",
-    name: "Corporate Account A",
-    totalDue: 1250.0,
-    status: "Unpaid",
-    items: [
-      { id: "8", name: "Beer", quantity: 50, unitPrice: 8.0, subtotal: 400.0 },
-      { id: "9", name: "Wine", quantity: 30, unitPrice: 12.0, subtotal: 360.0 },
-      {
-        id: "10",
-        name: "Cocktail",
-        quantity: 25,
-        unitPrice: 15.0,
-        subtotal: 375.0,
-      },
-      {
-        id: "11",
-        name: "Appetizers",
-        quantity: 23,
-        unitPrice: 5.0,
-        subtotal: 115.0,
-      },
-    ],
-  },
-  {
-    id: "5",
-    name: "Event Catering B",
-    totalDue: 890.75,
-    status: "Paid",
-    items: [
-      {
-        id: "12",
-        name: "Wine",
-        quantity: 45,
-        unitPrice: 12.0,
-        subtotal: 540.0,
-      },
-      {
-        id: "13",
-        name: "Champagne",
-        quantity: 15,
-        unitPrice: 20.0,
-        subtotal: 300.0,
-      },
-      {
-        id: "14",
-        name: "Hors d'oeuvres",
-        quantity: 10,
-        unitPrice: 5.075,
-        subtotal: 50.75,
-      },
-    ],
-  },
-];
-
-const mockPastPeriods: BillingPeriod[] = [
-  {
-    id: "period-2024-01",
-    name: "January 2024",
-    entries: [
-      {
-        id: "6",
-        name: "Restaurant Chain C",
-        totalDue: 2100.0,
-        status: "Paid",
-        items: [
-          {
-            id: "15",
-            name: "Beer",
-            quantity: 100,
-            unitPrice: 8.0,
-            subtotal: 800.0,
-          },
-          {
-            id: "16",
-            name: "Wine",
-            quantity: 80,
-            unitPrice: 12.0,
-            subtotal: 960.0,
-          },
-          {
-            id: "17",
-            name: "Spirits",
-            quantity: 20,
-            unitPrice: 17.0,
-            subtotal: 340.0,
-          },
-        ],
-      },
-      {
-        id: "7",
-        name: "Hotel Group D",
-        totalDue: 1575.25,
-        status: "Paid",
-        items: [
-          {
-            id: "18",
-            name: "Cocktail",
-            quantity: 75,
-            unitPrice: 15.0,
-            subtotal: 1125.0,
-          },
-          {
-            id: "19",
-            name: "Premium Wine",
-            quantity: 25,
-            unitPrice: 18.01,
-            subtotal: 450.25,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: "period-2023-12",
-    name: "December 2023",
-    entries: [
-      {
-        id: "8",
-        name: "Holiday Events Inc",
-        totalDue: 3200.0,
-        status: "Paid",
-        items: [
-          {
-            id: "20",
-            name: "Champagne",
-            quantity: 80,
-            unitPrice: 25.0,
-            subtotal: 2000.0,
-          },
-          {
-            id: "21",
-            name: "Premium Cocktails",
-            quantity: 60,
-            unitPrice: 20.0,
-            subtotal: 1200.0,
-          },
-        ],
-      },
-    ],
-  },
-];
-
 type SortField = "name" | "totalDue";
 type SortDirection = "asc" | "desc";
 
-export default function BillingDashboard() {
-  const [isCreatingReport, setIsCreatingReport] = useState(false);
+interface BillingTableProps {
+  entries: BillingEntry[];
+  showStatus?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
+  emptyMessage?: string;
+  onStatusChange?: (entryId: string, newStatus: BillingEntry["status"]) => void;
+  detailsComponent?: React.ComponentType<{ entry: BillingEntry }>;
+}
+
+interface BillingCardProps {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  headerDate?: string;
+}
+
+interface TabContentProps {
+  entries: BillingEntry[];
+  isLoading: boolean;
+  error: string | null;
+  cardTitle: string;
+  cardDescription: string;
+  headerDate?: string;
+  showStatus?: boolean;
+  emptyMessage?: string;
+  onStatusChange?: (entryId: string, newStatus: BillingEntry["status"]) => void;
+  detailsComponent?: React.ComponentType<{ entry: BillingEntry }>;
+}
+
+// Utility function
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency: "EUR",
+  }).format(amount);
+};
+
+// Generic Status Cycle Component
+const StatusButton = ({
+  status,
+  onStatusChange,
+}: {
+  status: BillingEntry["status"];
+  onStatusChange: (newStatus: BillingEntry["status"]) => void;
+}) => {
+  const cycleStatus = () => {
+    const statusOrder: BillingEntry["status"][] = [
+      "Unbezahlt",
+      "Bezahlt",
+      "Gestundet",
+    ];
+    const currentIndex = statusOrder.indexOf(status || "Unbezahlt");
+    const nextStatus = statusOrder[(currentIndex + 1) % statusOrder.length];
+    onStatusChange(nextStatus);
+  };
+
+  const getStatusColor = (status: BillingEntry["status"]) => {
+    switch (status) {
+      case "Bezahlt":
+        return "bg-green-100 text-green-800 hover:bg-green-200";
+      case "Gestundet":
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-200";
+      default:
+        return "bg-red-100 text-red-800 hover:bg-red-200";
+    }
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={cycleStatus}
+      className={`${getStatusColor(status)} border-0`}
+    >
+      {status || "Unbezahlt"}
+    </Button>
+  );
+};
+
+// Default Details Dialog Component
+const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
+  <Dialog>
+    <DialogTrigger asChild>
+      <Button variant="outline" size="sm">
+        Details
+      </Button>
+    </DialogTrigger>
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Bestelldetails - {entry.name}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Artikel</TableHead>
+              <TableHead className="text-right">Anzahl</TableHead>
+              <TableHead className="text-right">Einzelpreis</TableHead>
+              <TableHead className="text-right">Zwischensumme</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {entry.items.map((item) => (
+              <TableRow key={item.id}>
+                <TableCell>{item.name}</TableCell>
+                <TableCell className="text-right">{item.quantity}</TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(item.unitPrice)}
+                </TableCell>
+                <TableCell className="text-right">
+                  {formatCurrency(item.subtotal)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <div className="flex justify-between items-center pt-4 border-t">
+          <span className="text-lg font-semibold">Gesamt:</span>
+          <span className="text-lg font-bold">
+            {formatCurrency(entry.totalDue)}
+          </span>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
+
+// Generic Billing Card Component
+const BillingCard = ({
+  title,
+  description,
+  children,
+  headerDate,
+}: BillingCardProps) => (
+  <Card>
+    <CardHeader>
+      <div className="flex justify-between items-start">
+        <div>
+          <CardTitle>{title}</CardTitle>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        {headerDate && (
+          <div className="text-sm text-muted-foreground">{headerDate}</div>
+        )}
+      </div>
+    </CardHeader>
+    <CardContent>{children}</CardContent>
+  </Card>
+);
+
+// Generic Billing Table Component
+const BillingTable = ({
+  entries,
+  showStatus = false,
+  isLoading = false,
+  error = null,
+  emptyMessage = "Keine Einträge gefunden",
+  onStatusChange,
+  detailsComponent: DetailsComponent = DefaultDetailsDialog,
+}: BillingTableProps) => {
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [activeTab, setActiveTab] = useState("current-orders");
 
-  const handleCreateReport = async () => {
-    setIsCreatingReport(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsCreatingReport(false);
-    // In a real app, you'd refresh the data here
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
   };
 
   const sortEntries = (entries: BillingEntry[]) => {
@@ -262,76 +245,28 @@ export default function BillingDashboard() {
     });
   };
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortDirection("asc");
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        Lädt...
+      </div>
+    );
+  }
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(amount);
-  };
+  if (error) {
+    return <div className="text-center py-8 text-red-600">{error}</div>;
+  }
 
-  const DetailsDialog = ({ entry }: { entry: BillingEntry }) => (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          Details
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Order Details - {entry.name}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Unit Price</TableHead>
-                <TableHead className="text-right">Subtotal</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {entry.items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>{item.name}</TableCell>
-                  <TableCell className="text-right">{item.quantity}</TableCell>
-                  <TableCell className="text-right">
-                    {formatCurrency(item.unitPrice)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {formatCurrency(item.subtotal)}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="flex justify-between items-center pt-4 border-t">
-            <span className="text-lg font-semibold">Total:</span>
-            <span className="text-lg font-bold">
-              {formatCurrency(entry.totalDue)}
-            </span>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+  if (entries.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        {emptyMessage}
+      </div>
+    );
+  }
 
-  const BillingTable = ({
-    entries,
-    showStatus = false,
-  }: {
-    entries: BillingEntry[];
-    showStatus?: boolean;
-  }) => (
+  return (
     <Table>
       <TableHeader>
         <TableRow>
@@ -351,12 +286,12 @@ export default function BillingDashboard() {
               onClick={() => handleSort("totalDue")}
               className="h-auto p-0 font-semibold hover:bg-transparent"
             >
-              Total Due
+              Gesamtbetrag
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           </TableHead>
           {showStatus && <TableHead>Status</TableHead>}
-          <TableHead className="text-right">Actions</TableHead>
+          <TableHead className="text-right">Aktionen</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -368,30 +303,211 @@ export default function BillingDashboard() {
             </TableCell>
             {showStatus && (
               <TableCell>
-                <Badge
-                  variant={entry.status === "Paid" ? "default" : "destructive"}
-                >
-                  {entry.status}
-                </Badge>
+                {onStatusChange ? (
+                  <StatusButton
+                    status={entry.status}
+                    onStatusChange={(newStatus) =>
+                      onStatusChange(entry.id, newStatus)
+                    }
+                  />
+                ) : (
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      entry.status === "Bezahlt"
+                        ? "bg-green-100 text-green-800"
+                        : entry.status === "Gestundet"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
+                    }`}
+                  >
+                    {entry.status || "Unbezahlt"}
+                  </span>
+                )}
               </TableCell>
             )}
             <TableCell className="text-right">
-              <DetailsDialog entry={entry} />
+              <DetailsComponent entry={entry} />
             </TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
   );
+};
+
+// Generic Tab Content Component
+const TabContent = ({
+  entries,
+  isLoading,
+  error,
+  cardTitle,
+  cardDescription,
+  headerDate,
+  showStatus = false,
+  emptyMessage,
+  onStatusChange,
+  detailsComponent,
+}: TabContentProps) => (
+  <BillingCard
+    title={cardTitle}
+    description={cardDescription}
+    headerDate={headerDate}
+  >
+    <BillingTable
+      entries={entries}
+      showStatus={showStatus}
+      isLoading={isLoading}
+      error={error}
+      emptyMessage={emptyMessage}
+      onStatusChange={onStatusChange}
+      detailsComponent={detailsComponent}
+    />
+  </BillingCard>
+);
+
+// Main Dashboard Component
+export default function BillingDashboard() {
+  const [isCreatingReport, setIsCreatingReport] = useState(false);
+  const [activeTab, setActiveTab] = useState("current-orders");
+
+  // State for current orders
+  const [currentOrders, setCurrentOrders] = useState<BillingEntry[]>([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+
+  // State for current billing
+  const [currentBilling, setCurrentBilling] = useState<BillingEntry[]>([]);
+  const [isLoadingBilling, setIsLoadingBilling] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [currentBillPeriod, setCurrentBillPeriod] = useState<any>(null);
+
+  // State for all bill periods
+  const [allBillPeriods, setAllBillPeriods] = useState<any[]>([]);
+  const [billPeriodsData, setBillPeriodsData] = useState<
+    Map<string, BillingEntry[]>
+  >(new Map());
+
+  // Load current orders on component mount
+  useEffect(() => {
+    const fetchCurrentOrders = async () => {
+      try {
+        setIsLoadingOrders(true);
+        setOrdersError(null);
+        const orders = await getCurrentOrders();
+        setCurrentOrders(orders);
+      } catch (err) {
+        setOrdersError("Fehler beim Laden der aktuellen Bestellungen");
+        console.error("Fehler beim Abrufen der aktuellen Bestellungen:", err);
+      } finally {
+        setIsLoadingOrders(false);
+      }
+    };
+
+    fetchCurrentOrders();
+  }, []);
+
+  // Load current billing when tab is switched or component mounts
+  useEffect(() => {
+    const fetchAllBillPeriods = async () => {
+      try {
+        const periods = await getAllBillPeriods();
+        setAllBillPeriods(periods);
+      } catch (err) {
+        console.error("Error fetching bill periods:", err);
+      }
+    };
+
+    fetchAllBillPeriods();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "current-billing") {
+      const fetchCurrentBilling = async () => {
+        try {
+          setIsLoadingBilling(true);
+          setBillingError(null);
+
+          const latestPeriod = await getLatestBillPeriod();
+          if (latestPeriod) {
+            setCurrentBillPeriod(latestPeriod);
+            const bills = await getBillsForPeriod(latestPeriod.id);
+            setCurrentBilling(bills);
+          } else {
+            setCurrentBilling([]);
+            setCurrentBillPeriod(null);
+          }
+        } catch (err) {
+          setBillingError("Fehler beim Laden der aktuellen Abrechnungen");
+          console.error("Fehler beim Abrufen der aktuellen Abrechnungen:", err);
+        } finally {
+          setIsLoadingBilling(false);
+        }
+      };
+
+      fetchCurrentBilling();
+    } else {
+      // Load data for historical periods
+      const periodId = activeTab;
+      const period = allBillPeriods.find((p) => p.id === periodId);
+
+      if (period && !billPeriodsData.has(periodId)) {
+        const fetchPeriodData = async () => {
+          try {
+            const bills = await getBillsForPeriod(periodId);
+            setBillPeriodsData((prev) => new Map(prev.set(periodId, bills)));
+          } catch (err) {
+            console.error(`Error fetching data for period ${periodId}:`, err);
+          }
+        };
+
+        fetchPeriodData();
+      }
+    }
+  }, [activeTab, allBillPeriods]);
+
+  const handleCreateReport = async () => {
+    setIsCreatingReport(true);
+    try {
+      const result = await createNewBilling();
+      if (result.success) {
+        console.log(
+          `${result.billsCreated} bills created for €${result.totalAmount}`
+        );
+        const orders = await getCurrentOrders();
+        setCurrentOrders(orders);
+      } else {
+        console.error("Billing failed:", result.message);
+      }
+    } catch (error) {
+      console.error("Error during billing:", error);
+    } finally {
+      setIsCreatingReport(false);
+    }
+  };
+
+  const handleStatusChange = (
+    entryId: string,
+    newStatus: BillingEntry["status"]
+  ) => {
+    // Update the status in current billing
+    setCurrentBilling((prev) =>
+      prev.map((entry) =>
+        entry.id === entryId ? { ...entry, status: newStatus } : entry
+      )
+    );
+
+    // TODO: Send update to backend
+    console.log(`Status changed for ${entryId} to ${newStatus}`);
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Billing Reports</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Rechnungen</h1>
           <p className="text-muted-foreground">
-            Manage and track billing reports for your drink orders
+            Rechnungen für Ihre Getränkebestellungen verwalten und verfolgen
           </p>
         </div>
         <Button
@@ -402,12 +518,12 @@ export default function BillingDashboard() {
           {isCreatingReport ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Creating Report...
+              Erstelle Bericht...
             </>
           ) : (
             <>
               <Plus className="mr-2 h-4 w-4" />
-              Create New Billing Report
+              Neue Rechnung
             </>
           )}
         </Button>
@@ -421,61 +537,85 @@ export default function BillingDashboard() {
       >
         <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
           <TabsTrigger value="current-orders" className="text-sm">
-            Current Orders
+            Aktuelle Bestellungen
           </TabsTrigger>
           <TabsTrigger value="current-billing" className="text-sm">
-            Current Billing
+            Aktuelle Abrechnungen
           </TabsTrigger>
-          {mockPastPeriods.map((period) => (
+          {allBillPeriods.map((period) => (
             <TabsTrigger key={period.id} value={period.id} className="text-sm">
-              {period.name}
+              Rechnung {period.billNumber}
             </TabsTrigger>
           ))}
         </TabsList>
 
         <TabsContent value="current-orders" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Orders</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Live orders that haven't been billed yet
-              </p>
-            </CardHeader>
-            <CardContent>
-              <BillingTable entries={mockCurrentOrders} />
-            </CardContent>
-          </Card>
+          <TabContent
+            entries={currentOrders}
+            isLoading={isLoadingOrders}
+            error={ordersError}
+            cardTitle="Aktuelle Bestellungen"
+            cardDescription="Laufende Bestellungen, die noch nicht abgerechnet wurden"
+            emptyMessage="Keine aktuellen Bestellungen gefunden"
+          />
         </TabsContent>
 
         <TabsContent value="current-billing" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Current Billing Period</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Summary of unpaid amounts for the current period
-              </p>
-            </CardHeader>
-            <CardContent>
-              <BillingTable entries={mockCurrentBilling} showStatus />
-            </CardContent>
-          </Card>
+          <TabContent
+            entries={currentBilling}
+            isLoading={isLoadingBilling}
+            error={billingError}
+            cardTitle="Aktuelle Abrechnungsperiode"
+            cardDescription={
+              currentBillPeriod
+                ? `Rechnung ${
+                    currentBillPeriod.billNumber
+                  } - Gesamtbetrag: ${formatCurrency(
+                    currentBillPeriod.totalAmount
+                  )}`
+                : "Zusammenfassung der aktuellen Abrechnungsperiode"
+            }
+            headerDate={
+              currentBillPeriod?.createdAt
+                ? new Date(currentBillPeriod.createdAt).toLocaleDateString(
+                    "de-DE"
+                  )
+                : undefined
+            }
+            showStatus={true}
+            emptyMessage="Keine aktuellen Abrechnungen gefunden"
+            onStatusChange={handleStatusChange}
+          />
         </TabsContent>
 
-        {mockPastPeriods.map((period) => (
-          <TabsContent key={period.id} value={period.id} className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{period.name}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Billing report for {period.name}
-                </p>
-              </CardHeader>
-              <CardContent>
-                <BillingTable entries={period.entries} showStatus />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
+        {allBillPeriods.map((period) => {
+          const periodEntries = billPeriodsData.get(period.id) || [];
+          const isLoadingPeriod = !billPeriodsData.has(period.id);
+
+          return (
+            <TabsContent
+              key={period.id}
+              value={period.id}
+              className="space-y-4"
+            >
+              <TabContent
+                entries={periodEntries}
+                isLoading={isLoadingPeriod}
+                error={null}
+                cardTitle={`Rechnung ${period.billNumber}`}
+                cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatCurrency(
+                  period.totalAmount
+                )}`}
+                headerDate={new Date(period.createdAt).toLocaleDateString(
+                  "de-DE"
+                )}
+                showStatus={true}
+                emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
+                onStatusChange={handleStatusChange}
+              />
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );
