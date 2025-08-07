@@ -120,6 +120,7 @@ export const drinks = createTable(
     name: d.text({ length: 255 }).notNull(),
     price: d.real().notNull(), // Using real for decimal prices
     kastengroesse: d.integer(), // Crate size as optional number
+    volume: d.real(), // Volume in liters
     picture: d.text(), // Store image URL or base64
     isCurrentlyAvailable: d
       .integer({ mode: "boolean" })

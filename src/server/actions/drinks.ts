@@ -15,6 +15,11 @@ const addDrinkSchema = z.object({
     .number()
     .positive("Preis muss positiv sein")
     .max(999.99, "Preis ist zu hoch"),
+  volume: z
+    .number()
+    .positive("Volumen muss positiv sein")
+    .max(999.99, "Volumen ist zu hoch")
+    .optional(),
   kastengroesse: z
     .number()
     .int("Kastengröße muss eine ganze Zahl sein")
@@ -36,6 +41,11 @@ const updateDrinkSchema = z.object({
     .positive("Preis muss positiv sein")
     .max(999.99, "Preis ist zu hoch")
     .optional(),
+  volume: z
+    .number()
+    .positive("Volumen muss positiv sein")
+    .max(999.99, "Volumen ist zu hoch")
+    .optional(),
   kastengroesse: z
     .number()
     .int("Kastengröße muss eine ganze Zahl sein")
@@ -55,6 +65,8 @@ export async function addDrink(formData: FormData) {
   try {
     const name = formData.get("name") as string;
     const price = parseFloat(formData.get("price") as string);
+    const volumeRaw = formData.get("volume") as string;
+    const volume = volumeRaw ? parseFloat(volumeRaw) : undefined;
     const kastengroesseRaw = formData.get("kastengroesse") as string;
     const kastengroesse = kastengroesseRaw
       ? parseInt(kastengroesseRaw)
@@ -67,6 +79,7 @@ export async function addDrink(formData: FormData) {
     const validatedInput = addDrinkSchema.parse({
       name,
       price,
+      volume,
       kastengroesse,
       pictureFile: pictureFile || undefined,
       isCurrentlyAvailable,
@@ -97,6 +110,7 @@ export async function addDrink(formData: FormData) {
       .values({
         name: validatedInput.name,
         price: validatedInput.price,
+        volume: validatedInput.volume || null,
         kastengroesse: validatedInput.kastengroesse || null,
         picture: pictureUrl,
         isCurrentlyAvailable: validatedInput.isCurrentlyAvailable,
@@ -132,7 +146,7 @@ export async function addDrink(formData: FormData) {
   }
 }
 
-// Simple update function for inline editing (name, price, and kastengroesse)
+// Simple update function for inline editing (name, price, volume, and kastengroesse)
 export async function updateDrink(id: string, input: UpdateDrinkInput) {
   try {
     // Validate input
@@ -196,6 +210,7 @@ export async function updateDrinkWithImage(id: string, formData: FormData) {
   try {
     const name = formData.get("name") as string;
     const price = formData.get("price") as string;
+    const volumeRaw = formData.get("volume") as string;
     const kastengroesseRaw = formData.get("kastengroesse") as string;
     const pictureFile = formData.get("picture") as File | null;
     const keepExistingPicture = formData.get("keepExistingPicture") === "true";
@@ -257,6 +272,7 @@ export async function updateDrinkWithImage(id: string, formData: FormData) {
 
     if (name) updateData.name = name;
     if (price) updateData.price = parseFloat(price);
+    if (volumeRaw) updateData.volume = parseFloat(volumeRaw);
     if (kastengroesseRaw) updateData.kastengroesse = parseInt(kastengroesseRaw);
     updateData.picture = pictureUrl;
 

@@ -26,6 +26,7 @@ const PUBLIC_PATHS = [
   "/trinken",
   "/versorger",
   "/rechnung",
+  "/leaderboard",
 ];
 
 // Helper to test literal vs pattern:

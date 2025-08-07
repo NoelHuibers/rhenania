@@ -51,8 +51,9 @@ export default function DrinksAdmin() {
   const [editingData, setEditingData] = useState<{
     name: string;
     price: string;
+    volume: string;
     kastengroesse: string;
-  }>({ name: "", price: "", kastengroesse: "" });
+  }>({ name: "", price: "", volume: "", kastengroesse: "" });
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -124,17 +125,21 @@ export default function DrinksAdmin() {
     setEditingData({
       name: drink.name,
       price: drink.price.toString(),
+      volume: drink.volume?.toString() || "",
       kastengroesse: drink.kastengroesse?.toString() || "",
     });
   };
 
   const cancelEditing = () => {
     setEditingId(null);
-    setEditingData({ name: "", price: "", kastengroesse: "" });
+    setEditingData({ name: "", price: "", volume: "", kastengroesse: "" });
   };
 
   const saveEdit = (id: string) => {
     const price = parseFloat(editingData.price);
+    const volume = editingData.volume
+      ? parseFloat(editingData.volume)
+      : undefined;
     const kastengroesse = editingData.kastengroesse
       ? parseInt(editingData.kastengroesse)
       : undefined;
@@ -145,6 +150,10 @@ export default function DrinksAdmin() {
     }
     if (isNaN(price) || price <= 0) {
       toast.error("Gültiger Preis ist erforderlich");
+      return;
+    }
+    if (editingData.volume && (isNaN(volume!) || volume! <= 0)) {
+      toast.error("Gültiges Volumen ist erforderlich");
       return;
     }
     if (
@@ -164,6 +173,10 @@ export default function DrinksAdmin() {
           price: price,
         };
 
+        if (volume !== undefined) {
+          updateData.volume = volume;
+        }
+
         if (kastengroesse !== undefined) {
           updateData.kastengroesse = kastengroesse;
         }
@@ -180,13 +193,19 @@ export default function DrinksAdmin() {
                     ...drink,
                     name: editingData.name.trim(),
                     price: price,
+                    volume: volume || null,
                     kastengroesse: kastengroesse || null,
                   }
                 : drink
             )
           );
           setEditingId(null);
-          setEditingData({ name: "", price: "", kastengroesse: "" });
+          setEditingData({
+            name: "",
+            price: "",
+            volume: "",
+            kastengroesse: "",
+          });
         } else {
           toast.error(result.error || "Fehler beim Aktualisieren");
         }
@@ -254,6 +273,7 @@ export default function DrinksAdmin() {
                   <TableHead className="w-[80px]">Bild</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Preis</TableHead>
+                  <TableHead>Volumen (L)</TableHead>
                   <TableHead>Kastengröße</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Aktionen</TableHead>
@@ -263,7 +283,7 @@ export default function DrinksAdmin() {
                 {drinks.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="text-center py-8 text-muted-foreground"
                     >
                       Noch keine Getränke hinzugefügt. Klicken Sie auf "Getränk
@@ -329,6 +349,37 @@ export default function DrinksAdmin() {
                             onClick={() => startEditing(drink)}
                           >
                             €{drink.price.toFixed(2)}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === drink.id ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editingData.volume}
+                              onChange={(e) =>
+                                setEditingData((prev) => ({
+                                  ...prev,
+                                  volume: e.target.value,
+                                }))
+                              }
+                              className="w-20"
+                              placeholder="Leer"
+                              disabled={isPending}
+                            />
+                            <span className="text-sm text-muted-foreground">
+                              L
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            className="cursor-pointer hover:bg-muted p-2 rounded"
+                            onClick={() => startEditing(drink)}
+                          >
+                            {drink.volume ? `${drink.volume}L` : "-"}
                           </div>
                         )}
                       </TableCell>

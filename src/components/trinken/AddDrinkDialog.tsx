@@ -39,6 +39,7 @@ export function AddDrinkDialog({
     name: "",
     price: "",
     kastengroesse: "",
+    volume: "",
     isCurrentlyAvailable: "true",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -88,6 +89,7 @@ export function AddDrinkDialog({
     setFormData({
       name: "",
       price: "",
+      volume: "",
       kastengroesse: "",
       isCurrentlyAvailable: "true",
     });
@@ -110,6 +112,11 @@ export function AddDrinkDialog({
       return;
     }
 
+    if (formData.volume && parseFloat(formData.volume) <= 0) {
+      toast.error("Gültiges Volumen ist erforderlich");
+      return;
+    }
+
     if (
       formData.kastengroesse &&
       (parseInt(formData.kastengroesse) <= 0 ||
@@ -129,6 +136,10 @@ export function AddDrinkDialog({
           "isCurrentlyAvailable",
           formData.isCurrentlyAvailable
         );
+
+        if (formData.volume) {
+          submitFormData.append("volume", formData.volume);
+        }
 
         if (formData.kastengroesse) {
           submitFormData.append("kastengroesse", formData.kastengroesse);
@@ -200,6 +211,19 @@ export function AddDrinkDialog({
               value={formData.price}
               onChange={(e) => handleInputChange("price", e.target.value)}
               placeholder="0,00"
+              disabled={isPending}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="volume">Volumen (Liter)</Label>
+            <Input
+              id="volume"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.volume}
+              onChange={(e) => handleInputChange("volume", e.target.value)}
+              placeholder="0,33"
               disabled={isPending}
             />
           </div>
