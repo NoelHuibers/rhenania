@@ -38,6 +38,7 @@ export function AddDrinkDialog({
   const [formData, setFormData] = useState({
     name: "",
     price: "",
+    kastengroesse: "",
     isCurrentlyAvailable: "true",
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -87,6 +88,7 @@ export function AddDrinkDialog({
     setFormData({
       name: "",
       price: "",
+      kastengroesse: "",
       isCurrentlyAvailable: "true",
     });
     setSelectedFile(null);
@@ -108,6 +110,15 @@ export function AddDrinkDialog({
       return;
     }
 
+    if (
+      formData.kastengroesse &&
+      (parseInt(formData.kastengroesse) <= 0 ||
+        !Number.isInteger(parseInt(formData.kastengroesse)))
+    ) {
+      toast.error("Gültige Kastengröße (ganze Zahl) ist erforderlich");
+      return;
+    }
+
     startTransition(async () => {
       try {
         // Create FormData for file upload
@@ -118,6 +129,10 @@ export function AddDrinkDialog({
           "isCurrentlyAvailable",
           formData.isCurrentlyAvailable
         );
+
+        if (formData.kastengroesse) {
+          submitFormData.append("kastengroesse", formData.kastengroesse);
+        }
 
         if (selectedFile) {
           submitFormData.append("picture", selectedFile);
@@ -185,6 +200,21 @@ export function AddDrinkDialog({
               value={formData.price}
               onChange={(e) => handleInputChange("price", e.target.value)}
               placeholder="0,00"
+              disabled={isPending}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="kastengroesse">Kastengröße (optional)</Label>
+            <Input
+              id="kastengroesse"
+              type="number"
+              step="1"
+              min="0"
+              value={formData.kastengroesse}
+              onChange={(e) =>
+                handleInputChange("kastengroesse", e.target.value)
+              }
+              placeholder="Kastengröße eingeben"
               disabled={isPending}
             />
           </div>

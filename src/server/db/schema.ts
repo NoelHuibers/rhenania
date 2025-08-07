@@ -114,6 +114,7 @@ export const drinks = createTable(
       .$defaultFn(() => crypto.randomUUID()),
     name: d.text({ length: 255 }).notNull(),
     price: d.real().notNull(), // Using real for decimal prices
+    kastengroesse: d.integer(), // Crate size as optional number
     picture: d.text(), // Store image URL or base64
     isCurrentlyAvailable: d
       .integer({ mode: "boolean" })

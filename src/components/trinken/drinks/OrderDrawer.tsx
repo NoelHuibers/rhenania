@@ -128,7 +128,7 @@ export function OrderDrawer({
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => setPresetQuantity(20)}
+                onClick={() => setPresetQuantity(drink.kastengroesse ?? 20)}
                 className="px-6"
               >
                 K

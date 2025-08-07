@@ -51,7 +51,8 @@ export default function DrinksAdmin() {
   const [editingData, setEditingData] = useState<{
     name: string;
     price: string;
-  }>({ name: "", price: "" });
+    kastengroesse: string;
+  }>({ name: "", price: "", kastengroesse: "" });
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(true);
 
@@ -120,16 +121,24 @@ export default function DrinksAdmin() {
 
   const startEditing = (drink: Drink) => {
     setEditingId(drink.id);
-    setEditingData({ name: drink.name, price: drink.price.toString() });
+    setEditingData({
+      name: drink.name,
+      price: drink.price.toString(),
+      kastengroesse: drink.kastengroesse?.toString() || "",
+    });
   };
 
   const cancelEditing = () => {
     setEditingId(null);
-    setEditingData({ name: "", price: "" });
+    setEditingData({ name: "", price: "", kastengroesse: "" });
   };
 
   const saveEdit = (id: string) => {
     const price = parseFloat(editingData.price);
+    const kastengroesse = editingData.kastengroesse
+      ? parseInt(editingData.kastengroesse)
+      : undefined;
+
     if (!editingData.name.trim()) {
       toast.error("Name ist erforderlich");
       return;
@@ -138,13 +147,28 @@ export default function DrinksAdmin() {
       toast.error("Gültiger Preis ist erforderlich");
       return;
     }
+    if (
+      editingData.kastengroesse &&
+      (isNaN(kastengroesse!) ||
+        kastengroesse! <= 0 ||
+        !Number.isInteger(kastengroesse!))
+    ) {
+      toast.error("Gültige Kastengröße (ganze Zahl) ist erforderlich");
+      return;
+    }
 
     startTransition(async () => {
       try {
-        const result = await updateDrink(id, {
+        const updateData: any = {
           name: editingData.name.trim(),
           price: price,
-        });
+        };
+
+        if (kastengroesse !== undefined) {
+          updateData.kastengroesse = kastengroesse;
+        }
+
+        const result = await updateDrink(id, updateData);
 
         if (result.success) {
           toast.success(result.message);
@@ -152,12 +176,17 @@ export default function DrinksAdmin() {
           setDrinks((prev) =>
             prev.map((drink) =>
               drink.id === id
-                ? { ...drink, name: editingData.name.trim(), price: price }
+                ? {
+                    ...drink,
+                    name: editingData.name.trim(),
+                    price: price,
+                    kastengroesse: kastengroesse || null,
+                  }
                 : drink
             )
           );
           setEditingId(null);
-          setEditingData({ name: "", price: "" });
+          setEditingData({ name: "", price: "", kastengroesse: "" });
         } else {
           toast.error(result.error || "Fehler beim Aktualisieren");
         }
@@ -225,6 +254,7 @@ export default function DrinksAdmin() {
                   <TableHead className="w-[80px]">Bild</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Preis</TableHead>
+                  <TableHead>Kastengröße</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Aktionen</TableHead>
                 </TableRow>
@@ -233,7 +263,7 @@ export default function DrinksAdmin() {
                 {drinks.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={6}
                       className="text-center py-8 text-muted-foreground"
                     >
                       Noch keine Getränke hinzugefügt. Klicken Sie auf "Getränk
@@ -299,6 +329,32 @@ export default function DrinksAdmin() {
                             onClick={() => startEditing(drink)}
                           >
                             €{drink.price.toFixed(2)}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {editingId === drink.id ? (
+                          <Input
+                            type="number"
+                            step="1"
+                            min="0"
+                            value={editingData.kastengroesse}
+                            onChange={(e) =>
+                              setEditingData((prev) => ({
+                                ...prev,
+                                kastengroesse: e.target.value,
+                              }))
+                            }
+                            className="w-20"
+                            placeholder="Leer"
+                            disabled={isPending}
+                          />
+                        ) : (
+                          <div
+                            className="cursor-pointer hover:bg-muted p-2 rounded"
+                            onClick={() => startEditing(drink)}
+                          >
+                            {drink.kastengroesse ? drink.kastengroesse : "-"}
                           </div>
                         )}
                       </TableCell>
