@@ -19,7 +19,6 @@ export async function getLeaderboardLast6Months({
   const sixMonthsAgo = sql<number>`unixepoch('now','-6 months')`;
   const twelveMonthsAgo = sql<number>`unixepoch('now','-12 months')`;
 
-  // Aggregation für das vorherige 6‑Monats‑Fenster pro Nutzer
   const prevByUser = db
     .select({
       userId: orders.userId,
@@ -39,7 +38,6 @@ export async function getLeaderboardLast6Months({
     .groupBy(orders.userId)
     .as("prevByUser");
 
-  // Aktuelles 6‑Monats‑Fenster + Join auf vorheriges Fenster
   const rows = await db
     .select({
       userId: orders.userId,
@@ -71,7 +69,7 @@ export async function getLeaderboardLast6Months({
     const changePct =
       prevLiters > 0
         ? Math.round(((liters - prevLiters) / prevLiters) * 10000) / 100
-        : null; // 2 Nachkommastellen
+        : null;
 
     return {
       userId: r.userId,
