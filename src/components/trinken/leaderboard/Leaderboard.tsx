@@ -43,9 +43,7 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
           <span>🏆</span>
           Top-Performer
         </CardTitle>
-        <CardDescription>
-          Führende Trink-Champions der letzten 6 Monate
-        </CardDescription>
+        <CardDescription>Alkoholkonsum der letzten 6 Monate</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {topConsumers.map((consumer, index) => (
