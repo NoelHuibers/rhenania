@@ -56,7 +56,7 @@ export async function getLeaderboardLast6Months({
     .leftJoin(users, eq(orders.userId, users.id))
     .leftJoin(prevByUser, eq(prevByUser.userId, orders.userId))
     .where(gte(orders.createdAt, sixMonthsAgo))
-    .groupBy(orders.userId, orders.userName, users.image, prevByUser.prevLiters)
+    .groupBy(orders.userId, orders.userName, users.image)
     .orderBy(
       desc(
         sql`SUM(CASE WHEN ${drinks.volume} IS NOT NULL THEN ${orders.amount} * ${drinks.volume} ELSE 0 END)`

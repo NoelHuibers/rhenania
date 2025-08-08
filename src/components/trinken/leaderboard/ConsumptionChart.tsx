@@ -17,7 +17,7 @@ import {
 
 interface ConsumptionChartProps {
   data: { month: string; consumption: number }[];
-  growthRate: number;
+  growthRate: number | null;
 }
 
 export default function ConsumptionChart({
