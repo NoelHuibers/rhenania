@@ -2,7 +2,10 @@ import { Droplets } from "lucide-react";
 import ConsumptionChart from "~/components/trinken/leaderboard/ConsumptionChart";
 import Leaderboard from "~/components/trinken/leaderboard/Leaderboard";
 import MetricsCards from "~/components/trinken/leaderboard/MetricsCards";
-import { getLeaderboardLast6Months } from "~/server/actions/leaderboard";
+import {
+  getLeaderboardLast6Months,
+  getMonthlyGrowthRate,
+} from "~/server/actions/leaderboard";
 
 export default async function Page() {
   const rows = await getLeaderboardLast6Months({ limit: 10 });
@@ -12,11 +15,14 @@ export default async function Page() {
     name: r.userName,
     avatar: r.avatar ?? "/placeholder.svg?height=40&width=40",
     amount: r.liters,
-    change: "",
+    change:
+      r.changePct === null
+        ? "neu"
+        : `${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(0)}%`,
   }));
 
   const total = consumers.reduce((s, c) => s + c.amount, 0);
-  const growthRate = 12.5; // TODO: real calc
+  const growthRate = await getMonthlyGrowthRate();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
