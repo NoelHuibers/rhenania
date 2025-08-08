@@ -13,9 +13,6 @@ import {
   type Drink,
 } from "~/server/actions/drinks";
 
-import { DrinksTableDesktop } from "~/components/trinken/versorger/DesktopCard";
-import { Header } from "~/components/trinken/versorger/Header";
-import { DrinksCardsMobile } from "~/components/trinken/versorger/MobileCard";
 import { Button } from "~/components/ui/button";
 import {
   Card,
@@ -24,6 +21,9 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import { DrinksTableDesktop } from "./DesktopCard";
+import { Header } from "./Header";
+import { DrinksCardsMobile } from "./MobileCard";
 
 export default function DrinksAdmin() {
   const [drinks, setDrinks] = useState<Drink[]>([]);
