@@ -7,12 +7,6 @@ import {
 } from "drizzle-orm/sqlite-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
-/**
- * This is an example of how to use the multi-project schema feature of Drizzle ORM. Use the same
- * database instance for multiple projects.
- *
- * @see https://orm.drizzle.team/docs/goodies#multi-project-schema
- */
 export const createTable = sqliteTableCreator((name) => `rhenania2_${name}`);
 
 export const posts = createTable(
@@ -118,10 +112,10 @@ export const drinks = createTable(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     name: d.text({ length: 255 }).notNull(),
-    price: d.real().notNull(), // Using real for decimal prices
-    kastengroesse: d.integer(), // Crate size as optional number
-    volume: d.real(), // Volume in liters
-    picture: d.text(), // Store image URL or base64
+    price: d.real().notNull(),
+    kastengroesse: d.integer(),
+    volume: d.real(),
+    picture: d.text(),
     isCurrentlyAvailable: d
       .integer({ mode: "boolean" })
       .notNull()
@@ -151,7 +145,7 @@ export const orders = createTable(
     drinkId: o.text({ length: 255 }).notNull(),
     drinkName: o.text({ length: 255 }).notNull(),
     amount: o.integer().notNull(),
-    pricePerUnit: o.real().notNull(), // Store price at time of order
+    pricePerUnit: o.real().notNull(),
     total: o.real().notNull(),
     inBill: o.integer({ mode: "boolean" }).notNull().default(false),
 
@@ -165,7 +159,6 @@ export const orders = createTable(
     index("order_user_idx").on(t.userId),
     index("order_drink_idx").on(t.drinkId),
     index("order_created_idx").on(t.createdAt),
-    // Foreign key constraint
     foreignKey({
       columns: [t.drinkId],
       foreignColumns: [drinks.id],
@@ -182,14 +175,14 @@ export const billPeriods = createTable(
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    billNumber: bp.integer().notNull().unique(), // 0, 1, 2, 3... auto-incrementing
-    totalAmount: bp.real().notNull().default(0), // Total amount across all bills
+    billNumber: bp.integer().notNull().unique(),
+    totalAmount: bp.real().notNull().default(0),
     createdAt: bp
       .integer({ mode: "timestamp" })
       .default(sql`(unixepoch())`)
       .notNull(),
     updatedAt: bp.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
-    closedAt: bp.integer({ mode: "timestamp" }), // When the billing period was closed
+    closedAt: bp.integer({ mode: "timestamp" }),
   }),
   (t) => [
     index("bill_period_number_idx").on(t.billNumber),
@@ -197,7 +190,6 @@ export const billPeriods = createTable(
   ]
 );
 
-// Updated bills table - now references billPeriodId instead of individual dates
 export const bills = createTable(
   "bill",
   (b) => ({
@@ -206,7 +198,7 @@ export const bills = createTable(
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    billPeriodId: b.text({ length: 255 }).notNull(), // Foreign key to billPeriods
+    billPeriodId: b.text({ length: 255 }).notNull(),
     userId: b.text({ length: 255 }).notNull(),
     userName: b.text({ length: 255 }).notNull(),
     status: b
@@ -215,23 +207,22 @@ export const bills = createTable(
       })
       .notNull()
       .default("Unbezahlt"),
-    oldBillingAmount: b.real().notNull().default(0), // Previous outstanding balance
-    fees: b.real().notNull().default(0), // Additional fees
-    drinksTotal: b.real().notNull(), // Total from drinks only
-    total: b.real().notNull(), // Final total (drinks + oldBillingAmount + fees)
+    oldBillingAmount: b.real().notNull().default(0),
+    fees: b.real().notNull().default(0),
+    drinksTotal: b.real().notNull(),
+    total: b.real().notNull(),
     createdAt: b
       .integer({ mode: "timestamp" })
       .default(sql`(unixepoch())`)
       .notNull(),
     updatedAt: b.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
-    paidAt: b.integer({ mode: "timestamp" }), // When the bill was paid
+    paidAt: b.integer({ mode: "timestamp" }),
   }),
   (t) => [
     index("bill_period_idx").on(t.billPeriodId),
     index("bill_user_idx").on(t.userId),
     index("bill_status_idx").on(t.status),
     index("bill_created_idx").on(t.createdAt),
-    // Foreign key constraint
     foreignKey({
       columns: [t.billPeriodId],
       foreignColumns: [billPeriods.id],
@@ -240,7 +231,6 @@ export const bills = createTable(
   ]
 );
 
-// Bill items table remains the same
 export const billItems = createTable(
   "bill_item",
   (bi) => ({
@@ -251,9 +241,9 @@ export const billItems = createTable(
       .$defaultFn(() => crypto.randomUUID()),
     billId: bi.text({ length: 255 }).notNull(),
     drinkName: bi.text({ length: 255 }).notNull(),
-    amount: bi.integer().notNull(), // Quantity of this drink
-    pricePerDrink: bi.real().notNull(), // Price per unit at time of billing
-    totalPricePerDrink: bi.real().notNull(), // amount * pricePerDrink
+    amount: bi.integer().notNull(),
+    pricePerDrink: bi.real().notNull(),
+    totalPricePerDrink: bi.real().notNull(),
     createdAt: bi
       .integer({ mode: "timestamp" })
       .default(sql`(unixepoch())`)
@@ -262,7 +252,6 @@ export const billItems = createTable(
   (t) => [
     index("bill_item_bill_idx").on(t.billId),
     index("bill_item_drink_idx").on(t.drinkName),
-    // Foreign key constraint
     foreignKey({
       columns: [t.billId],
       foreignColumns: [bills.id],
@@ -271,7 +260,6 @@ export const billItems = createTable(
   ]
 );
 
-// Updated relations
 export const billPeriodsRelations = {
   bills: {
     relation: "one-to-many",
