@@ -12,7 +12,13 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
-import type { Consumer } from "./data";
+export interface Consumer {
+  id: number;
+  name: string;
+  avatar: string;
+  amount: number; // Liter
+  change: string; // z. B. "+12%"
+}
 
 interface LeaderboardProps {
   consumers: Consumer[];
