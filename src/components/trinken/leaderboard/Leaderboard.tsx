@@ -44,7 +44,7 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
           Top-Performer
         </CardTitle>
         <CardDescription>
-          Führende Trink‑Champions in diesem Monat
+          Führende Trink-Champions der letzten 6 Monate
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
