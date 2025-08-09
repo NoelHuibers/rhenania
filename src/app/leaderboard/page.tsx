@@ -1,7 +1,8 @@
 import { Droplets } from "lucide-react";
-import ConsumptionChart from "~/components/trinken/leaderboard/ConsumptionChart";
+import { ConsumptionLineChart } from "~/components/trinken/leaderboard/ConsumptionChart";
 import Leaderboard from "~/components/trinken/leaderboard/Leaderboard";
 import MetricsCards from "~/components/trinken/leaderboard/MetricsCards";
+import { getConsumptionLast6MonthsByDrink } from "~/server/actions/consumption";
 import {
   getLeaderboardLast6Months,
   getMonthlyGrowthRate,
@@ -9,6 +10,7 @@ import {
 
 export default async function Page() {
   const rows = await getLeaderboardLast6Months({ limit: 10 });
+  const { data, config } = await getConsumptionLast6MonthsByDrink();
 
   const consumers = rows.map((r, i) => ({
     id: i + 1,
@@ -48,7 +50,7 @@ export default async function Page() {
           <Leaderboard consumers={consumers} />
 
           {/* Diagramm */}
-          <ConsumptionChart data={[]} growthRate={growthRate} />
+          <ConsumptionLineChart data={data} config={config} />
         </div>
       </div>
     </div>
