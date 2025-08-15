@@ -10,7 +10,6 @@ import {
   getDrinks,
   toggleDrinkAvailability,
   updateDrink,
-  updateDrinkWithImage,
   type Drink,
 } from "~/server/actions/drinks";
 
@@ -25,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/components/ui/card";
+import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
 
 export default function DrinksAdmin() {
   const [drinks, setDrinks] = useState<Drink[]>([]);
@@ -38,6 +38,8 @@ export default function DrinksAdmin() {
   }>({ name: "", price: "", volume: "", kastengroesse: "" });
   const [isPending, startTransition] = useTransition();
   const [isLoading, setIsLoading] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   useEffect(() => {
     loadDrinks();
@@ -99,44 +101,55 @@ export default function DrinksAdmin() {
     });
   };
 
-  const handleImageUpdate = (drinkId: string, file: File) => {
-    // Validate file size (e.g., max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      toast.error("Bild ist zu groß. Maximale Größe: 5MB");
-      return;
-    }
+  const handleImageUpdate = async (drinkId: string, file: File) => {
+    try {
+      // Validate file
+      validateImageFile(file);
 
-    // Validate file type
-    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-    if (!validTypes.includes(file.type)) {
-      toast.error("Ungültiger Dateityp. Erlaubt: JPG, PNG, WebP");
-      return;
-    }
+      // Set uploading state
+      setUploadingImage(drinkId);
+      setUploadProgress(0);
 
-    startTransition(async () => {
-      try {
-        const formData = new FormData();
-        formData.append("picture", file);
-        formData.append("keepExistingPicture", "false");
+      // Upload image to Vercel Blob from client side
+      const pictureUrl = await uploadDrinkImage(file, {
+        onProgress: (progress) => {
+          setUploadProgress(progress);
+        },
+      });
 
-        const result = await updateDrinkWithImage(drinkId, formData);
+      // Update drink with new image URL
+      startTransition(async () => {
+        try {
+          const result = await updateDrink(drinkId, { pictureUrl });
 
-        if (result.success && result.data) {
-          toast.success("Bild erfolgreich aktualisiert");
+          if (result.success && result.data) {
+            toast.success("Bild erfolgreich aktualisiert");
 
-          // Update local state with new drink data
-          setDrinks((prev) =>
-            prev.map((drink) => (drink.id === drinkId ? result.data! : drink))
-          );
-        } else {
-          toast.error(result.error || "Fehler beim Aktualisieren des Bildes");
+            // Update local state with new drink data
+            setDrinks((prev) =>
+              prev.map((drink) => (drink.id === drinkId ? result.data! : drink))
+            );
+          } else {
+            toast.error(result.error || "Fehler beim Aktualisieren des Bildes");
+          }
+        } catch (error) {
+          console.error("Error updating drink with image:", error);
+          toast.error("Ein unerwarteter Fehler ist aufgetreten");
+        } finally {
+          setUploadingImage(null);
+          setUploadProgress(0);
         }
-      } catch (error) {
-        console.error("Error updating image:", error);
-        toast.error("Ein unerwarteter Fehler ist aufgetreten");
-      }
-    });
+      });
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Fehler beim Hochladen des Bildes"
+      );
+      setUploadingImage(null);
+      setUploadProgress(0);
+    }
   };
 
   const startEditing = (drink: Drink) => {
@@ -277,6 +290,8 @@ export default function DrinksAdmin() {
                 onToggleAvailability={handleToggleAvailability}
                 onImageUpdate={handleImageUpdate}
                 isPending={isPending}
+                uploadingImage={uploadingImage}
+                uploadProgress={uploadProgress}
               />
             </div>
 
@@ -298,6 +313,8 @@ export default function DrinksAdmin() {
                 onToggleAvailability={handleToggleAvailability}
                 onImageUpdate={handleImageUpdate}
                 isPending={isPending}
+                uploadingImage={uploadingImage}
+                uploadProgress={uploadProgress}
               />
             </div>
           </CardContent>

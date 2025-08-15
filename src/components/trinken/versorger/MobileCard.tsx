@@ -3,28 +3,16 @@
 
 import { Check, Upload, X } from "lucide-react";
 import Image from "next/image";
-
+import { useRef, useState } from "react";
 import { type Drink } from "~/server/actions/drinks";
 
-import { useRef, useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Progress } from "~/components/ui/progress";
 import { DeleteButton } from "./Deletebutton";
 
-export function DrinksCardsMobile({
-  drinks,
-  editingId,
-  editingData,
-  setEditingData,
-  startEditing,
-  cancelEditing,
-  saveEdit,
-  onDelete,
-  onToggleAvailability,
-  onImageUpdate,
-  isPending,
-}: {
+interface DrinksCardsMobileProps {
   drinks: Drink[];
   editingId: string | null;
   editingData: {
@@ -46,9 +34,27 @@ export function DrinksCardsMobile({
   saveEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleAvailability: (id: string) => void;
-  isPending: boolean;
   onImageUpdate: (id: string, file: File) => void;
-}) {
+  isPending: boolean;
+  uploadingImage?: string | null;
+  uploadProgress?: number;
+}
+
+export function DrinksCardsMobile({
+  drinks,
+  editingId,
+  editingData,
+  setEditingData,
+  startEditing,
+  cancelEditing,
+  saveEdit,
+  onDelete,
+  onToggleAvailability,
+  onImageUpdate,
+  isPending,
+  uploadingImage,
+  uploadProgress = 0,
+}: DrinksCardsMobileProps) {
   // Add file input refs for each card
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   const [imagePreviews, setImagePreviews] = useState<{ [key: string]: string }>(
@@ -56,7 +62,9 @@ export function DrinksCardsMobile({
   );
 
   const handleImageClick = (drinkId: string) => {
-    fileInputRefs.current[drinkId]?.click();
+    if (!isPending && uploadingImage !== drinkId) {
+      fileInputRefs.current[drinkId]?.click();
+    }
   };
 
   const handleFileChange = async (
@@ -65,10 +73,10 @@ export function DrinksCardsMobile({
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Create preview
+      // Create preview immediately
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreviews((prev: any) => ({
+        setImagePreviews((prev) => ({
           ...prev,
           [drinkId]: reader.result as string,
         }));
@@ -78,20 +86,28 @@ export function DrinksCardsMobile({
       // Call the update function
       await onImageUpdate(drinkId, file);
 
-      // Clear preview after successful upload
-      setImagePreviews((prev: any) => {
-        const newPreviews = { ...prev };
-        delete newPreviews[drinkId];
-        return newPreviews;
-      });
+      // Clear preview after upload completes
+      // This will be handled by the parent component after successful upload
+      setTimeout(() => {
+        setImagePreviews((prev) => {
+          const newPreviews = { ...prev };
+          delete newPreviews[drinkId];
+          return newPreviews;
+        });
+        // Reset the input
+        if (fileInputRefs.current[drinkId]) {
+          fileInputRefs.current[drinkId]!.value = "";
+        }
+      }, 500);
     }
   };
 
-  // In the render loop, update the image section:
   return (
     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       {drinks.map((drink) => {
         const isEditingThis = editingId === drink.id;
+        const isUploadingThis = uploadingImage === drink.id;
+
         return (
           <li key={drink.id} className="rounded-lg border p-3">
             <div className="flex items-center gap-3">
@@ -99,9 +115,9 @@ export function DrinksCardsMobile({
                 <button
                   type="button"
                   onClick={() => handleImageClick(drink.id)}
-                  className="relative block w-full h-full rounded-md overflow-hidden hover:opacity-80 transition-opacity"
+                  className="relative block w-full h-full rounded-md overflow-hidden hover:opacity-80 transition-opacity disabled:opacity-50"
                   aria-label={`Bild für ${drink.name} ändern`}
-                  disabled={isPending}
+                  disabled={isPending || isUploadingThis}
                 >
                   <Image
                     src={
@@ -114,16 +130,25 @@ export function DrinksCardsMobile({
                     className="rounded-md object-cover"
                     sizes="56px"
                   />
-                  <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Upload className="h-3 w-3 text-white" />
-                  </div>
+                  {!isUploadingThis && (
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Upload className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                  {isUploadingThis && (
+                    <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
+                      <div className="text-white text-xs">
+                        {Math.round(uploadProgress)}%
+                      </div>
+                    </div>
+                  )}
                 </button>
                 <input
                   ref={(el) => {
                     fileInputRefs.current[drink.id] = el;
                   }}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
                   onChange={(e) => handleFileChange(drink.id, e)}
                   className="hidden"
                   aria-label={`Neue Bilddatei für ${drink.name} auswählen`}
@@ -138,6 +163,7 @@ export function DrinksCardsMobile({
                       setEditingData((p) => ({ ...p, name: e.target.value }))
                     }
                     disabled={isPending}
+                    className="h-8"
                   />
                 ) : (
                   <div className="font-medium truncate">{drink.name}</div>
@@ -159,7 +185,7 @@ export function DrinksCardsMobile({
                             price: e.target.value,
                           }))
                         }
-                        className="h-8 w-28"
+                        className="h-6 w-20 inline-block"
                         disabled={isPending}
                       />
                     ) : (
@@ -168,7 +194,7 @@ export function DrinksCardsMobile({
                   </span>
                   <span className="inline-block">•</span>
                   <span>
-                    Volumen:{" "}
+                    Vol:{" "}
                     {isEditingThis ? (
                       <Input
                         aria-label="Volumen in Litern"
@@ -183,8 +209,8 @@ export function DrinksCardsMobile({
                             volume: e.target.value,
                           }))
                         }
-                        className="h-8 w-24"
-                        placeholder="Leer"
+                        className="h-6 w-16 inline-block"
+                        placeholder="-"
                         disabled={isPending}
                       />
                     ) : (
@@ -193,7 +219,7 @@ export function DrinksCardsMobile({
                   </span>
                   <span className="inline-block">•</span>
                   <span>
-                    Kastengröße:{" "}
+                    Kasten:{" "}
                     {isEditingThis ? (
                       <Input
                         aria-label="Kastengröße (ganze Zahl)"
@@ -208,8 +234,8 @@ export function DrinksCardsMobile({
                             kastengroesse: e.target.value,
                           }))
                         }
-                        className="h-8 w-24"
-                        placeholder="Leer"
+                        className="h-6 w-16 inline-block"
+                        placeholder="-"
                         disabled={isPending}
                       />
                     ) : (
@@ -220,22 +246,33 @@ export function DrinksCardsMobile({
               </div>
             </div>
 
+            {/* Upload progress bar */}
+            {isUploadingThis && (
+              <div className="mt-2">
+                <Progress value={uploadProgress} className="h-1" />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Bild wird hochgeladen...
+                </p>
+              </div>
+            )}
+
             {/* Actions */}
             <div className="mt-3 flex items-center justify-between">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => onToggleAvailability(drink.id)}
-                disabled={isPending}
+                disabled={isPending || isUploadingThis}
                 aria-label={
                   drink.isCurrentlyAvailable
                     ? `${drink.name} auf nicht verfügbar setzen`
                     : `${drink.name} auf verfügbar setzen`
                 }
-                className="cursor-pointer"
+                className="cursor-pointer p-0"
               >
                 <Badge
                   variant={drink.isCurrentlyAvailable ? "default" : "secondary"}
+                  className="cursor-pointer"
                 >
                   {drink.isCurrentlyAvailable ? "Verfügbar" : "Nicht verfügbar"}
                 </Badge>
@@ -252,7 +289,7 @@ export function DrinksCardsMobile({
                       aria-label={`${drink.name} speichern`}
                     >
                       <Check className="h-4 w-4" />
-                      <span className="ml-1">Speichern</span>
+                      <span className="ml-1 hidden sm:inline">Speichern</span>
                     </Button>
                     <Button
                       variant="ghost"
@@ -270,15 +307,15 @@ export function DrinksCardsMobile({
                       variant="outline"
                       size="sm"
                       onClick={() => startEditing(drink)}
-                      disabled={isPending}
+                      disabled={isPending || isUploadingThis}
                       aria-label={`${drink.name} bearbeiten`}
                     >
                       Bearbeiten
                     </Button>
                     <DeleteButton
                       onConfirm={() => onDelete(drink.id)}
-                      disabled={isPending}
-                      label={`\"${drink.name}\" löschen`}
+                      disabled={isPending || isUploadingThis}
+                      label={`"${drink.name}" löschen`}
                     />
                   </>
                 )}

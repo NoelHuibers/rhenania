@@ -1,4 +1,6 @@
 // DesktopCard.tsx
+"use client";
+
 import {
   Table,
   TableBody,
@@ -10,19 +12,7 @@ import {
 import type { Drink } from "~/server/actions/drinks";
 import { DrinkRow } from "./DrinkRow";
 
-export function DrinksTableDesktop({
-  drinks,
-  editingId,
-  editingData,
-  setEditingData,
-  startEditing,
-  cancelEditing,
-  saveEdit,
-  onDelete,
-  onToggleAvailability,
-  onImageUpdate,
-  isPending,
-}: {
+interface DrinksTableDesktopProps {
   drinks: Drink[];
   editingId: string | null;
   editingData: {
@@ -46,7 +36,25 @@ export function DrinksTableDesktop({
   onToggleAvailability: (id: string) => void;
   onImageUpdate: (id: string, file: File) => void;
   isPending: boolean;
-}) {
+  uploadingImage?: string | null;
+  uploadProgress?: number;
+}
+
+export function DrinksTableDesktop({
+  drinks,
+  editingId,
+  editingData,
+  setEditingData,
+  startEditing,
+  cancelEditing,
+  saveEdit,
+  onDelete,
+  onToggleAvailability,
+  onImageUpdate,
+  isPending,
+  uploadingImage,
+  uploadProgress = 0,
+}: DrinksTableDesktopProps) {
   return (
     <Table aria-label="Getränke">
       <TableHeader>
@@ -86,6 +94,8 @@ export function DrinksTableDesktop({
               onToggleAvailability={() => onToggleAvailability(drink.id)}
               onImageUpdate={(file) => onImageUpdate(drink.id, file)}
               isPending={isPending}
+              isUploadingImage={uploadingImage === drink.id}
+              uploadProgress={uploadingImage === drink.id ? uploadProgress : 0}
             />
           ))
         )}

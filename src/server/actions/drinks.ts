@@ -1,7 +1,7 @@
 // drinks.ts
 "use server";
 
-import { del, put } from "@vercel/blob";
+import { del } from "@vercel/blob";
 import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -25,7 +25,7 @@ const addDrinkSchema = z.object({
     .positive("Kastengröße muss positiv sein")
     .max(999, "Kastengröße ist zu hoch")
     .optional(),
-  pictureFile: z.instanceof(File).optional(),
+  pictureUrl: z.string().url().optional(), // Changed from File to URL string
   isCurrentlyAvailable: z.boolean().default(true),
 });
 
@@ -52,6 +52,7 @@ const updateDrinkSchema = z.object({
     .max(999, "Kastengröße ist zu hoch")
     .optional(),
   isCurrentlyAvailable: z.boolean().optional(),
+  pictureUrl: z.string().url().optional(), // Added for image updates
 });
 
 export type AddDrinkInput = z.infer<typeof addDrinkSchema>;
@@ -60,48 +61,18 @@ export type UpdateDrinkInput = z.infer<typeof updateDrinkSchema>;
 // Type for database drinks
 export type Drink = typeof drinks.$inferSelect;
 
-export async function addDrink(formData: FormData) {
+// Modified to accept data object instead of FormData
+export async function addDrink(data: {
+  name: string;
+  price: number;
+  volume?: number;
+  kastengroesse?: number;
+  pictureUrl?: string;
+  isCurrentlyAvailable: boolean;
+}) {
   try {
-    const name = formData.get("name") as string;
-    const price = parseFloat(formData.get("price") as string);
-    const volumeRaw = formData.get("volume") as string;
-    const volume = volumeRaw ? parseFloat(volumeRaw) : undefined;
-    const kastengroesseRaw = formData.get("kastengroesse") as string;
-    const kastengroesse = kastengroesseRaw
-      ? parseInt(kastengroesseRaw)
-      : undefined;
-    const pictureFile = formData.get("picture") as File | null;
-    const isCurrentlyAvailable =
-      formData.get("isCurrentlyAvailable") === "true";
-
     // Validate input
-    const validatedInput = addDrinkSchema.parse({
-      name,
-      price,
-      volume,
-      kastengroesse,
-      pictureFile: pictureFile || undefined,
-      isCurrentlyAvailable,
-    });
-
-    let pictureUrl: string | null = null;
-
-    // Upload image to Vercel Blob if provided
-    if (pictureFile && pictureFile.size > 0) {
-      try {
-        const blob = await put(
-          `drinks/${Date.now()}-${pictureFile.name}`,
-          pictureFile,
-          {
-            access: "public",
-          }
-        );
-        pictureUrl = blob.url;
-      } catch (uploadError) {
-        console.error("Error uploading image:", uploadError);
-        throw new Error("Fehler beim Hochladen des Bildes");
-      }
-    }
+    const validatedInput = addDrinkSchema.parse(data);
 
     // Insert the drink into the database
     const [newDrink] = await db
@@ -111,7 +82,7 @@ export async function addDrink(formData: FormData) {
         price: validatedInput.price,
         volume: validatedInput.volume || null,
         kastengroesse: validatedInput.kastengroesse || null,
-        picture: pictureUrl,
+        picture: validatedInput.pictureUrl || null,
         isCurrentlyAvailable: validatedInput.isCurrentlyAvailable,
       })
       .returning();
@@ -144,7 +115,7 @@ export async function addDrink(formData: FormData) {
   }
 }
 
-// Simple update function for inline editing (name, price, volume, and kastengroesse)
+// Simple update function for inline editing
 export async function updateDrink(id: string, input: UpdateDrinkInput) {
   try {
     // Validate input
@@ -157,10 +128,36 @@ export async function updateDrink(id: string, input: UpdateDrinkInput) {
       };
     }
 
+    // If there's a new picture URL and an old one exists, delete the old one
+    if (validatedInput.pictureUrl) {
+      const [currentDrink] = await db
+        .select()
+        .from(drinks)
+        .where(eq(drinks.id, id))
+        .limit(1);
+
+      if (
+        currentDrink?.picture &&
+        currentDrink.picture !== validatedInput.pictureUrl
+      ) {
+        try {
+          await del(currentDrink.picture);
+        } catch (error) {
+          console.error("Error deleting old image:", error);
+        }
+      }
+    }
+
     const updateData: any = {
       ...validatedInput,
       updatedAt: new Date(),
     };
+
+    // Map pictureUrl to picture field
+    if ("pictureUrl" in updateData) {
+      updateData.picture = updateData.pictureUrl;
+      delete updateData.pictureUrl;
+    }
 
     const [updatedDrink] = await db
       .update(drinks)
@@ -175,7 +172,7 @@ export async function updateDrink(id: string, input: UpdateDrinkInput) {
       };
     }
 
-    revalidatePath("/admin/drinks");
+    revalidatePath("/versorger");
 
     return {
       success: true,
@@ -203,17 +200,9 @@ export async function updateDrink(id: string, input: UpdateDrinkInput) {
   }
 }
 
-// Advanced update function with file upload (for future use)
-export async function updateDrinkWithImage(id: string, formData: FormData) {
+// Function to delete an image
+export async function deleteDrinkImage(id: string) {
   try {
-    const name = formData.get("name") as string;
-    const price = formData.get("price") as string;
-    const volumeRaw = formData.get("volume") as string;
-    const kastengroesseRaw = formData.get("kastengroesse") as string;
-    const pictureFile = formData.get("picture") as File | null;
-    const keepExistingPicture = formData.get("keepExistingPicture") === "true";
-
-    // Get current drink to handle image deletion
     const [currentDrink] = await db
       .select()
       .from(drinks)
@@ -227,74 +216,38 @@ export async function updateDrinkWithImage(id: string, formData: FormData) {
       };
     }
 
-    let pictureUrl: string | null = currentDrink.picture;
-
-    // Handle image update
-    if (pictureFile && pictureFile.size > 0) {
-      // Delete old image if exists
-      if (currentDrink.picture) {
-        try {
-          await del(currentDrink.picture);
-        } catch (error) {
-          console.error("Error deleting old image:", error);
-        }
-      }
-
-      // Upload new image
-      try {
-        const blob = await put(
-          `drinks/${Date.now()}-${pictureFile.name}`,
-          pictureFile,
-          {
-            access: "public",
-          }
-        );
-        pictureUrl = blob.url;
-      } catch (uploadError) {
-        console.error("Error uploading new image:", uploadError);
-        throw new Error("Fehler beim Hochladen des neuen Bildes");
-      }
-    } else if (!keepExistingPicture && currentDrink.picture) {
-      // User wants to remove the picture
+    if (currentDrink.picture) {
       try {
         await del(currentDrink.picture);
-        pictureUrl = null;
       } catch (error) {
         console.error("Error deleting image:", error);
+        return {
+          success: false,
+          error: "Fehler beim Löschen des Bildes",
+        };
       }
+
+      // Update database to remove picture reference
+      await db
+        .update(drinks)
+        .set({
+          picture: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(drinks.id, id));
     }
-
-    const updateData: any = {
-      updatedAt: new Date(),
-    };
-
-    if (name) updateData.name = name;
-    if (price) updateData.price = parseFloat(price);
-    if (volumeRaw) updateData.volume = parseFloat(volumeRaw);
-    if (kastengroesseRaw) updateData.kastengroesse = parseInt(kastengroesseRaw);
-    updateData.picture = pictureUrl;
-
-    const [updatedDrink] = await db
-      .update(drinks)
-      .set(updateData)
-      .where(eq(drinks.id, id))
-      .returning();
 
     revalidatePath("/versorger");
 
     return {
       success: true,
-      data: updatedDrink,
-      message: "Getränk erfolgreich aktualisiert",
+      message: "Bild erfolgreich gelöscht",
     };
   } catch (error) {
-    console.error("Error updating drink:", error);
+    console.error("Error deleting drink image:", error);
     return {
       success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Fehler beim Aktualisieren des Getränks",
+      error: "Fehler beim Löschen des Bildes",
     };
   }
 }

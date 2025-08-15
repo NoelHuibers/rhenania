@@ -1,4 +1,6 @@
 // DrinkRow.tsx
+"use client";
+
 import { Check, Upload, X } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
@@ -8,22 +10,11 @@ import { type Drink } from "~/server/actions/drinks";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Progress } from "~/components/ui/progress";
 import { TableCell, TableRow } from "~/components/ui/table";
 import { DeleteButton } from "./Deletebutton";
 
-export function DrinkRow({
-  drink,
-  isEditing,
-  editingData,
-  setEditingData,
-  onStartEdit,
-  onCancel,
-  onSave,
-  onDelete,
-  onToggleAvailability,
-  onImageUpdate,
-  isPending,
-}: {
+interface DrinkRowProps {
   drink: Drink;
   isEditing: boolean;
   editingData: {
@@ -47,18 +38,38 @@ export function DrinkRow({
   onToggleAvailability: () => void;
   onImageUpdate: (file: File) => void;
   isPending: boolean;
-}) {
+  isUploadingImage?: boolean;
+  uploadProgress?: number;
+}
+
+export function DrinkRow({
+  drink,
+  isEditing,
+  editingData,
+  setEditingData,
+  onStartEdit,
+  onCancel,
+  onSave,
+  onDelete,
+  onToggleAvailability,
+  onImageUpdate,
+  isPending,
+  isUploadingImage = false,
+  uploadProgress = 0,
+}: DrinkRowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const handleImageClick = () => {
-    fileInputRef.current?.click();
+    if (!isPending && !isUploadingImage) {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Create preview
+      // Create preview immediately
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
@@ -68,8 +79,15 @@ export function DrinkRow({
       // Call the update function
       await onImageUpdate(file);
 
-      // Clear preview after successful upload
-      setImagePreview(null);
+      // Clear preview after upload completes
+      // Delay to allow user to see the successful upload
+      setTimeout(() => {
+        setImagePreview(null);
+        // Reset the input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }, 500);
     }
   };
 
@@ -80,9 +98,9 @@ export function DrinkRow({
           <button
             type="button"
             onClick={handleImageClick}
-            className="relative block rounded-md overflow-hidden hover:opacity-80 transition-opacity"
+            className="relative block rounded-md overflow-hidden hover:opacity-80 transition-opacity disabled:opacity-50"
             aria-label={`Bild für ${drink.name} ändern`}
-            disabled={isPending}
+            disabled={isPending || isUploadingImage}
           >
             <Image
               src={imagePreview || drink.picture || "/placeholder.svg"}
@@ -92,14 +110,28 @@ export function DrinkRow({
               className="rounded-md object-cover"
               sizes="48px"
             />
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Upload className="h-4 w-4 text-white" />
-            </div>
+            {!isUploadingImage && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Upload className="h-4 w-4 text-white" />
+              </div>
+            )}
+            {isUploadingImage && (
+              <div className="absolute inset-0 bg-black bg-opacity-70 flex items-center justify-center">
+                <div className="text-white text-xs font-medium">
+                  {Math.round(uploadProgress)}%
+                </div>
+              </div>
+            )}
           </button>
+          {isUploadingImage && (
+            <div className="absolute -bottom-1 left-0 right-0">
+              <Progress value={uploadProgress} className="h-1" />
+            </div>
+          )}
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/jpg,image/png,image/webp"
             onChange={handleFileChange}
             className="hidden"
             aria-label={`Neue Bilddatei für ${drink.name} auswählen`}
@@ -107,7 +139,6 @@ export function DrinkRow({
         </div>
       </TableCell>
 
-      {/* Rest of your existing table cells remain the same */}
       <TableCell className="font-medium">
         {isEditing ? (
           <Input
@@ -117,7 +148,7 @@ export function DrinkRow({
               setEditingData((prev) => ({ ...prev, name: e.target.value }))
             }
             className="w-full"
-            disabled={isPending}
+            disabled={isPending || isUploadingImage}
             onKeyDown={(e) => {
               if (e.key === "Enter") onSave();
               if (e.key === "Escape") onCancel();
@@ -126,9 +157,10 @@ export function DrinkRow({
         ) : (
           <button
             type="button"
-            className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left"
+            className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left disabled:opacity-50"
             onClick={onStartEdit}
             aria-label={`"${drink.name}" bearbeiten`}
+            disabled={isPending || isUploadingImage}
           >
             {drink.name}
           </button>
@@ -150,7 +182,7 @@ export function DrinkRow({
                 setEditingData((prev) => ({ ...prev, price: e.target.value }))
               }
               className="w-24"
-              disabled={isPending}
+              disabled={isPending || isUploadingImage}
               onKeyDown={(e) => {
                 if (e.key === "Enter") onSave();
                 if (e.key === "Escape") onCancel();
@@ -160,9 +192,10 @@ export function DrinkRow({
         ) : (
           <button
             type="button"
-            className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left"
+            className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left disabled:opacity-50"
             onClick={onStartEdit}
             aria-label={`${drink.name} Preis bearbeiten`}
+            disabled={isPending || isUploadingImage}
           >
             €{drink.price.toFixed(2)}
           </button>
@@ -184,7 +217,7 @@ export function DrinkRow({
               }
               className="w-24"
               placeholder="Leer"
-              disabled={isPending}
+              disabled={isPending || isUploadingImage}
               onKeyDown={(e) => {
                 if (e.key === "Enter") onSave();
                 if (e.key === "Escape") onCancel();
@@ -197,9 +230,10 @@ export function DrinkRow({
         ) : (
           <button
             type="button"
-            className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left"
+            className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left disabled:opacity-50"
             onClick={onStartEdit}
             aria-label={`${drink.name} Volumen bearbeiten`}
+            disabled={isPending || isUploadingImage}
           >
             {drink.volume ? `${drink.volume}L` : "-"}
           </button>
@@ -223,7 +257,7 @@ export function DrinkRow({
             }
             className="w-24"
             placeholder="Leer"
-            disabled={isPending}
+            disabled={isPending || isUploadingImage}
             onKeyDown={(e) => {
               if (e.key === "Enter") onSave();
               if (e.key === "Escape") onCancel();
@@ -232,9 +266,10 @@ export function DrinkRow({
         ) : (
           <button
             type="button"
-            className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left"
+            className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left disabled:opacity-50"
             onClick={onStartEdit}
             aria-label={`${drink.name} Kastengröße bearbeiten`}
+            disabled={isPending || isUploadingImage}
           >
             {drink.kastengroesse ? drink.kastengroesse : "-"}
           </button>
@@ -246,7 +281,7 @@ export function DrinkRow({
           variant="ghost"
           size="sm"
           onClick={onToggleAvailability}
-          disabled={isPending}
+          disabled={isPending || isUploadingImage}
           className="cursor-pointer"
           aria-label={
             drink.isCurrentlyAvailable
@@ -268,7 +303,7 @@ export function DrinkRow({
                 variant="ghost"
                 size="sm"
                 onClick={onSave}
-                disabled={isPending}
+                disabled={isPending || isUploadingImage}
                 aria-label={`${drink.name} speichern`}
               >
                 <Check className="h-4 w-4" />
@@ -277,7 +312,7 @@ export function DrinkRow({
                 variant="ghost"
                 size="sm"
                 onClick={onCancel}
-                disabled={isPending}
+                disabled={isPending || isUploadingImage}
                 aria-label="Bearbeitung abbrechen"
               >
                 <X className="h-4 w-4" />
@@ -286,8 +321,8 @@ export function DrinkRow({
           ) : (
             <DeleteButton
               onConfirm={onDelete}
-              disabled={isPending}
-              label={`\"${drink.name}\" löschen`}
+              disabled={isPending || isUploadingImage}
+              label={`"${drink.name}" löschen`}
             />
           )}
         </div>
