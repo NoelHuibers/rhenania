@@ -33,3 +33,18 @@ export async function uploadDrinkImage(
     throw new Error("Fehler beim Hochladen des Bildes: " + error);
   }
 }
+
+export function validateImageFile(file: File): boolean {
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+
+  if (file.size > maxSize) {
+    throw new Error("Bild ist zu groß. Maximale Größe: 5MB");
+  }
+
+  if (!validTypes.includes(file.type)) {
+    throw new Error("Ungültiger Dateityp. Erlaubt: JPG, PNG, WebP");
+  }
+
+  return true;
+}
