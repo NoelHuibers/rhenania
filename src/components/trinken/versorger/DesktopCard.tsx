@@ -1,3 +1,4 @@
+// DesktopCard.tsx
 import {
   Table,
   TableBody,
@@ -19,6 +20,7 @@ export function DrinksTableDesktop({
   saveEdit,
   onDelete,
   onToggleAvailability,
+  onImageUpdate,
   isPending,
 }: {
   drinks: Drink[];
@@ -42,6 +44,7 @@ export function DrinksTableDesktop({
   saveEdit: (id: string) => void;
   onDelete: (id: string) => void;
   onToggleAvailability: (id: string) => void;
+  onImageUpdate: (id: string, file: File) => void;
   isPending: boolean;
 }) {
   return (
@@ -65,7 +68,7 @@ export function DrinksTableDesktop({
               className="text-center py-8 text-muted-foreground"
             >
               Noch keine Getränke hinzugefügt. Klicken Sie auf „Getränk
-              hinzufügen“, um zu beginnen.
+              hinzufügen", um zu beginnen.
             </TableCell>
           </TableRow>
         ) : (
@@ -81,6 +84,7 @@ export function DrinksTableDesktop({
               onSave={() => saveEdit(drink.id)}
               onDelete={() => onDelete(drink.id)}
               onToggleAvailability={() => onToggleAvailability(drink.id)}
+              onImageUpdate={(file) => onImageUpdate(drink.id, file)}
               isPending={isPending}
             />
           ))

@@ -10,6 +10,7 @@ import {
   getDrinks,
   toggleDrinkAvailability,
   updateDrink,
+  updateDrinkWithImage,
   type Drink,
 } from "~/server/actions/drinks";
 
@@ -93,6 +94,46 @@ export default function DrinksAdmin() {
         }
       } catch (error) {
         console.error("Error toggling availability:", error);
+        toast.error("Ein unerwarteter Fehler ist aufgetreten");
+      }
+    });
+  };
+
+  const handleImageUpdate = (drinkId: string, file: File) => {
+    // Validate file size (e.g., max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast.error("Bild ist zu groß. Maximale Größe: 5MB");
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Ungültiger Dateityp. Erlaubt: JPG, PNG, WebP");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const formData = new FormData();
+        formData.append("picture", file);
+        formData.append("keepExistingPicture", "false");
+
+        const result = await updateDrinkWithImage(drinkId, formData);
+
+        if (result.success && result.data) {
+          toast.success("Bild erfolgreich aktualisiert");
+
+          // Update local state with new drink data
+          setDrinks((prev) =>
+            prev.map((drink) => (drink.id === drinkId ? result.data! : drink))
+          );
+        } else {
+          toast.error(result.error || "Fehler beim Aktualisieren des Bildes");
+        }
+      } catch (error) {
+        console.error("Error updating image:", error);
         toast.error("Ein unerwarteter Fehler ist aufgetreten");
       }
     });
@@ -209,7 +250,7 @@ export default function DrinksAdmin() {
         onDrinkAdded={handleDrinkAdded}
       />
 
-      <Card as-child>
+      <Card>
         <section>
           <CardHeader>
             <CardTitle>Getränkekarte</CardTitle>
@@ -234,6 +275,7 @@ export default function DrinksAdmin() {
                 saveEdit={saveEdit}
                 onDelete={handleDeleteDrink}
                 onToggleAvailability={handleToggleAvailability}
+                onImageUpdate={handleImageUpdate}
                 isPending={isPending}
               />
             </div>
@@ -254,6 +296,7 @@ export default function DrinksAdmin() {
                 saveEdit={saveEdit}
                 onDelete={handleDeleteDrink}
                 onToggleAvailability={handleToggleAvailability}
+                onImageUpdate={handleImageUpdate}
                 isPending={isPending}
               />
             </div>

@@ -1,5 +1,7 @@
-import { Check, X } from "lucide-react";
+// DrinkRow.tsx
+import { Check, Upload, X } from "lucide-react";
 import Image from "next/image";
+import { useRef, useState } from "react";
 
 import { type Drink } from "~/server/actions/drinks";
 
@@ -19,6 +21,7 @@ export function DrinkRow({
   onSave,
   onDelete,
   onToggleAvailability,
+  onImageUpdate,
   isPending,
 }: {
   drink: Drink;
@@ -42,21 +45,69 @@ export function DrinkRow({
   onSave: () => void;
   onDelete: () => void;
   onToggleAvailability: () => void;
+  onImageUpdate: (file: File) => void;
   isPending: boolean;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      // Call the update function
+      await onImageUpdate(file);
+
+      // Clear preview after successful upload
+      setImagePreview(null);
+    }
+  };
+
   return (
     <TableRow>
       <TableCell>
-        <Image
-          src={drink.picture || "/placeholder.svg"}
-          alt={drink.name}
-          width={48}
-          height={48}
-          className="rounded-md object-cover"
-          sizes="48px"
-        />
+        <div className="relative group">
+          <button
+            type="button"
+            onClick={handleImageClick}
+            className="relative block rounded-md overflow-hidden hover:opacity-80 transition-opacity"
+            aria-label={`Bild für ${drink.name} ändern`}
+            disabled={isPending}
+          >
+            <Image
+              src={imagePreview || drink.picture || "/placeholder.svg"}
+              alt={drink.name}
+              width={48}
+              height={48}
+              className="rounded-md object-cover"
+              sizes="48px"
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <Upload className="h-4 w-4 text-white" />
+            </div>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+            aria-label={`Neue Bilddatei für ${drink.name} auswählen`}
+          />
+        </div>
       </TableCell>
 
+      {/* Rest of your existing table cells remain the same */}
       <TableCell className="font-medium">
         {isEditing ? (
           <Input
@@ -77,7 +128,7 @@ export function DrinkRow({
             type="button"
             className="cursor-pointer hover:bg-muted p-2 rounded w-full text-left"
             onClick={onStartEdit}
-            aria-label={`\"${drink.name}\" bearbeiten`}
+            aria-label={`"${drink.name}" bearbeiten`}
           >
             {drink.name}
           </button>

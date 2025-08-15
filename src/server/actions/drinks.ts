@@ -1,4 +1,4 @@
-// Updated Server Actions (~/server/actions/drinks.ts)
+// drinks.ts
 "use server";
 
 import { del, put } from "@vercel/blob";
@@ -8,7 +8,6 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { drinks } from "~/server/db/schema";
 
-// Validation schemas
 const addDrinkSchema = z.object({
   name: z.string().min(1, "Name ist erforderlich").max(255, "Name ist zu lang"),
   price: z
@@ -117,8 +116,7 @@ export async function addDrink(formData: FormData) {
       })
       .returning();
 
-    // Revalidate the drinks page to show the new drink
-    revalidatePath("/admin/drinks");
+    revalidatePath("/versorger");
 
     return {
       success: true,
@@ -282,7 +280,7 @@ export async function updateDrinkWithImage(id: string, formData: FormData) {
       .where(eq(drinks.id, id))
       .returning();
 
-    revalidatePath("/admin/drinks");
+    revalidatePath("/versorger");
 
     return {
       success: true,
@@ -320,7 +318,7 @@ export async function deleteDrink(id: string) {
 
     await db.delete(drinks).where(eq(drinks.id, id));
 
-    revalidatePath("/admin/drinks");
+    revalidatePath("/versorger");
 
     return {
       success: true,
@@ -359,7 +357,7 @@ export async function toggleDrinkAvailability(id: string) {
       .where(eq(drinks.id, id))
       .returning();
 
-    revalidatePath("/admin/drinks");
+    revalidatePath("/versorger");
 
     return {
       success: true,
