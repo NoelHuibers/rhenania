@@ -5,7 +5,6 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
-  Line,
   ResponsiveContainer,
   XAxis,
   YAxis,
@@ -41,10 +40,23 @@ export function ConsumptionLineChart({
   data: ConsumptionLinePoint[];
   config: ChartConfig;
 }) {
-  const seriesKeys = React.useMemo(
-    () => Object.keys(config).filter((k) => k !== "total"),
-    [config]
-  );
+  const seriesKeys = React.useMemo(() => {
+    const keys = Object.keys(config).filter((k) => k !== "total");
+
+    // Calculate total consumption for each drink across all months
+    const drinkTotals = keys.map((key) => {
+      const total = data.reduce(
+        (sum, point) => sum + Number(point[key] || 0),
+        0
+      );
+      return { key, total };
+    });
+
+    // Sort by total consumption (highest first) and return just the keys
+    return drinkTotals
+      .sort((a, b) => b.total - a.total)
+      .map((item) => item.key);
+  }, [config, data]);
 
   const lastTotal = Number(data?.[data.length - 1]?.total ?? 0);
   const prevTotal = Number(data?.[data.length - 2]?.total ?? 0);
@@ -97,24 +109,26 @@ export function ConsumptionLineChart({
                 ))}
               </defs>
 
+              {/* Areas only (no stroke) - ordered by consumption amount */}
               {seriesKeys.map((k) => (
                 <Area
                   key={k}
                   type="natural"
                   dataKey={k}
                   stackId="a"
-                  stroke={`var(--color-${k})`}
-                  strokeWidth={2}
+                  stroke="none"
                   fill={`url(#fill-${k})`}
-                  fillOpacity={0.4}
+                  fillOpacity={0.6}
                 />
               ))}
 
-              <Line
+              {/* Total line - rendered last for higher z-index */}
+              <Area
                 type="monotone"
                 dataKey="total"
                 stroke="var(--color-total)"
-                strokeWidth={2}
+                strokeWidth={3}
+                fill="transparent"
                 dot={false}
               />
             </AreaChart>
@@ -125,18 +139,19 @@ export function ConsumptionLineChart({
           <LegendItem
             name={(config as any).total?.label ?? "Total"}
             color={(config as any).total?.color ?? "var(--foreground)"}
+            isLine={true}
           />
           {seriesKeys.map((k) => (
             <LegendItem
               key={k}
               name={(config as any)[k]?.label ?? k}
               color={(config as any)[k]?.color ?? undefined}
+              isLine={false}
             />
           ))}
         </div>
       </CardContent>
 
-      {/* Footer with trend + timeline, matching your example */}
       <CardFooter>
         <div className="flex w-full items-start gap-2 text-sm">
           <div className="grid gap-2">
@@ -150,14 +165,29 @@ export function ConsumptionLineChart({
   );
 }
 
-function LegendItem({ name, color }: { name: string; color?: string }) {
+function LegendItem({
+  name,
+  color,
+  isLine = false,
+}: {
+  name: string;
+  color?: string;
+  isLine?: boolean;
+}) {
   return (
     <div className="flex items-center gap-2">
       <span className="text-muted-foreground">{name}</span>
-      <span
-        className="inline-block h-2.5 w-2.5 rounded-full"
-        style={{ background: color }}
-      />
+      {isLine ? (
+        <span
+          className="inline-block h-0.5 w-4 rounded-full"
+          style={{ background: color }}
+        />
+      ) : (
+        <span
+          className="inline-block h-2.5 w-2.5 rounded-full"
+          style={{ background: color }}
+        />
+      )}
     </div>
   );
 }
