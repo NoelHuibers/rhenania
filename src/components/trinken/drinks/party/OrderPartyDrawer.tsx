@@ -83,8 +83,6 @@ export function OrderPartyDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
 
   if (!drink) return null;
 
-  const totalPrice = drink.price * quantity;
-
   return (
     <Drawer open={isOpen} onOpenChange={handleClose}>
       <DrawerContent>
@@ -102,7 +100,6 @@ export function OrderPartyDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
           <DrawerTitle className="text-xl font-bold">{drink.name}</DrawerTitle>
           <DrawerDescription className="flex items-center justify-center gap-2">
             <Badge className="bg-green-500 text-white">Verfügbar</Badge>
-            <span>€{drink.price.toFixed(2)} pro Stück</span>
           </DrawerDescription>
         </DrawerHeader>
 
@@ -166,11 +163,6 @@ export function OrderPartyDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
               <span>
                 {quantity}x {drink.name}
               </span>
-              <span>€{totalPrice.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-bold text-lg border-t pt-2">
-              <span>Gesamt</span>
-              <span className="text-primary">€{totalPrice.toFixed(2)}</span>
             </div>
           </div>
         </div>

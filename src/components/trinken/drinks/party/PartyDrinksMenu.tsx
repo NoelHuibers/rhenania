@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getAllDrinksForMenu, type MenuItem } from "~/server/actions/menu";
 
-import { DrinksSection } from "../DrinksSection";
 import { EmptyState } from "../EmptyState";
 import { LoadingState } from "../Loadingstate";
 import { MenuFooter } from "../MenuFooter";
 import { MenuHeader } from "../MenuHeader";
 import { OrderPartyDrawer } from "./OrderPartyDrawer";
+import { PartyDrinksSection } from "./PartyDrinksSection";
 
 export default function PartyDrinksMenu() {
   const [drinks, setDrinks] = useState<MenuItem[]>([]);
@@ -65,7 +65,7 @@ export default function PartyDrinksMenu() {
         ) : (
           <div className="space-y-8">
             {availableDrinks.length > 0 && (
-              <DrinksSection
+              <PartyDrinksSection
                 title="Verfügbare Getränke"
                 drinks={availableDrinks}
                 icon="available"
@@ -74,7 +74,7 @@ export default function PartyDrinksMenu() {
             )}
 
             {unavailableDrinks.length > 0 && (
-              <DrinksSection
+              <PartyDrinksSection
                 title="Derzeit nicht verfügbar"
                 drinks={unavailableDrinks}
                 icon="unavailable"
