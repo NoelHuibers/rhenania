@@ -24,9 +24,6 @@ const PUBLIC_PATHS = [
   "/impressum", // imprint
   "/api/auth/(.*)", // all NextAuth endpoints
   "/trinken",
-  "/versorger",
-  "/rechnung",
-  "/leaderboard",
 ];
 
 // Helper to test literal vs pattern:
