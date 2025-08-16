@@ -23,6 +23,7 @@ const PUBLIC_PATHS = [
   "/datenschutz", // privacy policy
   "/impressum", // imprint
   "/api/auth/(.*)", // all NextAuth endpoints
+  "/party",
 ];
 
 // Helper to test literal vs pattern:
