@@ -1,5 +1,5 @@
-import DrinksMenu from "~/components/trinken/DrinksMenu";
+import PartyDrinksMenu from "~/components/trinken/drinks/party/PartyDrinksMenu";
 
 export default function GetraenkePage() {
-  return <DrinksMenu />;
+  return <PartyDrinksMenu />;
 }
