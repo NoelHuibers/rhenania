@@ -49,10 +49,10 @@ export async function getConsumptionLast6MonthsByDrink(): Promise<{
       drinkId: orders.drinkId,
       drinkName: orders.drinkName,
       liters: sql<number>`
-        SUM(CASE WHEN ${drinks.volume} IS NOT NULL
-                 THEN ${orders.amount} * ${drinks.volume}
-                 ELSE 0 END)
-      `.as("liters"),
+      SUM(CASE WHEN ${drinks.volume} IS NOT NULL
+               THEN ${orders.amount} * ${drinks.volume}
+               ELSE 0 END)
+    `.as("liters"),
     })
     .from(orders)
     .leftJoin(drinks, eq(orders.drinkId, drinks.id))
@@ -60,6 +60,7 @@ export async function getConsumptionLast6MonthsByDrink(): Promise<{
       and(gte(orders.createdAt, lowerBound), lt(orders.createdAt, upperBound))
     )
     .groupBy(monthStartExpr, orders.drinkId, orders.drinkName)
+    .having(sql`liters > 0`)
     .orderBy(monthStartExpr);
 
   // Drinks
