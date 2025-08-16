@@ -1,11 +1,9 @@
 "use server";
-
-import { db } from "~/server/db";
-import { orders } from "~/server/db/schema";
-// TODO: Replace with actual auth system when implemented
-// import { auth } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { auth } from "~/server/auth"; // Import your NextAuth auth function
+import { db } from "~/server/db";
+import { orders } from "~/server/db/schema";
 
 export interface CreateOrderRequest {
   drinkId: string;
@@ -25,20 +23,18 @@ export async function createOrder(
   orderData: CreateOrderRequest
 ): Promise<OrderResult> {
   try {
-    // TODO: Get authenticated user when auth is implemented
-    // const { userId } = await auth();
-    // if (!userId) {
-    //   return {
-    //     success: false,
-    //     error: "User must be authenticated to place an order"
-    //   };
-    // }
+    const session = await auth();
 
-    // For now, default to "Huibers" user
-    const userId = "huibers-default-id";
-    const userName = "Huibers";
+    if (!session?.user?.id) {
+      return {
+        success: false,
+        error: "User must be authenticated to place an order",
+      };
+    }
 
-    // Validate order data
+    const userId = session.user.id;
+    const userName = session.user.name || session.user.email || "Unknown User";
+
     if (orderData.amount <= 0) {
       return {
         success: false,
@@ -67,9 +63,8 @@ export async function createOrder(
       })
       .returning();
 
-    // Revalidate relevant paths
-    revalidatePath("/orders");
-    revalidatePath("/drinks");
+    revalidatePath("/leaderboard");
+    revalidatePath("/rechnung");
 
     return {
       success: true,
@@ -86,15 +81,13 @@ export async function createOrder(
 
 export async function getUserOrders(userId?: string) {
   try {
-    // TODO: Get authenticated user when auth is implemented
-    // const { userId: authUserId } = await auth();
-    // const targetUserId = userId || authUserId;
-    // if (!targetUserId) {
-    //   throw new Error("User ID required");
-    // }
+    const session = await auth();
 
-    // For now, default to "Huibers" user
-    const targetUserId = userId || "huibers-default-id";
+    if (!session?.user?.id) {
+      throw new Error("User must be authenticated to view orders");
+    }
+
+    const targetUserId = userId || session.user.id;
 
     const userOrders = await db
       .select()
@@ -111,11 +104,21 @@ export async function getUserOrders(userId?: string) {
 
 export async function updateOrderStatus(orderId: string) {
   try {
-    // TODO: Get authenticated user when auth is implemented
-    // const { userId } = await auth();
-    // if (!userId) {
-    //   throw new Error("User must be authenticated");
-    // }
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      throw new Error("User must be authenticated to update orders");
+    }
+
+    const existingOrder = await db
+      .select()
+      .from(orders)
+      .where(eq(orders.id, orderId))
+      .limit(1);
+
+    if (!existingOrder.length) {
+      throw new Error("Order not found");
+    }
 
     await db
       .update(orders)
@@ -125,10 +128,19 @@ export async function updateOrderStatus(orderId: string) {
       .where(eq(orders.id, orderId));
 
     revalidatePath("/orders");
-
     return { success: true };
   } catch (error) {
     console.error("Error updating order:", error);
     throw error;
+  }
+}
+
+export async function getCurrentUser() {
+  try {
+    const session = await auth();
+    return session?.user || null;
+  } catch (error) {
+    console.error("Error getting current user:", error);
+    return null;
   }
 }
