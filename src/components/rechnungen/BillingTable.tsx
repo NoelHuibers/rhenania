@@ -23,6 +23,7 @@ interface BillingTableProps {
   emptyMessage?: string;
   onStatusChange?: (entryId: string, newStatus: BillingEntry["status"]) => void;
   detailsComponent?: React.ComponentType<{ entry: BillingEntry }>;
+  canEditStatus?: boolean;
 }
 
 type SortField = "name" | "totalDue";
@@ -44,6 +45,7 @@ export const BillingTable = ({
   emptyMessage = "Keine Einträge gefunden",
   onStatusChange,
   detailsComponent: DetailsComponent = DefaultDetailsDialog,
+  canEditStatus = false,
 }: BillingTableProps) => {
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -74,6 +76,21 @@ export const BillingTable = ({
       }
     });
   };
+
+  // Component for read-only status display
+  const StatusDisplay = ({ status }: { status?: BillingEntry["status"] }) => (
+    <span
+      className={`px-2 py-1 rounded-full text-xs font-medium ${
+        status === "Bezahlt"
+          ? "bg-green-100 text-green-800"
+          : status === "Gestundet"
+          ? "bg-yellow-100 text-yellow-800"
+          : "bg-red-100 text-red-800"
+      }`}
+    >
+      {status || "Unbezahlt"}
+    </span>
+  );
 
   if (isLoading) {
     return (
@@ -133,7 +150,7 @@ export const BillingTable = ({
             </TableCell>
             {showStatus && (
               <TableCell>
-                {onStatusChange ? (
+                {canEditStatus && onStatusChange ? (
                   <StatusButton
                     status={entry.status}
                     onStatusChange={(newStatus) =>
@@ -141,17 +158,7 @@ export const BillingTable = ({
                     }
                   />
                 ) : (
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      entry.status === "Bezahlt"
-                        ? "bg-green-100 text-green-800"
-                        : entry.status === "Gestundet"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                    }`}
-                  >
-                    {entry.status || "Unbezahlt"}
-                  </span>
+                  <StatusDisplay status={entry.status} />
                 )}
               </TableCell>
             )}

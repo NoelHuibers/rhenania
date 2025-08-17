@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2, Plus } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatCurrency } from "~/components/rechnungen/BillingTable";
@@ -15,6 +16,7 @@ import {
   updateBillStatus,
 } from "~/server/actions/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
+import { getUserRoles } from "~/server/actions/userRoles";
 
 // Types
 export interface DrinkItem {
@@ -31,12 +33,18 @@ export interface BillingEntry {
   totalDue: number;
   status?: "Bezahlt" | "Unbezahlt" | "Gestundet";
   items: DrinkItem[];
+  paidAt?: Date | null;
 }
 
 // Main Dashboard Component
 export default function BillingDashboard() {
+  const { data: session, status } = useSession();
   const [isCreatingReport, setIsCreatingReport] = useState(false);
   const [activeTab, setActiveTab] = useState("current-orders");
+
+  // Role-based access state
+  const [userRoles, setUserRoles] = useState<string[]>([]);
+  const [isLoadingRoles, setIsLoadingRoles] = useState(true);
 
   // State for current orders
   const [currentOrders, setCurrentOrders] = useState<BillingEntry[]>([]);
@@ -64,9 +72,60 @@ export default function BillingDashboard() {
     Map<string, BillingEntry[]>
   >(new Map());
 
+  // Helper function to check if user has required roles - SECURITY FIX
+  const hasRequiredRole = () => {
+    return userRoles.includes("Versorger"); // Added missing return statement
+  };
+
+  // Check authentication status - SECURITY FIX
+  const isAuthenticated = status === "authenticated" && session?.user?.id;
+
+  // ALL HOOKS MUST BE DECLARED BEFORE ANY CONDITIONAL LOGIC - HOOKS FIX
+
+  // Load user roles on component mount - SECURITY FIX
+  useEffect(() => {
+    const fetchUserRoles = async () => {
+      if (!session?.user?.id) {
+        setUserRoles([]);
+        setIsLoadingRoles(false);
+        return;
+      }
+
+      try {
+        setIsLoadingRoles(true);
+        const roles = await getUserRoles(session.user.id);
+
+        // Validate response structure
+        if (!Array.isArray(roles)) {
+          throw new Error("Invalid roles response");
+        }
+
+        setUserRoles(
+          roles.map((role) => {
+            // Validate each role object
+            if (typeof role?.name !== "string") {
+              throw new Error("Invalid role structure");
+            }
+            return role.name;
+          })
+        );
+      } catch (err) {
+        console.error("Error fetching user roles:", err);
+        setUserRoles([]); // Set empty array on error (fail-safe)
+        toast.error("Fehler beim Laden der Benutzerrollen");
+      } finally {
+        setIsLoadingRoles(false);
+      }
+    };
+
+    fetchUserRoles();
+  }, [session?.user?.id]);
+
   // Load current orders on component mount
   useEffect(() => {
     const fetchCurrentOrders = async () => {
+      if (!isAuthenticated) return;
+
       try {
         setIsLoadingOrders(true);
         setOrdersError(null);
@@ -81,11 +140,13 @@ export default function BillingDashboard() {
     };
 
     fetchCurrentOrders();
-  }, []);
+  }, [isAuthenticated]);
 
   // Load all bill periods on component mount
   useEffect(() => {
     const fetchAllBillPeriods = async () => {
+      if (!isAuthenticated) return;
+
       try {
         const periods = await getAllBillPeriods();
         // Sort periods by creation date (newest first)
@@ -100,10 +161,12 @@ export default function BillingDashboard() {
     };
 
     fetchAllBillPeriods();
-  }, []);
+  }, [isAuthenticated]);
 
   // Handle tab changes and data loading
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     if (activeTab === "current-billing") {
       const fetchCurrentBilling = async () => {
         try {
@@ -174,23 +237,39 @@ export default function BillingDashboard() {
         }
       });
     }
-  }, [activeTab, allBillPeriods]);
+  }, [activeTab, allBillPeriods, isAuthenticated]);
 
+  // HANDLERS DEFINED AFTER ALL HOOKS
   const handleCreateReport = async () => {
+    // Double-check authentication - SECURITY FIX
+    if (!isAuthenticated) {
+      toast.error("Sie müssen angemeldet sein");
+      return;
+    }
+
+    // Check role permissions - SECURITY FIX
+    if (!hasRequiredRole()) {
+      toast.error("Sie haben keine Berechtigung, neue Rechnungen zu erstellen");
+      return;
+    }
+
     setIsCreatingReport(true);
     try {
       const result = await createNewBilling();
-      if (result.success) {
+      if (result?.success) {
         console.log(
           `${result.billsCreated} bills created for €${result.totalAmount}`
         );
         const orders = await getCurrentOrders();
         setCurrentOrders(orders);
+        toast.success("Neue Rechnung erfolgreich erstellt");
       } else {
-        console.error("Billing failed:", result.message);
+        console.error("Billing failed:", result?.message);
+        toast.error("Fehler beim Erstellen der Rechnung");
       }
     } catch (error) {
       console.error("Error during billing:", error);
+      toast.error("Fehler beim Erstellen der Rechnung");
     } finally {
       setIsCreatingReport(false);
     }
@@ -200,6 +279,32 @@ export default function BillingDashboard() {
     entryId: string,
     newStatus: BillingEntry["status"]
   ) => {
+    // Double-check authentication - SECURITY FIX
+    if (!isAuthenticated) {
+      toast.error("Sie müssen angemeldet sein");
+      return;
+    }
+
+    // Check role permissions - SECURITY FIX
+    if (!hasRequiredRole()) {
+      toast.error("Sie haben keine Berechtigung, den Status zu ändern");
+      return;
+    }
+
+    // Validate inputs - SECURITY FIX
+    if (!entryId || typeof entryId !== "string") {
+      toast.error("Ungültige Eintrags-ID");
+      return;
+    }
+
+    if (
+      !newStatus ||
+      !["Bezahlt", "Unbezahlt", "Gestundet"].includes(newStatus)
+    ) {
+      toast.error("Ungültiger Status");
+      return;
+    }
+
     // Store the original status for potential rollback
     const originalEntry = currentBilling.find((entry) => entry.id === entryId);
     const originalStatus = originalEntry?.status;
@@ -211,49 +316,41 @@ export default function BillingDashboard() {
         )
       );
 
-      if (
-        newStatus === "Bezahlt" ||
-        newStatus === "Unbezahlt" ||
-        newStatus === "Gestundet"
-      ) {
-        const result = await updateBillStatus(entryId, newStatus);
+      const result = await updateBillStatus(entryId, newStatus);
 
-        if (result.success) {
-          console.log(
-            `Status successfully changed for ${entryId} to ${newStatus}`
-          );
-          // Optionally update other related state like paidAt timestamp
-          if (newStatus === "Bezahlt") {
-            setCurrentBilling((prev) =>
-              prev.map((entry) =>
-                entry.id === entryId
-                  ? { ...entry, status: newStatus, paidAt: new Date() }
-                  : entry
-              )
-            );
-          } else if (newStatus === "Unbezahlt" || newStatus === "Gestundet") {
-            setCurrentBilling((prev) =>
-              prev.map((entry) =>
-                entry.id === entryId
-                  ? { ...entry, status: newStatus, paidAt: null }
-                  : entry
-              )
-            );
-          }
-        } else {
+      if (result?.success) {
+        console.log(
+          `Status successfully changed for ${entryId} to ${newStatus}`
+        );
+        toast.success("Status erfolgreich aktualisiert");
+
+        // Update related state
+        if (newStatus === "Bezahlt") {
           setCurrentBilling((prev) =>
             prev.map((entry) =>
               entry.id === entryId
-                ? { ...entry, status: originalStatus }
+                ? { ...entry, status: newStatus, paidAt: new Date() }
                 : entry
             )
           );
-          console.error(`Failed to update status for ${entryId}`);
-          toast.error("Failed to update bill status");
+        } else if (newStatus === "Unbezahlt" || newStatus === "Gestundet") {
+          setCurrentBilling((prev) =>
+            prev.map((entry) =>
+              entry.id === entryId
+                ? { ...entry, status: newStatus, paidAt: null }
+                : entry
+            )
+          );
         }
       } else {
-        console.error("Invalid status value provided to updateBillStatus");
-        toast.error("Ungültiger Statuswert");
+        // Revert on failure
+        setCurrentBilling((prev) =>
+          prev.map((entry) =>
+            entry.id === entryId ? { ...entry, status: originalStatus } : entry
+          )
+        );
+        console.error(`Failed to update status for ${entryId}`);
+        toast.error("Fehler beim Aktualisieren des Status");
       }
     } catch (error) {
       // Revert the optimistic update on error
@@ -263,11 +360,54 @@ export default function BillingDashboard() {
         )
       );
       console.error("Error updating status:", error);
-      toast.error("An error occurred while updating the bill status");
+      toast.error("Fehler beim Aktualisieren des Status");
     }
   };
+
+  // COMPUTED VALUES AFTER HOOKS
   const olderPeriods = allBillPeriods.slice(2);
 
+  // CONDITIONAL RENDERING AFTER ALL HOOKS - HOOKS FIX
+
+  // Show loading state while authentication is being checked
+  if (status === "loading") {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center min-h-[400px]">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Authentifizierung wird überprüft...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state for unauthenticated users
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center min-h-[400px]">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">Zugriff verweigert</h2>
+          <p className="text-muted-foreground">
+            Sie müssen angemeldet sein, um diese Seite zu sehen.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while roles are being fetched
+  if (isLoadingRoles) {
+    return (
+      <div className="container mx-auto p-6 flex justify-center items-center min-h-[400px]">
+        <div className="flex items-center space-x-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Lade Benutzerberechtigungen...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // MAIN COMPONENT RENDER
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -278,23 +418,25 @@ export default function BillingDashboard() {
             Rechnungen für Ihre Getränkebestellungen verwalten und verfolgen
           </p>
         </div>
-        <Button
-          onClick={handleCreateReport}
-          disabled={isCreatingReport}
-          className="w-full sm:w-auto"
-        >
-          {isCreatingReport ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Erstelle Bericht...
-            </>
-          ) : (
-            <>
-              <Plus className="mr-2 h-4 w-4" />
-              Neue Rechnung
-            </>
-          )}
-        </Button>
+        {hasRequiredRole() && (
+          <Button
+            onClick={handleCreateReport}
+            disabled={isCreatingReport}
+            className="w-full sm:w-auto"
+          >
+            {isCreatingReport ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Erstelle Bericht...
+              </>
+            ) : (
+              <>
+                <Plus className="mr-2 h-4 w-4" />
+                Neue Rechnung
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -357,7 +499,8 @@ export default function BillingDashboard() {
             }
             showStatus={true}
             emptyMessage="Keine aktuellen Abrechnungen gefunden"
-            onStatusChange={handleStatusChange}
+            onStatusChange={hasRequiredRole() ? handleStatusChange : undefined}
+            canEditStatus={hasRequiredRole()}
           />
         </TabsContent>
 
@@ -385,7 +528,8 @@ export default function BillingDashboard() {
             }
             showStatus={true}
             emptyMessage="Keine vorherigen Abrechnungen gefunden"
-            onStatusChange={handleStatusChange}
+            onStatusChange={hasRequiredRole() ? handleStatusChange : undefined}
+            canEditStatus={hasRequiredRole()}
           />
         </TabsContent>
 
@@ -416,7 +560,10 @@ export default function BillingDashboard() {
                   )}
                   showStatus={true}
                   emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
-                  onStatusChange={handleStatusChange}
+                  onStatusChange={
+                    hasRequiredRole() ? handleStatusChange : undefined
+                  }
+                  canEditStatus={hasRequiredRole()}
                 />
               );
             })}
@@ -430,6 +577,17 @@ export default function BillingDashboard() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Role-based access notification */}
+      {!hasRequiredRole() && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-800">
+            <strong>Hinweis:</strong> Sie haben eingeschränkte Berechtigungen.
+            Nur der Getränkewart kann Rechnungen erstellen und den Bezahlstatus
+            ändern.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
