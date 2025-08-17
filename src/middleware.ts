@@ -43,8 +43,8 @@ function isPublic(pathname: string) {
 
 // Role-protected paths configuration
 const ROLE_PROTECTED_PATHS: Record<string, string[]> = {
-  "/versorger": ["admin", "versorger"],
-  "/admin": ["admin"],
+  "/versorger": ["Admin", "Versorger"],
+  "/admin": ["Admin"],
 };
 
 // Helper to check if a path requires specific roles (case-insensitive)
