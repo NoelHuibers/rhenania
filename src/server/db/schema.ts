@@ -21,8 +21,54 @@ export const users = createTable("user", (d) => ({
   image: d.text({ length: 255 }),
 }));
 
+// New roles table
+export const roles = createTable("role", (d) => ({
+  id: d
+    .text({ length: 255 })
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  name: d.text({ length: 50 }).notNull().unique(),
+  description: d.text({ length: 255 }),
+  createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+  updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+}));
+
+// Junction table for many-to-many relationship
+export const userRoles = createTable(
+  "user_role",
+  (d) => ({
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    roleId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    assignedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+    assignedBy: d.text({ length: 255 }), // Optional: track who assigned the role
+  }),
+  (t) => [
+    primaryKey({ columns: [t.userId, t.roleId] }),
+    index("user_roles_user_id_idx").on(t.userId),
+    index("user_roles_role_id_idx").on(t.roleId),
+  ]
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   accounts: many(accounts),
+  sessions: many(sessions),
+  userRoles: many(userRoles),
+}));
+
+export const rolesRelations = relations(roles, ({ many }) => ({
+  userRoles: many(userRoles),
+}));
+
+export const userRolesRelations = relations(userRoles, ({ one }) => ({
+  user: one(users, { fields: [userRoles.userId], references: [users.id] }),
+  role: one(roles, { fields: [userRoles.roleId], references: [roles.id] }),
 }));
 
 export const accounts = createTable(
