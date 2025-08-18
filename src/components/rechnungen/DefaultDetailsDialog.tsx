@@ -1,5 +1,4 @@
 // DefaultDetailsDialog.tsx
-import { type BillingEntry } from "~/app/rechnung/page";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -16,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
+import { type BillingEntry } from "./BillingDashboard";
 import { formatCurrency } from "./BillingTable";
 
 export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
