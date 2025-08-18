@@ -3,7 +3,6 @@
 import { ArrowUpDown, Loader2 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
-import type { BillingEntry } from "~/app/rechnung/page";
 import { Button } from "../ui/button";
 import {
   Table,
@@ -13,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
+import type { BillingEntry } from "./BillingDashboard";
 import { DefaultDetailsDialog } from "./DefaultDetailsDialog";
 import { StatusButton } from "./StatusButton";
 
