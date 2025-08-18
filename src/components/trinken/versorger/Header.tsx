@@ -12,12 +12,12 @@ export function Header({
   isPending: boolean;
 }) {
   return (
-    <header className="flex items-start sm:items-center justify-between gap-3">
+    <header className="flex items-center justify-between gap-3">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-center">
           Getränke-Verwaltung
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-center">
           Verwalten Sie Ihre Getränkekarte, Preise und Verfügbarkeit
         </p>
         <p className="sr-only" aria-live="polite">

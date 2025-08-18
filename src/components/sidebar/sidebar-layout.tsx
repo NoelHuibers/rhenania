@@ -1,18 +1,24 @@
-"use client";
-
-import type React from "react";
-
+import { SidebarProvider, SidebarTrigger } from "../ui/sidebar";
 import { AppSidebar } from "./app-sidebar";
 
-interface SidebarLayoutProps {
+// Wrapper component that includes the SidebarProvider
+export function SidebarLayout({
+  children,
+  className,
+}: {
   children: React.ReactNode;
-}
-
-export function SidebarLayout({ children }: SidebarLayoutProps) {
+  className?: string;
+}) {
   return (
-    <div className="flex h-screen bg-background">
-      <AppSidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
-    </div>
+    <SidebarProvider defaultOpen={false}>
+      <AppSidebar className={className} />
+      <main className="flex flex-1 flex-col min-h-screen">
+        {/* Floating trigger button */}
+        <SidebarTrigger className="fixed top-4 left-4 z-40 lg:hidden" />
+
+        {/* Full height content */}
+        <div className="flex-1 h-full">{children}</div>
+      </main>
+    </SidebarProvider>
   );
 }
