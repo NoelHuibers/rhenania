@@ -1,3 +1,5 @@
+// Update your existing env.js file to add NEXTAUTH_URL
+
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
@@ -11,6 +13,12 @@ export const env = createEnv({
       process.env.NODE_ENV === "production"
         ? z.string()
         : z.string().optional(),
+    NEXTAUTH_URL: z.preprocess(
+      // Since you can use either VERCEL_URL or manually set NEXTAUTH_URL
+      (str) => process.env.VERCEL_URL ?? str,
+      // In development, it's optional (defaults to localhost)
+      process.env.VERCEL ? z.string() : z.string().url().optional()
+    ),
     AZURE_AD_CLIENT_ID: z.string().optional(),
     AZURE_AD_CLIENT_SECRET: z.string().optional(),
     AZURE_AD_TENANT_ID: z.string().optional(),
@@ -32,13 +40,13 @@ export const env = createEnv({
   client: {
     // NEXT_PUBLIC_CLIENTVAR: z.string(),
   },
-
   /**
    * You can't destruct `process.env` as a regular object in the Next.js edge runtimes (e.g.
    * middlewares) or client-side so we need to destruct manually.
    */
   runtimeEnv: {
     AUTH_SECRET: process.env.AUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     AZURE_AD_CLIENT_ID: process.env.AZURE_AD_CLIENT_ID,
     AZURE_AD_CLIENT_SECRET: process.env.AZURE_AD_CLIENT_SECRET,
     AZURE_AD_TENANT_ID: process.env.AZURE_AD_TENANT_ID,
@@ -61,3 +69,6 @@ export const env = createEnv({
    */
   emptyStringAsUndefined: true,
 });
+
+// Add this to your .env.local file:
+// NEXTAUTH_URL=http://localhost:3000

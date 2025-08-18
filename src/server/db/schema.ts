@@ -17,8 +17,9 @@ export const users = createTable("user", (d) => ({
     .$defaultFn(() => crypto.randomUUID()),
   name: d.text({ length: 255 }),
   email: d.text({ length: 255 }).notNull(),
-  emailVerified: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+  emailVerified: d.integer({ mode: "timestamp" }),
   image: d.text({ length: 255 }),
+  password: d.text({ length: 255 }),
 }));
 
 // New roles table
@@ -126,6 +127,25 @@ export const verificationTokens = createTable(
     expires: d.integer({ mode: "timestamp" }).notNull(),
   }),
   (t) => [primaryKey({ columns: [t.identifier, t.token] })]
+);
+
+export const passwordResetTokens = createTable(
+  "password_reset_token",
+  (d) => ({
+    id: d
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    email: d.text({ length: 255 }).notNull(),
+    token: d.text({ length: 255 }).notNull().unique(),
+    expires: d.integer({ mode: "timestamp" }).notNull(),
+    createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+  }),
+  (t) => [
+    index("password_reset_email_idx").on(t.email),
+    index("password_reset_token_idx").on(t.token),
+  ]
 );
 
 export const drinks = createTable(

@@ -27,6 +27,7 @@ const PUBLIC_PATHS = [
   "/datenschutz", // privacy policy
   "/impressum", // imprint
   "/api/auth/(.*)", // all NextAuth endpoints
+  "/auth/(.*)", // all auth endpoints
   "/party",
 ];
 
@@ -114,7 +115,7 @@ export default auth(async (req: AuthenticatedRequest) => {
   // 3) If not signed in, redirect to /api/auth/signin with callbackUrl
   if (!req.auth?.user) {
     const signInUrl = req.nextUrl.clone();
-    signInUrl.pathname = "/api/auth/signin";
+    signInUrl.pathname = "/auth/signin";
     // Add the current URL as callbackUrl parameter
     // This will preserve the original route for redirect after login
     signInUrl.searchParams.set("callbackUrl", req.nextUrl.href);
