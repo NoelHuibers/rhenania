@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { AddDrinkDialog } from "~/components/trinken/AddDrinkDialog";
+import { AddDrinkDialog } from "~/components/trinken/versorger/AddDrinkDialog";
 import {
   deleteDrink,
   getDrinks,
