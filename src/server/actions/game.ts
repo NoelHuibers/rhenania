@@ -1,6 +1,7 @@
 "use server";
 
 import { desc, eq, gt, or } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { games, userStats, users } from "~/server/db/schema";
 import { auth } from "../auth";
@@ -46,10 +47,6 @@ const K_FACTOR = 32; // Standard K-factor for chess
 const K_FACTOR_HIGH_RATED = 16; // Lower K-factor for high-rated players (>2400)
 const K_FACTOR_EXPERIENCED = 24; // Medium K-factor for experienced players (>30 games)
 
-/**
- * Calculate expected score for a player based on ELO difference
- * Formula: 1 / (1 + 10^((opponentElo - playerElo) / 400))
- */
 function calculateExpectedScore(
   playerElo: number,
   opponentElo: number
@@ -57,18 +54,12 @@ function calculateExpectedScore(
   return 1 / (1 + Math.pow(10, (opponentElo - playerElo) / 400));
 }
 
-/**
- * Determine K-factor based on player rating and experience
- */
 function getKFactor(playerElo: number, totalGames: number): number {
   if (playerElo >= 2400) return K_FACTOR_HIGH_RATED;
   if (totalGames >= 30) return K_FACTOR_EXPERIENCED;
   return K_FACTOR;
 }
 
-/**
- * Calculate new ELO ratings after a game
- */
 function calculateEloChange(
   player1Elo: number,
   player2Elo: number,
@@ -76,19 +67,12 @@ function calculateEloChange(
   player2TotalGames: number,
   player1Won: boolean
 ): { player1NewElo: number; player2NewElo: number; eloChange: number } {
-  // Calculate expected scores
   const player1Expected = calculateExpectedScore(player1Elo, player2Elo);
   const player2Expected = calculateExpectedScore(player2Elo, player1Elo);
-
-  // Actual scores (1 for win, 0 for loss)
   const player1Score = player1Won ? 1 : 0;
   const player2Score = player1Won ? 0 : 1;
-
-  // Get K-factors
   const player1KFactor = getKFactor(player1Elo, player1TotalGames);
   const player2KFactor = getKFactor(player2Elo, player2TotalGames);
-
-  // Calculate ELO changes
   const player1Change = Math.round(
     player1KFactor * (player1Score - player1Expected)
   );
@@ -162,7 +146,6 @@ export async function createGame(gameData: GameResult): Promise<{
       return { success: false, error: "Failed to create game record" };
     }
 
-    // Update user stats with new ELO and game results
     await updateUserStats(
       userId,
       gameData.won,
@@ -175,6 +158,8 @@ export async function createGame(gameData: GameResult): Promise<{
       eloCalculation.player2NewElo,
       player2Stats.currentElo
     );
+
+    revalidatePath(`/eloranking`);
 
     return {
       success: true,
