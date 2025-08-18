@@ -9,8 +9,8 @@ import { DrinksSection } from "./DrinksSection";
 import { EmptyState } from "./EmptyState";
 import { LoadingState } from "./Loadingstate";
 import { MenuFooter } from "./MenuFooter";
-import { MenuHeader } from "./MenuHeader";
 import { OrderDrawer } from "./OrderDrawer";
+import { SiteHeader } from "./SiteHeader";
 
 export default function DrinksMenu() {
   const [drinks, setDrinks] = useState<MenuItem[]>([]);
@@ -59,9 +59,8 @@ export default function DrinksMenu() {
 
   return (
     <>
+      <SiteHeader />
       <div className="container mx-auto p-4 space-y-6">
-        <MenuHeader />
-
         <BillingSelector
           selectedBilling={selectedBilling}
           onBillingChange={setSelectedBilling}

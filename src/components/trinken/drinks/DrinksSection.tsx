@@ -21,10 +21,10 @@ export function DrinksSection({
   const iconColor = icon === "available" ? "text-green-500" : "text-orange-500";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center gap-3">
         <IconComponent className={`h-6 w-6 ${iconColor}`} />
-        <h2 className="text-2xl font-bold">{title}</h2>
+        <h2 className="text-lg font-bold">{title}</h2>
         <Badge variant="secondary">{drinks.length}</Badge>
       </div>
 

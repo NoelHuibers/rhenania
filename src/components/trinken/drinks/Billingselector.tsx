@@ -39,7 +39,7 @@ export function BillingSelector({
   };
 
   return (
-    <div className="bg-muted/30 rounded-lg p-3 sm:p-4 space-y-3">
+    <div className="bg-muted/30 rounded-lg space-y-3">
       <div className="flex flex-nowrap gap-1 sm:gap-2">
         {/* Quick access buttons for common options */}
         {commonOptions.map((option) => (
