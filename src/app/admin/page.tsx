@@ -1,6 +1,7 @@
 // app/admin/page.tsx
 import { Suspense } from "react";
 import AdminDashboard from "~/components/admin/dashboard";
+import { SidebarLayout } from "~/components/sidebar/sidebar-layout";
 import { Card, CardContent } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import {
@@ -96,7 +97,9 @@ async function AdminDashboardData() {
 export default function AdminPage() {
   return (
     <Suspense fallback={<DashboardSkeleton />}>
-      <AdminDashboardData />
+      <SidebarLayout>
+        <AdminDashboardData />
+      </SidebarLayout>
     </Suspense>
   );
 }

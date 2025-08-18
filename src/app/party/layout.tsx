@@ -1,4 +1,5 @@
-// In your layout.tsx or _app.tsx
+// layout.tsx
+import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 
 export default function RootLayout({
@@ -9,8 +10,10 @@ export default function RootLayout({
   return (
     <html lang="de">
       <body>
-        {children}
-        <Toaster position="bottom-right" richColors closeButton />
+        <SessionProvider>
+          {children}
+          <Toaster position="bottom-right" richColors closeButton />
+        </SessionProvider>
       </body>
     </html>
   );

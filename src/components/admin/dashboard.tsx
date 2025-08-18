@@ -198,7 +198,7 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto p-4 space-y-6 max-w-7xl">
-        <div className="space-y-2">
+        <div className="flex-col flex items-center md:items-start">
           <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
           <p className="text-muted-foreground">Benutzer und Rollen verwalten</p>
         </div>
