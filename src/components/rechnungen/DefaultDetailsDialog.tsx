@@ -1,4 +1,4 @@
-// DefaultDetailDialog.tsx
+// DefaultDetailsDialog.tsx
 import { type BillingEntry } from "~/app/rechnung/page";
 import { Button } from "../ui/button";
 import {
@@ -25,13 +25,13 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
         Details
       </Button>
     </DialogTrigger>
-    <DialogContent className="max-w-2xl max-h-[90vh] mx-4 sm:mx-0 flex flex-col">
+    <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] mx-auto flex flex-col">
       <DialogHeader className="flex-shrink-0">
         <DialogTitle className="text-base sm:text-lg break-words">
           Bestelldetails - {entry.name}
         </DialogTitle>
       </DialogHeader>
-      <div className="space-y-4 overflow-y-auto flex-1 min-h-0">
+      <div className="space-y-4 overflow-y-auto flex-1 min-h-0 px-1">
         {/* Desktop Table View */}
         <div className="hidden sm:block">
           <Table>
@@ -64,30 +64,34 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
         <div className="sm:hidden space-y-3">
           {entry.items.map((item) => (
             <div key={item.id} className="bg-gray-50 rounded-lg p-3 space-y-2">
-              <div className="font-medium text-sm break-words">{item.name}</div>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Anzahl:</span>
-                  <span>{item.quantity}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Einzelpreis:</span>
-                  <span>{formatCurrency(item.unitPrice)}</span>
-                </div>
+              <div className="font-medium text-sm break-words leading-tight">
+                {item.name}
               </div>
-              <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                <span className="text-gray-600 text-sm">Zwischensumme:</span>
-                <span className="font-semibold">
-                  {formatCurrency(item.subtotal)}
-                </span>
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-xs">Anzahl:</span>
+                  <span className="font-medium">{item.quantity}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-600 text-xs">Einzelpreis:</span>
+                  <span className="font-medium">
+                    {formatCurrency(item.unitPrice)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-1.5 border-t border-gray-200">
+                  <span className="text-gray-600 text-xs">Zwischensumme:</span>
+                  <span className="font-semibold text-sm">
+                    {formatCurrency(item.subtotal)}
+                  </span>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="flex justify-between items-center pt-4 border-t">
+        <div className="flex justify-between items-center pt-4 border-t border-gray-300">
           <span className="text-base sm:text-lg font-semibold">Gesamt:</span>
-          <span className="text-base sm:text-lg font-bold">
+          <span className="text-lg sm:text-xl font-bold text-green-600">
             {formatCurrency(entry.totalDue)}
           </span>
         </div>

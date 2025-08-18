@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { DefaultDetailsDialog } from "./DefaultsDetailDialog";
+import { DefaultDetailsDialog } from "./DefaultDetailsDialog";
 import { StatusButton } from "./StatusButton";
 
 interface BillingTableProps {
