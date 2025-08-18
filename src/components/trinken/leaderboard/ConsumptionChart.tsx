@@ -32,7 +32,7 @@ export type ConsumptionLinePoint = {
 };
 
 export function ConsumptionLineChart({
-  title = "Consumption (last 6 months)",
+  title = "Alkoholkonsum der letzten 6 Monate",
   data,
   config,
 }: {
