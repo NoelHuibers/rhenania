@@ -6,7 +6,8 @@ export function EmptyState() {
       <Coffee className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
       <h3 className="text-lg font-semibold mb-2">Keine Getränke verfügbar</h3>
       <p className="text-muted-foreground">
-        Unsere Getränkekarte wird bald aktualisiert.
+        Die Getränkekarte muss noch eingerichtet werden. Bitte kontaktieren sie
+        ihren Getränkewart oder Admin.
       </p>
     </div>
   );
