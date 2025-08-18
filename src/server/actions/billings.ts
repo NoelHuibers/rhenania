@@ -32,41 +32,32 @@ export async function createNewBilling() {
     console.log("Starting billing process...");
 
     const result = await db.transaction(async (tx) => {
-      // 1. Get all orders that haven't been billed yet AND are not for events (bookingFor is null)
-      const unbilledOrders = await tx
+      // 1. Get all unbilled orders (both personal and event)
+      const allUnbilledOrders = await tx
         .select()
         .from(orders)
-        .where(
-          and(
-            eq(orders.inBill, false),
-            isNull(orders.bookingFor) // Only get personal orders, not event bookings
-          )
-        )
+        .where(eq(orders.inBill, false))
         .orderBy(orders.userId, orders.createdAt);
 
-      // Also mark event orders as "billed" so they don't show up in future queries
-      const eventOrders = await tx
-        .select()
-        .from(orders)
-        .where(
-          and(eq(orders.inBill, false), sql`${orders.bookingFor} IS NOT NULL`)
-        );
-
-      if (unbilledOrders.length === 0 && eventOrders.length === 0) {
+      if (allUnbilledOrders.length === 0) {
         console.log("No unbilled orders found");
         return {
           success: true,
           message: "Keine unbezahlten Bestellungen gefunden",
           billsCreated: 0,
           totalAmount: 0,
-          eventOrdersProcessed: 0,
+          eventBillsCreated: 0,
         };
       }
 
-      console.log(`Found ${unbilledOrders.length} unbilled personal orders`);
-      console.log(
-        `Found ${eventOrders.length} event orders to mark as processed`
+      // Separate personal and event orders
+      const personalOrders = allUnbilledOrders.filter(
+        (order) => !order.bookingFor
       );
+      const eventOrders = allUnbilledOrders.filter((order) => order.bookingFor);
+
+      console.log(`Found ${personalOrders.length} unbilled personal orders`);
+      console.log(`Found ${eventOrders.length} event orders to process`);
 
       // 2. Get the next bill number
       const [lastBillPeriod] = await tx
@@ -92,10 +83,9 @@ export async function createNewBilling() {
         `Created bill period ${nextBillNumber} (ID: ${billPeriodId})`
       );
 
-      // 4. Group orders by user
+      // 4. Process personal orders - Group by user
       const userOrderMap = new Map<string, OrderWithDetails[]>();
-
-      for (const order of unbilledOrders) {
+      for (const order of personalOrders) {
         const userId = order.userId;
         if (!userOrderMap.has(userId)) {
           userOrderMap.set(userId, []);
@@ -105,11 +95,25 @@ export async function createNewBilling() {
 
       console.log(`Processing bills for ${userOrderMap.size} users`);
 
-      // 5. Process each user's billing
+      // 5. Process event orders - Group by event name (bookingFor)
+      const eventOrderMap = new Map<string, OrderWithDetails[]>();
+      for (const order of eventOrders) {
+        const eventName = order.bookingFor || "Unknown Event";
+        if (!eventOrderMap.has(eventName)) {
+          eventOrderMap.set(eventName, []);
+        }
+        eventOrderMap.get(eventName)!.push(order);
+      }
+
+      console.log(`Processing bills for ${eventOrderMap.size} events`);
+
+      // 6. Process each user's billing
       const userBillingSummaries: UserBillingSummary[] = [];
       const createdBills: string[] = [];
+      const createdEventBills: string[] = [];
       let totalBillingAmount = 0;
 
+      // Process personal bills
       for (const [userId, userOrders] of userOrderMap.entries()) {
         const userName =
           userOrders.length > 0 ? userOrders[0]?.userName ?? "" : "";
@@ -206,7 +210,87 @@ export async function createNewBilling() {
         totalBillingAmount += finalTotal;
       }
 
-      // 6. Update the bill period with total amount
+      // 7. Process event bills - Create one bill per event
+      for (const [eventName, eventOrdersList] of eventOrderMap.entries()) {
+        // Calculate totals for this event
+        const drinksTotal = eventOrdersList.reduce(
+          (sum, order) => sum + order.total,
+          0
+        );
+
+        const finalTotal = drinksTotal; // Events don't have old billing or fees
+
+        // Create the event bill with special userId to mark it as an event
+        const billId = crypto.randomUUID();
+        const eventUserId = `event-${eventName
+          .toLowerCase()
+          .replace(/\s+/g, "-")}`;
+
+        await tx.insert(bills).values({
+          id: billId,
+          billPeriodId: billPeriodId,
+          userId: eventUserId, // Special ID format for events
+          userName: `${eventName}`, // Event name with emoji prefix
+          status: "Unbezahlt",
+          oldBillingAmount: 0,
+          fees: 0,
+          drinksTotal: drinksTotal,
+          total: finalTotal,
+          createdAt: now,
+        });
+
+        console.log(
+          `Created event bill ${billId} for "${eventName}" with total €${finalTotal.toFixed(
+            2
+          )}`
+        );
+
+        // Group orders by drink to consolidate quantities
+        const drinkSummary = new Map<
+          string,
+          {
+            drinkName: string;
+            totalAmount: number;
+            pricePerUnit: number;
+            totalPrice: number;
+          }
+        >();
+
+        for (const order of eventOrdersList) {
+          const key = `${order.drinkName}-${order.pricePerUnit}`;
+
+          if (drinkSummary.has(key)) {
+            const existing = drinkSummary.get(key)!;
+            existing.totalAmount += order.amount;
+            existing.totalPrice += order.total;
+          } else {
+            drinkSummary.set(key, {
+              drinkName: order.drinkName,
+              totalAmount: order.amount,
+              pricePerUnit: order.pricePerUnit,
+              totalPrice: order.total,
+            });
+          }
+        }
+
+        // Create bill items for each unique drink
+        for (const drinkInfo of drinkSummary.values()) {
+          await tx.insert(billItems).values({
+            id: crypto.randomUUID(),
+            billId: billId,
+            drinkName: drinkInfo.drinkName,
+            amount: drinkInfo.totalAmount,
+            pricePerDrink: drinkInfo.pricePerUnit,
+            totalPricePerDrink: drinkInfo.totalPrice,
+            createdAt: now,
+          });
+        }
+
+        createdEventBills.push(billId);
+        totalBillingAmount += finalTotal;
+      }
+
+      // 8. Update the bill period with total amount
       await tx
         .update(billPeriods)
         .set({
@@ -215,12 +299,8 @@ export async function createNewBilling() {
         })
         .where(eq(billPeriods.id, billPeriodId));
 
-      // 7. Mark all processed orders as billed (including event orders)
-      // This includes both personal orders that were billed and event orders
-      const allOrderIds = [
-        ...unbilledOrders.map((order) => order.id),
-        ...eventOrders.map((order) => order.id),
-      ];
+      // 9. Mark all processed orders as billed
+      const allOrderIds = allUnbilledOrders.map((order) => order.id);
 
       if (allOrderIds.length > 0) {
         await tx
@@ -241,16 +321,18 @@ export async function createNewBilling() {
 
       return {
         success: true,
-        message: `Erfolgreich ${createdBills.length} Rechnungen erstellt`,
+        message: `Erfolgreich ${
+          createdBills.length + createdEventBills.length
+        } Rechnungen erstellt`,
         billPeriod: {
           id: billPeriodId,
           billNumber: nextBillNumber,
         },
         billsCreated: createdBills.length,
+        eventBillsCreated: createdEventBills.length,
         totalAmount: totalBillingAmount,
         userSummaries: userBillingSummaries,
-        createdBillIds: createdBills,
-        eventOrdersProcessed: eventOrders.length,
+        createdBillIds: [...createdBills, ...createdEventBills],
       };
     });
 
