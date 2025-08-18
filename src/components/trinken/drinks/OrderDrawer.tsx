@@ -1,4 +1,3 @@
-// OrderDrawer.tsx
 "use client";
 
 import { Minus, Plus, ShoppingCart } from "lucide-react";
@@ -16,16 +15,23 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "~/components/ui/drawer";
-import { type MenuItem } from "~/server/actions/menu";
+import type { MenuItem } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
+import type { BillingOption } from "./Billingselector";
 
 interface OrderDrawerProps {
   drink: MenuItem | null;
   isOpen: boolean;
   onClose: () => void;
+  selectedBilling: BillingOption;
 }
 
-export function OrderDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
+export function OrderDrawer({
+  drink,
+  isOpen,
+  onClose,
+  selectedBilling,
+}: OrderDrawerProps) {
   const [quantity, setQuantity] = useState(1);
   const [isPending, startTransition] = useTransition();
 
@@ -55,13 +61,14 @@ export function OrderDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
           amount: quantity,
           pricePerUnit: drink.price,
           total: drink.price * quantity,
+          bookingFor: selectedBilling,
         });
 
         if (orderResult.success) {
           toast.success(
             `${quantity}x ${drink.name} bestellt (€${(
               drink.price * quantity
-            ).toFixed(2)})`
+            ).toFixed(2)}) - Abrechnung: ${selectedBilling}`
           );
           // Call the original onConfirm if provided (for backward compatibility)
 
@@ -107,6 +114,22 @@ export function OrderDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
         </DrawerHeader>
 
         <div className="px-6 space-y-6">
+          {selectedBilling ? (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-blue-900">
+                  Abrechnung:
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="bg-blue-100 text-blue-900"
+                >
+                  {selectedBilling}
+                </Badge>
+              </div>
+            </div>
+          ) : null}
+
           {/* Quantity Controls */}
           <div className="space-y-4">
             {/* Manual Input with +/- buttons */}
@@ -174,12 +197,11 @@ export function OrderDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
             </div>
           </div>
         </div>
-
         <DrawerFooter className="flex flex-row gap-3">
           <Button
             variant="outline"
             onClick={handleClose}
-            className="flex-1"
+            className="flex-1 bg-transparent"
             disabled={isPending}
           >
             Abbrechen

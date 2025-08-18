@@ -1,10 +1,10 @@
-// DrinksMenu.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getAllDrinksForMenu, type MenuItem } from "~/server/actions/menu";
 
+import { BillingSelector, type BillingOption } from "./Billingselector";
 import { DrinksSection } from "./DrinksSection";
 import { EmptyState } from "./EmptyState";
 import { LoadingState } from "./Loadingstate";
@@ -17,6 +17,7 @@ export default function DrinksMenu() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDrink, setSelectedDrink] = useState<MenuItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedBilling, setSelectedBilling] = useState<BillingOption>(null);
 
   // Load drinks on component mount
   useEffect(() => {
@@ -58,8 +59,13 @@ export default function DrinksMenu() {
 
   return (
     <>
-      <div className="container mx-auto p-4 space-y-2">
+      <div className="container mx-auto p-4 space-y-6">
         <MenuHeader />
+
+        <BillingSelector
+          selectedBilling={selectedBilling}
+          onBillingChange={setSelectedBilling}
+        />
 
         {drinks.length === 0 ? (
           <EmptyState />
@@ -92,6 +98,7 @@ export default function DrinksMenu() {
         drink={selectedDrink}
         isOpen={isDrawerOpen}
         onClose={handleDrawerClose}
+        selectedBilling={selectedBilling}
       />
     </>
   );

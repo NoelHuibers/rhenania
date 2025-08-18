@@ -11,6 +11,7 @@ export interface CreateOrderRequest {
   amount: number;
   pricePerUnit: number;
   total: number;
+  bookingFor: string | null;
 }
 
 export interface OrderResult {
@@ -60,6 +61,7 @@ export async function createOrder(
         amount: orderData.amount,
         pricePerUnit: orderData.pricePerUnit,
         total: orderData.total,
+        bookingFor: orderData.bookingFor,
       })
       .returning();
 
