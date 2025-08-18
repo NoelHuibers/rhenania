@@ -1,3 +1,4 @@
+import type React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 
 interface BillingCardProps {
@@ -7,7 +8,6 @@ interface BillingCardProps {
   headerDate?: string;
 }
 
-// Generic Billing Card Component
 export const BillingCard = ({
   title,
   description,
@@ -15,17 +15,19 @@ export const BillingCard = ({
   headerDate,
 }: BillingCardProps) => (
   <Card>
-    <CardHeader>
-      <div className="flex justify-between items-start">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          <p className="text-sm text-muted-foreground">{description}</p>
+    <CardHeader className="pb-3">
+      <div className="flex flex-col space-y-2 sm:flex-row sm:justify-between sm:items-start sm:space-y-0">
+        <div className="flex-1 min-w-0">
+          <CardTitle className="text-lg sm:text-xl">{title}</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">{description}</p>
         </div>
         {headerDate && (
-          <div className="text-sm text-muted-foreground">{headerDate}</div>
+          <div className="text-sm text-muted-foreground sm:text-right sm:ml-4 flex-shrink-0">
+            {headerDate}
+          </div>
         )}
       </div>
     </CardHeader>
-    <CardContent>{children}</CardContent>
+    <CardContent className="pt-0">{children}</CardContent>
   </Card>
 );

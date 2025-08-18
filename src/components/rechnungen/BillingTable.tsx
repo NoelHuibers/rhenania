@@ -1,8 +1,9 @@
-// Generic Billing Table Component
+"use client";
 
 import { ArrowUpDown, Loader2 } from "lucide-react";
+import type React from "react";
 import { useState } from "react";
-import { type BillingEntry } from "~/app/rechnung/page";
+import type { BillingEntry } from "~/app/rechnung/page";
 import { Button } from "../ui/button";
 import {
   Table,
@@ -114,42 +115,22 @@ export const BillingTable = ({
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>
-            <Button
-              variant="ghost"
-              onClick={() => handleSort("name")}
-              className="h-auto p-0 font-semibold hover:bg-transparent"
-            >
-              Name
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          </TableHead>
-          <TableHead className="text-right">
-            <Button
-              variant="ghost"
-              onClick={() => handleSort("totalDue")}
-              className="h-auto p-0 font-semibold hover:bg-transparent"
-            >
-              Gesamtbetrag
-              <ArrowUpDown className="ml-2 h-4 w-4" />
-            </Button>
-          </TableHead>
-          {showStatus && <TableHead>Status</TableHead>}
-          <TableHead className="text-right">Aktionen</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+    <>
+      <div className="block sm:hidden space-y-3">
         {sortEntries(entries).map((entry) => (
-          <TableRow key={entry.id}>
-            <TableCell className="font-medium">{entry.name}</TableCell>
-            <TableCell className="text-right font-mono">
-              {formatCurrency(entry.totalDue)}
-            </TableCell>
+          <div key={entry.id} className="border rounded-lg p-4 space-y-3">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium truncate">{entry.name}</h3>
+                <p className="text-lg font-bold text-primary mt-1">
+                  {formatCurrency(entry.totalDue)}
+                </p>
+              </div>
+              <DetailsComponent entry={entry} />
+            </div>
             {showStatus && (
-              <TableCell>
+              <div className="flex items-center justify-between pt-2 border-t">
+                <span className="text-sm text-muted-foreground">Status:</span>
                 {canEditStatus && onStatusChange ? (
                   <StatusButton
                     status={entry.status}
@@ -160,14 +141,73 @@ export const BillingTable = ({
                 ) : (
                   <StatusDisplay status={entry.status} />
                 )}
-              </TableCell>
+              </div>
             )}
-            <TableCell className="text-right">
-              <DetailsComponent entry={entry} />
-            </TableCell>
-          </TableRow>
+          </div>
         ))}
-      </TableBody>
-    </Table>
+      </div>
+
+      <div className="hidden sm:block overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="min-w-[150px]">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort("name")}
+                  className="h-auto p-0 font-semibold hover:bg-transparent"
+                >
+                  Name
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-right min-w-[120px]">
+                <Button
+                  variant="ghost"
+                  onClick={() => handleSort("totalDue")}
+                  className="h-auto p-0 font-semibold hover:bg-transparent"
+                >
+                  Gesamtbetrag
+                  <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              {showStatus && (
+                <TableHead className="min-w-[100px]">Status</TableHead>
+              )}
+              <TableHead className="text-right min-w-[100px]">
+                Aktionen
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortEntries(entries).map((entry) => (
+              <TableRow key={entry.id}>
+                <TableCell className="font-medium">{entry.name}</TableCell>
+                <TableCell className="text-right font-mono">
+                  {formatCurrency(entry.totalDue)}
+                </TableCell>
+                {showStatus && (
+                  <TableCell>
+                    {canEditStatus && onStatusChange ? (
+                      <StatusButton
+                        status={entry.status}
+                        onStatusChange={(newStatus) =>
+                          onStatusChange(entry.id, newStatus)
+                        }
+                      />
+                    ) : (
+                      <StatusDisplay status={entry.status} />
+                    )}
+                  </TableCell>
+                )}
+                <TableCell className="text-right">
+                  <DetailsComponent entry={entry} />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   );
 };
