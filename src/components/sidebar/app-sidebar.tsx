@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Beer,
   Calculator,
   Coffee,
   LogOut,
@@ -63,6 +64,12 @@ const navigationItems = [
     href: "/versorger",
     icon: Truck,
     roles: ["Versorger", "Admin"],
+  },
+  {
+    title: "Eloranking",
+    href: "/eloranking",
+    icon: Beer,
+    roles: [],
   },
 ];
 
