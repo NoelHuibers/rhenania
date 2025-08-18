@@ -173,7 +173,7 @@ export const orders = createTable(
     pricePerUnit: o.real().notNull(),
     total: o.real().notNull(),
     inBill: o.integer({ mode: "boolean" }).notNull().default(false),
-
+    bookingFor: o.text({ length: 255 }),
     createdAt: o
       .integer({ mode: "timestamp" })
       .default(sql`(unixepoch())`)
