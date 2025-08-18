@@ -341,9 +341,11 @@ export default function BillingDashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Rechnungen</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Getränkerechnungen
+          </h1>
           <p className="text-muted-foreground">
-            Rechnungen für Ihre Getränkebestellungen verwalten und verfolgen
+            Übersicht über alle Rechnungen und Bestellungen
           </p>
         </div>
         {hasRequiredRole() && (
