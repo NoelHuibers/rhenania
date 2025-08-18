@@ -337,3 +337,59 @@ export const billItemsRelations = {
     references: [bills.id],
   },
 };
+
+export const games = createTable("game", (d) => ({
+  id: d
+    .text({ length: 255 })
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  player1Id: d
+    .text({ length: 255 })
+    .notNull()
+    .references(() => users.id),
+  player2Id: d
+    .text({ length: 255 })
+    .notNull()
+    .references(() => users.id),
+  winnerId: d
+    .text({ length: 255 })
+    .notNull()
+    .references(() => users.id),
+  playedAt: d
+    .integer({ mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  player1EloBefore: d.integer().default(1200),
+  player2EloBefore: d.integer().default(1200),
+  player1EloAfter: d.integer().default(1200),
+  player2EloAfter: d.integer().default(1200),
+  orderId: d.text({ length: 255 }),
+  gameType: d.text({ length: 50 }).default("bierjunge"),
+}));
+
+export const userStats = createTable("user_stat", (d) => ({
+  id: d
+    .text({ length: 255 })
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  userId: d
+    .text({ length: 255 })
+    .notNull()
+    .references(() => users.id),
+  currentElo: d.integer().notNull().default(1200),
+  totalGames: d.integer().notNull().default(0),
+  wins: d.integer().notNull().default(0),
+  losses: d.integer().notNull().default(0),
+  lastGameAt: d.integer({ mode: "timestamp" }),
+  peakElo: d.integer().notNull().default(1200),
+  createdAt: d
+    .integer({ mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: d
+    .integer({ mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+}));

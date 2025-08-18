@@ -1,0 +1,54 @@
+"use server";
+
+import { ne } from "drizzle-orm";
+import { db } from "~/server/db";
+import { users } from "~/server/db/schema";
+
+export interface User {
+  id: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+}
+
+export async function getAllUsers(): Promise<User[]> {
+  try {
+    const allUsers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        image: users.image,
+      })
+      .from(users)
+      .orderBy(users.name, users.email);
+
+    return allUsers;
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw new Error("Failed to fetch users");
+  }
+}
+
+// Optional: Get users excluding the current user
+export async function getAllUsersExcept(
+  excludeUserId: string
+): Promise<User[]> {
+  try {
+    const allUsers = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        image: users.image,
+      })
+      .from(users)
+      .where(ne(users.id, excludeUserId))
+      .orderBy(users.name, users.email);
+
+    return allUsers;
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    throw new Error("Failed to fetch users");
+  }
+}
