@@ -1,4 +1,4 @@
-// In your layout.tsx or _app.tsx
+// layout.tsx
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "sonner";
 
