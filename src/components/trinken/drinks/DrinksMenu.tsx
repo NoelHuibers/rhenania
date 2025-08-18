@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getAllDrinksForMenu, type MenuItem } from "~/server/actions/menu";
 
+import { SiteHeader } from "../SiteHeader";
 import { BillingSelector, type BillingOption } from "./Billingselector";
 import { DrinksSection } from "./DrinksSection";
 import { EmptyState } from "./EmptyState";
 import { LoadingState } from "./Loadingstate";
 import { MenuFooter } from "./MenuFooter";
 import { OrderDrawer } from "./OrderDrawer";
-import { SiteHeader } from "./SiteHeader";
 
 export default function DrinksMenu() {
   const [drinks, setDrinks] = useState<MenuItem[]>([]);
@@ -59,7 +59,7 @@ export default function DrinksMenu() {
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader title="Getränkekarte" />
       <div className="container mx-auto p-4 space-y-6">
         <BillingSelector
           selectedBilling={selectedBilling}

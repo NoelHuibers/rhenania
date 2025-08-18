@@ -1,4 +1,3 @@
-import { Droplets } from "lucide-react";
 import { ConsumptionLineChart } from "~/components/trinken/leaderboard/ConsumptionChart";
 import Leaderboard from "~/components/trinken/leaderboard/Leaderboard";
 import MetricsCards from "~/components/trinken/leaderboard/MetricsCards";
@@ -7,6 +6,7 @@ import {
   getLeaderboardLast6Months,
   getMonthlyGrowthRate,
 } from "~/server/actions/leaderboard";
+import { SiteHeader } from "../SiteHeader";
 
 export default async function LeaderboardPage() {
   const rows = await getLeaderboardLast6Months({ limit: 20 });
@@ -27,16 +27,12 @@ export default async function LeaderboardPage() {
   const growthRate = await getMonthlyGrowthRate();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Kopfbereich */}
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold text-gray-900 flex items-center justify-center gap-3">
-            <Droplets className="h-10 w-10 text-blue-600" />
-            Literboard
-          </h1>
-          <p className="text-gray-600">Verfolge die steilsten Corpsbrüder</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <SiteHeader title="Literboard" />
+      <div className="max-w-7xl mx-auto space-y-6 p-4">
+        <p className="text-gray-600 text-center">
+          Verfolge die steilsten Corpsbrüder
+        </p>
 
         {/* Kennzahlen */}
         <MetricsCards

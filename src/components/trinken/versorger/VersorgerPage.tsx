@@ -25,6 +25,7 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
+import { SiteHeader } from "../SiteHeader";
 
 export default function VersorgerPage() {
   const [drinks, setDrinks] = useState<Drink[]>([]);
@@ -247,92 +248,95 @@ export default function VersorgerPage() {
   }
 
   return (
-    <main
-      className="container mx-auto  p-4 sm:p-6 space-y-4 sm:space-y-6"
-      aria-busy={isPending}
-    >
-      <Header
-        count={drinks.length}
-        onAdd={() => setIsAddDialogOpen(true)}
-        isPending={isPending}
-      />
+    <>
+      <SiteHeader title="Getränkeverwaltung" />
+      <main
+        className="container mx-auto  p-4 sm:p-6 space-y-4 sm:space-y-6"
+        aria-busy={isPending}
+      >
+        <Header
+          count={drinks.length}
+          onAdd={() => setIsAddDialogOpen(true)}
+          isPending={isPending}
+        />
 
-      <AddDrinkDialog
-        isOpen={isAddDialogOpen}
-        onOpenChange={setIsAddDialogOpen}
-        onDrinkAdded={handleDrinkAdded}
-      />
+        <AddDrinkDialog
+          isOpen={isAddDialogOpen}
+          onOpenChange={setIsAddDialogOpen}
+          onDrinkAdded={handleDrinkAdded}
+        />
 
-      <Card>
-        <section>
-          <CardHeader>
-            <CardTitle>Getränkekarte</CardTitle>
-            <CardDescription aria-live="polite">
-              {drinks.length} Getränke in Ihrer Karte
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Desktop Table */}
-            <div
-              className="hidden md:block rounded-md border"
-              role="region"
-              aria-label="Getränke Tabelle"
-            >
-              <DrinksTableDesktop
-                drinks={drinks}
-                editingId={editingId}
-                editingData={editingData}
-                setEditingData={setEditingData}
-                startEditing={startEditing}
-                cancelEditing={cancelEditing}
-                saveEdit={saveEdit}
-                onDelete={handleDeleteDrink}
-                onToggleAvailability={handleToggleAvailability}
-                onImageUpdate={handleImageUpdate}
-                isPending={isPending}
-                uploadingImage={uploadingImage}
-                uploadProgress={uploadProgress}
-              />
-            </div>
+        <Card>
+          <section>
+            <CardHeader>
+              <CardTitle>Getränkekarte</CardTitle>
+              <CardDescription aria-live="polite">
+                {drinks.length} Getränke in Ihrer Karte
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Desktop Table */}
+              <div
+                className="hidden md:block rounded-md border"
+                role="region"
+                aria-label="Getränke Tabelle"
+              >
+                <DrinksTableDesktop
+                  drinks={drinks}
+                  editingId={editingId}
+                  editingData={editingData}
+                  setEditingData={setEditingData}
+                  startEditing={startEditing}
+                  cancelEditing={cancelEditing}
+                  saveEdit={saveEdit}
+                  onDelete={handleDeleteDrink}
+                  onToggleAvailability={handleToggleAvailability}
+                  onImageUpdate={handleImageUpdate}
+                  isPending={isPending}
+                  uploadingImage={uploadingImage}
+                  uploadProgress={uploadProgress}
+                />
+              </div>
 
-            {/* Mobile Cards */}
-            <div
-              className="md:hidden"
-              role="region"
-              aria-label="Getränke Liste mobil"
-            >
-              <DrinksCardsMobile
-                drinks={drinks}
-                editingId={editingId}
-                editingData={editingData}
-                setEditingData={setEditingData}
-                startEditing={startEditing}
-                cancelEditing={cancelEditing}
-                saveEdit={saveEdit}
-                onDelete={handleDeleteDrink}
-                onToggleAvailability={handleToggleAvailability}
-                onImageUpdate={handleImageUpdate}
-                isPending={isPending}
-                uploadingImage={uploadingImage}
-                uploadProgress={uploadProgress}
-              />
-            </div>
-          </CardContent>
-        </section>
-      </Card>
+              {/* Mobile Cards */}
+              <div
+                className="md:hidden"
+                role="region"
+                aria-label="Getränke Liste mobil"
+              >
+                <DrinksCardsMobile
+                  drinks={drinks}
+                  editingId={editingId}
+                  editingData={editingData}
+                  setEditingData={setEditingData}
+                  startEditing={startEditing}
+                  cancelEditing={cancelEditing}
+                  saveEdit={saveEdit}
+                  onDelete={handleDeleteDrink}
+                  onToggleAvailability={handleToggleAvailability}
+                  onImageUpdate={handleImageUpdate}
+                  isPending={isPending}
+                  uploadingImage={uploadingImage}
+                  uploadProgress={uploadProgress}
+                />
+              </div>
+            </CardContent>
+          </section>
+        </Card>
 
-      {/* Floating Add Button for mobile */}
-      <div className="md:hidden fixed bottom-6 right-6 z-50">
-        <Button
-          onClick={() => setIsAddDialogOpen(true)}
-          size="lg"
-          aria-label="Neues Getränk hinzufügen"
-          disabled={isPending}
-          className="rounded-full shadow-lg h-12 w-12 p-0"
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-      </div>
-    </main>
+        {/* Floating Add Button for mobile */}
+        <div className="md:hidden fixed bottom-6 right-6 z-50">
+          <Button
+            onClick={() => setIsAddDialogOpen(true)}
+            size="lg"
+            aria-label="Neues Getränk hinzufügen"
+            disabled={isPending}
+            className="rounded-full shadow-lg h-12 w-12 p-0"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </div>
+      </main>
+    </>
   );
 }

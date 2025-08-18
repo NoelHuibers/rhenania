@@ -4,6 +4,7 @@ import { Loader2, Search, Shield, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { toggleUserRole } from "../../server/actions/admin";
+import { SiteHeader } from "../trinken/SiteHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -197,9 +198,9 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 
   return (
     <div className="min-h-screen bg-background">
+      <SiteHeader title="Admin" />
       <div className="container mx-auto p-4 space-y-6 max-w-7xl">
         <div className="flex-col flex items-center md:items-start">
-          <h1 className="text-2xl sm:text-3xl font-bold">Admin Dashboard</h1>
           <p className="text-muted-foreground">Benutzer und Rollen verwalten</p>
         </div>
 

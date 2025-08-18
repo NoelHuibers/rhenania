@@ -17,6 +17,7 @@ import {
 } from "~/server/actions/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 import { getUserRoles } from "~/server/actions/userRoles";
+import { SiteHeader } from "../trinken/SiteHeader";
 
 export interface DrinkItem {
   id: string;
@@ -336,187 +337,193 @@ export default function BillingDashboard() {
   const olderPeriods = allBillPeriods.slice(2);
 
   return (
-    <div className="container mx-auto p-4 space-y-2">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex-col flex items-center md:items-start space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Getränkerechnungen
-          </h1>
-          <p className="text-muted-foreground text-center md:text-left">
-            Übersicht über alle Rechnungen und Bestellungen
-          </p>
+    <>
+      <SiteHeader title="Getränkerechnungen" />
+      <div className="container mx-auto p-4 space-y-2">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div className="flex-col flex items-center md:items-start space-y-2">
+            <p className="text-muted-foreground text-center md:text-left">
+              Übersicht über alle Rechnungen und Bestellungen
+            </p>
+          </div>
+          {hasRequiredRole() && (
+            <Button
+              onClick={handleCreateReport}
+              disabled={isCreatingReport}
+              className="w-full sm:w-auto"
+            >
+              {isCreatingReport ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Erstelle Bericht...
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Neue Rechnung
+                </>
+              )}
+            </Button>
+          )}
         </div>
-        {hasRequiredRole() && (
-          <Button
-            onClick={handleCreateReport}
-            disabled={isCreatingReport}
-            className="w-full sm:w-auto"
-          >
-            {isCreatingReport ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Erstelle Bericht...
-              </>
-            ) : (
-              <>
-                <Plus className="mr-2 h-4 w-4" />
-                Neue Rechnung
-              </>
+
+        {/* Tabs */}
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="space-y-4"
+        >
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
+            <TabsTrigger value="current-orders" className="text-sm">
+              Aktuelle Bestellungen
+            </TabsTrigger>
+            <TabsTrigger value="current-billing" className="text-sm">
+              Aktuelle Abrechnung
+            </TabsTrigger>
+            {allBillPeriods.length > 1 && (
+              <TabsTrigger value="previous-billing" className="text-sm">
+                Letzte Abrechnung
+              </TabsTrigger>
             )}
-          </Button>
-        )}
-      </div>
+            {olderPeriods.length > 0 && (
+              <TabsTrigger value="older-bills" className="text-sm">
+                Ältere Rechnungen
+              </TabsTrigger>
+            )}
+          </TabsList>
 
-      {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-4"
-      >
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto">
-          <TabsTrigger value="current-orders" className="text-sm">
-            Aktuelle Bestellungen
-          </TabsTrigger>
-          <TabsTrigger value="current-billing" className="text-sm">
-            Aktuelle Abrechnung
-          </TabsTrigger>
-          {allBillPeriods.length > 1 && (
-            <TabsTrigger value="previous-billing" className="text-sm">
-              Letzte Abrechnung
-            </TabsTrigger>
-          )}
-          {olderPeriods.length > 0 && (
-            <TabsTrigger value="older-bills" className="text-sm">
-              Ältere Rechnungen
-            </TabsTrigger>
-          )}
-        </TabsList>
+          <TabsContent value="current-orders" className="space-y-4">
+            <TabContent
+              entries={currentOrders}
+              isLoading={isLoadingOrders}
+              error={ordersError}
+              cardTitle="Aktuelle Bestellungen"
+              cardDescription="Laufende Bestellungen, die noch nicht abgerechnet wurden"
+              emptyMessage="Keine aktuellen Bestellungen gefunden"
+            />
+          </TabsContent>
 
-        <TabsContent value="current-orders" className="space-y-4">
-          <TabContent
-            entries={currentOrders}
-            isLoading={isLoadingOrders}
-            error={ordersError}
-            cardTitle="Aktuelle Bestellungen"
-            cardDescription="Laufende Bestellungen, die noch nicht abgerechnet wurden"
-            emptyMessage="Keine aktuellen Bestellungen gefunden"
-          />
-        </TabsContent>
+          <TabsContent value="current-billing" className="space-y-4">
+            <TabContent
+              entries={currentBilling}
+              isLoading={isLoadingBilling}
+              error={billingError}
+              cardTitle="Aktuelle Abrechnungsperiode"
+              cardDescription={
+                currentBillPeriod
+                  ? `Rechnung ${
+                      currentBillPeriod.billNumber
+                    } - Gesamtbetrag: ${formatCurrency(
+                      currentBillPeriod.totalAmount
+                    )}`
+                  : "Zusammenfassung der aktuellen Abrechnungsperiode"
+              }
+              headerDate={
+                currentBillPeriod?.createdAt
+                  ? new Date(currentBillPeriod.createdAt).toLocaleDateString(
+                      "de-DE"
+                    )
+                  : undefined
+              }
+              showStatus={true}
+              emptyMessage="Keine aktuellen Abrechnungen gefunden"
+              onStatusChange={
+                hasRequiredRole() ? handleStatusChange : undefined
+              }
+              canEditStatus={hasRequiredRole()}
+            />
+          </TabsContent>
 
-        <TabsContent value="current-billing" className="space-y-4">
-          <TabContent
-            entries={currentBilling}
-            isLoading={isLoadingBilling}
-            error={billingError}
-            cardTitle="Aktuelle Abrechnungsperiode"
-            cardDescription={
-              currentBillPeriod
-                ? `Rechnung ${
-                    currentBillPeriod.billNumber
-                  } - Gesamtbetrag: ${formatCurrency(
-                    currentBillPeriod.totalAmount
-                  )}`
-                : "Zusammenfassung der aktuellen Abrechnungsperiode"
-            }
-            headerDate={
-              currentBillPeriod?.createdAt
-                ? new Date(currentBillPeriod.createdAt).toLocaleDateString(
-                    "de-DE"
-                  )
-                : undefined
-            }
-            showStatus={true}
-            emptyMessage="Keine aktuellen Abrechnungen gefunden"
-            onStatusChange={hasRequiredRole() ? handleStatusChange : undefined}
-            canEditStatus={hasRequiredRole()}
-          />
-        </TabsContent>
+          <TabsContent value="previous-billing" className="space-y-4">
+            <TabContent
+              entries={previousBilling}
+              isLoading={isLoadingPreviousBilling}
+              error={previousBillingError}
+              cardTitle="Letzte Abrechnungsperiode"
+              cardDescription={
+                previousBillPeriod
+                  ? `Rechnung ${
+                      previousBillPeriod.billNumber
+                    } - Gesamtbetrag: ${formatCurrency(
+                      previousBillPeriod.totalAmount
+                    )}`
+                  : "Zusammenfassung der letzten Abrechnungsperiode"
+              }
+              headerDate={
+                previousBillPeriod?.createdAt
+                  ? new Date(previousBillPeriod.createdAt).toLocaleDateString(
+                      "de-DE"
+                    )
+                  : undefined
+              }
+              showStatus={true}
+              emptyMessage="Keine vorherigen Abrechnungen gefunden"
+              onStatusChange={
+                hasRequiredRole() ? handleStatusChange : undefined
+              }
+              canEditStatus={hasRequiredRole()}
+            />
+          </TabsContent>
 
-        <TabsContent value="previous-billing" className="space-y-4">
-          <TabContent
-            entries={previousBilling}
-            isLoading={isLoadingPreviousBilling}
-            error={previousBillingError}
-            cardTitle="Letzte Abrechnungsperiode"
-            cardDescription={
-              previousBillPeriod
-                ? `Rechnung ${
-                    previousBillPeriod.billNumber
-                  } - Gesamtbetrag: ${formatCurrency(
-                    previousBillPeriod.totalAmount
-                  )}`
-                : "Zusammenfassung der letzten Abrechnungsperiode"
-            }
-            headerDate={
-              previousBillPeriod?.createdAt
-                ? new Date(previousBillPeriod.createdAt).toLocaleDateString(
-                    "de-DE"
-                  )
-                : undefined
-            }
-            showStatus={true}
-            emptyMessage="Keine vorherigen Abrechnungen gefunden"
-            onStatusChange={hasRequiredRole() ? handleStatusChange : undefined}
-            canEditStatus={hasRequiredRole()}
-          />
-        </TabsContent>
-
-        <TabsContent value="older-bills" className="space-y-4">
-          <div className="space-y-6">
-            <div className="text-center">
-              <h2 className="text-xl font-semibold mb-2">Ältere Rechnungen</h2>
-              <p className="text-muted-foreground">
-                Alle älteren Abrechnungsperioden
-              </p>
-            </div>
-            {olderPeriods.map((period) => {
-              const periodEntries = billPeriodsData.get(period.id) || [];
-              const isLoadingPeriod = !billPeriodsData.has(period.id);
-
-              return (
-                <TabContent
-                  key={period.id}
-                  entries={periodEntries}
-                  isLoading={isLoadingPeriod}
-                  error={null}
-                  cardTitle={`Rechnung ${period.billNumber}`}
-                  cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatCurrency(
-                    period.totalAmount
-                  )}`}
-                  headerDate={new Date(period.createdAt).toLocaleDateString(
-                    "de-DE"
-                  )}
-                  showStatus={true}
-                  emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
-                  onStatusChange={
-                    hasRequiredRole() ? handleStatusChange : undefined
-                  }
-                  canEditStatus={hasRequiredRole()}
-                />
-              );
-            })}
-            {olderPeriods.length === 0 && (
-              <div className="text-center py-8">
+          <TabsContent value="older-bills" className="space-y-4">
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold mb-2">
+                  Ältere Rechnungen
+                </h2>
                 <p className="text-muted-foreground">
-                  Keine älteren Rechnungen vorhanden
+                  Alle älteren Abrechnungsperioden
                 </p>
               </div>
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
+              {olderPeriods.map((period) => {
+                const periodEntries = billPeriodsData.get(period.id) || [];
+                const isLoadingPeriod = !billPeriodsData.has(period.id);
 
-      {/* Role-based access notification */}
-      {!hasRequiredRole() && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-sm text-yellow-800">
-            <strong>Hinweis:</strong> Sie haben eingeschränkte Berechtigungen.
-            Nur der Getränkewart kann Rechnungen erstellen und den Bezahlstatus
-            ändern.
-          </p>
-        </div>
-      )}
-    </div>
+                return (
+                  <TabContent
+                    key={period.id}
+                    entries={periodEntries}
+                    isLoading={isLoadingPeriod}
+                    error={null}
+                    cardTitle={`Rechnung ${period.billNumber}`}
+                    cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatCurrency(
+                      period.totalAmount
+                    )}`}
+                    headerDate={new Date(period.createdAt).toLocaleDateString(
+                      "de-DE"
+                    )}
+                    showStatus={true}
+                    emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
+                    onStatusChange={
+                      hasRequiredRole() ? handleStatusChange : undefined
+                    }
+                    canEditStatus={hasRequiredRole()}
+                  />
+                );
+              })}
+              {olderPeriods.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">
+                    Keine älteren Rechnungen vorhanden
+                  </p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Role-based access notification */}
+        {!hasRequiredRole() && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-sm text-yellow-800">
+              <strong>Hinweis:</strong> Sie haben eingeschränkte Berechtigungen.
+              Nur der Getränkewart kann Rechnungen erstellen und den
+              Bezahlstatus ändern.
+            </p>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
