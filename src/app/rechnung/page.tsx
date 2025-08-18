@@ -18,7 +18,6 @@ import {
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 import { getUserRoles } from "~/server/actions/userRoles";
 
-// Types
 export interface DrinkItem {
   id: string;
   name: string;
@@ -36,15 +35,12 @@ export interface BillingEntry {
   paidAt?: Date | null;
 }
 
-// Main Dashboard Component
 export default function BillingDashboard() {
   const { data: session, status } = useSession();
   const [isCreatingReport, setIsCreatingReport] = useState(false);
   const [activeTab, setActiveTab] = useState("current-orders");
 
-  // Role-based access state
   const [userRoles, setUserRoles] = useState<string[]>([]);
-  const [isLoadingRoles, setIsLoadingRoles] = useState(true);
 
   // State for current orders
   const [currentOrders, setCurrentOrders] = useState<BillingEntry[]>([]);
@@ -72,37 +68,28 @@ export default function BillingDashboard() {
     Map<string, BillingEntry[]>
   >(new Map());
 
-  // Helper function to check if user has required roles - SECURITY FIX
   const hasRequiredRole = () => {
-    return userRoles.includes("Versorger"); // Added missing return statement
+    return userRoles.includes("Versorger");
   };
 
-  // Check authentication status - SECURITY FIX
   const isAuthenticated = status === "authenticated" && session?.user?.id;
 
-  // ALL HOOKS MUST BE DECLARED BEFORE ANY CONDITIONAL LOGIC - HOOKS FIX
-
-  // Load user roles on component mount - SECURITY FIX
   useEffect(() => {
     const fetchUserRoles = async () => {
       if (!session?.user?.id) {
         setUserRoles([]);
-        setIsLoadingRoles(false);
         return;
       }
 
       try {
-        setIsLoadingRoles(true);
         const roles = await getUserRoles(session.user.id);
 
-        // Validate response structure
         if (!Array.isArray(roles)) {
           throw new Error("Invalid roles response");
         }
 
         setUserRoles(
           roles.map((role) => {
-            // Validate each role object
             if (typeof role?.name !== "string") {
               throw new Error("Invalid role structure");
             }
@@ -111,17 +98,14 @@ export default function BillingDashboard() {
         );
       } catch (err) {
         console.error("Error fetching user roles:", err);
-        setUserRoles([]); // Set empty array on error (fail-safe)
+        setUserRoles([]);
         toast.error("Fehler beim Laden der Benutzerrollen");
-      } finally {
-        setIsLoadingRoles(false);
       }
     };
 
     fetchUserRoles();
   }, [session?.user?.id]);
 
-  // Load current orders on component mount
   useEffect(() => {
     const fetchCurrentOrders = async () => {
       if (!isAuthenticated) return;
@@ -142,14 +126,12 @@ export default function BillingDashboard() {
     fetchCurrentOrders();
   }, [isAuthenticated]);
 
-  // Load all bill periods on component mount
   useEffect(() => {
     const fetchAllBillPeriods = async () => {
       if (!isAuthenticated) return;
 
       try {
         const periods = await getAllBillPeriods();
-        // Sort periods by creation date (newest first)
         const sortedPeriods = periods.sort(
           (a: any, b: any) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -163,7 +145,6 @@ export default function BillingDashboard() {
     fetchAllBillPeriods();
   }, [isAuthenticated]);
 
-  // Handle tab changes and data loading
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -239,15 +220,11 @@ export default function BillingDashboard() {
     }
   }, [activeTab, allBillPeriods, isAuthenticated]);
 
-  // HANDLERS DEFINED AFTER ALL HOOKS
   const handleCreateReport = async () => {
-    // Double-check authentication - SECURITY FIX
     if (!isAuthenticated) {
       toast.error("Sie müssen angemeldet sein");
       return;
     }
-
-    // Check role permissions - SECURITY FIX
     if (!hasRequiredRole()) {
       toast.error("Sie haben keine Berechtigung, neue Rechnungen zu erstellen");
       return;
@@ -279,19 +256,14 @@ export default function BillingDashboard() {
     entryId: string,
     newStatus: BillingEntry["status"]
   ) => {
-    // Double-check authentication - SECURITY FIX
     if (!isAuthenticated) {
       toast.error("Sie müssen angemeldet sein");
       return;
     }
-
-    // Check role permissions - SECURITY FIX
     if (!hasRequiredRole()) {
       toast.error("Sie haben keine Berechtigung, den Status zu ändern");
       return;
     }
-
-    // Validate inputs - SECURITY FIX
     if (!entryId || typeof entryId !== "string") {
       toast.error("Ungültige Eintrags-ID");
       return;
@@ -305,7 +277,6 @@ export default function BillingDashboard() {
       return;
     }
 
-    // Store the original status for potential rollback
     const originalEntry = currentBilling.find((entry) => entry.id === entryId);
     const originalStatus = originalEntry?.status;
 
@@ -324,7 +295,6 @@ export default function BillingDashboard() {
         );
         toast.success("Status erfolgreich aktualisiert");
 
-        // Update related state
         if (newStatus === "Bezahlt") {
           setCurrentBilling((prev) =>
             prev.map((entry) =>
@@ -343,7 +313,6 @@ export default function BillingDashboard() {
           );
         }
       } else {
-        // Revert on failure
         setCurrentBilling((prev) =>
           prev.map((entry) =>
             entry.id === entryId ? { ...entry, status: originalStatus } : entry
@@ -364,48 +333,7 @@ export default function BillingDashboard() {
     }
   };
 
-  // COMPUTED VALUES AFTER HOOKS
   const olderPeriods = allBillPeriods.slice(2);
-
-  // CONDITIONAL RENDERING AFTER ALL HOOKS - HOOKS FIX
-
-  // Show loading state while authentication is being checked
-  if (status === "loading") {
-    return (
-      <div className="container mx-auto p-6 flex justify-center items-center min-h-[400px]">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Authentifizierung wird überprüft...</span>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state for unauthenticated users
-  if (!isAuthenticated) {
-    return (
-      <div className="container mx-auto p-6 flex justify-center items-center min-h-[400px]">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-2">Zugriff verweigert</h2>
-          <p className="text-muted-foreground">
-            Sie müssen angemeldet sein, um diese Seite zu sehen.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading state while roles are being fetched
-  if (isLoadingRoles) {
-    return (
-      <div className="container mx-auto p-6 flex justify-center items-center min-h-[400px]">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Lade Benutzerberechtigungen...</span>
-        </div>
-      </div>
-    );
-  }
 
   // MAIN COMPONENT RENDER
   return (
