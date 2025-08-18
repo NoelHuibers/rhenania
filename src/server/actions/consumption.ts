@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import { drinks, orders } from "~/server/db/schema";
 
@@ -57,7 +57,11 @@ export async function getConsumptionLast6MonthsByDrink(): Promise<{
     .from(orders)
     .leftJoin(drinks, eq(orders.drinkId, drinks.id))
     .where(
-      and(gte(orders.createdAt, lowerBound), lt(orders.createdAt, upperBound))
+      and(
+        gte(orders.createdAt, lowerBound),
+        lt(orders.createdAt, upperBound),
+        isNull(orders.bookingFor)
+      )
     )
     .groupBy(monthStartExpr, orders.drinkId, orders.drinkName)
     .having(sql`liters > 0`)

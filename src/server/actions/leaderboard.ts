@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "~/server/db/index";
 import { drinks, orders, users } from "~/server/db/schema";
 
@@ -32,7 +32,8 @@ export async function getLeaderboardLast6Months({
     .where(
       and(
         gte(orders.createdAt, twelveMonthsAgo),
-        lt(orders.createdAt, sixMonthsAgo)
+        lt(orders.createdAt, sixMonthsAgo),
+        isNull(orders.bookingFor)
       )
     )
     .groupBy(orders.userId)
@@ -53,7 +54,7 @@ export async function getLeaderboardLast6Months({
     .leftJoin(drinks, eq(orders.drinkId, drinks.id))
     .leftJoin(users, eq(orders.userId, users.id))
     .leftJoin(prevByUser, eq(prevByUser.userId, orders.userId))
-    .where(gte(orders.createdAt, sixMonthsAgo))
+    .where(and(gte(orders.createdAt, sixMonthsAgo), isNull(orders.bookingFor)))
     .groupBy(orders.userId, orders.userName, users.image)
     .orderBy(
       desc(
@@ -94,6 +95,7 @@ export async function getMonthlyGrowthRate(): Promise<number | null> {
           CASE WHEN ${orders.createdAt} >= ${lastMonthStart}
                  AND ${orders.createdAt} < ${thisMonthStart}
                  AND ${drinks.volume} IS NOT NULL
+                 AND ${orders.bookingFor} IS NULL
                THEN ${orders.amount} * ${drinks.volume}
                ELSE 0
           END
@@ -104,6 +106,7 @@ export async function getMonthlyGrowthRate(): Promise<number | null> {
           CASE WHEN ${orders.createdAt} >= ${prevMonthStart}
                  AND ${orders.createdAt} < ${lastMonthStart}
                  AND ${drinks.volume} IS NOT NULL
+                 AND ${orders.bookingFor} IS NULL
                THEN ${orders.amount} * ${drinks.volume}
                ELSE 0
           END
