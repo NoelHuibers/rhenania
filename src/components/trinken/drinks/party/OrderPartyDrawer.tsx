@@ -55,6 +55,7 @@ export function OrderPartyDrawer({ drink, isOpen, onClose }: OrderDrawerProps) {
           amount: quantity,
           pricePerUnit: drink.price,
           total: drink.price * quantity,
+          bookingFor: "party",
         });
 
         if (orderResult.success) {
