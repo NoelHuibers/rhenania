@@ -1,6 +1,6 @@
 "use server";
 
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
 
@@ -14,6 +14,7 @@ interface OrderWithDetails {
   pricePerUnit: number;
   total: number;
   createdAt: Date;
+  bookingFor: string | null;
 }
 
 interface UserBillingSummary {
@@ -31,24 +32,41 @@ export async function createNewBilling() {
     console.log("Starting billing process...");
 
     const result = await db.transaction(async (tx) => {
-      // 1. Get all orders that haven't been billed yet
+      // 1. Get all orders that haven't been billed yet AND are not for events (bookingFor is null)
       const unbilledOrders = await tx
         .select()
         .from(orders)
-        .where(eq(orders.inBill, false))
+        .where(
+          and(
+            eq(orders.inBill, false),
+            isNull(orders.bookingFor) // Only get personal orders, not event bookings
+          )
+        )
         .orderBy(orders.userId, orders.createdAt);
 
-      if (unbilledOrders.length === 0) {
+      // Also mark event orders as "billed" so they don't show up in future queries
+      const eventOrders = await tx
+        .select()
+        .from(orders)
+        .where(
+          and(eq(orders.inBill, false), sql`${orders.bookingFor} IS NOT NULL`)
+        );
+
+      if (unbilledOrders.length === 0 && eventOrders.length === 0) {
         console.log("No unbilled orders found");
         return {
           success: true,
           message: "Keine unbezahlten Bestellungen gefunden",
           billsCreated: 0,
           totalAmount: 0,
+          eventOrdersProcessed: 0,
         };
       }
 
-      console.log(`Found ${unbilledOrders.length} unbilled orders`);
+      console.log(`Found ${unbilledOrders.length} unbilled personal orders`);
+      console.log(
+        `Found ${eventOrders.length} event orders to mark as processed`
+      );
 
       // 2. Get the next bill number
       const [lastBillPeriod] = await tx
@@ -197,23 +215,29 @@ export async function createNewBilling() {
         })
         .where(eq(billPeriods.id, billPeriodId));
 
-      // 7. Mark all processed orders as billed
-      const orderIds = unbilledOrders.map((order) => order.id);
+      // 7. Mark all processed orders as billed (including event orders)
+      // This includes both personal orders that were billed and event orders
+      const allOrderIds = [
+        ...unbilledOrders.map((order) => order.id),
+        ...eventOrders.map((order) => order.id),
+      ];
 
-      await tx
-        .update(orders)
-        .set({
-          inBill: true,
-          updatedAt: now,
-        })
-        .where(
-          sql`${orders.id} IN (${sql.join(
-            orderIds.map((id) => sql`${id}`),
-            sql`, `
-          )})`
-        );
+      if (allOrderIds.length > 0) {
+        await tx
+          .update(orders)
+          .set({
+            inBill: true,
+            updatedAt: now,
+          })
+          .where(
+            sql`${orders.id} IN (${sql.join(
+              allOrderIds.map((id) => sql`${id}`),
+              sql`, `
+            )})`
+          );
 
-      console.log(`Marked ${orderIds.length} orders as billed`);
+        console.log(`Marked ${allOrderIds.length} orders as processed`);
+      }
 
       return {
         success: true,
@@ -226,6 +250,7 @@ export async function createNewBilling() {
         totalAmount: totalBillingAmount,
         userSummaries: userBillingSummaries,
         createdBillIds: createdBills,
+        eventOrdersProcessed: eventOrders.length,
       };
     });
 
@@ -380,18 +405,51 @@ export async function updateBillStatus(
   }
 }
 
-// Get billing statistics
+// Get billing statistics (updated to include detailed event breakdown)
 export async function getBillingStatistics() {
   try {
     const [unbilledCount] = await db
       .select({ count: sql<number>`count(*)` })
       .from(orders)
-      .where(eq(orders.inBill, false));
+      .where(
+        and(
+          eq(orders.inBill, false),
+          isNull(orders.bookingFor) // Only count personal orders
+        )
+      );
 
     const [unbilledTotal] = await db
       .select({ total: sql<number>`coalesce(sum(${orders.total}), 0)` })
       .from(orders)
-      .where(eq(orders.inBill, false));
+      .where(
+        and(
+          eq(orders.inBill, false),
+          isNull(orders.bookingFor) // Only sum personal orders
+        )
+      );
+
+    // Get detailed event orders grouped by event name
+    const eventOrdersGrouped = await db
+      .select({
+        eventName: orders.bookingFor,
+        count: sql<number>`count(*)`,
+        totalAmount: sql<number>`sum(${orders.total})`,
+        bookedBy: sql<string>`GROUP_CONCAT(DISTINCT ${orders.userName})`,
+      })
+      .from(orders)
+      .where(
+        and(eq(orders.inBill, false), sql`${orders.bookingFor} IS NOT NULL`)
+      )
+      .groupBy(orders.bookingFor);
+
+    // Calculate totals for all event orders
+    const eventOrdersTotals = eventOrdersGrouped.reduce(
+      (acc, event) => ({
+        count: acc.count + Number(event.count),
+        totalAmount: acc.totalAmount + Number(event.totalAmount),
+      }),
+      { count: 0, totalAmount: 0 }
+    );
 
     const [totalPeriods] = await db
       .select({ count: sql<number>`count(*)` })
@@ -407,11 +465,37 @@ export async function getBillingStatistics() {
         count: unbilledCount?.count ?? 0,
         totalAmount: unbilledTotal?.total ?? 0,
       },
+      eventOrders: {
+        count: eventOrdersTotals.count,
+        totalAmount: eventOrdersTotals.totalAmount,
+        events: eventOrdersGrouped.map((event) => ({
+          name: event.eventName || "Unknown Event",
+          orderCount: Number(event.count),
+          totalAmount: Number(event.totalAmount),
+          bookedBy: event.bookedBy?.split(",") || [],
+        })),
+      },
       totalBillPeriods: totalPeriods?.count ?? 0,
       pendingBillsAmount: pendingBillsTotal?.total ?? 0,
     };
   } catch (error) {
     console.error("Error getting billing statistics:", error);
     return null;
+  }
+}
+
+// Get event orders (orders with bookingFor set) - useful for tracking
+export async function getEventOrders() {
+  try {
+    const eventOrders = await db
+      .select()
+      .from(orders)
+      .where(sql`${orders.bookingFor} IS NOT NULL`)
+      .orderBy(desc(orders.createdAt));
+
+    return eventOrders;
+  } catch (error) {
+    console.error("Error getting event orders:", error);
+    return [];
   }
 }
