@@ -94,7 +94,7 @@ export async function StatsOverview() {
         <CardContent>
           <div className="text-2xl font-bold">{totalPlayers}</div>
           <p className="text-xs text-muted-foreground">
-            Active beer pong players
+            Ranked Bierjungen Spieler
           </p>
         </CardContent>
       </Card>

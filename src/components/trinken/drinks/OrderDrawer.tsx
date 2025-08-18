@@ -90,7 +90,7 @@ export function OrderDrawer({
         const opponent = users.find((u) => u.id === opponentId);
         const resultText = won ? "gewonnen! 🎉" : "verloren 😅";
         toast.success(
-          `Beer Pong ${resultText} gegen ${opponent?.name || opponent?.email}!`
+          `Bierjunge ${resultText} gegen ${opponent?.name || opponent?.email}!`
         );
       } else {
         toast.error(
