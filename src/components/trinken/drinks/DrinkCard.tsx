@@ -1,3 +1,4 @@
+// DrinkCard.tsx
 "use client";
 
 import { CheckCircle, Clock } from "lucide-react";

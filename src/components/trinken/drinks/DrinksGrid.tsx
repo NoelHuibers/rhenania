@@ -1,4 +1,4 @@
-// components/drinks/DrinksGrid.tsx
+// DrinksGrid.tsx
 import { type MenuItem } from "~/server/actions/menu";
 import { DrinkCard } from "./DrinkCard";
 

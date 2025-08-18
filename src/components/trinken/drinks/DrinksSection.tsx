@@ -1,4 +1,4 @@
-// components/drinks/DrinksSection.tsx
+// DrinksSection.tsx
 import { CheckCircle, Clock } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { type MenuItem } from "~/server/actions/menu";

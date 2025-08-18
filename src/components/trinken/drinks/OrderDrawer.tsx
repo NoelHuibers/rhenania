@@ -1,4 +1,4 @@
-// components/drinks/OrderDrawer.tsx
+// OrderDrawer.tsx
 "use client";
 
 import { Minus, Plus, ShoppingCart } from "lucide-react";
