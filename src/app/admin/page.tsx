@@ -73,30 +73,6 @@ const DashboardSkeleton = () => (
   </div>
 );
 
-// Error boundary component
-const ErrorFallback = ({ error }: { error: Error }) => (
-  <div className="min-h-screen bg-background p-4">
-    <div className="max-w-7xl mx-auto">
-      <Card className="p-6">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold text-destructive">
-            Fehler beim Laden
-          </h1>
-          <p className="text-muted-foreground">
-            {error.message || "Ein unerwarteter Fehler ist aufgetreten."}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
-            Seite neu laden
-          </button>
-        </div>
-      </Card>
-    </div>
-  </div>
-);
-
 // Main data fetching component
 async function AdminDashboardData() {
   try {

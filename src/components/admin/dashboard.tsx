@@ -71,6 +71,23 @@ const getInitials = (name: string | null) => {
     .substring(0, 2);
 };
 
+const sortRoles = (
+  roles: Array<{ id: string; name: string; description: string | null }>
+) => {
+  return [...roles].sort((a, b) => {
+    // Admin always comes first
+    if (a.name === "Admin") return -1;
+    if (b.name === "Admin") return 1;
+    // Then sort alphabetically
+    return a.name.localeCompare(b.name);
+  });
+};
+
+const truncateText = (text: string, maxLength: number) => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + "...";
+};
+
 function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
   const [users, setUsers] = useState<UserWithRoles[]>(initialUsers);
   const [roles] = useState<Role[]>(initialRoles);
@@ -152,6 +169,30 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
   const handleCloseModal = () => {
     setShowRoleModal(false);
     setSelectedUser(null);
+  };
+
+  const renderUserRoles = (
+    userRoles: UserWithRoles["roles"],
+    maxVisible: number = 3
+  ) => {
+    const sortedRoles = sortRoles(userRoles);
+    const visibleRoles = sortedRoles.slice(0, maxVisible);
+    const hiddenCount = sortedRoles.length - maxVisible;
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        {visibleRoles.map((role) => (
+          <Badge key={role.id} variant={getRoleBadgeVariant(role.name)}>
+            {role.name}
+          </Badge>
+        ))}
+        {hiddenCount > 0 && (
+          <Badge variant="outline" className="text-xs">
+            +{hiddenCount}
+          </Badge>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -251,11 +292,17 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
-                          <h3 className="font-medium truncate">
-                            {user.name || "Unbekannt"}
+                          <h3
+                            className="font-medium truncate sm:max-w-none max-w-60"
+                            title={user.name || "Unbekannt"}
+                          >
+                            {truncateText(user.name || "Unbekannt", 30)}
                           </h3>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {user.email}
+                          <p
+                            className="text-sm text-muted-foreground truncate sm:max-w-none max-w-60"
+                            title={user.email}
+                          >
+                            {truncateText(user.email, 40)}
                           </p>
                         </div>
                       </div>
@@ -277,16 +324,9 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
                       </Button>
                     </div>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4">
                       {user.roles.length > 0 ? (
-                        user.roles.map((role) => (
-                          <Badge
-                            key={role.id}
-                            variant={getRoleBadgeVariant(role.name)}
-                          >
-                            {role.name}
-                          </Badge>
-                        ))
+                        renderUserRoles(user.roles, 3)
                       ) : (
                         <p className="text-xs text-muted-foreground italic">
                           Keine Rollen zugewiesen
