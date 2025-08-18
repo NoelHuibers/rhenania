@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { getAllDrinksForMenu, type MenuItem } from "~/server/actions/menu";
 
-import { DrinksSection } from "./drinks/DrinksSection";
-import { EmptyState } from "./drinks/EmptyState";
-import { LoadingState } from "./drinks/Loadingstate";
-import { MenuFooter } from "./drinks/MenuFooter";
-import { MenuHeader } from "./drinks/MenuHeader";
-import { OrderDrawer } from "./drinks/OrderDrawer";
+import { DrinksSection } from "./DrinksSection";
+import { EmptyState } from "./EmptyState";
+import { LoadingState } from "./Loadingstate";
+import { MenuFooter } from "./MenuFooter";
+import { MenuHeader } from "./MenuHeader";
+import { OrderDrawer } from "./OrderDrawer";
 
 export default function DrinksMenu() {
   const [drinks, setDrinks] = useState<MenuItem[]>([]);
