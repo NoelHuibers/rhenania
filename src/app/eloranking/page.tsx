@@ -3,16 +3,15 @@ import { LeaderboardSection } from "~/components/eloranking/leaderboard-section"
 import { RecentGamesSection } from "~/components/eloranking/recent-games-section";
 import { StatsOverview } from "~/components/eloranking/stats-overview";
 import { SidebarLayout } from "~/components/sidebar/sidebar-layout";
+import { SiteHeader } from "~/components/trinken/SiteHeader";
 
 export default function HomePage() {
   return (
     <SidebarLayout>
       <div className="min-h-screen bg-background">
+        <SiteHeader title="Eloranking" />
         <div className="container mx-auto px-4 py-8">
           <div className="mb-8 text-center">
-            <h1 className="text-4xl font-bold text-foreground mb-2">
-              🍺 Bierjungen ELO Leaderboard
-            </h1>
             <p className="text-muted-foreground text-lg">
               Zeig deine Dominanz an der Tasse!
             </p>
