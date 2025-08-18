@@ -30,13 +30,6 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    roles: string[];
-  }
-}
-
 export const authConfig = {
   providers: [
     MicrosoftEntraID({
@@ -145,8 +138,8 @@ export const authConfig = {
 
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id;
-        session.user.roles = token.roles || [];
+        session.user.id = token.id as string;
+        session.user.roles = (token.roles as string[]) || [];
       }
 
       return session;

@@ -33,8 +33,8 @@ export type UserWithRoles = {
   id: string;
   name: string | null;
   email: string;
-  image: string | null;
   emailVerified: Date | null;
+  image: string | null;
   roles: Array<{
     id: string;
     name: string;

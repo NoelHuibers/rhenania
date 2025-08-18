@@ -11,6 +11,7 @@ export type UserWithRoles = {
   id: string;
   name: string | null;
   email: string;
+  emailVerified: Date | null;
   image: string | null;
   roles: Array<{
     id: string;
@@ -36,6 +37,7 @@ export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
         id: users.id,
         name: users.name,
         email: users.email,
+        emailVerified: users.emailVerified,
         image: users.image,
         roleId: roles.id,
         roleName: roles.name,
@@ -54,6 +56,7 @@ export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
           id: row.id,
           name: row.name,
           email: row.email,
+          emailVerified: row.emailVerified,
           image: row.image,
           roles: [],
         });
