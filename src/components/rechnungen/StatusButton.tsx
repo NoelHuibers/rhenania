@@ -1,5 +1,5 @@
-import type { BillingEntry } from "~/app/rechnung/page";
 import { Button } from "../ui/button";
+import type { BillingEntry } from "./BillingDashboard";
 
 // Generic Status Cycle Component
 export const StatusButton = ({

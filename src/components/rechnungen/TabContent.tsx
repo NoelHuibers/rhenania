@@ -1,7 +1,7 @@
 // Generic Tab Content Component
 
-import type { BillingEntry } from "~/app/rechnung/page";
 import { BillingCard } from "./BillingCard";
+import type { BillingEntry } from "./BillingDashboard";
 import { BillingTable } from "./BillingTable";
 
 interface TabContentProps {
