@@ -72,26 +72,26 @@ export function GameDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-orange-500" />
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <DialogHeader className="space-y-2">
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Target className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" />
             ELO Bierjunge
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             Du hast eine BJ-Bestellung für <strong>{drinkName}</strong> gemacht.
             Wähle deinen Gegner und das Spielergebnis aus.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6 mt-4">
           {/* Opponent Selection */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4" />
+          <div className="space-y-2 sm:space-y-3">
+            <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
+              <Users className="h-3 w-3 sm:h-4 sm:w-4" />
               Wähle deinen Gegner:
             </Label>
-            <div className="max-h-40 overflow-y-auto space-y-2">
+            <div className="max-h-32 sm:max-h-40 overflow-y-auto space-y-1 sm:space-y-2 border rounded-lg p-2">
               <RadioGroup
                 value={selectedOpponent}
                 onValueChange={setSelectedOpponent}
@@ -99,12 +99,16 @@ export function GameDialog({
                 {users.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-muted/50"
+                    className="flex items-center space-x-2 sm:space-x-3 p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 active:bg-muted/70 transition-colors"
                   >
-                    <RadioGroupItem value={user.id} id={user.id} />
-                    <Avatar className="h-8 w-8">
+                    <RadioGroupItem
+                      value={user.id}
+                      id={user.id}
+                      className="h-4 w-4 sm:h-5 sm:w-5"
+                    />
+                    <Avatar className="h-6 w-6 sm:h-8 sm:w-8">
                       <AvatarImage src={user.image || undefined} />
-                      <AvatarFallback className="text-xs">
+                      <AvatarFallback className="text-[10px] sm:text-xs">
                         {(user.name || user.email)
                           .split(" ")
                           .map((n) => n[0])
@@ -114,11 +118,8 @@ export function GameDialog({
                       </AvatarFallback>
                     </Avatar>
                     <Label htmlFor={user.id} className="flex-1 cursor-pointer">
-                      <div className="font-medium">
+                      <div className="font-medium text-sm sm:text-base truncate">
                         {user.name || "Unbekannt"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {user.email}
                       </div>
                     </Label>
                   </div>
@@ -129,42 +130,54 @@ export function GameDialog({
 
           {/* Game Result Selection */}
           {selectedOpponent && (
-            <div className="space-y-3">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Trophy className="h-4 w-4" />
-                Spielergebnis gegen {selectedUser?.name || selectedUser?.email}:
+            <div className="space-y-2 sm:space-y-3">
+              <Label className="text-xs sm:text-sm font-medium flex items-center gap-2">
+                <Trophy className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="truncate">
+                  Spielergebnis gegen{" "}
+                  {selectedUser?.name || selectedUser?.email}:
+                </span>
               </Label>
               <RadioGroup
                 value={gameResult || ""}
                 onValueChange={(value) =>
                   setGameResult(value as "won" | "lost")
                 }
+                className="space-y-2"
               >
-                <div className="flex items-center space-x-2 p-3 rounded-lg border-2 border-green-200 hover:border-green-300">
-                  <RadioGroupItem value="won" id="won" />
+                <div className="flex items-center space-x-2 p-2.5 sm:p-3 rounded-lg border-2 border-green-200 hover:border-green-300 active:border-green-400 transition-colors">
+                  <RadioGroupItem
+                    value="won"
+                    id="won"
+                    className="h-4 w-4 sm:h-5 sm:w-5"
+                  />
                   <Label htmlFor="won" className="flex-1 cursor-pointer">
                     <div className="flex items-center gap-2">
-                      <Trophy className="h-4 w-4 text-green-500" />
-                      <span className="font-medium text-green-700">
+                      <Trophy className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
+                      <span className="font-medium text-green-700 text-sm sm:text-base">
                         Gewonnen! 🎉
                       </span>
                     </div>
-                    <p className="text-xs text-green-600 mt-1">
+                    <p className="text-[10px] sm:text-xs text-green-600 mt-0.5 sm:mt-1">
                       Du hast an der Tasse gewonnen und deine ELO steigt!
                     </p>
                   </Label>
                 </div>
 
-                <div className="flex items-center space-x-2 p-3 rounded-lg border-2 border-red-200 hover:border-red-300">
-                  <RadioGroupItem value="lost" id="lost" />
+                <div className="flex items-center space-x-2 p-2.5 sm:p-3 rounded-lg border-2 border-red-200 hover:border-red-300 active:border-red-400 transition-colors">
+                  <RadioGroupItem
+                    value="lost"
+                    id="lost"
+                    className="h-4 w-4 sm:h-5 sm:w-5"
+                  />
                   <Label htmlFor="lost" className="flex-1 cursor-pointer">
                     <div className="flex items-center gap-2">
-                      <Target className="h-4 w-4 text-red-500" />
-                      <span className="font-medium text-red-700">
+                      <Target className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
+                      <span className="font-medium text-red-700 text-sm sm:text-base">
                         Verloren 😅
                       </span>
                     </div>
-                    <p className="text-xs text-red-600 mt-1">
+                    <p className="text-[10px] sm:text-xs text-red-600 mt-0.5 sm:mt-1">
                       Nächstes Mal geht es schneller!
                     </p>
                   </Label>
@@ -175,33 +188,43 @@ export function GameDialog({
 
           {/* Summary */}
           {selectedOpponent && gameResult && (
-            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
-              <h4 className="font-medium text-sm">Zusammenfassung:</h4>
-              <div className="flex items-center gap-2 text-sm">
+            <div className="bg-muted/30 rounded-lg p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
+              <h4 className="font-medium text-xs sm:text-sm">
+                Zusammenfassung:
+              </h4>
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
                 <Badge
                   variant={gameResult === "won" ? "default" : "destructive"}
+                  className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1"
                 >
                   {gameResult === "won" ? "Sieg" : "Niederlage"}
                 </Badge>
                 <span>gegen</span>
-                <strong>{selectedUser?.name || selectedUser?.email}</strong>
+                <strong className="truncate max-w-[150px] sm:max-w-none">
+                  {selectedUser?.name || selectedUser?.email}
+                </strong>
               </div>
             </div>
           )}
         </div>
 
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={handleClose} disabled={isPending}>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-6">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            disabled={isPending}
+            className="w-full sm:w-auto text-sm sm:text-base py-2 sm:py-2.5"
+          >
             Abbrechen
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={!selectedOpponent || !gameResult || isPending}
-            className={
+            className={`w-full sm:w-auto text-sm sm:text-base py-2 sm:py-2.5 ${
               gameResult === "won"
-                ? "bg-green-500 hover:bg-green-600"
-                : "bg-orange-500 hover:bg-orange-600"
-            }
+                ? "bg-green-500 hover:bg-green-600 active:bg-green-700"
+                : "bg-orange-500 hover:bg-orange-600 active:bg-orange-700"
+            }`}
           >
             {isPending ? "Speichere..." : "Bestätigen"}
           </Button>
