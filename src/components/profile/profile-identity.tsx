@@ -24,7 +24,7 @@ import {
   syncFromMicrosoft,
   updateUserAvatar,
   updateUserName,
-} from "~/server/actions/profile";
+} from "~/server/actions/profile/profile";
 
 interface User {
   id: string;

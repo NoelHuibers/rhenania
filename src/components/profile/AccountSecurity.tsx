@@ -14,7 +14,7 @@ import {
   changePasswordAction,
   disconnectProviderAction,
   getConnectedAccountsAction,
-} from "~/server/actions/auth";
+} from "~/server/actions/profile/auth";
 
 interface ConnectedAccount {
   provider: string;

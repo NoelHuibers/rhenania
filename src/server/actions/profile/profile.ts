@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { auth } from "~/server/auth";
+import { getGraphAccessToken } from "~/server/auth/microsoft-tokens";
 import { db } from "~/server/db";
 import { roles, userRoles, users } from "~/server/db/schema";
 
@@ -223,9 +224,10 @@ export async function syncFromMicrosoft() {
   if (!session?.user?.id) {
     redirect("/auth/signin");
   }
+  const token = await getGraphAccessToken(session.user.id);
 
   // Check if user has access token (logged in via Microsoft)
-  if (!session.accessToken) {
+  if (!token) {
     throw new Error(
       "Microsoft access token not available. Please sign in with Microsoft to sync profile."
     );
@@ -233,10 +235,10 @@ export async function syncFromMicrosoft() {
 
   try {
     // Fetch user profile from Microsoft Graph
-    const graphUser = await fetchUserProfile(session.accessToken);
+    const graphUser = await fetchUserProfile(token);
 
     // Fetch user photo from Microsoft Graph
-    const photoUrl = await fetchUserPhoto(session.accessToken);
+    const photoUrl = await fetchUserPhoto(token);
 
     // Prepare update data
     const updateData: Partial<{
@@ -296,15 +298,17 @@ export async function syncFromMicrosoftExtended() {
     redirect("/auth/signin");
   }
 
-  if (!session.accessToken) {
+  const token = await getGraphAccessToken(session.user.id);
+
+  if (!token) {
     throw new Error(
       "Microsoft access token not available. Please sign in with Microsoft to sync profile."
     );
   }
 
   try {
-    const graphUser = await fetchUserProfile(session.accessToken);
-    const photoUrl = await fetchUserPhoto(session.accessToken);
+    const graphUser = await fetchUserProfile(token);
+    const photoUrl = await fetchUserPhoto(token);
 
     // Update user profile with available data
     const updateData: Partial<{

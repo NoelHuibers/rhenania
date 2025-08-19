@@ -38,18 +38,11 @@ export const authConfig = {
       clientId: env.AZURE_AD_CLIENT_ID!,
       clientSecret: env.AZURE_AD_CLIENT_SECRET!,
       issuer: `https://login.microsoftonline.com/${env.AZURE_AD_TENANT_ID}/v2.0`,
-      // If you want to set emailVerified on *first user creation* too, you can
-      // uncomment the custom profile below. The events handlers (see below) already
-      // take care of first and subsequent sign-ins, so this is optional.
-      // profile(profile) {
-      //   return {
-      //     id: profile.sub ?? profile.oid ?? crypto.randomUUID(),
-      //     name: profile.name,
-      //     email: profile.email ?? profile.preferred_username,
-      //     image: profile.picture,
-      //     emailVerified: new Date(),
-      //   };
-      // },
+      authorization: {
+        params: {
+          scope: ["openid", "profile", "offline_access", "User.Read"].join(" "),
+        },
+      },
     }),
     Credentials({
       id: "credentials",
@@ -184,6 +177,28 @@ export const authConfig = {
           .update(users)
           .set({ emailVerified: new Date() })
           .where(and(eq(users.id, user.id), isNull(users.emailVerified)));
+
+        // Save/refresh tokens in DB
+        await db
+          .update(accounts)
+          .set({
+            access_token: account.access_token ?? null,
+            refresh_token: account.refresh_token ?? null,
+            // `expires_at` is seconds-since-epoch (use what your schema expects)
+            expires_at:
+              (account as any).expires_at ??
+              (account.expires_in
+                ? Math.floor(Date.now() / 1000) + Number(account.expires_in)
+                : null),
+            token_type: (account as any).token_type ?? null,
+            scope: typeof account.scope === "string" ? account.scope : null,
+          })
+          .where(
+            and(
+              eq(accounts.userId, user.id),
+              eq(accounts.provider, "microsoft-entra-id")
+            )
+          );
       }
     },
   },
