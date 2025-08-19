@@ -296,7 +296,7 @@ export function OrderDrawer({
               </div>
               {isBJMode && (
                 <div className="flex justify-between text-sm text-amber-600">
-                  <span>Bierjunge Spiel</span>
+                  <span>Bierjunge</span>
                   <span>Nach Bestellung</span>
                 </div>
               )}
