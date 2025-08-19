@@ -1,7 +1,7 @@
 // config.ts
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import bcrypt from "bcryptjs";
-import { sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
@@ -38,8 +38,18 @@ export const authConfig = {
       clientId: env.AZURE_AD_CLIENT_ID!,
       clientSecret: env.AZURE_AD_CLIENT_SECRET!,
       issuer: `https://login.microsoftonline.com/${env.AZURE_AD_TENANT_ID}/v2.0`,
-      // If you need extra scopes, uncomment below:
-      // authorization: { params: { scope: "openid profile email offline_access" } },
+      // If you want to set emailVerified on *first user creation* too, you can
+      // uncomment the custom profile below. The events handlers (see below) already
+      // take care of first and subsequent sign-ins, so this is optional.
+      // profile(profile) {
+      //   return {
+      //     id: profile.sub ?? profile.oid ?? crypto.randomUUID(),
+      //     name: profile.name,
+      //     email: profile.email ?? profile.preferred_username,
+      //     image: profile.picture,
+      //     emailVerified: new Date(),
+      //   };
+      // },
     }),
     Credentials({
       id: "credentials",
@@ -106,7 +116,7 @@ export const authConfig = {
     signIn: "/auth/signin",
   },
 
-  // 🔒 Use a *tiny* JWT: only keep `sub` (user id). Do NOT stash roles/access tokens here.
+  // Keep JWT minimal to avoid oversized cookies
   callbacks: {
     async signIn({ account }) {
       if (account?.provider === "microsoft-entra-id") return true;
@@ -134,7 +144,7 @@ export const authConfig = {
       if (session.user) {
         session.user.id = (token.sub as string) || session.user.id;
 
-        // Fetch roles from DB at request time (NOT in the JWT)
+        // Fetch roles from DB per request (NOT in the JWT)
         const userRoleRows = await db
           .select({ roleName: roles.name })
           .from(userRoles)
@@ -144,13 +154,7 @@ export const authConfig = {
         session.user.roles = userRoleRows.map((r) => r.roleName);
 
         // If you *must* send a provider access token to the client (not recommended),
-        // read it from the accounts table and assign here:
-        // const [acc] = await db
-        //  .select()
-        //  .from(accounts)
-        //  .where(sql`${accounts.userId} = ${token.sub} AND ${accounts.provider} = 'microsoft-entra-id'`)
-        //  .limit(1);
-        // if (acc?.access_token) session.accessToken = acc.access_token;
+        // read it from the accounts table and assign here.
       }
       return session;
     },
@@ -162,17 +166,38 @@ export const authConfig = {
     },
   },
 
-  // ✅ You said you need JWTs—keep them, but keep them SMALL.
+  // Auto-verify email for Microsoft sign-ins
+  // - linkAccount: runs when a provider is linked the first time
+  // - signIn: runs on every successful sign-in
+  events: {
+    async linkAccount({ user, account }) {
+      if (account?.provider === "microsoft-entra-id" && user.id) {
+        await db
+          .update(users)
+          .set({ emailVerified: new Date() })
+          .where(and(eq(users.id, user.id), isNull(users.emailVerified)));
+      }
+    },
+    async signIn({ user, account }) {
+      if (account?.provider === "microsoft-entra-id" && user.id) {
+        await db
+          .update(users)
+          .set({ emailVerified: new Date() })
+          .where(and(eq(users.id, user.id), isNull(users.emailVerified)));
+      }
+    },
+  },
+
+  // You said you need JWTs—keep them, but keep them *small*
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
   jwt: {
     maxAge: 30 * 24 * 60 * 60,
   },
 
-  // 🚫 Prevent old, bloated cookies from being reused by rotating the cookie name
-  // (After deploying this, clear site cookies in your browser once to drop old chunks)
+  // Rotate cookie name to invalidate old oversized cookies on clients
   cookies: {
     sessionToken: {
       name:
