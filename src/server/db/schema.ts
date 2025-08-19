@@ -1,3 +1,4 @@
+// schema.ts
 import { relations, sql } from "drizzle-orm";
 import {
   foreignKey,

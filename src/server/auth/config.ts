@@ -1,3 +1,4 @@
+// config.ts
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import bcrypt from "bcryptjs";
 import { sql } from "drizzle-orm";
@@ -21,6 +22,7 @@ declare module "next-auth" {
       id: string;
       roles: string[];
     } & DefaultSession["user"];
+    accessToken?: string; // Add this for Graph API access
   }
 
   interface User {
@@ -36,6 +38,12 @@ export const authConfig = {
       clientId: env.AZURE_AD_CLIENT_ID!,
       clientSecret: env.AZURE_AD_CLIENT_SECRET!,
       issuer: `https://login.microsoftonline.com/${env.AZURE_AD_TENANT_ID}/v2.0`,
+      authorization: {
+        params: {
+          scope:
+            "openid profile email User.Read User.ReadBasic.All offline_access",
+        },
+      },
     }),
     Credentials({
       id: "credentials",
@@ -86,7 +94,6 @@ export const authConfig = {
             throw new Error("Invalid email or password");
           }
 
-          // Return user object - this will be available in the jwt callback
           return {
             id: foundUser.id,
             email: foundUser.email,
@@ -95,7 +102,6 @@ export const authConfig = {
           };
         } catch (error) {
           console.error("Authorization error:", error);
-          // Return null to indicate failed authentication
           return null;
         }
       },
@@ -112,18 +118,22 @@ export const authConfig = {
   },
   callbacks: {
     async signIn({ user, account }) {
-      // Allow OAuth and credentials providers
       if (account?.provider === "microsoft-entra-id") return true;
       if (account?.provider === "credentials") return true;
       return true;
     },
 
     async jwt({ token, user, account }) {
-      // Initial sign in
       if (user && account) {
         token.id = user.id!;
 
-        // Load user roles
+        // Store access token for Graph API calls (only for Microsoft provider)
+        if (account.provider === "microsoft-entra-id" && account.access_token) {
+          token.accessToken = account.access_token;
+          token.refreshToken = account.refresh_token;
+        }
+
+        // Get user roles
         const userRoleRows = await db
           .select({ roleName: roles.name })
           .from(userRoles)
@@ -140,21 +150,24 @@ export const authConfig = {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.roles = (token.roles as string[]) || [];
+
+        // Add access token to session for Graph API calls
+        if (token.accessToken) {
+          session.accessToken = token.accessToken as string;
+        }
       }
 
       return session;
     },
 
     async redirect({ url, baseUrl }) {
-      // Allows relative callback URLs
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Allows callback URLs on the same origin
       else if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
     },
   },
   session: {
-    strategy: "jwt", // Changed from "database" to "jwt"
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   jwt: {
