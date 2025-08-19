@@ -137,16 +137,18 @@ export function OrderDrawer({
 
         if (orderResult.success) {
           setLastOrderId(orderResult.orderId);
-          toast.success(
-            `${quantity}x ${drink.name} bestellt (€${(
-              drink.price * quantity
-            ).toFixed(2)}) - Abrechnung: ${selectedBilling}`
-          );
 
           if (isBJMode) {
             setShowGameDialog(true);
           } else {
             handleClose();
+            toast.success(
+              `${quantity}x ${drink.name} bestellt (€${(
+                drink.price * quantity
+              ).toFixed(2)}) - Abrechnung auf ${
+                selectedBilling ? selectedBilling : "eigene Kosten"
+              }`
+            );
           }
         } else {
           toast.error(orderResult.error || "Ein Fehler ist aufgetreten.");
