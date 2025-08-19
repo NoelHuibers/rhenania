@@ -1,4 +1,4 @@
-import { AccountSecurity } from "~/components/profile/account-security";
+import { AccountSecurity } from "~/components/profile/AccountSecurity";
 import { BillingOverview } from "~/components/profile/billing-overview";
 import { GamesElo } from "~/components/profile/games-elo";
 import { ProfileIdentity } from "~/components/profile/profile-identity";

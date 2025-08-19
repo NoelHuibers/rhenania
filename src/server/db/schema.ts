@@ -120,6 +120,39 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
   user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }));
 
+export const authTokens = createTable(
+  "auth_token",
+  (d) => ({
+    id: d
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: d.text({ length: 255 }).notNull(),
+    accessToken: d.text().notNull(),
+    refreshToken: d.text(),
+    expiresAt: d.integer({ mode: "timestamp" }),
+    createdAt: d
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    index("auth_token_user_idx").on(t.userId),
+    index("auth_token_provider_idx").on(t.provider),
+    index("auth_token_user_provider_idx").on(t.userId, t.provider),
+  ]
+);
+
+export const authTokensRelations = relations(authTokens, ({ one }) => ({
+  user: one(users, { fields: [authTokens.userId], references: [users.id] }),
+}));
+
 export const verificationTokens = createTable(
   "verification_token",
   (d) => ({
