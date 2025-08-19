@@ -41,7 +41,8 @@ export function OrderDrawer({
   const [showGameDialog, setShowGameDialog] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
-  const [isBJMode, setIsBJMode] = useState(false); // New state for BJ mode
+  const [isBJMode, setIsBJMode] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState<string | undefined>(undefined);
 
   // Load users when component mounts
   useEffect(() => {
@@ -104,7 +105,7 @@ export function OrderDrawer({
       const gameResult = await createGame({
         player2Id: opponentId,
         won: won,
-        //orderId: lastOrderId,
+        orderId: lastOrderId,
       });
 
       if (gameResult.success) {
@@ -141,6 +142,7 @@ export function OrderDrawer({
         });
 
         if (orderResult.success) {
+          setLastOrderId(orderResult.orderId);
           toast.success(
             `${quantity}x ${drink.name} bestellt (€${(
               drink.price * quantity
