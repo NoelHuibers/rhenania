@@ -81,7 +81,7 @@ export async function createOrder(
   }
 }
 
-export async function getUserOrders(userId?: string) {
+export async function getUserOrders() {
   try {
     const session = await auth();
 
@@ -89,12 +89,10 @@ export async function getUserOrders(userId?: string) {
       throw new Error("User must be authenticated to view orders");
     }
 
-    const targetUserId = userId || session.user.id;
-
     const userOrders = await db
       .select()
       .from(orders)
-      .where(eq(orders.userId, targetUserId))
+      .where(eq(orders.userId, session.user.id))
       .orderBy(orders.createdAt);
 
     return userOrders;
@@ -134,15 +132,5 @@ export async function updateOrderStatus(orderId: string) {
   } catch (error) {
     console.error("Error updating order:", error);
     throw error;
-  }
-}
-
-export async function getCurrentUser() {
-  try {
-    const session = await auth();
-    return session?.user || null;
-  } catch (error) {
-    console.error("Error getting current user:", error);
-    return null;
   }
 }

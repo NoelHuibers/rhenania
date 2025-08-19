@@ -1,5 +1,5 @@
 import { AccountSecurity } from "~/components/profile/AccountSecurity";
-import { BillingOverview } from "~/components/profile/billing-overview";
+import { BillingOverview } from "~/components/profile/BillingOverview";
 import { GamesElo } from "~/components/profile/games-elo";
 import { ProfileIdentity } from "~/components/profile/profile-identity";
 import { RecentOrders } from "~/components/profile/recent-orders";
