@@ -16,6 +16,8 @@ export interface GameRecord {
   id: string;
   player1Id: string;
   player2Id: string;
+  player1Avatar: string | null;
+  player2Avatar: string | null;
   winnerId: string;
   playedAt: Date;
   gameType: string | null;
@@ -301,12 +303,12 @@ export async function getRecentGames(
       recentGames.map(async (game) => {
         const [player1, player2, winner] = await Promise.all([
           db
-            .select({ name: users.name })
+            .select({ name: users.name, avatar: users.image })
             .from(users)
             .where(eq(users.id, game.player1Id))
             .limit(1),
           db
-            .select({ name: users.name })
+            .select({ name: users.name, avatar: users.image })
             .from(users)
             .where(eq(users.id, game.player2Id))
             .limit(1),
@@ -329,6 +331,8 @@ export async function getRecentGames(
           ...game,
           player1Name: player1[0]?.name || null,
           player2Name: player2[0]?.name || null,
+          player1Avatar: player1[0]?.avatar || null,
+          player2Avatar: player2[0]?.avatar || null,
           winnerName: winner[0]?.name || null,
           player1EloBefore: game.player1EloBefore ?? DEFAULT_ELO,
           player2EloBefore: game.player2EloBefore ?? DEFAULT_ELO,
@@ -375,12 +379,12 @@ export async function getUserGames(
       userGames.map(async (game) => {
         const [player1, player2, winner] = await Promise.all([
           db
-            .select({ name: users.name })
+            .select({ name: users.name, avatar: users.image })
             .from(users)
             .where(eq(users.id, game.player1Id))
             .limit(1),
           db
-            .select({ name: users.name })
+            .select({ name: users.name, avatar: users.image })
             .from(users)
             .where(eq(users.id, game.player2Id))
             .limit(1),
@@ -403,6 +407,8 @@ export async function getUserGames(
           ...game,
           player1Name: player1[0]?.name || null,
           player2Name: player2[0]?.name || null,
+          player1Avatar: player1[0]?.avatar || null,
+          player2Avatar: player2[0]?.avatar || null,
           winnerName: winner[0]?.name || null,
           player1EloBefore: game.player1EloBefore ?? DEFAULT_ELO,
           player2EloBefore: game.player2EloBefore ?? DEFAULT_ELO,

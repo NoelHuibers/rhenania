@@ -1,60 +1,39 @@
+"use client";
+
 import { Clock, TrendingDown, TrendingUp } from "lucide-react";
-import { Avatar, AvatarFallback } from "~/components/ui/avatar";
+import { useEffect, useState } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { getRecentGames } from "~/server/actions/game";
+import type { GameRecord } from "~/server/actions/game";
 
-export async function RecentGamesSection() {
-  let recentGames;
-  try {
-    recentGames = await getRecentGames(15);
-  } catch (error) {
-    console.error("Failed to load recent games:", error);
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Recent Games
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center text-muted-foreground py-8">
-            <p>Unable to load recent games.</p>
-            <p className="text-sm mt-2">
-              Please check your database connection.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+interface RecentGamesClientProps {
+  games: GameRecord[];
+}
 
-  if (!recentGames || recentGames.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Recent Games
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center text-muted-foreground py-8">
-            <p>No recent games found.</p>
-            <p className="text-sm mt-2">Play some games to see them here!</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+export function RecentGamesClient({ games }: RecentGamesClientProps) {
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  const formatTimeAgo = (timestamp: Date) => {
-    const now = new Date();
+  useEffect(() => {
+    // Update immediately on mount
+    setCurrentTime(new Date());
+
+    // Update every minute
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const formatTimeAgo = (timestamp: Date | string) => {
+    const gameDate =
+      typeof timestamp === "string" ? new Date(timestamp) : timestamp;
     const diffInMinutes = Math.floor(
-      (now.getTime() - timestamp.getTime()) / (1000 * 60)
+      (currentTime.getTime() - gameDate.getTime()) / (1000 * 60)
     );
 
+    if (diffInMinutes < 1) return "Just now";
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
     return `${Math.floor(diffInMinutes / 1440)}d ago`;
@@ -70,7 +49,7 @@ export async function RecentGamesSection() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {recentGames.map((game) => {
+          {games.map((game) => {
             const player1Won = game.winnerId === game.player1Id;
             const player1EloChange =
               game.player1EloAfter - game.player1EloBefore;
@@ -84,7 +63,7 @@ export async function RecentGamesSection() {
                     {game.gameType}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {formatTimeAgo(new Date(game.playedAt))}
+                    {formatTimeAgo(game.playedAt)}
                   </span>
                 </div>
 
@@ -99,8 +78,15 @@ export async function RecentGamesSection() {
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs">
-                          {game.player1Name?.charAt(0).toUpperCase() || "?"}
+                        <AvatarImage
+                          src={game.player1Avatar || "/placeholder.svg"}
+                          alt={game.player1Name || "Player Avatar"}
+                        />
+                        <AvatarFallback>
+                          {(game.player1Name || "Unknown Player")
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
                         </AvatarFallback>
                       </Avatar>
                       <div>
@@ -148,8 +134,15 @@ export async function RecentGamesSection() {
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs">
-                          {game.player2Name?.charAt(0).toUpperCase() || "?"}
+                        <AvatarImage
+                          src={game.player2Avatar || "/placeholder.svg"}
+                          alt={game.player2Name || "Player Avatar"}
+                        />
+                        <AvatarFallback>
+                          {(game.player2Name || "Unknown Player")
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")}
                         </AvatarFallback>
                       </Avatar>
                       <div>
