@@ -33,6 +33,7 @@ export interface UserGameStats {
   userId: string;
   userName: string | null;
   userEmail: string | null;
+  avatar?: string | null;
   currentElo: number;
   totalGames: number;
   wins: number;
@@ -434,6 +435,7 @@ export async function getLeaderboard(
         wins: userStats.wins,
         losses: userStats.losses,
         peakElo: userStats.peakElo,
+        avatar: users.image,
       })
       .from(userStats)
       .leftJoin(users, eq(userStats.userId, users.id))
@@ -445,6 +447,7 @@ export async function getLeaderboard(
       userId: stats.userId,
       userName: stats.userName,
       userEmail: stats.userEmail,
+      avatar: stats.avatar,
       currentElo: stats.currentElo,
       totalGames: stats.totalGames,
       wins: stats.wins,
