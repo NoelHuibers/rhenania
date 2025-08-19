@@ -79,7 +79,6 @@ export function GameDialog({
           </DialogTitle>
           <DialogDescription className="text-sm">
             Du hast eine BJ-Bestellung für <strong>{drinkName}</strong> gemacht.
-            Wähle deinen Gegner und das Spielergebnis aus.
           </DialogDescription>
         </DialogHeader>
 
