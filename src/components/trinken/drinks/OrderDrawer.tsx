@@ -17,7 +17,7 @@ import {
 } from "~/components/ui/drawer";
 import { cn } from "~/lib/utils"; // Import cn utility for conditional classes
 import { createGame } from "~/server/actions/game";
-import { getAllUsers, type User } from "~/server/actions/getUsers";
+import { getAllUsersExcept, type User } from "~/server/actions/getUsers";
 import type { MenuItem } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
 import type { BillingOption } from "./Billingselector";
@@ -44,12 +44,11 @@ export function OrderDrawer({
   const [isBJMode, setIsBJMode] = useState(false);
   const [lastOrderId, setLastOrderId] = useState<string | undefined>(undefined);
 
-  // Load users when component mounts
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoadingUsers(true);
-        const fetchedUsers = await getAllUsers();
+        const fetchedUsers = await getAllUsersExcept();
         setUsers(fetchedUsers);
       } catch (error) {
         console.error("Error loading users:", error);
@@ -65,7 +64,6 @@ export function OrderDrawer({
   const handleQuantityChange = (value: number) => {
     if (!isNaN(value) && value >= 1) {
       setQuantity(value);
-      // If quantity is not 2, disable BJ mode
       if (value !== 2) {
         setIsBJMode(false);
       }
@@ -75,7 +73,6 @@ export function OrderDrawer({
   const adjustQuantity = (delta: number) => {
     const newQuantity = Math.max(1, quantity + delta);
     setQuantity(newQuantity);
-    // If quantity is not 2, disable BJ mode
     if (newQuantity !== 2) {
       setIsBJMode(false);
     }
@@ -83,7 +80,6 @@ export function OrderDrawer({
 
   const setPresetQuantity = (preset: number) => {
     setQuantity(preset);
-    // If preset is not 2, disable BJ mode
     if (preset !== 2) {
       setIsBJMode(false);
     }
@@ -91,10 +87,8 @@ export function OrderDrawer({
 
   const handleBJClick = () => {
     if (isBJMode) {
-      // If already in BJ mode, toggle it off
       setIsBJMode(false);
     } else {
-      // Activate BJ mode and set quantity to 2
       setQuantity(2);
       setIsBJMode(true);
     }
@@ -149,7 +143,6 @@ export function OrderDrawer({
             ).toFixed(2)}) - Abrechnung: ${selectedBilling}`
           );
 
-          // Check if BJ mode is active (not just quantity = 2)
           if (isBJMode) {
             setShowGameDialog(true);
           } else {

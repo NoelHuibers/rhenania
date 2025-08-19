@@ -3,6 +3,7 @@
 import { ne } from "drizzle-orm";
 import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
+import { auth } from "../auth";
 
 export interface User {
   id: string;
@@ -31,9 +32,11 @@ export async function getAllUsers(): Promise<User[]> {
 }
 
 // Optional: Get users excluding the current user
-export async function getAllUsersExcept(
-  excludeUserId: string
-): Promise<User[]> {
+export async function getAllUsersExcept(): Promise<User[]> {
+  const session = await auth();
+  if (!session) throw new Error("Unauthorized");
+  const excludeUserId = session.user.id;
+
   try {
     const allUsers = await db
       .select({
