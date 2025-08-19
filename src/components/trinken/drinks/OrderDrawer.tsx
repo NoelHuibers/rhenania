@@ -15,6 +15,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "~/components/ui/drawer";
+import { cn } from "~/lib/utils"; // Import cn utility for conditional classes
 import { createGame } from "~/server/actions/game";
 import { getAllUsers, type User } from "~/server/actions/getUsers";
 import type { MenuItem } from "~/server/actions/menu";
@@ -40,6 +41,7 @@ export function OrderDrawer({
   const [showGameDialog, setShowGameDialog] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [isBJMode, setIsBJMode] = useState(false); // New state for BJ mode
 
   // Load users when component mounts
   useEffect(() => {
@@ -62,20 +64,39 @@ export function OrderDrawer({
   const handleQuantityChange = (value: number) => {
     if (!isNaN(value) && value >= 1) {
       setQuantity(value);
+      // If quantity is not 2, disable BJ mode
+      if (value !== 2) {
+        setIsBJMode(false);
+      }
     }
   };
 
   const adjustQuantity = (delta: number) => {
     const newQuantity = Math.max(1, quantity + delta);
     setQuantity(newQuantity);
+    // If quantity is not 2, disable BJ mode
+    if (newQuantity !== 2) {
+      setIsBJMode(false);
+    }
   };
 
   const setPresetQuantity = (preset: number) => {
     setQuantity(preset);
+    // If preset is not 2, disable BJ mode
+    if (preset !== 2) {
+      setIsBJMode(false);
+    }
   };
 
   const handleBJClick = () => {
-    setQuantity(2);
+    if (isBJMode) {
+      // If already in BJ mode, toggle it off
+      setIsBJMode(false);
+    } else {
+      // Activate BJ mode and set quantity to 2
+      setQuantity(2);
+      setIsBJMode(true);
+    }
   };
 
   const handleGameResult = async (opponentId: string, won: boolean) => {
@@ -126,8 +147,8 @@ export function OrderDrawer({
             ).toFixed(2)}) - Abrechnung: ${selectedBilling}`
           );
 
-          // Check if this was a BJ order (quantity = 2) and open game dialog
-          if (quantity === 2) {
+          // Check if BJ mode is active (not just quantity = 2)
+          if (isBJMode) {
             setShowGameDialog(true);
           } else {
             handleClose();
@@ -145,6 +166,7 @@ export function OrderDrawer({
   const handleClose = () => {
     onClose();
     setQuantity(1); // Reset quantity
+    setIsBJMode(false); // Reset BJ mode
     setShowGameDialog(false);
   };
 
@@ -155,10 +177,10 @@ export function OrderDrawer({
   return (
     <>
       <Drawer open={isOpen} onOpenChange={handleClose}>
-        <DrawerContent>
-          <DrawerHeader className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="relative w-24 h-24">
+        <DrawerContent className="max-h-[90vh] flex flex-col">
+          <DrawerHeader className="text-center flex-shrink-0">
+            <div className="flex justify-center mb-2">
+              <div className="relative w-20 h-20">
                 <Image
                   src={drink.picture || "/placeholder.svg"}
                   alt={drink.name}
@@ -167,25 +189,27 @@ export function OrderDrawer({
                 />
               </div>
             </div>
-            <DrawerTitle className="text-xl font-bold">
+            <DrawerTitle className="text-lg font-bold">
               {drink.name}
             </DrawerTitle>
-            <DrawerDescription className="flex items-center justify-center gap-2">
-              <Badge className="bg-green-500 text-white">Verfügbar</Badge>
+            <DrawerDescription className="flex items-center justify-center gap-2 text-sm">
+              <Badge className="bg-green-500 text-white h-5 text-xs">
+                Verfügbar
+              </Badge>
               <span>€{drink.price.toFixed(2)} pro Stück</span>
             </DrawerDescription>
           </DrawerHeader>
 
-          <div className="px-6 space-y-6">
+          <div className="px-6 flex-1 overflow-y-auto space-y-4 pb-2">
             {selectedBilling ? (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-blue-900">
                     Abrechnung:
                   </span>
                   <Badge
                     variant="secondary"
-                    className="bg-blue-100 text-blue-900"
+                    className="bg-blue-100 text-blue-900 h-5 text-xs"
                   >
                     {selectedBilling}
                   </Badge>
@@ -193,8 +217,19 @@ export function OrderDrawer({
               </div>
             ) : null}
 
+            {/* Show BJ Mode indicator if active */}
+            {isBJMode && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
+                <div className="flex items-center justify-center">
+                  <span className="text-sm font-medium text-amber-900">
+                    🍺 Bierjunge Modus aktiv 🍺
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Quantity Controls */}
-            <div className="space-y-4">
+            <div className="space-y-3">
               {/* Manual Input with +/- buttons */}
               <div className="flex items-center justify-center gap-3">
                 <Button
@@ -202,6 +237,7 @@ export function OrderDrawer({
                   size="icon"
                   onClick={() => adjustQuantity(-1)}
                   disabled={quantity <= 1 || isPending}
+                  className="h-9 w-9"
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
@@ -220,6 +256,7 @@ export function OrderDrawer({
                   size="icon"
                   onClick={() => adjustQuantity(1)}
                   disabled={isPending}
+                  className="h-9 w-9"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -228,9 +265,12 @@ export function OrderDrawer({
               {/* Preset Buttons */}
               <div className="flex justify-center gap-3">
                 <Button
-                  variant="secondary"
+                  variant={isBJMode ? "default" : "secondary"}
                   onClick={handleBJClick}
-                  className="px-6"
+                  className={cn(
+                    "px-5 h-9 transition-all",
+                    isBJMode && "bg-amber-500 hover:bg-amber-600 text-white"
+                  )}
                   disabled={isPending || loadingUsers}
                 >
                   🍺BJ🍺
@@ -238,7 +278,7 @@ export function OrderDrawer({
                 <Button
                   variant="secondary"
                   onClick={() => setPresetQuantity(drink.kastengroesse ?? 20)}
-                  className="px-6"
+                  className="px-5 h-9"
                   disabled={isPending}
                 >
                   K
@@ -247,21 +287,27 @@ export function OrderDrawer({
             </div>
 
             {/* Price Summary */}
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+            <div className="bg-muted/50 rounded-lg p-3 space-y-1">
               <div className="flex justify-between text-sm">
                 <span>
                   {quantity}x {drink.name}
                 </span>
                 <span>€{totalPrice.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between font-bold text-lg border-t pt-2">
+              {isBJMode && (
+                <div className="flex justify-between text-sm text-amber-600">
+                  <span>Bierjunge Spiel</span>
+                  <span>Nach Bestellung</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-base border-t pt-1 mt-1">
                 <span>Gesamt</span>
                 <span className="text-primary">€{totalPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>
 
-          <DrawerFooter className="flex flex-row gap-3">
+          <DrawerFooter className="flex flex-row gap-3 flex-shrink-0 pt-3 pb-4">
             <Button
               variant="outline"
               onClick={handleClose}
