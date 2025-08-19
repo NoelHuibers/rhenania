@@ -4,7 +4,6 @@ import { Target, Trophy, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -155,11 +154,12 @@ export function GameDialog({
                     <div className="flex items-center gap-2">
                       <Trophy className="h-3 w-3 sm:h-4 sm:w-4 text-green-500" />
                       <span className="font-medium text-green-700 text-sm sm:text-base">
-                        Gewonnen! 🎉
+                        Gewonnen
                       </span>
                     </div>
                     <p className="text-[10px] sm:text-xs text-green-600 mt-0.5 sm:mt-1">
-                      Du hast an der Tasse gewonnen und deine ELO steigt!
+                      Du hast {selectedUser?.name || selectedUser?.email} an der
+                      Tasse abgezogen!
                     </p>
                   </Label>
                 </div>
@@ -174,7 +174,7 @@ export function GameDialog({
                     <div className="flex items-center gap-2">
                       <Target className="h-3 w-3 sm:h-4 sm:w-4 text-red-500" />
                       <span className="font-medium text-red-700 text-sm sm:text-base">
-                        Verloren 😅
+                        Niederlage
                       </span>
                     </div>
                     <p className="text-[10px] sm:text-xs text-red-600 mt-0.5 sm:mt-1">
@@ -183,27 +183,6 @@ export function GameDialog({
                   </Label>
                 </div>
               </RadioGroup>
-            </div>
-          )}
-
-          {/* Summary */}
-          {selectedOpponent && gameResult && (
-            <div className="bg-muted/30 rounded-lg p-2.5 sm:p-3 space-y-1.5 sm:space-y-2">
-              <h4 className="font-medium text-xs sm:text-sm">
-                Zusammenfassung:
-              </h4>
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm">
-                <Badge
-                  variant={gameResult === "won" ? "default" : "destructive"}
-                  className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 sm:py-1"
-                >
-                  {gameResult === "won" ? "Sieg" : "Niederlage"}
-                </Badge>
-                <span>gegen</span>
-                <strong className="truncate max-w-[150px] sm:max-w-none">
-                  {selectedUser?.name || selectedUser?.email}
-                </strong>
-              </div>
             </div>
           )}
         </div>
