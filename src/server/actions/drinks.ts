@@ -61,7 +61,6 @@ export type UpdateDrinkInput = z.infer<typeof updateDrinkSchema>;
 // Type for database drinks
 export type Drink = typeof drinks.$inferSelect;
 
-// Modified to accept data object instead of FormData
 export async function addDrink(data: {
   name: string;
   price: number;

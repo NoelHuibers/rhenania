@@ -306,15 +306,6 @@ export const billItems = createTable(
   ]
 );
 
-export const billPeriodsRelations = {
-  bills: {
-    relation: "one-to-many",
-    target: bills,
-    fields: [billPeriods.id],
-    references: [bills.billPeriodId],
-  },
-};
-
 export const billsRelations = {
   billPeriod: {
     relation: "many-to-one",
@@ -394,3 +385,57 @@ export const userStats = createTable("user_stat", (d) => ({
     .notNull()
     .$defaultFn(() => new Date()),
 }));
+
+export const billCSVs = createTable(
+  "bill_csv",
+  (bc) => ({
+    id: bc
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    billPeriodId: bc.text({ length: 255 }).notNull(),
+    blobUrl: bc.text().notNull(), // Vercel Blob URL
+    fileName: bc.text({ length: 255 }).notNull(),
+    delimiter: bc.text({ length: 10 }).notNull().default("\t"),
+    fileSize: bc.integer(), // Size in bytes
+    createdAt: bc
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    index("bill_csv_period_idx").on(t.billPeriodId),
+    index("bill_csv_created_idx").on(t.createdAt),
+    foreignKey({
+      columns: [t.billPeriodId],
+      foreignColumns: [billPeriods.id],
+      name: "bill_csv_period_fk",
+    }).onDelete("cascade"),
+  ]
+);
+
+// Add relations for the billCSVs table
+export const billCSVsRelations = {
+  billPeriod: {
+    relation: "many-to-one",
+    target: billPeriods,
+    fields: [billCSVs.billPeriodId],
+    references: [billPeriods.id],
+  },
+};
+
+export const billPeriodsRelations = {
+  bills: {
+    relation: "one-to-many",
+    target: bills,
+    fields: [billPeriods.id],
+    references: [bills.billPeriodId],
+  },
+  csvs: {
+    relation: "one-to-many",
+    target: billCSVs,
+    fields: [billPeriods.id],
+    references: [billCSVs.billPeriodId],
+  },
+};

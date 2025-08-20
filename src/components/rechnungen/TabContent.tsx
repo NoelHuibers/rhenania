@@ -16,6 +16,7 @@ interface TabContentProps {
   onStatusChange?: (entryId: string, newStatus: BillingEntry["status"]) => void;
   detailsComponent?: React.ComponentType<{ entry: BillingEntry }>;
   canEditStatus?: boolean;
+  billPeriodId?: string;
 }
 
 export const TabContent = ({
@@ -30,11 +31,13 @@ export const TabContent = ({
   onStatusChange,
   detailsComponent,
   canEditStatus,
+  billPeriodId,
 }: TabContentProps) => (
   <BillingCard
     title={cardTitle}
     description={cardDescription}
     headerDate={headerDate}
+    billPeriodId={billPeriodId}
   >
     <BillingTable
       entries={entries}

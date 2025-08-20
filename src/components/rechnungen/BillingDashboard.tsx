@@ -432,6 +432,9 @@ export default function BillingDashboard() {
                 hasRequiredRole() ? handleStatusChange : undefined
               }
               canEditStatus={hasRequiredRole()}
+              billPeriodId={
+                allBillPeriods[0]?.id ? allBillPeriods[0].id : undefined
+              }
             />
           </TabsContent>
 
@@ -463,6 +466,9 @@ export default function BillingDashboard() {
                 hasRequiredRole() ? handleStatusChange : undefined
               }
               canEditStatus={hasRequiredRole()}
+              billPeriodId={
+                allBillPeriods[1]?.id ? allBillPeriods[1].id : undefined
+              }
             />
           </TabsContent>
 
@@ -499,6 +505,7 @@ export default function BillingDashboard() {
                       hasRequiredRole() ? handleStatusChange : undefined
                     }
                     canEditStatus={hasRequiredRole()}
+                    billPeriodId={period.id}
                   />
                 );
               })}
