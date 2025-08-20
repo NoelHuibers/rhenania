@@ -23,6 +23,11 @@ interface BillWithItems {
   }>;
 }
 
+interface DrinkInfo {
+  name: string;
+  price: number;
+}
+
 interface CSVGenerationResult {
   success: boolean;
   csvContent?: string;
@@ -65,15 +70,20 @@ export async function generateBillPeriodCSV(
       };
     }
 
-    // 2. Get all available drinks from the database to use as columns
+    // 2. Get all available drinks from the database with their prices
     const allDrinks = await db
       .select({
         name: drinks.name,
+        price: drinks.price,
       })
       .from(drinks)
       .orderBy(drinks.name);
 
     const drinkColumns = allDrinks.map((d) => d.name);
+    const drinkPrices: Record<string, number> = {};
+    allDrinks.forEach((d) => {
+      drinkPrices[d.name] = d.price;
+    });
 
     // Optionally filter out event bills
     const whereConditions = and(
@@ -125,6 +135,7 @@ export async function generateBillPeriodCSV(
     const csvContent = generateCSVContent(
       billsWithItems,
       drinkColumns,
+      drinkPrices,
       billPeriod.billNumber,
       {
         paypalBaseUrl,
@@ -179,6 +190,7 @@ function escapeCSVField(value: string, delimiter: string): string {
 function generateCSVContent(
   bills: BillWithItems[],
   drinkColumns: string[],
+  drinkPrices: Record<string, number>,
   billNumber: number,
   options: {
     paypalBaseUrl: string;
@@ -206,17 +218,27 @@ function generateCSVContent(
     escapeCSVField(header, delimiter)
   );
 
+  // Track total quantities for each drink
+  const totalQuantities: Record<string, number> = {};
+  drinkColumns.forEach((drink) => {
+    totalQuantities[drink] = 0;
+  });
+
   // Process each bill into a CSV row
   const rows: string[][] = bills.map((bill) => {
-    // Create a map of drink totals for this bill
-    const drinkTotals: Record<string, number> = {};
+    // Create a map of drink quantities for this bill
+    const drinkQuantities: Record<string, number> = {};
 
-    // Aggregate drinks from bill items
+    // Aggregate quantities from bill items
     bill.items.forEach((item) => {
-      if (drinkTotals[item.drinkName]) {
-        drinkTotals[item.drinkName]! += item.totalPricePerDrink;
+      if (drinkQuantities[item.drinkName]) {
+        drinkQuantities[item.drinkName]! += item.amount;
       } else {
-        drinkTotals[item.drinkName] = item.totalPricePerDrink;
+        drinkQuantities[item.drinkName] = item.amount;
+      }
+      // Update total quantities
+      if (totalQuantities[item.drinkName] !== undefined) {
+        totalQuantities[item.drinkName]! += item.amount;
       }
     });
 
@@ -225,10 +247,10 @@ function generateCSVContent(
       escapeCSVField(bill.userName, delimiter), // Name
     ];
 
-    // Add drink columns (in the exact order as in the database)
+    // Add drink columns (showing QUANTITIES, not prices)
     drinkColumns.forEach((drinkName) => {
-      const amount = drinkTotals[drinkName] || 0;
-      row.push(escapeCSVField(formatCurrency(amount), delimiter));
+      const quantity = drinkQuantities[drinkName] || 0;
+      row.push(escapeCSVField(quantity.toString(), delimiter));
     });
 
     // Calculate Mahnfaktor (late fee percentage)
@@ -236,7 +258,7 @@ function generateCSVContent(
       bill.drinksTotal > 0 ? (bill.fees / bill.drinksTotal) * 100 : 0;
 
     // Add billing summary columns
-    row.push(escapeCSVField(formatCurrency(bill.drinksTotal), delimiter)); // Rechnungsbetrag
+    row.push(escapeCSVField(formatCurrency(bill.drinksTotal), delimiter)); // Rechnungsbetrag (total cost)
     row.push(escapeCSVField(formatCurrency(bill.oldBillingAmount), delimiter)); // Alte Rechnung
     row.push(escapeCSVField(formatCurrency(bill.fees), delimiter)); // Mahnung
     row.push(escapeCSVField(formatCurrency(bill.total), delimiter)); // Zu zahlender Betrag
@@ -257,8 +279,21 @@ function generateCSVContent(
     return row;
   });
 
-  // Add summary row at the bottom
-  const totalRow = createSummaryRow(bills, drinkColumns, delimiter);
+  // Add empty row
+  const emptyRow = new Array(headers.length).fill("");
+  rows.push(emptyRow);
+
+  // Add price per unit row
+  const priceRow = createPriceRow(drinkColumns, drinkPrices, delimiter);
+  rows.push(priceRow);
+
+  // Add total quantities row
+  const totalRow = createTotalRow(
+    bills,
+    drinkColumns,
+    totalQuantities,
+    delimiter
+  );
   rows.push(totalRow);
 
   // Convert to CSV format
@@ -271,27 +306,52 @@ function generateCSVContent(
 }
 
 /**
- * Creates the summary row with totals
+ * Creates the price per unit row
  */
-function createSummaryRow(
+function createPriceRow(
+  drinkColumns: string[],
+  drinkPrices: Record<string, number>,
+  delimiter: string
+): string[] {
+  const priceRow: string[] = [escapeCSVField("Preis/Einheit", delimiter)];
+
+  // Add price for each drink column
+  drinkColumns.forEach((drinkName) => {
+    const price = drinkPrices[drinkName] || 0;
+    priceRow.push(escapeCSVField(formatCurrency(price), delimiter));
+  });
+
+  // Fill remaining columns with empty values
+  priceRow.push(escapeCSVField("", delimiter)); // Rechnungsbetrag
+  priceRow.push(escapeCSVField("", delimiter)); // Alte Rechnung
+  priceRow.push(escapeCSVField("", delimiter)); // Mahnung
+  priceRow.push(escapeCSVField("", delimiter)); // Zu zahlender Betrag
+  priceRow.push(escapeCSVField("", delimiter)); // nix
+  priceRow.push(escapeCSVField("", delimiter)); // Mahnfaktor
+  priceRow.push(escapeCSVField("", delimiter)); // PayPal Link
+  priceRow.push(escapeCSVField("", delimiter)); // Bezahlt status
+
+  return priceRow;
+}
+
+/**
+ * Creates the total quantities row
+ */
+function createTotalRow(
   bills: BillWithItems[],
   drinkColumns: string[],
+  totalQuantities: Record<string, number>,
   delimiter: string
 ): string[] {
   const totalRow: string[] = [escapeCSVField("GESAMT", delimiter)];
 
-  // Calculate totals for each drink column
+  // Add total quantities for each drink column
   drinkColumns.forEach((drinkName) => {
-    const total = bills.reduce((sum, bill) => {
-      const drinkTotal = bill.items
-        .filter((item) => item.drinkName === drinkName)
-        .reduce((drinkSum, item) => drinkSum + item.totalPricePerDrink, 0);
-      return sum + drinkTotal;
-    }, 0);
-    totalRow.push(escapeCSVField(formatCurrency(total), delimiter));
+    const totalQuantity = totalQuantities[drinkName] || 0;
+    totalRow.push(escapeCSVField(totalQuantity.toString(), delimiter));
   });
 
-  // Add summary totals
+  // Add summary totals for financial columns
   const totalDrinks = bills.reduce((sum, bill) => sum + bill.drinksTotal, 0);
   const totalOldBilling = bills.reduce(
     (sum, bill) => sum + bill.oldBillingAmount,
