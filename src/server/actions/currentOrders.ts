@@ -1,9 +1,10 @@
+// currentOrders.ts
 "use server";
+
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import { orders } from "~/server/db/schema";
 
-// Types matching your component
 interface DrinkItem {
   id: string;
   name: string;
@@ -35,7 +36,7 @@ export async function getCurrentOrders(): Promise<BillingEntry[]> {
 
     // Group personal orders by userId and userName
     const groupedOrders = personalOrders.reduce((acc, order) => {
-      const key = `${order.userId}-${order.userName}`;
+      const key = `${order.userId}`;
 
       if (!acc[key]) {
         acc[key] = {

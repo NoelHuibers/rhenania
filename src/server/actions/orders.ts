@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth"; // Import your NextAuth auth function
 import { db } from "~/server/db";
 import { orders } from "~/server/db/schema";
+import { getUserName } from "./getUserName";
 
 export interface CreateOrderRequest {
   drinkId: string;
@@ -34,7 +35,16 @@ export async function createOrder(
     }
 
     const userId = session.user.id;
-    const userName = session.user.name || session.user.email || "Unknown User";
+    const userNameResult = await getUserName();
+
+    if (!userNameResult || typeof userNameResult !== "string") {
+      return {
+        success: false,
+        error: "Failed to retrieve user name",
+      };
+    }
+
+    const userName = userNameResult;
 
     if (orderData.amount <= 0) {
       return {
