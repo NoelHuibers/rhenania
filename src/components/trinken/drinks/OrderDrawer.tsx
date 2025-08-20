@@ -16,8 +16,8 @@ import {
   DrawerTitle,
 } from "~/components/ui/drawer";
 import { cn } from "~/lib/utils"; // Import cn utility for conditional classes
-import { createGame } from "~/server/actions/game";
-import { getAllUsersExcept, type User } from "~/server/actions/getUsers";
+import { createGame } from "~/server/actions/game/game";
+import { getAllUsersExcept, type User } from "~/server/actions/game/getUsers";
 import type { MenuItem } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
 import type { BillingOption } from "./Billingselector";

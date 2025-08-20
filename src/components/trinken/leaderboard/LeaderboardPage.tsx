@@ -1,11 +1,11 @@
 import { ConsumptionLineChart } from "~/components/trinken/leaderboard/ConsumptionChart";
 import Leaderboard from "~/components/trinken/leaderboard/Leaderboard";
 import MetricsCards from "~/components/trinken/leaderboard/MetricsCards";
-import { getConsumptionLast6MonthsByDrink } from "~/server/actions/consumption";
+import { getConsumptionLast6MonthsByDrink } from "~/server/actions/leaderboard/consumption";
 import {
   getLeaderboardLast6Months,
   getMonthlyGrowthRate,
-} from "~/server/actions/leaderboard";
+} from "~/server/actions/leaderboard/leaderboard";
 import { SiteHeader } from "../SiteHeader";
 
 export default async function LeaderboardPage() {

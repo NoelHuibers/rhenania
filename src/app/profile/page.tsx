@@ -1,8 +1,8 @@
 import { AccountSecurity } from "~/components/profile/AccountSecurity";
 import { BillingOverview } from "~/components/profile/BillingOverview";
-import { GamesElo } from "~/components/profile/games-elo";
-import { ProfileIdentity } from "~/components/profile/profile-identity";
-import { RecentOrders } from "~/components/profile/recent-orders";
+import { ProfileIdentity } from "~/components/profile/ProfileCard";
+import { RecentOrders } from "~/components/profile/RecentOrders";
+import { GamesElo } from "~/components/profile/UserElo";
 import { SidebarLayout } from "~/components/sidebar/sidebar-layout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 

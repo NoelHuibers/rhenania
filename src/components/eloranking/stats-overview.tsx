@@ -1,6 +1,6 @@
 import { GamepadIcon, TrendingUp, Trophy, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { getLeaderboard, getRecentGames } from "~/server/actions/game";
+import { getLeaderboard, getRecentGames } from "~/server/actions/game/game";
 
 export async function StatsOverview() {
   let leaderboard, recentGames;

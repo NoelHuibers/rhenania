@@ -3,8 +3,8 @@
 import { Loader2, Mail, Search, Shield, UserPlus, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { toggleUserRole } from "../../server/actions/admin";
-import { createUser } from "../../server/actions/users";
+import { toggleUserRole } from "../../server/actions/admin/admin";
+import { createUser } from "../../server/actions/newuser/users";
 import { SiteHeader } from "../trinken/SiteHeader";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";

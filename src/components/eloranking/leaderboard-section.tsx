@@ -1,7 +1,7 @@
 import { Target, TrendingUp, Trophy } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { getLeaderboard } from "~/server/actions/game";
+import { getLeaderboard } from "~/server/actions/game/game";
 
 export async function LeaderboardSection() {
   let leaderboard;

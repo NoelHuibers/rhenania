@@ -3,7 +3,7 @@
 import { ne } from "drizzle-orm";
 import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
-import { auth } from "../auth";
+import { auth } from "../../auth";
 
 export interface User {
   id: string;
@@ -12,26 +12,7 @@ export interface User {
   image: string | null;
 }
 
-export async function getAllUsers(): Promise<User[]> {
-  try {
-    const allUsers = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        image: users.image,
-      })
-      .from(users)
-      .orderBy(users.name, users.email);
-
-    return allUsers;
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    throw new Error("Failed to fetch users");
-  }
-}
-
-// Optional: Get users excluding the current user
+// Get users excluding the current user
 export async function getAllUsersExcept(): Promise<User[]> {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");

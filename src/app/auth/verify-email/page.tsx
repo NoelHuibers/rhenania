@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import VerifyEmailPage from "~/components/auth/VerifyEmail";
-import { verifyEmailAndSetPassword } from "~/server/actions/verifyEmail";
+import { verifyEmailAndSetPassword } from "~/server/actions/newuser/verifyEmail";
 
 export default function Page() {
   return (

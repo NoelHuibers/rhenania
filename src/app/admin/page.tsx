@@ -8,7 +8,7 @@ import {
   getRolesWithUserCount,
   getUsersWithRoles,
   initializeRoles,
-} from "~/server/actions/admin";
+} from "~/server/actions/admin/admin";
 
 // Loading component for the dashboard
 const DashboardSkeleton = () => (

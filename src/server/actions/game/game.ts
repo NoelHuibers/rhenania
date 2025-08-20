@@ -4,7 +4,7 @@ import { desc, eq, gt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { games, userStats, users } from "~/server/db/schema";
-import { auth } from "../auth";
+import { auth } from "../../auth";
 
 export interface GameResult {
   player2Id: string;
