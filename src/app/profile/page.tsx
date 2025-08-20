@@ -1,8 +1,8 @@
 import { AccountSecurity } from "~/components/profile/AccountSecurity";
 import { BillingOverview } from "~/components/profile/BillingOverview";
+import GamesEloContainerDetailed from "~/components/profile/GamesEloContainer";
 import { ProfileIdentity } from "~/components/profile/ProfileCard";
 import { RecentOrders } from "~/components/profile/RecentOrders";
-import { GamesElo } from "~/components/profile/UserElo";
 import { SidebarLayout } from "~/components/sidebar/sidebar-layout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 
@@ -20,7 +20,7 @@ export default function ProfilePage() {
             <div className="lg:col-span-2 space-y-6">
               <BillingOverview />
               <RecentOrders />
-              <GamesElo />
+              <GamesEloContainerDetailed />
             </div>
           </div>
         </div>

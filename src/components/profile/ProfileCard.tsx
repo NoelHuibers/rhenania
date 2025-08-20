@@ -177,9 +177,6 @@ export function ProfileIdentity() {
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle>Identity & Roles</CardTitle>
-        </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col items-center space-y-4">
             <div className="h-24 w-24 bg-muted rounded-full animate-pulse" />
@@ -205,7 +202,7 @@ export function ProfileIdentity() {
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground">
-            Failed to load profile data
+            Laden des Profils fehlgeschlagen.
           </p>
         </CardContent>
       </Card>
@@ -214,9 +211,6 @@ export function ProfileIdentity() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Identity & Roles</CardTitle>
-      </CardHeader>
       <CardContent className="space-y-6">
         {/* Avatar and basic info */}
         <div className="flex flex-col items-center space-y-4">
@@ -241,7 +235,7 @@ export function ProfileIdentity() {
                 </Badge>
               ))
             ) : (
-              <Badge variant="outline">No Roles</Badge>
+              <Badge variant="outline">Keine Rollen</Badge>
             )}
           </div>
         </div>
@@ -256,21 +250,21 @@ export function ProfileIdentity() {
                 disabled={isPending}
               >
                 <Edit className="mr-2 h-4 w-4" />
-                Edit Name
+                Name Bearbeiten
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Edit Name</DialogTitle>
+                <DialogTitle>Name Bearbeiten</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name">Vollständiger Name</Label>
                   <Input
                     id="name"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Enter your full name"
+                    placeholder="Geben Sie Ihren vollständigen Namen ein"
                     maxLength={255}
                   />
                 </div>
@@ -279,7 +273,7 @@ export function ProfileIdentity() {
                   className="w-full"
                   disabled={isPending || !newName.trim()}
                 >
-                  {isPending ? "Saving..." : "Save Changes"}
+                  {isPending ? "Speichern..." : "Änderungen speichern"}
                 </Button>
               </div>
             </DialogContent>
@@ -293,17 +287,17 @@ export function ProfileIdentity() {
                 disabled={isPending}
               >
                 <Camera className="mr-2 h-4 w-4" />
-                Change Picture
+                Bild ändern
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Change Profile Picture</DialogTitle>
+                <DialogTitle>Profilbild ändern</DialogTitle>
               </DialogHeader>
               <Tabs defaultValue="url">
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="upload">Upload</TabsTrigger>
-                  <TabsTrigger value="url">From URL</TabsTrigger>
+                  <TabsTrigger value="url">URL</TabsTrigger>
                 </TabsList>
                 <TabsContent value="upload" className="space-y-4">
                   <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
@@ -339,7 +333,7 @@ export function ProfileIdentity() {
                     className="w-full"
                     disabled={isPending || !newAvatarUrl.trim()}
                   >
-                    {isPending ? "Saving..." : "Save Picture"}
+                    {isPending ? "Speichert..." : "Bild speichern"}
                   </Button>
                 </TabsContent>
               </Tabs>
@@ -353,7 +347,7 @@ export function ProfileIdentity() {
             disabled={isPending}
           >
             <Sync className="mr-2 h-4 w-4" />
-            {isPending ? "Syncing..." : "Sync from Microsoft"}
+            {isPending ? "Synchronisiere..." : "Microsoft Sync"}
           </Button>
 
           <Button
@@ -363,7 +357,7 @@ export function ProfileIdentity() {
             disabled={isPending}
           >
             <RefreshCw className="mr-2 h-4 w-4" />
-            {isPending ? "Refreshing..." : "Refresh Profile"}
+            {isPending ? "Aktualisiere..." : "Aktualisieren"}
           </Button>
         </div>
       </CardContent>
