@@ -35,7 +35,7 @@ export function AccountSecurity() {
   >([]);
   const [hasLocalPassword, setHasLocalPassword] = useState(false);
 
-  // Check user's connected accounts on component mount
+  // Verbundene Konten beim Mount prüfen
   useEffect(() => {
     const fetchConnectedAccounts = async () => {
       if (!session?.user?.id) return;
@@ -59,10 +59,12 @@ export function AccountSecurity() {
           setConnectedAccounts(accounts);
           setHasLocalPassword(result.data.hasPassword);
         } else {
-          toast.error(result.error || "Failed to fetch connected accounts");
+          toast.error(
+            result.error || "Verbundene Konten konnten nicht geladen werden"
+          );
         }
       } catch (error) {
-        toast.error("Failed to fetch connected accounts");
+        toast.error("Verbundene Konten konnten nicht geladen werden");
       }
     };
 
@@ -78,7 +80,7 @@ export function AccountSecurity() {
     startTransition(async () => {
       try {
         if (account.connected) {
-          // Disconnect provider
+          // Anbieter trennen
           const result = await disconnectProviderAction(
             providerName.toLowerCase()
           );
@@ -92,23 +94,23 @@ export function AccountSecurity() {
               )
             );
 
-            toast.success(`${providerName} disconnected`, {
-              description: `Your ${providerName} account has been disconnected.`,
+            toast.success(`${providerName} getrennt`, {
+              description: `Dein ${providerName}-Konto wurde getrennt.`,
             });
           } else {
-            toast.error("Failed to disconnect", {
-              description: result.error || "Failed to disconnect account",
+            toast.error("Trennen fehlgeschlagen", {
+              description: result.error || "Konto konnte nicht getrennt werden",
             });
           }
         } else {
-          // Redirect to connect provider
+          // Zu Anbieter-Login weiterleiten
           window.location.href = `/api/auth/signin/microsoft-entra-id?callbackUrl=${encodeURIComponent(
             window.location.pathname
           )}`;
         }
       } catch (error) {
-        toast.error("Error", {
-          description: "Failed to update account connection",
+        toast.error("Fehler", {
+          description: "Kontoverknüpfung konnte nicht aktualisiert werden",
         });
       }
     });
@@ -116,15 +118,15 @@ export function AccountSecurity() {
 
   const handlePasswordChange = () => {
     if (newPassword !== confirmPassword) {
-      toast.error("Password mismatch", {
-        description: "New password and confirmation don't match.",
+      toast.error("Passwörter stimmen nicht überein", {
+        description: "Neues Passwort und Bestätigung stimmen nicht überein.",
       });
       return;
     }
 
     if (newPassword.length < 8) {
-      toast.error("Password too short", {
-        description: "Password must be at least 8 characters long.",
+      toast.error("Passwort zu kurz", {
+        description: "Das Passwort muss mindestens 8 Zeichen lang sein.",
       });
       return;
     }
@@ -137,18 +139,18 @@ export function AccountSecurity() {
         });
 
         if (result.success) {
-          toast.success("Password updated", {
-            description: "Your password has been successfully changed.",
+          toast.success("Passwort aktualisiert", {
+            description: "Dein Passwort wurde erfolgreich geändert.",
           });
 
           setCurrentPassword("");
           setNewPassword("");
           setConfirmPassword("");
 
-          // Update hasLocalPassword state if this was setting password for first time
+          // Falls erstmals ein Passwort gesetzt wurde
           if (!hasLocalPassword) {
             setHasLocalPassword(true);
-            // Refresh connected accounts to update canDisconnect status
+            // Verknüpfte Konten neu laden, um canDisconnect zu aktualisieren
             const accountsResult = await getConnectedAccountsAction();
             if (accountsResult.success && accountsResult.data) {
               setConnectedAccounts((prev) =>
@@ -162,13 +164,14 @@ export function AccountSecurity() {
             }
           }
         } else {
-          toast.error("Failed to update password", {
-            description: result.error || "Failed to change password",
+          toast.error("Aktualisierung des Passworts fehlgeschlagen", {
+            description:
+              result.error || "Passwort konnte nicht geändert werden",
           });
         }
       } catch (error) {
-        toast.error("Error", {
-          description: "Failed to change password",
+        toast.error("Fehler", {
+          description: "Passwort konnte nicht geändert werden",
         });
       }
     });
@@ -183,13 +186,13 @@ export function AccountSecurity() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5" />
-          Account & Security
+          Konto & Sicherheit
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Connected Providers */}
+        {/* Verknüpfte Anbieter */}
         <div>
-          <h3 className="text-lg font-semibold mb-4">Connected Accounts</h3>
+          <h3 className="text-lg font-semibold mb-4">Verknüpfte Konten</h3>
           <div className="space-y-3">
             {connectedAccounts.map((account) => (
               <div
@@ -203,7 +206,7 @@ export function AccountSecurity() {
                     <Badge
                       variant={account.connected ? "default" : "secondary"}
                     >
-                      {account.connected ? "Connected" : "Not connected"}
+                      {account.connected ? "Verbunden" : "Nicht verbunden"}
                     </Badge>
                   </div>
                 </div>
@@ -218,12 +221,12 @@ export function AccountSecurity() {
                   {account.connected ? (
                     <>
                       <Unlink className="mr-2 h-4 w-4" />
-                      Disconnect
+                      Trennen
                     </>
                   ) : (
                     <>
                       <Link className="mr-2 h-4 w-4" />
-                      Connect
+                      Verbinden
                     </>
                   )}
                 </Button>
@@ -233,28 +236,29 @@ export function AccountSecurity() {
 
           {microsoftAccount?.connected && !microsoftAccount.canDisconnect && (
             <p className="text-sm text-muted-foreground mt-2">
-              You cannot disconnect your Microsoft account as it's your only
-              login method. Set up a password first to enable disconnection.
+              Du kannst dein Microsoft-Konto nicht trennen, da es deine einzige
+              Anmeldemethode ist. Richte zuerst ein Passwort ein, um das Trennen
+              zu ermöglichen.
             </p>
           )}
         </div>
 
         <Separator />
 
-        {/* Change Password */}
+        {/* Passwort ändern/festlegen */}
         <div>
           <h3 className="text-lg font-semibold mb-4">
-            {hasLocalPassword ? "Change Password" : "Set Password"}
+            {hasLocalPassword ? "Passwort ändern" : "Passwort festlegen"}
           </h3>
           <p className="text-sm text-muted-foreground mb-4">
             {hasLocalPassword
-              ? "Update your current password"
-              : "Set a password to enable email/password login and account recovery"}
+              ? "Aktualisiere dein aktuelles Passwort"
+              : "Lege ein Passwort fest, um die Anmeldung per E-Mail/Passwort und die Kontowiederherstellung zu aktivieren"}
           </p>
           <div className="space-y-4">
             {hasLocalPassword && (
               <div>
-                <Label htmlFor="current-password">Current Password</Label>
+                <Label htmlFor="current-password">Aktuelles Passwort</Label>
                 <Input
                   id="current-password"
                   type="password"
@@ -265,19 +269,21 @@ export function AccountSecurity() {
             )}
             <div>
               <Label htmlFor="new-password">
-                {hasLocalPassword ? "New Password" : "Password"}
+                {hasLocalPassword ? "Neues Passwort" : "Passwort"}
               </Label>
               <Input
                 id="new-password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 8 characters"
+                placeholder="Mindestens 8 Zeichen"
               />
             </div>
             <div>
               <Label htmlFor="confirm-password">
-                Confirm {hasLocalPassword ? "New " : ""}Password
+                {hasLocalPassword
+                  ? "Neues Passwort bestätigen"
+                  : "Passwort bestätigen"}
               </Label>
               <Input
                 id="confirm-password"
@@ -297,10 +303,10 @@ export function AccountSecurity() {
               className="w-full sm:w-auto"
             >
               {isPending
-                ? "Updating..."
+                ? "Aktualisiere..."
                 : hasLocalPassword
-                ? "Update Password"
-                : "Set Password"}
+                ? "Passwort aktualisieren"
+                : "Passwort festlegen"}
             </Button>
           </div>
         </div>
