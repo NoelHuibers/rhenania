@@ -1,5 +1,5 @@
 import BillingDashboard from "~/components/rechnungen/BillingDashboard";
-import { SidebarLayout } from "~/components/sidebar/sidebar-layout";
+import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 
 export default function Page() {
   return (

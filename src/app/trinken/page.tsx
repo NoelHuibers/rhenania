@@ -1,4 +1,4 @@
-import { SidebarLayout } from "~/components/sidebar/sidebar-layout";
+import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import DrinksMenu from "~/components/trinken/drinks/DrinksMenu";
 
 export default function Page() {

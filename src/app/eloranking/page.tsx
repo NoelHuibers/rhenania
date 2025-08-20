@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { LeaderboardSection } from "~/components/eloranking/leaderboard-section";
 import { RecentGamesSection } from "~/components/eloranking/RecentGamesSection";
 import { StatsOverview } from "~/components/eloranking/stats-overview";
-import { SidebarLayout } from "~/components/sidebar/sidebar-layout";
+import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 
 export default function HomePage() {

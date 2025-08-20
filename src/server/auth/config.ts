@@ -22,7 +22,6 @@ declare module "next-auth" {
       id: string;
       roles: string[];
     } & DefaultSession["user"];
-    // accessToken?: string; // If you really need to expose a token to the client, re-enable and set it in `session`
   }
 
   interface User {

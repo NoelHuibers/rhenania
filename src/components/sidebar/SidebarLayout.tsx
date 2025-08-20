@@ -1,7 +1,6 @@
 import { SidebarProvider } from "../ui/sidebar";
-import { AppSidebar } from "./app-sidebar";
+import { AppSidebar } from "./AppSidebar";
 
-// Wrapper component that includes the SidebarProvider
 export function SidebarLayout({
   children,
   className,

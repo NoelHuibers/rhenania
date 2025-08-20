@@ -8,11 +8,11 @@ import {
   Settings,
   Trophy,
   Truck,
-  User,
+  User as UserIcon,
 } from "lucide-react";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useCallback, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import {
   DropdownMenu,
@@ -34,82 +34,72 @@ import {
   SidebarMenuItem,
 } from "~/components/ui/sidebar";
 
-const navigationItems = [
-  {
-    title: "Trinken",
-    href: "/trinken",
-    icon: Coffee,
-    roles: [],
-  },
-  {
-    title: "Rechnung",
-    href: "/rechnung",
-    icon: Calculator,
-    roles: [],
-  },
-  {
-    title: "Literboard",
-    href: "/leaderboard",
-    icon: Trophy,
-    roles: [],
-  },
-  {
-    title: "Admin",
-    href: "/admin",
-    icon: Settings,
-    roles: ["Admin"],
-  },
+type Role = "Admin" | "Versorger" | string;
+
+type NavItem = {
+  title: string;
+  href: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  roles: Role[];
+};
+
+const navigationItems: NavItem[] = [
+  { title: "Trinken", href: "/trinken", icon: Coffee, roles: [] },
+  { title: "Rechnung", href: "/rechnung", icon: Calculator, roles: [] },
+  { title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
+  { title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
   {
     title: "Versorger",
     href: "/versorger",
     icon: Truck,
     roles: ["Versorger", "Admin"],
   },
-  {
-    title: "Eloranking",
-    href: "/eloranking",
-    icon: Beer,
-    roles: [],
-  },
+  { title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
 ];
 
-interface AppSidebarProps {
+export type AppSidebarClientProps = {
   className?: string;
+  userData: {
+    name: string | null;
+    email: string | null;
+    image: string | null;
+    roles: Role[];
+  };
+};
+
+function initials(name?: string | null) {
+  if (!name) return "U";
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0]?.toUpperCase())
+    .slice(0, 2)
+    .join("");
 }
 
-export function AppSidebar({ className }: AppSidebarProps) {
-  const pathname = usePathname();
-  const { data: session, status } = useSession();
-  const userRoles = session?.user?.roles || [];
-  const filteredNavItems = navigationItems.filter(
-    (item) =>
-      item.roles.length === 0 ||
-      item.roles.some((role) => userRoles.includes(role))
+export function AppSidebarClient({
+  className,
+  userData,
+}: AppSidebarClientProps) {
+  const userRoles = userData?.roles ?? [];
+
+  const filteredNavItems = useMemo(
+    () =>
+      navigationItems.filter(
+        (item) =>
+          item.roles.length === 0 ||
+          item.roles.some((r) => userRoles.includes(r))
+      ),
+    [userRoles]
   );
 
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     try {
       await signOut({ callbackUrl: "/" });
     } catch (error) {
       console.error("Sign out error:", error);
     }
-  };
-
-  if (status === "loading") {
-    return (
-      <Sidebar className={className}>
-        <SidebarContent>
-          <div className="flex h-full items-center justify-center">
-            <div className="text-sm text-sidebar-foreground/60">Loading...</div>
-          </div>
-        </SidebarContent>
-      </Sidebar>
-    );
-  }
-
-  if (status === "unauthenticated" || !session?.user) {
-    return null;
-  }
+  }, []);
 
   return (
     <Sidebar className={className} collapsible="icon">
@@ -132,11 +122,9 @@ export function AppSidebar({ className }: AppSidebarProps) {
             <SidebarMenu>
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href;
-
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isActive}>
+                    <SidebarMenuButton asChild>
                       <Link href={item.href}>
                         <Icon />
                         <span>{item.title}</span>
@@ -161,22 +149,19 @@ export function AppSidebar({ className }: AppSidebarProps) {
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
                     <AvatarImage
-                      src={session.user.image || "/placeholder.svg"}
-                      alt={session.user.name || "User"}
+                      src={userData?.image || "/placeholder.svg"}
+                      alt={userData?.name || "User"}
                     />
                     <AvatarFallback className="rounded-lg">
-                      {session.user.name
-                        ?.split(" ")
-                        .map((n) => n[0])
-                        .join("") || "U"}
+                      {initials(userData?.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">
-                      {session.user.name || "Unknown User"}
+                      {userData?.name || "Unknown User"}
                     </span>
                     <span className="truncate text-xs">
-                      {session.user.email}
+                      {userData?.email || ""}
                     </span>
                   </div>
                 </SidebarMenuButton>
@@ -189,7 +174,7 @@ export function AppSidebar({ className }: AppSidebarProps) {
               >
                 <DropdownMenuItem asChild>
                   <Link href="/profile">
-                    <User className="mr-2 h-4 w-4" />
+                    <UserIcon className="mr-2 h-4 w-4" />
                     Profil
                   </Link>
                 </DropdownMenuItem>
