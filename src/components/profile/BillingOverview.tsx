@@ -179,10 +179,10 @@ export function BillingOverview() {
             <DrawerTrigger asChild>
               <Button
                 aria-label="Rechnung ansehen"
-                variant="outline"
-                className="w-full sm:flex-1 bg-transparent h-9 px-3 text-sm md:h-10 md:px-4 md:text-base"
+                variant={"outline"}
+                className="w-full sm:w-auto sm:self-start h-9 md:h-8 px-3 md:px-3 text-sm md:text-sm bg-transparent"
               >
-                <Eye className="mr-2 h-3 w-3 md:h-4 md:w-4" />
+                <Eye className="mr-2 h-3 w-3 md:h-3 md:w-3" />
                 Rechnung ansehen
               </Button>
             </DrawerTrigger>
@@ -230,10 +230,10 @@ export function BillingOverview() {
 
           <Button
             aria-label="Download PDF"
-            variant="outline"
-            className="w-full sm:flex-1 bg-transparent h-9 px-3 text-sm md:h-10 md:px-4 md:text-base"
+            variant={"outline"}
+            className="w-full sm:w-auto sm:self-start h-9 md:h-8 px-3 md:px-3 text-sm md:text-sm bg-transparent"
           >
-            <Download className="mr-2 h-3 w-3 md:h-4 md:w-4" />
+            <Download className="mr-2 h-3 w-3 md:h-3 md:w-3" />
             Download PDF
           </Button>
         </div>
