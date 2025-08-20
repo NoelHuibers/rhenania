@@ -13,12 +13,7 @@ export const env = createEnv({
       process.env.NODE_ENV === "production"
         ? z.string()
         : z.string().optional(),
-    NEXTAUTH_URL: z.preprocess(
-      // Since you can use either VERCEL_URL or manually set NEXTAUTH_URL
-      (str) => process.env.VERCEL_URL ?? str,
-      // In development, it's optional (defaults to localhost)
-      process.env.VERCEL ? z.string() : z.string().url().optional()
-    ),
+    NEXTAUTH_URL: z.string().url(),
     AZURE_AD_CLIENT_ID: z.string().optional(),
     AZURE_AD_CLIENT_SECRET: z.string().optional(),
     AZURE_AD_TENANT_ID: z.string().optional(),
