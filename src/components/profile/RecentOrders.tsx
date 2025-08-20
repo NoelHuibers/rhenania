@@ -18,15 +18,6 @@ import {
 } from "~/components/ui/table";
 import { getUserOrders } from "~/server/actions/orders";
 
-/**
- * Mobile-friendly improvements:
- * - Card list view for small screens (sm:hidden) instead of a wide table
- * - Table kept for >= sm with horizontal scrolling (overflow-x-auto)
- * - Larger touch targets, better spacing, and accessible labels
- * - Currency/date localized with Intl for de-DE
- * - Date range filter wired up; filters reset pagination to page 1
- */
-
 type Order = {
   id: string;
   createdAt: Date | string;
