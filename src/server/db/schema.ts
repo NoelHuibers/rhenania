@@ -49,7 +49,7 @@ export const userRoles = createTable(
       .notNull()
       .references(() => roles.id, { onDelete: "cascade" }),
     assignedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
-    assignedBy: d.text({ length: 255 }), // Optional: track who assigned the role
+    assignedBy: d.text({ length: 255 }),
   }),
   (t) => [
     primaryKey({ columns: [t.userId, t.roleId] }),
@@ -80,8 +80,8 @@ export const userPreferences = createTable(
       .text({ length: 255 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    key: d.text({ length: 100 }).notNull(), // e.g. "gamification.eloEnabled"
-    value: d.text().notNull(), // JSON-encoded string: "true", "123", "\"text\"", "{\"k\":1}", etc.
+    key: d.text({ length: 100 }).notNull(),
+    value: d.text().notNull(),
     valueType: d
       .text({ enum: ["boolean", "number", "string", "json"] })
       .notNull()
