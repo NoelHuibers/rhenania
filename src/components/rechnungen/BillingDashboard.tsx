@@ -7,6 +7,14 @@ import { toast } from "sonner";
 import { formatCurrency } from "~/components/rechnungen/BillingTable";
 import { TabContent } from "~/components/rechnungen/TabContent";
 import { Button } from "~/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { getUserRoles } from "~/server/actions/admin/userRoles";
 import {
@@ -40,6 +48,7 @@ export default function BillingDashboard() {
   const { data: session, status } = useSession();
   const [isCreatingReport, setIsCreatingReport] = useState(false);
   const [activeTab, setActiveTab] = useState("current-orders");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const [userRoles, setUserRoles] = useState<string[]>([]);
 
@@ -221,7 +230,7 @@ export default function BillingDashboard() {
     }
   }, [activeTab, allBillPeriods, isAuthenticated]);
 
-  const handleCreateReport = async () => {
+  const handleCreateReportClick = () => {
     if (!isAuthenticated) {
       toast.error("Sie müssen angemeldet sein");
       return;
@@ -231,7 +240,13 @@ export default function BillingDashboard() {
       return;
     }
 
+    setShowConfirmDialog(true);
+  };
+
+  const handleCreateReport = async () => {
+    setShowConfirmDialog(false);
     setIsCreatingReport(true);
+
     try {
       const result = await createNewBilling();
       if (result?.success) {
@@ -240,6 +255,15 @@ export default function BillingDashboard() {
         );
         const orders = await getCurrentOrders();
         setCurrentOrders(orders);
+
+        // Refresh all bill periods to show the new one
+        const periods = await getAllBillPeriods();
+        const sortedPeriods = periods.sort(
+          (a: any, b: any) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setAllBillPeriods(sortedPeriods);
+
         toast.success("Neue Rechnung erfolgreich erstellt");
       } else {
         console.error("Billing failed:", result?.message);
@@ -349,7 +373,7 @@ export default function BillingDashboard() {
           </div>
           {hasRequiredRole() && (
             <Button
-              onClick={handleCreateReport}
+              onClick={handleCreateReportClick}
               disabled={isCreatingReport}
               className="w-full sm:w-auto"
             >
@@ -367,6 +391,38 @@ export default function BillingDashboard() {
             </Button>
           )}
         </div>
+
+        {/* Confirmation Dialog */}
+        <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Neue Rechnung erstellen</DialogTitle>
+              <DialogDescription>
+                Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sich
+                sicher, dass Sie eine neue Abrechnungsperiode erstellen möchten?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowConfirmDialog(false)}
+                disabled={isCreatingReport}
+              >
+                Abbrechen
+              </Button>
+              <Button onClick={handleCreateReport} disabled={isCreatingReport}>
+                {isCreatingReport ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Erstelle...
+                  </>
+                ) : (
+                  "Ja, erstellen"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Tabs */}
         <Tabs
