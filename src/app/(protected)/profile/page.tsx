@@ -10,7 +10,7 @@ import { SiteHeader } from "~/components/trinken/SiteHeader";
 export default function ProfilePage() {
   return (
     <SidebarLayout>
-      <SiteHeader title="Profile Dashboard" />
+      <SiteHeader title="Nutzerprofil" />
       <div className="flex-1 bg-background p-4 md:p-6">
         <div className="mx-auto max-w-7xl">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

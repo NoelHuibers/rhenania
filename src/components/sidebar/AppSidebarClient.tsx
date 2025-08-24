@@ -2,9 +2,11 @@
 
 import {
   Beer,
-  Calculator,
-  Coffee,
+  BottleWine,
+  House,
   LogOut,
+  ReceiptEuro,
+  ReceiptText,
   Settings,
   Trophy,
   Truck,
@@ -44,14 +46,20 @@ type NavItem = {
 };
 
 const navigationItems: NavItem[] = [
-  { title: "Trinken", href: "/trinken", icon: Coffee, roles: [] },
-  { title: "Rechnung", href: "/rechnung", icon: Calculator, roles: [] },
+  { title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
+  { title: "Rechnungen", href: "/rechnungen", icon: ReceiptEuro, roles: [] },
   { title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
   { title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
   {
     title: "Versorger",
     href: "/versorger",
     icon: Truck,
+    roles: ["Versorger", "Admin"],
+  },
+  {
+    title: "Bestellungen",
+    href: "/orders",
+    icon: ReceiptText,
     roles: ["Versorger", "Admin"],
   },
   { title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
@@ -106,7 +114,7 @@ export function AppSidebarClient({
       <SidebarHeader>
         <div className="flex items-center gap-2">
           <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Coffee className="size-4" />
+            <House className="size-4" />
           </div>
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">Rhenania</span>

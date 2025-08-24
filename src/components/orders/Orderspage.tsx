@@ -35,7 +35,7 @@ interface Transaction {
   createdAt: Date;
 }
 
-export default function TransactionTracker() {
+export default function OrdersTracker() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLiveTracking, setIsLiveTracking] = useState(false);
@@ -142,17 +142,10 @@ export default function TransactionTracker() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Drink Purchase Tracker
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Monitor and analyze drink purchase transactions ({totalCount}{" "}
-              total)
-            </p>
-          </div>
+          <p className="text-muted-foreground mt-1">
+            Monitor and analyze drink purchase transactions ({totalCount} total)
+          </p>
 
           <div className="flex items-center gap-4">
             <Button
