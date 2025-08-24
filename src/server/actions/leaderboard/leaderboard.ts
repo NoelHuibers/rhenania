@@ -13,12 +13,13 @@ export type LeaderboardEntry = {
   changePct: number | null;
 };
 
+const sixMonthsAgo = sql<number>`unixepoch('now','-6 months')`;
+const twelveMonthsAgo = sql<number>`unixepoch('now','-12 months')`;
+const now = sql<number>`unixepoch('now')`;
+
 export async function getLeaderboardLast6Months({
   limit = 10,
 }: { limit?: number } = {}): Promise<LeaderboardEntry[]> {
-  const sixMonthsAgo = sql<number>`unixepoch('now','-6 months')`;
-  const twelveMonthsAgo = sql<number>`unixepoch('now','-12 months')`;
-
   const prevByUser = db
     .select({
       userId: orders.userId,
@@ -129,4 +130,30 @@ export async function getMonthlyGrowthRate(): Promise<number | null> {
       : null;
 
   return growthRatePct;
+}
+
+export async function getTotalConsumption(): Promise<number> {
+  const total = await db
+    .select({
+      totalLiters: sql<number>`
+        SUM(
+          CASE WHEN ${orders.createdAt} >= ${sixMonthsAgo}
+                 AND ${orders.createdAt} < ${now}
+                 AND ${drinks.volume} IS NOT NULL
+               THEN ${orders.amount} * ${drinks.volume}
+               ELSE 0
+          END
+        )
+      `.as("totalLiters"),
+    })
+    .from(orders)
+    .leftJoin(drinks, eq(orders.drinkId, drinks.id))
+    .where(and(gte(orders.createdAt, sixMonthsAgo)));
+
+  const totalLiters = total.reduce(
+    (sum, row) => sum + (row.totalLiters ?? 0),
+    0
+  );
+
+  return totalLiters;
 }

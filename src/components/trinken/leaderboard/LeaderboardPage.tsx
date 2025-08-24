@@ -5,6 +5,7 @@ import { getConsumptionLast6MonthsByDrink } from "~/server/actions/leaderboard/c
 import {
   getLeaderboardLast6Months,
   getMonthlyGrowthRate,
+  getTotalConsumption,
 } from "~/server/actions/leaderboard/leaderboard";
 import { SiteHeader } from "../SiteHeader";
 
@@ -23,7 +24,7 @@ export default async function LeaderboardPage() {
         : `${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(0)}%`,
   }));
 
-  const total = consumers.reduce((s, c) => s + c.amount, 0);
+  const total = await getTotalConsumption();
   const growthRate = await getMonthlyGrowthRate();
 
   return (
