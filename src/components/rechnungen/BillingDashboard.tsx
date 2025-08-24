@@ -15,7 +15,7 @@ import {
   getBillsForPeriod,
   getLatestBillPeriod,
   updateBillStatus,
-} from "~/server/actions/billings";
+} from "~/server/actions/billings/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 import { SiteHeader } from "../trinken/SiteHeader";
 

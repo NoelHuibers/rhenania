@@ -1,6 +1,7 @@
 "use server";
 
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
 
@@ -28,6 +29,13 @@ interface UserBillingSummary {
 }
 
 export async function createNewBilling() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    throw new Error("User must be authenticated to view billing data");
+  }
+
+  const createdByUserId = session.user.id;
+
   try {
     console.log("Starting billing process...");
 
@@ -59,31 +67,72 @@ export async function createNewBilling() {
       console.log(`Found ${personalOrders.length} unbilled personal orders`);
       console.log(`Found ${eventOrders.length} event orders to process`);
 
-      // 2. Get the next bill number
+      // 2. Get the next bill number and close the previous bill period
       const [lastBillPeriod] = await tx
-        .select({ billNumber: billPeriods.billNumber })
+        .select({
+          id: billPeriods.id,
+          billNumber: billPeriods.billNumber,
+          closedAt: billPeriods.closedAt,
+        })
         .from(billPeriods)
         .orderBy(desc(billPeriods.billNumber))
         .limit(1);
 
       const nextBillNumber = (lastBillPeriod?.billNumber ?? -1) + 1;
+      const now = new Date();
+
+      // Close the previous bill period if it's not already closed
+      if (lastBillPeriod && !lastBillPeriod.closedAt) {
+        await tx
+          .update(billPeriods)
+          .set({
+            closedAt: now,
+            updatedAt: now,
+          })
+          .where(eq(billPeriods.id, lastBillPeriod.id));
+
+        console.log(`Closed previous bill period ${lastBillPeriod.billNumber}`);
+      }
 
       // 3. Create the new bill period
-      const now = new Date();
       const billPeriodId = crypto.randomUUID();
 
       await tx.insert(billPeriods).values({
         id: billPeriodId,
         billNumber: nextBillNumber,
         totalAmount: 0, // Will be updated later
+        createdBy: createdByUserId,
         createdAt: now,
       });
 
       console.log(
-        `Created bill period ${nextBillNumber} (ID: ${billPeriodId})`
+        `Created bill period ${nextBillNumber} (ID: ${billPeriodId}) by user ${createdByUserId}`
       );
 
-      // 4. Process personal orders - Group by user
+      // 4. Get unpaid amounts from previous bills for each user
+      const unpaidAmounts = await tx
+        .select({
+          userId: bills.userId,
+          totalUnpaid: sql<number>`sum(${bills.total})`.as("totalUnpaid"),
+        })
+        .from(bills)
+        .where(
+          and(
+            eq(bills.status, "Unbezahlt"),
+            // Only include bills from previous periods (not the current one we just created)
+            sql`${bills.billPeriodId} != ${billPeriodId}`
+          )
+        )
+        .groupBy(bills.userId);
+
+      const unpaidAmountMap = new Map<string, number>();
+      unpaidAmounts.forEach((row) => {
+        unpaidAmountMap.set(row.userId, Number(row.totalUnpaid) || 0);
+      });
+
+      console.log(`Found unpaid amounts for ${unpaidAmountMap.size} users`);
+
+      // 5. Process personal orders - Group by user
       const userOrderMap = new Map<string, OrderWithDetails[]>();
       for (const order of personalOrders) {
         const userId = order.userId;
@@ -95,7 +144,7 @@ export async function createNewBilling() {
 
       console.log(`Processing bills for ${userOrderMap.size} users`);
 
-      // 5. Process event orders - Group by event name (bookingFor)
+      // 6. Process event orders - Group by event name (bookingFor)
       const eventOrderMap = new Map<string, OrderWithDetails[]>();
       for (const order of eventOrders) {
         const eventName = order.bookingFor || "Unknown Event";
@@ -107,7 +156,7 @@ export async function createNewBilling() {
 
       console.log(`Processing bills for ${eventOrderMap.size} events`);
 
-      // 6. Process each user's billing
+      // 7. Process each user's billing
       const userBillingSummaries: UserBillingSummary[] = [];
       const createdBills: string[] = [];
       const createdEventBills: string[] = [];
@@ -124,13 +173,14 @@ export async function createNewBilling() {
           0
         );
 
-        // TODO: Get any previous outstanding balance from unpaid bills
-        const oldBillingAmount = 0;
+        // Get previous outstanding balance from unpaid bills
+        const oldBillingAmount = unpaidAmountMap.get(userId) || 0;
 
         // TODO: Calculate any fees (late fees, service charges, etc.)
         const fees = 0;
 
-        const finalTotal = drinksTotal + oldBillingAmount + fees;
+        // Calculate any additional fees (late fees, service charges, etc.)
+        const finalTotal = drinksTotal + fees;
 
         // Create the bill
         const billId = crypto.randomUUID();
@@ -151,7 +201,9 @@ export async function createNewBilling() {
         console.log(
           `Created bill ${billId} for user ${userName} with total €${finalTotal.toFixed(
             2
-          )}`
+          )} (drinks: €${drinksTotal.toFixed(
+            2
+          )}, old billing: €${oldBillingAmount.toFixed(2)})`
         );
 
         // Group orders by drink to consolidate quantities
@@ -210,7 +262,7 @@ export async function createNewBilling() {
         totalBillingAmount += finalTotal;
       }
 
-      // 7. Process event bills - Create one bill per event
+      // 8. Process event bills - Create one bill per event
       for (const [eventName, eventOrdersList] of eventOrderMap.entries()) {
         // Calculate totals for this event
         const drinksTotal = eventOrdersList.reduce(
@@ -290,7 +342,7 @@ export async function createNewBilling() {
         totalBillingAmount += finalTotal;
       }
 
-      // 8. Update the bill period with total amount
+      // 9. Update the bill period with total amount
       await tx
         .update(billPeriods)
         .set({
@@ -299,7 +351,7 @@ export async function createNewBilling() {
         })
         .where(eq(billPeriods.id, billPeriodId));
 
-      // 9. Mark all processed orders as billed
+      // 10. Mark all processed orders as billed
       const allOrderIds = allUnbilledOrders.map((order) => order.id);
 
       if (allOrderIds.length > 0) {
@@ -415,6 +467,9 @@ export async function getBillsForPeriod(billPeriodId: string) {
           name: bill.userName,
           totalDue: bill.total,
           status: bill.status,
+          oldBillingAmount: bill.oldBillingAmount,
+          drinksTotal: bill.drinksTotal,
+          fees: bill.fees,
           items: items.map((item) => ({
             id: item.id,
             name: item.drinkName,

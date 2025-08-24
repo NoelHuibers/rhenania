@@ -260,6 +260,7 @@ export const billPeriods = createTable(
       .integer({ mode: "timestamp" })
       .default(sql`(unixepoch())`)
       .notNull(),
+    createdBy: bp.text({ length: 255 }),
     updatedAt: bp.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
     closedAt: bp.integer({ mode: "timestamp" }),
   }),
@@ -448,7 +449,6 @@ export const billCSVs = createTable(
   ]
 );
 
-// Add relations for the billCSVs table
 export const billCSVsRelations = {
   billPeriod: {
     relation: "many-to-one",
