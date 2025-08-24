@@ -73,6 +73,39 @@ export const userRolesRelations = relations(userRoles, ({ one }) => ({
   role: one(roles, { fields: [userRoles.roleId], references: [roles.id] }),
 }));
 
+export const userPreferences = createTable(
+  "user_preference",
+  (d) => ({
+    userId: d
+      .text({ length: 255 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    key: d.text({ length: 100 }).notNull(), // e.g. "gamification.eloEnabled"
+    value: d.text().notNull(), // JSON-encoded string: "true", "123", "\"text\"", "{\"k\":1}", etc.
+    valueType: d
+      .text({ enum: ["boolean", "number", "string", "json"] })
+      .notNull()
+      .default("json"),
+    createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+    updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+  }),
+  (t) => [
+    primaryKey({ columns: [t.userId, t.key] }),
+    index("user_pref_user_idx").on(t.userId),
+    index("user_pref_key_idx").on(t.key),
+  ]
+);
+
+export const userPreferencesRelations = relations(
+  userPreferences,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [userPreferences.userId],
+      references: [users.id],
+    }),
+  })
+);
+
 export const accounts = createTable(
   "account",
   (d) => ({

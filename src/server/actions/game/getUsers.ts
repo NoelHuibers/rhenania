@@ -1,8 +1,8 @@
 "use server";
 
-import { ne } from "drizzle-orm";
+import { and, eq, isNull, ne, or } from "drizzle-orm";
 import { db } from "~/server/db";
-import { users } from "~/server/db/schema";
+import { userPreferences, users } from "~/server/db/schema";
 import { auth } from "../../auth";
 
 export interface User {
@@ -12,7 +12,9 @@ export interface User {
   image: string | null;
 }
 
-// Get users excluding the current user
+const ELO_KEY = "gamification.eloEnabled";
+const FALSE_JSON = JSON.stringify(false);
+
 export async function getAllUsersExcept(): Promise<User[]> {
   const session = await auth();
   if (!session) throw new Error("Unauthorized");
@@ -27,7 +29,22 @@ export async function getAllUsersExcept(): Promise<User[]> {
         image: users.image,
       })
       .from(users)
-      .where(ne(users.id, excludeUserId))
+      .leftJoin(
+        userPreferences,
+        and(
+          eq(userPreferences.userId, users.id),
+          eq(userPreferences.key, ELO_KEY)
+        )
+      )
+      .where(
+        and(
+          ne(users.id, excludeUserId),
+          or(
+            isNull(userPreferences.value),
+            ne(userPreferences.value, FALSE_JSON)
+          )
+        )
+      )
       .orderBy(users.name, users.email);
 
     return allUsers;

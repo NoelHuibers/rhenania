@@ -1,10 +1,26 @@
 "use server";
 
-import { desc, eq, gt, or } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
-import { games, userStats, users } from "~/server/db/schema";
+import { games, userPreferences, userStats, users } from "~/server/db/schema";
 import { auth } from "../../auth";
+
+const ELO_KEY = "gamification.eloEnabled";
+const FALSE_JSON = JSON.stringify(false); // stored as "false"
+
+async function isEloEnabled(userId: string) {
+  const row = await db
+    .select({ value: userPreferences.value })
+    .from(userPreferences)
+    .where(
+      and(eq(userPreferences.userId, userId), eq(userPreferences.key, ELO_KEY))
+    )
+    .limit(1);
+
+  // default = enabled (no pref row)
+  return row.length === 0 ? true : row[0]!.value !== FALSE_JSON;
+}
 
 export interface GameResult {
   player2Id: string;
@@ -110,6 +126,18 @@ export async function createGame(gameData: GameResult): Promise<{
       return {
         success: false,
         error: "A player cannot play against themselves",
+      };
+    }
+
+    const [p1Enabled, p2Enabled] = await Promise.all([
+      isEloEnabled(userId),
+      isEloEnabled(gameData.player2Id),
+    ]);
+
+    if (!p1Enabled || !p2Enabled) {
+      return {
+        success: false,
+        error: "One of the players has opted out of Elo games.",
       };
     }
 
@@ -343,7 +371,17 @@ export async function getRecentGames(
       })
     );
 
-    return gamesWithNames;
+    const filtered = [];
+    for (let i = 0; i < recentGames.length; i++) {
+      const g = recentGames[i]!;
+      const [p1, p2] = await Promise.all([
+        isEloEnabled(g.player1Id),
+        isEloEnabled(g.player2Id),
+      ]);
+      if (p1 && p2) filtered.push(gamesWithNames[i]!);
+    }
+
+    return filtered;
   } catch (error) {
     console.error("Error getting recent games:", error);
     return [];
@@ -442,10 +480,26 @@ export async function getLeaderboard(
         losses: userStats.losses,
         peakElo: userStats.peakElo,
         avatar: users.image,
+        prefValue: userPreferences.value,
       })
       .from(userStats)
       .leftJoin(users, eq(userStats.userId, users.id))
-      .where(gt(userStats.totalGames, 0)) // Only players with at least 1 game
+      .leftJoin(
+        userPreferences,
+        and(
+          eq(userPreferences.userId, userStats.userId),
+          eq(userPreferences.key, ELO_KEY)
+        )
+      )
+      .where(
+        and(
+          gt(userStats.totalGames, 0),
+          or(
+            isNull(userPreferences.value),
+            ne(userPreferences.value, FALSE_JSON)
+          )
+        )
+      )
       .orderBy(desc(userStats.currentElo))
       .limit(limit);
 

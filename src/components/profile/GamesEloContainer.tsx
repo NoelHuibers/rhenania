@@ -1,30 +1,46 @@
-import { desc, eq, or, sql } from "drizzle-orm";
+// GamesEloContainerDetailed.tsx
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db/index";
-import { games, userStats } from "~/server/db/schema";
+import { games, userPreferences, userStats } from "~/server/db/schema";
+import EloDisabledCard from "./EloDisabledCard";
 import { GamesElo } from "./GamesElo";
+
+const ELO_KEY = "gamification.eloEnabled";
 
 export default async function GamesEloContainerDetailed() {
   const session = await auth();
-
   if (!session?.user?.id) {
     throw new Error("User must be authenticated to view game statistics");
   }
-
   const userId = session.user.id;
 
-  // Fetch user stats from database
+  const prefRow = await db
+    .select({ value: userPreferences.value })
+    .from(userPreferences)
+    .where(
+      and(eq(userPreferences.userId, userId), eq(userPreferences.key, ELO_KEY))
+    )
+    .limit(1);
+
+  const eloEnabled =
+    prefRow.length === 0
+      ? true
+      : (JSON.parse(prefRow[0]!.value) as boolean) === true;
+
+  if (!eloEnabled) {
+    return <EloDisabledCard />;
+  }
+
   const userStatsData = await db
     .select()
     .from(userStats)
     .where(eq(userStats.userId, userId))
     .limit(1);
 
-  // If no stats exist, calculate them from games
   let stats = userStatsData[0];
 
   if (!stats) {
-    // Calculate stats from games if userStats doesn't exist
     const userGamesStats = await db
       .select({
         totalGames: sql<number>`count(*)`,
@@ -37,7 +53,6 @@ export default async function GamesEloContainerDetailed() {
 
     const gameStats = userGamesStats[0];
 
-    // Get current and peak elo from most recent game
     const latestGame = await db
       .select({
         player1Id: games.player1Id,
@@ -55,7 +70,6 @@ export default async function GamesEloContainerDetailed() {
         : latestGame[0].player2EloAfter!
       : 1200;
 
-    // Get peak elo from all games
     const allUserGames = await db
       .select({
         player1Id: games.player1Id,
@@ -87,10 +101,6 @@ export default async function GamesEloContainerDetailed() {
     };
   }
 
-  // Fetch elo history from games table (last 50 games or 30 days, whichever is more)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
   const recentGames = await db
     .select({
       playedAt: games.playedAt,
@@ -104,9 +114,8 @@ export default async function GamesEloContainerDetailed() {
     .orderBy(desc(games.playedAt))
     .limit(50);
 
-  // Format elo history for chart (chronological order)
   const eloHistory = recentGames
-    .filter((game) => game.playedAt) // Filter out games without playedAt
+    .filter((game) => game.playedAt)
     .map((game) => ({
       date: game.playedAt!.toISOString().split("T")[0]!,
       elo:
@@ -114,7 +123,7 @@ export default async function GamesEloContainerDetailed() {
           ? game.player1EloAfter!
           : game.player2EloAfter!,
     }))
-    .reverse(); // Reverse to show chronological order
+    .reverse();
 
   return <GamesElo userStats={stats} eloHistory={eloHistory} />;
 }
