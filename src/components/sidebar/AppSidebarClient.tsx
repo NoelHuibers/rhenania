@@ -58,7 +58,7 @@ const navigationItems: NavItem[] = [
   },
   {
     title: "Bestellungen",
-    href: "/orders",
+    href: "/bestellungen",
     icon: ReceiptText,
     roles: ["Versorger", "Admin"],
   },
