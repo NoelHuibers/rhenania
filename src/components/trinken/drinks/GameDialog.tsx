@@ -19,7 +19,7 @@ import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
 interface User {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   image: string | null;
 }
 
@@ -107,7 +107,7 @@ export function GameDialog({
                     <Avatar className="h-6 w-6 sm:h-8 sm:w-8">
                       <AvatarImage src={user.image || undefined} />
                       <AvatarFallback className="text-[10px] sm:text-xs">
-                        {(user.name || user.email)
+                        {(user.name || user.email || "")
                           .split(" ")
                           .map((n) => n[0])
                           .join("")
