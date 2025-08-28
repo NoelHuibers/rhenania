@@ -223,7 +223,7 @@ export function ProfileIdentity() {
 
           <div className="text-center">
             <h3 className="text-xl font-semibold">{user.name || "No Name"}</h3>
-            <p className="text-muted-foreground">{user.email}</p>
+            <p className="text-muted-foreground">{user.email || "No Email"}</p>
           </div>
 
           {/* Role badges */}
