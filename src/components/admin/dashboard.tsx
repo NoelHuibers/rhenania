@@ -32,7 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 export type UserWithRoles = {
   id: string;
   name: string | null;
-  email: string;
+  email: string | null;
   emailVerified: Date | null;
   image: string | null;
   roles: Array<{
@@ -105,7 +105,7 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
   const filteredUsers = users.filter(
     (user) =>
       user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleRoleToggle = async (userId: string, roleId: string) => {
@@ -390,9 +390,9 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
                           </div>
                           <p
                             className="text-sm text-muted-foreground truncate sm:max-w-none max-w-60"
-                            title={user.email}
+                            title={user.email || ""}
                           >
-                            {truncateText(user.email, 40)}
+                            {truncateText(user.email || "", 40)}
                           </p>
                         </div>
                       </div>
