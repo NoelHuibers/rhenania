@@ -1,4 +1,4 @@
-// components/bilder/OptimizedImagePreview.tsx (Updated for non-draggable version)
+// components/bilder/OptimizedImagePreview.tsx
 "use client";
 
 import { Loader2, Trash2 } from "lucide-react";

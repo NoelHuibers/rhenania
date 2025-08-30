@@ -109,7 +109,7 @@ export default function AdminImageManager() {
               </div>
             </div>
             <div className="flex justify-center sm:justify-end">
-              <ActionButtons loading={loading} onRefresh={loadImages} />
+              <ActionButtons />
             </div>
           </div>
 

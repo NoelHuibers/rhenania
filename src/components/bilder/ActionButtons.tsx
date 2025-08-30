@@ -5,12 +5,7 @@ import { Eye } from "lucide-react";
 import { useCallback } from "react";
 import { Button } from "~/components/ui/button";
 
-interface ActionButtonsProps {
-  loading: boolean;
-  onRefresh: () => void;
-}
-
-export const ActionButtons = ({ loading, onRefresh }: ActionButtonsProps) => {
+export const ActionButtons = () => {
   const handleViewHomepage = useCallback(() => {
     window.open("/", "_blank");
   }, []);

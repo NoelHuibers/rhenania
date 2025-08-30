@@ -1,4 +1,4 @@
-// components/bilder/ImageSection.tsx (Updated)
+// components/bilder/ImageSection.tsx
 "use client";
 
 import { ImageIcon, Plus, Upload } from "lucide-react";
@@ -7,7 +7,6 @@ import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
-import { DraggableImageGrid } from "./DraggableImageGrid";
 import { DropZone } from "./Dropzone";
 import { OptimizedImagePreview, type ImageItem } from "./OptimizedImagePreview";
 import { VirtualImageGrid } from "./VirtualImageGrid";
@@ -165,31 +164,30 @@ export const EnhancedImageSection = ({
       );
     }
 
-    // Use draggable grid for multiple images
     if (config.allowMultiple && images.length > 0) {
       return (
-        <div className="space-y-4">
-          <DraggableImageGrid
-            images={images}
-            onToggleActive={onToggleActive}
-            onDelete={handleDeleteClick}
-            onReorder={onReorder}
-            deletingId={deletingId}
-            size={getImageSize()}
-            allowMultiple={config.allowMultiple}
-          />
-          {/* Inline dropzone below draggable grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            <DropZone
-              section={section}
-              inputRef={inputRef}
-              className="w-32 h-32"
-              onFileSelect={onFileSelect}
-              uploading={uploading}
-            >
-              {renderInlineDropzoneContent()}
-            </DropZone>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          {images.map((image) => (
+            <OptimizedImagePreview
+              key={image.id}
+              image={image}
+              onToggle={() => onToggleActive(image.id)}
+              onDelete={() => handleDeleteClick(image.id, image.imageName)}
+              size={getImageSize()}
+              isDeleting={deletingId === image.id}
+            />
+          ))}
+
+          {/* Inline dropzone as part of the grid */}
+          <DropZone
+            section={section}
+            inputRef={inputRef}
+            className="size-32"
+            onFileSelect={onFileSelect}
+            uploading={uploading}
+          >
+            {renderInlineDropzoneContent()}
+          </DropZone>
         </div>
       );
     }
