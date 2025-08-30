@@ -59,7 +59,7 @@ const getRoleBadgeVariant = (roleName: string) => {
     Admin: "destructive" as const,
     Versorger: "default" as const,
     Fuchsenladen: "secondary" as const,
-    Bilder: "outline" as const,
+    Fotowart: "outline" as const,
   };
   return variants[roleName as keyof typeof variants] || "outline";
 };

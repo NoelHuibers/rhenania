@@ -113,13 +113,13 @@ export async function getRolesWithUserCount(): Promise<Role[]> {
 export async function initializeRoles(): Promise<void> {
   try {
     const defaultRoles = [
-      { name: "Admin", description: "Full system access and administration" },
-      { name: "Versorger", description: "Supply management and inventory" },
+      { name: "Admin", description: "Systemadministration" },
+      { name: "Versorger", description: "Getränkeversorgung" },
       {
-        name: "Fuchsenladen",
-        description: "Fox shop management and operations",
+        name: "Fuchs",
+        description: "Fuchsenladen Management",
       },
-      { name: "Bilder", description: "Image management and media handling" },
+      { name: "Fotowart", description: "Fotos der Website verwalten" },
     ];
 
     for (const role of defaultRoles) {

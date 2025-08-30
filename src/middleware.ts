@@ -47,6 +47,7 @@ const ROLE_PROTECTED_PATHS: Record<string, string[]> = {
   "/versorger": ["Admin", "Versorger"],
   "/inventur": ["Admin", "Versorger"],
   "/orders": ["Admin", "Versorger"],
+  "/bilder": ["Admin", "Fotowart"],
   "/admin": ["Admin"],
 };
 

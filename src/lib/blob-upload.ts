@@ -14,7 +14,6 @@ export async function uploadDrinkImage(
   if (file.size > maxSize)
     throw new Error("Bild ist zu groß. Maximale Größe: 5MB");
 
-  // gleiche Liste wie im Server!
   const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
   if (!validTypes.includes(file.type))
     throw new Error("Ungültiger Dateityp. Erlaubt: JPG, PNG, WebP");

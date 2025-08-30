@@ -10,10 +10,32 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
-        const ok =
+        // Allow both drinks and homepage paths
+        const isDrinksPath =
           pathname.startsWith("drinks/") || pathname.startsWith("/drinks/");
-        if (!ok) throw new Error("Unauthorized upload path");
+        const isPicturesPath =
+          pathname.startsWith("bilder/") || pathname.startsWith("/bilder/");
 
+        if (!isDrinksPath && !isPicturesPath) {
+          throw new Error("Unauthorized upload path");
+        }
+
+        // Different settings based on path
+        if (isPicturesPath) {
+          return {
+            allowedContentTypes: [
+              "image/jpeg",
+              "image/jpg",
+              "image/png",
+              "image/webp",
+              "image/svg+xml",
+            ],
+            maximumSizeInBytes: 10 * 1024 * 1024, // 10MB for homepage images
+            addRandomSuffix: true,
+          };
+        }
+
+        // Default settings for drinks
         return {
           allowedContentTypes: [
             "image/jpeg",
@@ -21,7 +43,7 @@ export async function POST(request: Request) {
             "image/png",
             "image/webp",
           ],
-          maximumSizeInBytes: 5 * 1024 * 1024,
+          maximumSizeInBytes: 5 * 1024 * 1024, // 5MB for drink images
           addRandomSuffix: true,
         };
       },

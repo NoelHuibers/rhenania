@@ -472,3 +472,44 @@ export const billPeriodsRelations = {
     references: [billCSVs.billPeriodId],
   },
 };
+
+export const homepageImages = createTable(
+  "homepage_image",
+  (h) => ({
+    id: h
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    section: h
+      .text({
+        enum: ["header", "aktive", "haus", "footer"],
+      })
+      .notNull(),
+    imageUrl: h.text().notNull(),
+    imageName: h.text({ length: 255 }).notNull(),
+    fileSize: h.integer(),
+    mimeType: h.text({ length: 50 }),
+    displayOrder: h.integer().notNull().default(0),
+    isActive: h.integer({ mode: "boolean" }).notNull().default(true),
+    uploadedBy: h.text({ length: 255 }).references(() => users.id),
+    createdAt: h
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    updatedAt: h.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+  }),
+  (t) => [
+    index("homepage_image_section_idx").on(t.section),
+    index("homepage_image_active_idx").on(t.isActive),
+    index("homepage_image_order_idx").on(t.displayOrder),
+    index("homepage_image_section_active_idx").on(t.section, t.isActive),
+  ]
+);
+
+export const homepageImagesRelations = relations(homepageImages, ({ one }) => ({
+  uploadedBy: one(users, {
+    fields: [homepageImages.uploadedBy],
+    references: [users.id],
+  }),
+}));
