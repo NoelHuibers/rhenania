@@ -3,6 +3,7 @@
 import {
   Beer,
   BottleWine,
+  Camera,
   House,
   LogOut,
   ReceiptEuro,
@@ -11,6 +12,7 @@ import {
   Trophy,
   Truck,
   User as UserIcon,
+  Warehouse,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -49,6 +51,7 @@ const navigationItems: NavItem[] = [
   { title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
   { title: "Rechnungen", href: "/rechnungen", icon: ReceiptEuro, roles: [] },
   { title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
+  { title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
   { title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
   {
     title: "Versorger",
@@ -57,12 +60,23 @@ const navigationItems: NavItem[] = [
     roles: ["Versorger", "Admin"],
   },
   {
+    title: "Inventur",
+    href: "/inventur",
+    icon: Warehouse,
+    roles: ["Admin", "Versorger"],
+  },
+  {
     title: "Bestellungen",
     href: "/bestellungen",
     icon: ReceiptText,
     roles: ["Versorger", "Admin"],
   },
-  { title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
+  {
+    title: "Bilder",
+    href: "/bilder",
+    icon: Camera,
+    roles: ["Admin", "Fotowart"],
+  },
 ];
 
 export type AppSidebarClientProps = {
