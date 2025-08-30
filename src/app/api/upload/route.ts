@@ -10,11 +10,10 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
-        // Allow both drinks and homepage paths
         const isDrinksPath =
           pathname.startsWith("drinks/") || pathname.startsWith("/drinks/");
         const isPicturesPath =
-          pathname.startsWith("bilder/") || pathname.startsWith("/bilder/");
+          pathname.startsWith("homepage/") || pathname.startsWith("/homepage/");
 
         if (!isDrinksPath && !isPicturesPath) {
           throw new Error("Unauthorized upload path");
