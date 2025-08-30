@@ -52,7 +52,6 @@ const navigationItems: NavItem[] = [
   { title: "Rechnungen", href: "/rechnungen", icon: ReceiptEuro, roles: [] },
   { title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
   { title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
-  { title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
   {
     title: "Versorger",
     href: "/versorger",
@@ -77,6 +76,7 @@ const navigationItems: NavItem[] = [
     icon: Camera,
     roles: ["Admin", "Fotowart"],
   },
+  { title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
 ];
 
 export type AppSidebarClientProps = {
