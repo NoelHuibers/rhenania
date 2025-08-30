@@ -1,14 +1,30 @@
-// components/image-manager/OptimizedImagePreview.tsx
+// components/bilder/OptimizedImagePreview.tsx (Updated for non-draggable version)
 "use client";
 
 import { Loader2, Trash2 } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { Button } from "~/components/ui/button";
-import { Label } from "~/components/ui/label";
-import { Switch } from "~/components/ui/switch";
-import type { ImagePreviewProps } from "./ImagePreview";
+import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
 
-// Memoized component to prevent unnecessary re-renders
+export interface ImageItem {
+  id: string;
+  imageUrl: string;
+  imageName: string;
+  section: HomepageSection;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt: Date;
+}
+
+export interface ImagePreviewProps {
+  image: ImageItem;
+  onToggle: () => void;
+  onDelete: () => void;
+  size?: "small" | "medium" | "large";
+  isDeleting: boolean;
+  isDragging?: boolean;
+}
+
 export const OptimizedImagePreview = memo<ImagePreviewProps>(
   ({ image, onToggle, onDelete, size = "medium", isDeleting }) => {
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -23,9 +39,18 @@ export const OptimizedImagePreview = memo<ImagePreviewProps>(
     const handleDeleteClick = useCallback(
       (e: React.MouseEvent) => {
         e.stopPropagation();
+        e.preventDefault();
         onDelete();
       },
       [onDelete]
+    );
+
+    const handleImageClick = useCallback(
+      (e: React.MouseEvent) => {
+        e.preventDefault();
+        onToggle();
+      },
+      [onToggle]
     );
 
     const handleImageLoad = useCallback(() => {
@@ -40,13 +65,14 @@ export const OptimizedImagePreview = memo<ImagePreviewProps>(
       <div
         className={`relative group ${
           sizeClasses[size]
-        } rounded-lg overflow-hidden border-2 transition-all
+        } rounded-lg overflow-hidden border-2 transition-all cursor-pointer
         ${
           image.isActive
             ? "border-green-500 shadow-lg"
             : "border-border opacity-75"
         }
         ${isDeleting ? "opacity-50 scale-95" : ""}`}
+        onClick={handleImageClick}
       >
         {/* Image with loading states */}
         <div className="relative w-full h-full bg-gray-100">
@@ -69,54 +95,40 @@ export const OptimizedImagePreview = memo<ImagePreviewProps>(
               }`}
               onLoad={handleImageLoad}
               onError={handleImageError}
-              loading="lazy" // Native lazy loading
+              loading="lazy"
+              draggable={false}
             />
           )}
         </div>
 
         {/* Status badge */}
         <div
-          className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium
-        ${
-          image.isActive ? "bg-green-500 text-white" : "bg-gray-500 text-white"
-        }`}
+          className={`absolute top-2 right-2 px-2 py-1 rounded text-xs font-medium pointer-events-none
+          ${
+            image.isActive
+              ? "bg-green-500 text-white"
+              : "bg-gray-500 text-white"
+          }`}
         >
           {image.isActive ? "Aktiv" : "Inaktiv"}
         </div>
 
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2">
-            <Label
-              htmlFor={`active-${image.id}`}
-              className="text-white text-sm cursor-pointer"
-            >
-              {image.isActive ? "Deaktivieren" : "Aktivieren"}
-            </Label>
-            <Switch
-              id={`active-${image.id}`}
-              checked={image.isActive}
-              onCheckedChange={onToggle}
-              disabled={isDeleting}
-            />
-          </div>
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleDeleteClick}
-            disabled={isDeleting}
-          >
-            {isDeleting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Trash2 className="w-4 h-4" />
-            )}
-            <span className="ml-2">Löschen</span>
-          </Button>
-        </div>
+        <Button
+          size="icon"
+          variant="destructive"
+          onClick={handleDeleteClick}
+          disabled={isDeleting}
+          className="absolute bottom-2 right-2 h-8 w-8 z-50 cursor-pointer"
+        >
+          {isDeleting ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Trash2 className="w-4 h-4" />
+          )}
+        </Button>
 
         {/* Image name */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 pointer-events-none">
           <p className="text-white text-xs truncate">{image.imageName}</p>
         </div>
       </div>

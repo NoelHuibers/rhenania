@@ -38,6 +38,7 @@ export default function AdminImageManager() {
     handleFileSelect,
     handleToggleActive,
     handleDelete,
+    handleReorder,
   } = useImageManager();
 
   const sectionConfigs = useMemo<Record<HomepageSection, ImageSectionConfig>>(
@@ -94,10 +95,11 @@ export default function AdminImageManager() {
       <div className="min-h-screen bg-background">
         <SiteHeader title="Bilderverwaltung" />
         <div className="max-w-7xl mx-auto space-y-8 p-2">
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-4">
             <p className="text-muted-foreground">
               Verwalte die Bilder für die Rhenania Website
             </p>
+
             <div className="flex justify-center gap-4 text-sm text-muted-foreground">
               <span>{statistics.totalImages} Bilder gesamt</span>
               <span>•</span>
@@ -126,6 +128,7 @@ export default function AdminImageManager() {
                 onFileSelect={handleFileSelect}
                 onToggleActive={handleToggleActive}
                 onDelete={handleDelete}
+                onReorder={handleReorder}
               />
             </Suspense>
           ))}

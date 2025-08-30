@@ -1,14 +1,15 @@
-// components/bilder/ImageSection.tsx
+// components/bilder/ImageSection.tsx (Updated)
 "use client";
 
 import { ImageIcon, Plus, Upload } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
+import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+import { DraggableImageGrid } from "./DraggableImageGrid";
 import { DropZone } from "./Dropzone";
-import type { ImageItem } from "./ImagePreview";
-import { OptimizedImagePreview } from "./OptimizedImagePreview";
+import { OptimizedImagePreview, type ImageItem } from "./OptimizedImagePreview";
 import { VirtualImageGrid } from "./VirtualImageGrid";
 
 export interface ImageSectionConfig {
@@ -28,6 +29,7 @@ interface EnhancedImageSectionProps {
   onFileSelect: (files: FileList | null, section: HomepageSection) => void;
   onToggleActive: (imageId: string) => void;
   onDelete: (imageId: string, imageName: string) => void;
+  onReorder: (imageIds: string[]) => void;
 }
 
 export const EnhancedImageSection = ({
@@ -40,7 +42,14 @@ export const EnhancedImageSection = ({
   onFileSelect,
   onToggleActive,
   onDelete,
+  onReorder,
 }: EnhancedImageSectionProps) => {
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    imageId: string;
+    imageName: string;
+  }>({ open: false, imageId: "", imageName: "" });
+
   const activeCount = useMemo(
     () => images.filter((img) => img.isActive).length,
     [images]
@@ -49,6 +58,20 @@ export const EnhancedImageSection = ({
   const getImageSize = useCallback(() => {
     return config.allowMultiple ? "small" : "large";
   }, [config.allowMultiple]);
+
+  const handleDeleteClick = useCallback(
+    (imageId: string, imageName: string) => {
+      setDeleteDialog({ open: true, imageId, imageName });
+    },
+    []
+  );
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (deleteDialog.imageId && deleteDialog.imageName) {
+      onDelete(deleteDialog.imageId, deleteDialog.imageName);
+      setDeleteDialog({ open: false, imageId: "", imageName: "" });
+    }
+  }, [deleteDialog, onDelete]);
 
   const renderInlineDropzoneContent = useCallback(() => {
     if (config.allowMultiple) {
@@ -86,7 +109,7 @@ export const EnhancedImageSection = ({
         <p className="text-lg font-medium text-foreground mb-2">
           {config.title} Bild hochladen
         </p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground mb-2">
           Drag & Drop oder klicken zum Auswählen
         </p>
         <p className="text-xs text-muted-foreground mt-2">
@@ -112,7 +135,7 @@ export const EnhancedImageSection = ({
       );
     }
 
-    // Use virtual scrolling for large collections (but still show inline dropzone)
+    // Use virtual scrolling for large collections
     if (config.allowMultiple && images.length > 50) {
       return (
         <div className="space-y-4">
@@ -122,7 +145,7 @@ export const EnhancedImageSection = ({
             itemHeight={160}
             containerHeight={400}
             onToggleActive={onToggleActive}
-            onDelete={onDelete}
+            onDelete={handleDeleteClick}
             deletingId={deletingId}
             size={getImageSize()}
           />
@@ -142,12 +165,37 @@ export const EnhancedImageSection = ({
       );
     }
 
-    // Regular grid with inline dropzone
-    const gridClasses = config.allowMultiple
-      ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-      : "grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6";
+    // Use draggable grid for multiple images
+    if (config.allowMultiple && images.length > 0) {
+      return (
+        <div className="space-y-4">
+          <DraggableImageGrid
+            images={images}
+            onToggleActive={onToggleActive}
+            onDelete={handleDeleteClick}
+            onReorder={onReorder}
+            deletingId={deletingId}
+            size={getImageSize()}
+            allowMultiple={config.allowMultiple}
+          />
+          {/* Inline dropzone below draggable grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <DropZone
+              section={section}
+              inputRef={inputRef}
+              className="w-32 h-32"
+              onFileSelect={onFileSelect}
+              uploading={uploading}
+            >
+              {renderInlineDropzoneContent()}
+            </DropZone>
+          </div>
+        </div>
+      );
+    }
 
-    const dropzoneClasses = config.allowMultiple ? "size-32" : "w-full h-64";
+    // Single image display (no dragging needed)
+    const gridClasses = "grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6";
 
     return (
       <div className={gridClasses}>
@@ -156,16 +204,16 @@ export const EnhancedImageSection = ({
             key={image.id}
             image={image}
             onToggle={() => onToggleActive(image.id)}
-            onDelete={() => onDelete(image.id, image.imageName)}
+            onDelete={() => handleDeleteClick(image.id, image.imageName)}
             size={getImageSize()}
             isDeleting={deletingId === image.id}
           />
         ))}
-        {/* Inline dropzone as the next "image" in the grid */}
+        {/* Inline dropzone for single images */}
         <DropZone
           section={section}
           inputRef={inputRef}
-          className={dropzoneClasses}
+          className="w-full h-64"
           onFileSelect={onFileSelect}
           uploading={uploading}
         >
@@ -181,7 +229,8 @@ export const EnhancedImageSection = ({
     onFileSelect,
     uploading,
     onToggleActive,
-    onDelete,
+    handleDeleteClick,
+    onReorder,
     deletingId,
     getImageSize,
     renderInlineDropzoneContent,
@@ -189,31 +238,49 @@ export const EnhancedImageSection = ({
   ]);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 flex-wrap">
-          <ImageIcon className="w-5 h-5" />
-          {config.title}
-          <Badge variant="secondary">
-            {config.allowMultiple ? "Mehrere Bilder" : "Einzelbild"}
-          </Badge>
-          <Badge variant="outline">{images.length} gesamt</Badge>
-          {activeCount > 0 && (
-            <Badge className="bg-green-500/10 text-green-600 border-green-500">
-              {activeCount} aktiv
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 flex-wrap">
+            <ImageIcon className="w-5 h-5" />
+            {config.title}
+            <Badge variant="secondary">
+              {config.allowMultiple ? "Mehrere Bilder" : "Einzelbild"}
             </Badge>
-          )}
-          {images.length > 50 && (
-            <Badge
-              variant="outline"
-              className="bg-blue-500/10 text-blue-600 border-blue-500"
-            >
-              Virtuelles Scrollen
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>{renderImageGrid()}</CardContent>
-    </Card>
+            <Badge variant="outline">{images.length} gesamt</Badge>
+            {activeCount > 0 && (
+              <Badge className="bg-green-500/10 text-green-600 border-green-500">
+                {activeCount} aktiv
+              </Badge>
+            )}
+            {config.allowMultiple && images.length > 0 && (
+              <Badge
+                variant="outline"
+                className="bg-blue-500/10 text-blue-600 border-blue-500"
+              >
+                Drag & Drop aktiviert
+              </Badge>
+            )}
+            {images.length > 50 && (
+              <Badge
+                variant="outline"
+                className="bg-blue-500/10 text-blue-600 border-blue-500"
+              >
+                Virtuelles Scrollen
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>{renderImageGrid()}</CardContent>
+      </Card>
+
+      <DeleteConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+        imageName={deleteDialog.imageName}
+        onConfirm={handleDeleteConfirm}
+        isDeleting={deletingId === deleteDialog.imageId}
+      />
+    </>
   );
 };

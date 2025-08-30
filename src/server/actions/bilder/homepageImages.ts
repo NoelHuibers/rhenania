@@ -1,8 +1,8 @@
-// app/actions/homepage-images.ts
+// server/actions/bilder/homepageImages.ts
 "use server";
 
 import { del } from "@vercel/blob";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -186,17 +186,29 @@ export async function toggleImageActive(imageId: string) {
     const isMultipleAllowed =
       image.section === "aktive" || image.section === "haus";
 
+    let deactivatedIds: string[] = [];
+
     if (!isMultipleAllowed && !image.isActive) {
-      // Deactivate other images in the section first
-      await db
-        .update(homepageImages)
-        .set({ isActive: false })
+      // Get IDs of images that will be deactivated
+      const toDeactivate = await db
+        .select({ id: homepageImages.id })
+        .from(homepageImages)
         .where(
           and(
             eq(homepageImages.section, image.section),
             eq(homepageImages.isActive, true)
           )
         );
+
+      deactivatedIds = toDeactivate.map((img) => img.id);
+
+      // Deactivate other images in the section first
+      if (deactivatedIds.length > 0) {
+        await db
+          .update(homepageImages)
+          .set({ isActive: false })
+          .where(inArray(homepageImages.id, deactivatedIds));
+      }
     }
 
     const [updated] = await db
@@ -215,6 +227,7 @@ export async function toggleImageActive(imageId: string) {
     return {
       success: true,
       data: updated,
+      deactivatedIds, // Return IDs that were deactivated
       message: `Bild ${updated.isActive ? "aktiviert" : "deaktiviert"}`,
     };
   } catch (error) {
@@ -247,16 +260,13 @@ export async function deleteHomepageImage(imageId: string) {
       throw new Error("Bild nicht gefunden");
     }
 
-    // Delete from blob storage
-    try {
-      await del(image.imageUrl);
-    } catch (blobError) {
-      console.error("Error deleting from blob storage:", blobError);
-      // Continue with database deletion even if blob deletion fails
-    }
-
-    // Delete from database
+    // Delete from database first
     await db.delete(homepageImages).where(eq(homepageImages.id, imageId));
+
+    // Try to delete from blob storage (non-blocking)
+    del(image.imageUrl).catch((error) => {
+      console.error("Error deleting from blob storage:", error);
+    });
 
     revalidatePath("/");
     revalidatePath("/admin");
@@ -277,60 +287,25 @@ export async function deleteHomepageImage(imageId: string) {
   }
 }
 
-// Update display order
-export async function updateImageOrder(imageId: string, newOrder: number) {
+// Update display order for multiple images at once
+export async function updateImageOrder(imageIds: string[]) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       throw new Error("Nicht autorisiert");
     }
 
-    const [updated] = await db
-      .update(homepageImages)
-      .set({ displayOrder: newOrder })
-      .where(eq(homepageImages.id, imageId))
-      .returning();
+    // Use a transaction to ensure all updates happen together
+    await db.transaction(async (tx) => {
+      const updates = imageIds.map((id, index) =>
+        tx
+          .update(homepageImages)
+          .set({ displayOrder: index })
+          .where(eq(homepageImages.id, id))
+      );
 
-    revalidatePath("/");
-    revalidatePath("/admin");
-
-    return {
-      success: true,
-      data: updated,
-      message: "Reihenfolge aktualisiert",
-    };
-  } catch (error) {
-    console.error("Error updating image order:", error);
-    return {
-      success: false,
-      error:
-        error instanceof Error
-          ? error.message
-          : "Fehler beim Aktualisieren der Reihenfolge",
-    };
-  }
-}
-
-// Reorder images within a section
-export async function reorderSectionImages(
-  section: HomepageSection,
-  imageIds: string[]
-) {
-  try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      throw new Error("Nicht autorisiert");
-    }
-
-    // Update each image with its new order
-    const updates = imageIds.map((id, index) =>
-      db
-        .update(homepageImages)
-        .set({ displayOrder: index })
-        .where(eq(homepageImages.id, id))
-    );
-
-    await Promise.all(updates);
+      await Promise.all(updates);
+    });
 
     revalidatePath("/");
     revalidatePath("/admin");
@@ -340,13 +315,13 @@ export async function reorderSectionImages(
       message: "Reihenfolge erfolgreich aktualisiert",
     };
   } catch (error) {
-    console.error("Error reordering images:", error);
+    console.error("Error updating image order:", error);
     return {
       success: false,
       error:
         error instanceof Error
           ? error.message
-          : "Fehler beim Sortieren der Bilder",
+          : "Fehler beim Aktualisieren der Reihenfolge",
     };
   }
 }

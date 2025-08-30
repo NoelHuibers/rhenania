@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import type { ImageItem } from "./ImagePreview";
+import type { ImageItem } from "./OptimizedImagePreview";
 import { OptimizedImagePreview } from "./OptimizedImagePreview";
 
 interface VirtualImageGridProps {

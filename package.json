@@ -19,6 +19,9 @@
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.7.2",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.1.1",
     "@libsql/client": "^0.14.0",
     "@microsoft/microsoft-graph-client": "^3.0.7",
