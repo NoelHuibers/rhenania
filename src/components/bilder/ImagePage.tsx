@@ -2,7 +2,6 @@
 "use client";
 
 import { Suspense, useMemo } from "react";
-import { ActionButtons } from "~/components/bilder/ActionButtons";
 import { ErrorBoundary } from "~/components/bilder/ErrorBoundary";
 import {
   EnhancedImageSection,
@@ -13,6 +12,7 @@ import { UploadProgress } from "~/components/bilder/UploadProgress";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { useImageManager } from "~/hooks/useImageManager";
 import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
+import { ActionButtons } from "./ActionButtons";
 
 // Fallback component for suspense boundaries
 const ImageSectionSkeleton = () => (
@@ -94,18 +94,22 @@ export default function AdminImageManager() {
     <ErrorBoundary>
       <div className="min-h-screen bg-background">
         <SiteHeader title="Bilderverwaltung" />
-        <div className="max-w-7xl mx-auto space-y-8 p-2">
-          <div className="text-center space-y-4">
-            <p className="text-muted-foreground">
-              Verwalte die Bilder für die Rhenania Website
-            </p>
-
-            <div className="flex justify-center gap-4 text-sm text-muted-foreground">
-              <span>{statistics.totalImages} Bilder gesamt</span>
-              <span>•</span>
-              <span className="text-green-600">
-                {statistics.activeImages} aktiv
-              </span>
+        <div className="max-w-7xl mx-auto space-y-4 p-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="text-center sm:text-left flex-1">
+              <p className="text-muted-foreground mb-2">
+                Verwalte die Bilder für die Rhenania Website
+              </p>
+              <div className="flex justify-center sm:justify-start gap-4 text-sm text-muted-foreground">
+                <span>{statistics.totalImages} Bilder gesamt</span>
+                <span>•</span>
+                <span className="text-green-600">
+                  {statistics.activeImages} aktiv
+                </span>
+              </div>
+            </div>
+            <div className="flex justify-center sm:justify-end">
+              <ActionButtons loading={loading} onRefresh={loadImages} />
             </div>
           </div>
 
@@ -132,9 +136,6 @@ export default function AdminImageManager() {
               />
             </Suspense>
           ))}
-
-          {/* Action Buttons */}
-          <ActionButtons loading={loading} onRefresh={loadImages} />
         </div>
       </div>
     </ErrorBoundary>
