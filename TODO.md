@@ -1,9 +1,9 @@
+- Faxe
 - Achievements
 - Stafetten
 - Rechnungsmails
-- Excel Export
 - Inventur
-- Bilder und Website Termine etc.
+- Sempro
 - Profilbild
 - Fuchsenladen
 
