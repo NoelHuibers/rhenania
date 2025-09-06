@@ -1,7 +1,6 @@
 // createCSV.ts
 "use server";
-
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills, drinks } from "~/server/db/schema";
 
@@ -38,6 +37,34 @@ interface CSVGenerationResult {
 }
 
 /**
+ * Sorts bills to ensure event bills appear first
+ * @param bills - Array of bills to sort
+ * @returns Sorted array with events first, then regular users
+ */
+function sortBillsWithEventsFirst(bills: BillWithItems[]): BillWithItems[] {
+  // Separate events and regular users
+  const eventBills: BillWithItems[] = [];
+  const regularBills: BillWithItems[] = [];
+
+  bills.forEach((bill) => {
+    if (bill.userId.startsWith("event-")) {
+      eventBills.push(bill);
+    } else {
+      regularBills.push(bill);
+    }
+  });
+
+  // Sort events by name (optional - you can customize this)
+  eventBills.sort((a, b) => a.userName.localeCompare(b.userName));
+
+  // Sort regular bills by name
+  regularBills.sort((a, b) => a.userName.localeCompare(b.userName));
+
+  // Combine with events first
+  return [...eventBills, ...regularBills];
+}
+
+/**
  * Generates a CSV for a specific bill period
  * @param billPeriodId - The ID of the bill period to generate CSV for
  * @param options - Optional configuration for CSV generation
@@ -47,14 +74,12 @@ export async function generateBillPeriodCSV(
   options?: {
     paypalBaseUrl?: string;
     delimiter?: string; // '\t' for tab, ';' for semicolon, ',' for comma
-    includeEventBills?: boolean;
   }
 ): Promise<CSVGenerationResult> {
   try {
     const paypalBaseUrl =
       options?.paypalBaseUrl || "https://paypal.me/YourHandle";
-    const delimiter = options?.delimiter || ","; // Changed default to comma
-    const includeEventBills = options?.includeEventBills ?? true;
+    const delimiter = options?.delimiter || ",";
 
     // 1. Get the bill period information
     const [billPeriod] = await db
@@ -85,17 +110,11 @@ export async function generateBillPeriodCSV(
       drinkPrices[d.name] = d.price;
     });
 
-    // Optionally filter out event bills
-    const whereConditions = and(
-      eq(bills.billPeriodId, billPeriodId),
-      sql`${bills.userId} NOT LIKE 'event-%'`
-    );
-
     const billsData = await db
       .select()
       .from(bills)
-      .where(whereConditions)
-      .orderBy(bills.userName);
+      .where(eq(bills.billPeriodId, billPeriodId));
+    // Removed orderBy here since we'll sort later
 
     if (billsData.length === 0) {
       return {
@@ -131,9 +150,12 @@ export async function generateBillPeriodCSV(
       items: itemsByBillId[bill.id] || [],
     }));
 
-    // 7. Generate CSV content
+    // 7. Sort bills with events first
+    const sortedBills = sortBillsWithEventsFirst(billsWithItems);
+
+    // 8. Generate CSV content
     const csvContent = generateCSVContent(
-      billsWithItems,
+      sortedBills,
       drinkColumns,
       drinkPrices,
       billPeriod.billNumber,
@@ -143,16 +165,13 @@ export async function generateBillPeriodCSV(
       }
     );
 
-    // 8. Generate filename
-    const fileName = `Rechnung_${billPeriod.billNumber}_${
-      new Date().toISOString().split("T")[0]
-    }.csv`;
+    const fileName = `Rechnung_${billPeriod.billNumber}.csv`;
 
     return {
       success: true,
       csvContent,
       fileName,
-      billCount: billsWithItems.length,
+      billCount: sortedBills.length,
       drinkColumns,
     };
   } catch (error) {
@@ -191,7 +210,7 @@ function generateCSVContent(
   bills: BillWithItems[],
   drinkColumns: string[],
   drinkPrices: Record<string, number>,
-  billNumber: number,
+  billNumber: string,
   options: {
     paypalBaseUrl: string;
     delimiter: string;
@@ -360,14 +379,14 @@ function createTotalRow(
   const totalFees = bills.reduce((sum, bill) => sum + bill.fees, 0);
   const grandTotal = bills.reduce((sum, bill) => sum + bill.total, 0);
 
-  totalRow.push(escapeCSVField(formatCurrency(totalDrinks), delimiter)); // Total Rechnungsbetrag
-  totalRow.push(escapeCSVField(formatCurrency(totalOldBilling), delimiter)); // Total Alte Rechnung
-  totalRow.push(escapeCSVField(formatCurrency(totalFees), delimiter)); // Total Mahnung
-  totalRow.push(escapeCSVField(formatCurrency(grandTotal), delimiter)); // Total Zu zahlender Betrag
-  totalRow.push(escapeCSVField("", delimiter)); // nix
-  totalRow.push(escapeCSVField("", delimiter)); // Mahnfaktor
-  totalRow.push(escapeCSVField("", delimiter)); // PayPal Link
-  totalRow.push(escapeCSVField("", delimiter)); // Bezahlt status
+  totalRow.push(escapeCSVField(formatCurrency(totalDrinks), delimiter));
+  totalRow.push(escapeCSVField(formatCurrency(totalOldBilling), delimiter));
+  totalRow.push(escapeCSVField(formatCurrency(totalFees), delimiter));
+  totalRow.push(escapeCSVField(formatCurrency(grandTotal), delimiter));
+  totalRow.push(escapeCSVField("", delimiter));
+  totalRow.push(escapeCSVField("", delimiter));
+  totalRow.push(escapeCSVField("", delimiter));
+  totalRow.push(escapeCSVField("", delimiter));
 
   return totalRow;
 }
