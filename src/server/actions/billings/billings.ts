@@ -28,6 +28,55 @@ interface UserBillingSummary {
   finalTotal: number;
 }
 
+/**
+ * Get the ISO week number for a given date
+ */
+function getISOWeek(date: Date): number {
+  const target = new Date(date.valueOf());
+  const dayNumber = (date.getDay() + 6) % 7;
+  target.setDate(target.getDate() - dayNumber + 3);
+  const firstThursday = target.valueOf();
+  target.setMonth(0, 1);
+  if (target.getDay() !== 4) {
+    target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
+  }
+  return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
+}
+
+/**
+ * Generate the next bill number in KW-WW-YY format
+ * If a bill already exists for this week, append -2, -3, etc.
+ */
+async function generateBillNumber(tx: any, date: Date): Promise<string> {
+  const week = getISOWeek(date);
+  const year = date.getFullYear().toString().slice(-2);
+  const baseNumber = `KW-${week.toString().padStart(2, "0")}-${year}`;
+
+  // Check if there are any bills with this base number
+  const existingBills = await tx
+    .select({ billNumber: billPeriods.billNumber })
+    .from(billPeriods)
+    .where(sql`${billPeriods.billNumber} LIKE ${baseNumber + "%"}`);
+
+  if (existingBills.length === 0) {
+    return baseNumber;
+  }
+
+  // Find the highest suffix number
+  let maxSuffix = 1;
+  existingBills.forEach((bill: { billNumber: string }) => {
+    const match = bill.billNumber.match(
+      new RegExp(`^${baseNumber}(?:-(\\d+))?$`)
+    );
+    if (match) {
+      const suffix = match[1] ? parseInt(match[1], 10) : 1;
+      maxSuffix = Math.max(maxSuffix, suffix);
+    }
+  });
+
+  return `${baseNumber}-${maxSuffix + 1}`;
+}
+
 export async function createNewBilling() {
   const session = await auth();
   if (!session?.user?.id) {
@@ -67,7 +116,11 @@ export async function createNewBilling() {
       console.log(`Found ${personalOrders.length} unbilled personal orders`);
       console.log(`Found ${eventOrders.length} event orders to process`);
 
-      // 2. Get the next bill number and close the previous bill period
+      // 2. Generate the new bill number and close the previous bill period
+      const now = new Date();
+      const nextBillNumber = await generateBillNumber(tx, now);
+
+      // Get the last open bill period to close it
       const [lastBillPeriod] = await tx
         .select({
           id: billPeriods.id,
@@ -75,11 +128,9 @@ export async function createNewBilling() {
           closedAt: billPeriods.closedAt,
         })
         .from(billPeriods)
-        .orderBy(desc(billPeriods.billNumber))
+        .where(isNull(billPeriods.closedAt))
+        .orderBy(desc(billPeriods.createdAt))
         .limit(1);
-
-      const nextBillNumber = (lastBillPeriod?.billNumber ?? -1) + 1;
-      const now = new Date();
 
       // Close the previous bill period if it's not already closed
       if (lastBillPeriod && !lastBillPeriod.closedAt) {
@@ -409,7 +460,7 @@ export async function getLatestBillPeriod() {
     const [latestPeriod] = await db
       .select()
       .from(billPeriods)
-      .orderBy(desc(billPeriods.billNumber))
+      .orderBy(desc(billPeriods.createdAt))
       .limit(1);
 
     return latestPeriod || null;
@@ -425,7 +476,7 @@ export async function getAllBillPeriods() {
     const periods = await db
       .select()
       .from(billPeriods)
-      .orderBy(desc(billPeriods.billNumber));
+      .orderBy(desc(billPeriods.createdAt));
 
     return periods;
   } catch (error) {

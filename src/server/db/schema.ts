@@ -254,7 +254,7 @@ export const billPeriods = createTable(
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    billNumber: bp.integer().notNull().unique(),
+    billNumber: bp.text().notNull().unique(),
     totalAmount: bp.real().notNull().default(0),
     createdAt: bp
       .integer({ mode: "timestamp" })
