@@ -8,6 +8,14 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "~/components/ui/sheet";
+import {
   Table,
   TableBody,
   TableCell,
@@ -44,6 +52,7 @@ export default function OrdersTracker() {
   const [purposeFilter, setPurposeFilter] = useState<string>("all");
   const [totalCount, setTotalCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const fetchTransactions = useCallback(
     async (showLoading = false) => {
@@ -57,7 +66,7 @@ export default function OrdersTracker() {
             billStatusFilter === "all" ? undefined : (billStatusFilter as any),
           purposeFilter:
             purposeFilter === "all" ? undefined : (purposeFilter as any),
-          limit: 100, // Fetch more records
+          limit: 100,
         };
 
         const [transactionResult, countResult] = await Promise.all([
@@ -88,12 +97,10 @@ export default function OrdersTracker() {
     [searchTerm, billStatusFilter, purposeFilter, toast]
   );
 
-  // Initial load
   useEffect(() => {
     fetchTransactions(true);
   }, []);
 
-  // Debounced search and filter updates
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchTransactions(false);
@@ -102,13 +109,12 @@ export default function OrdersTracker() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, billStatusFilter, purposeFilter, fetchTransactions]);
 
-  // Live tracking simulation (optional - you can remove this if not needed)
   useEffect(() => {
     if (!isLiveTracking) return;
 
     const interval = setInterval(() => {
       fetchTransactions(false);
-    }, 10000); // Refresh every 10 seconds when live tracking is on
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [isLiveTracking, fetchTransactions]);
@@ -124,9 +130,74 @@ export default function OrdersTracker() {
     }).format(amount);
   };
 
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat("de-DE", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(date);
+  };
+
+  const formatTime = (date: Date) => {
+    return new Intl.DateTimeFormat("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(date);
+  };
+
+  // Mobile Transaction Card Component
+  const MobileTransactionCard = ({
+    transaction,
+  }: {
+    transaction: Transaction;
+  }) => (
+    <Card className="mb-3">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex-1">
+            <div className="font-semibold text-base">
+              {transaction.userName}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {transaction.drinkName}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-bold text-base">
+              {formatCurrency(transaction.total)}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {transaction.amount}x @ {formatCurrency(transaction.pricePerUnit)}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center text-xs">
+          <Badge
+            variant={transaction.inBill ? "default" : "outline"}
+            className="text-xs"
+          >
+            {transaction.inBill ? "In Bill" : "Not Billed"}
+          </Badge>
+          {transaction.bookingFor && transaction.bookingFor.trim() !== "" && (
+            <Badge variant="secondary" className="text-xs">
+              {transaction.bookingFor}
+            </Badge>
+          )}
+          <span className="text-muted-foreground ml-auto">
+            {formatDate(transaction.createdAt)} •{" "}
+            {formatTime(transaction.createdAt)}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-6">
+      <div className="min-h-screen bg-background p-4 sm:p-6">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
@@ -140,73 +211,190 @@ export default function OrdersTracker() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground mt-1">
-            Monitor and analyze drink purchase transactions ({totalCount} total)
-          </p>
-
-          <div className="flex items-center gap-4">
-            <Button
-              onClick={handleRefresh}
-              variant="outline"
-              size="sm"
-              disabled={refreshing}
-              className="gap-2"
-            >
-              <RefreshCw
-                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-              />
-              Refresh
-            </Button>
-
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  isLiveTracking ? "bg-green-500 animate-pulse" : "bg-muted"
-                }`}
-              />
-              <span className="text-sm text-muted-foreground">
-                {isLiveTracking ? "Live Tracking" : "Manual"}
-              </span>
+    <div className="min-h-screen bg-background p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        {/* Header */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold sm:hidden">Orders</h1>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1">
+                Monitor transactions ({totalCount} total)
+              </p>
             </div>
-            <Button
-              onClick={() => setIsLiveTracking(!isLiveTracking)}
-              variant={isLiveTracking ? "destructive" : "default"}
-              className="gap-2"
-            >
-              {isLiveTracking ? (
-                <Pause className="w-4 h-4" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-              {isLiveTracking ? "Stop Auto-Refresh" : "Start Auto-Refresh"}
-            </Button>
+
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Button
+                onClick={handleRefresh}
+                variant="outline"
+                size="sm"
+                disabled={refreshing}
+                className="gap-2"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+                />
+                <span className="hidden sm:inline">Refresh</span>
+              </Button>
+
+              {/* Live tracking status - hidden on mobile */}
+              <div className="hidden sm:flex items-center gap-2">
+                <div
+                  className={`w-2 h-2 rounded-full ${
+                    isLiveTracking ? "bg-green-500 animate-pulse" : "bg-muted"
+                  }`}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {isLiveTracking ? "Live" : "Manual"}
+                </span>
+              </div>
+
+              {/* Desktop: Full button, Mobile: Icon button */}
+              <Button
+                onClick={() => setIsLiveTracking(!isLiveTracking)}
+                variant={isLiveTracking ? "destructive" : "default"}
+                size="sm"
+                className="gap-2"
+              >
+                {isLiveTracking ? (
+                  <Pause className="w-4 h-4" />
+                ) : (
+                  <Play className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {isLiveTracking ? "Stop Auto" : "Auto-Refresh"}
+                </span>
+              </Button>
+
+              {/* Mobile Filter Button */}
+              <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="sm" className="sm:hidden">
+                    <Filter className="w-4 h-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[400px]">
+                  <SheetHeader>
+                    <SheetTitle>Filters</SheetTitle>
+                    <SheetDescription>
+                      Filter and search transactions
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="space-y-4 mt-4">
+                    {/* Bill Status Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">
+                        Bill Status:
+                      </label>
+                      <div className="flex gap-2">
+                        <Button
+                          variant={
+                            billStatusFilter === "all" ? "default" : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setBillStatusFilter("all")}
+                          className="flex-1"
+                        >
+                          All
+                        </Button>
+                        <Button
+                          variant={
+                            billStatusFilter === "billed"
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setBillStatusFilter("billed")}
+                          className="flex-1"
+                        >
+                          In Bill
+                        </Button>
+                        <Button
+                          variant={
+                            billStatusFilter === "not_billed"
+                              ? "default"
+                              : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setBillStatusFilter("not_billed")}
+                          className="flex-1"
+                        >
+                          Not Billed
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Purpose Filter */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Purpose:</label>
+                      <div className="flex gap-2">
+                        <Button
+                          variant={
+                            purposeFilter === "all" ? "default" : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setPurposeFilter("all")}
+                          className="flex-1"
+                        >
+                          All
+                        </Button>
+                        <Button
+                          variant={
+                            purposeFilter === "personal" ? "default" : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setPurposeFilter("personal")}
+                          className="flex-1"
+                        >
+                          Personal
+                        </Button>
+                        <Button
+                          variant={
+                            purposeFilter === "events" ? "default" : "outline"
+                          }
+                          size="sm"
+                          onClick={() => setPurposeFilter("events")}
+                          className="flex-1"
+                        >
+                          Events
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button
+                      onClick={() => setFiltersOpen(false)}
+                      className="w-full"
+                    >
+                      Apply Filters
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+          </div>
+
+          {/* Search Bar - Always visible */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search transactions..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+            />
           </div>
         </div>
 
-        {/* Filters */}
-        <Card>
+        {/* Desktop Filters - Hidden on mobile */}
+        <Card className="hidden sm:block">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Filter className="w-5 h-5" />
-              Filters & Search
+              Filters
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-end">
-              {/* Search */}
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  placeholder="Search by buyer, drink, or purpose..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
               {/* Bill Status Filter */}
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium whitespace-nowrap">
@@ -276,15 +464,15 @@ export default function OrdersTracker() {
           </CardContent>
         </Card>
 
-        {/* Transactions Table */}
-        <Card>
+        {/* Transactions - Desktop Table */}
+        <Card className="hidden sm:block">
           <CardHeader>
             <CardTitle>
               Transaction History ({transactions.length} transactions)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -330,20 +518,9 @@ export default function OrdersTracker() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        {new Intl.DateTimeFormat("de-DE", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                        }).format(transaction.createdAt)}
-                      </TableCell>
+                      <TableCell>{formatDate(transaction.createdAt)}</TableCell>
                       <TableCell className="font-mono">
-                        {new Intl.DateTimeFormat("de-DE", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                          hour12: false,
-                        }).format(transaction.createdAt)}
+                        {formatTime(transaction.createdAt)}
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -369,6 +546,33 @@ export default function OrdersTracker() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Transactions - Mobile Cards */}
+        <div className="sm:hidden">
+          <h2 className="text-lg font-semibold mb-3">
+            Transactions ({transactions.length})
+          </h2>
+          {transactions.length > 0 ? (
+            <div>
+              {transactions.map((transaction) => (
+                <MobileTransactionCard
+                  key={transaction.id}
+                  transaction={transaction}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-8 text-muted-foreground">
+                {searchTerm ||
+                billStatusFilter !== "all" ||
+                purposeFilter !== "all"
+                  ? "No transactions found matching your filters."
+                  : "No transactions found."}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );
