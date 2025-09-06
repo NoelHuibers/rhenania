@@ -23,11 +23,6 @@ interface BillWithItems {
   }>;
 }
 
-interface DrinkInfo {
-  name: string;
-  price: number;
-}
-
 interface CSVGenerationResult {
   success: boolean;
   csvContent?: string;
