@@ -96,7 +96,7 @@ export async function saveBillPeriodCSV(
 
     const blob = await put(fileName, csvContent, {
       access: "public",
-      contentType: "text/csv",
+      contentType: "text/csv;charset=utf-8",
     });
 
     // Wait for blob to be available before proceeding
