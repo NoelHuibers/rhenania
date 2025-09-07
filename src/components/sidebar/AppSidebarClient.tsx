@@ -50,6 +50,12 @@ type NavItem = {
 const navigationItems: NavItem[] = [
   { title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
   { title: "Rechnungen", href: "/rechnungen", icon: ReceiptEuro, roles: [] },
+  {
+    title: "Bestellungen",
+    href: "/bestellungen",
+    icon: ReceiptText,
+    roles: [],
+  },
   { title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
   { title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
   {
@@ -63,12 +69,6 @@ const navigationItems: NavItem[] = [
     href: "/inventur",
     icon: Warehouse,
     roles: ["Admin", "Versorger"],
-  },
-  {
-    title: "Bestellungen",
-    href: "/bestellungen",
-    icon: ReceiptText,
-    roles: ["Versorger", "Admin"],
   },
   {
     title: "Bilder",
