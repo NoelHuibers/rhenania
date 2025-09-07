@@ -108,7 +108,7 @@ export default function SignInPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center pb-4">
           <CardTitle className="text-2xl">Anmelden</CardTitle>
           <CardDescription>Melden Sie sich mit Ihrem Konto an</CardDescription>
         </CardHeader>
