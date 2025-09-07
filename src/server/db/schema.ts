@@ -17,13 +17,12 @@ export const users = createTable("user", (d) => ({
     .primaryKey()
     .$defaultFn(() => crypto.randomUUID()),
   name: d.text({ length: 255 }),
-  email: d.text({ length: 255 }),
+  email: d.text({ length: 255 }).notNull().unique(),
   emailVerified: d.integer({ mode: "timestamp" }),
   image: d.text({ length: 255 }),
   password: d.text({ length: 255 }),
 }));
 
-// New roles table
 export const roles = createTable("role", (d) => ({
   id: d
     .text({ length: 255 })
@@ -36,7 +35,6 @@ export const roles = createTable("role", (d) => ({
   updatedAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
 }));
 
-// Junction table for many-to-many relationship
 export const userRoles = createTable(
   "user_role",
   (d) => ({

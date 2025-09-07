@@ -1,7 +1,8 @@
-// config.ts
+// ~/server/auth/config.ts
+
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import bcrypt from "bcryptjs";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { DefaultSession, NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
@@ -39,8 +40,22 @@ export const authConfig = {
       issuer: `https://login.microsoftonline.com/${env.AZURE_AD_TENANT_ID}/v2.0`,
       authorization: {
         params: {
-          scope: ["openid", "profile", "offline_access", "User.Read"].join(" "),
+          scope: [
+            "openid",
+            "profile",
+            "email",
+            "offline_access",
+            "User.Read",
+          ].join(" "),
         },
+      },
+      profile(profile) {
+        return {
+          id: profile.sub,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture,
+        };
       },
     }),
     Credentials({
@@ -108,10 +123,22 @@ export const authConfig = {
     signIn: "/auth/signin",
   },
 
-  // Keep JWT minimal to avoid oversized cookies
   callbacks: {
-    async signIn({ account }) {
-      if (account?.provider === "microsoft-entra-id") return true;
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "microsoft-entra-id") {
+        // Ensure we have an email from Microsoft
+        if (!user.email && profile?.email) {
+          user.email = profile.email;
+        }
+
+        // Validate that we have an email
+        if (!user.email) {
+          console.error("No email provided from Microsoft sign-in");
+          return false; // Reject sign-in if no email
+        }
+
+        return true;
+      }
       if (account?.provider === "credentials") return true;
       return true;
     },
@@ -133,8 +160,25 @@ export const authConfig = {
     },
 
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = (token.sub as string) || session.user.id;
+      if (session.user && token.sub) {
+        session.user.id = token.sub;
+
+        // Fetch user data including email from DB
+        const [userData] = await db
+          .select({
+            email: users.email,
+            name: users.name,
+            image: users.image,
+          })
+          .from(users)
+          .where(eq(users.id, token.sub))
+          .limit(1);
+
+        if (userData) {
+          session.user.email = userData.email;
+          session.user.name = userData.name;
+          session.user.image = userData.image;
+        }
 
         // Fetch roles from DB per request (NOT in the JWT)
         const userRoleRows = await db
@@ -144,9 +188,6 @@ export const authConfig = {
           .where(sql`${userRoles.userId} = ${token.sub}`);
 
         session.user.roles = userRoleRows.map((r) => r.roleName);
-
-        // If you *must* send a provider access token to the client (not recommended),
-        // read it from the accounts table and assign here.
       }
       return session;
     },
@@ -158,24 +199,37 @@ export const authConfig = {
     },
   },
 
-  // Auto-verify email for Microsoft sign-ins
-  // - linkAccount: runs when a provider is linked the first time
-  // - signIn: runs on every successful sign-in
+  // Auto-verify email for Microsoft sign-ins and ensure email is saved
   events: {
-    async linkAccount({ user, account }) {
+    async linkAccount({ user, account, profile }) {
       if (account?.provider === "microsoft-entra-id" && user.id) {
-        await db
-          .update(users)
-          .set({ emailVerified: new Date() })
-          .where(and(eq(users.id, user.id), isNull(users.emailVerified)));
+        const updates: any = {
+          emailVerified: new Date(),
+        };
+
+        // Ensure email is saved (use profile email if available, otherwise user email)
+        const email = profile?.email || user.email;
+        if (email) {
+          updates.email = email.toLowerCase();
+        }
+
+        await db.update(users).set(updates).where(eq(users.id, user.id));
       }
     },
-    async signIn({ user, account }) {
+
+    async signIn({ user, account, profile }) {
       if (account?.provider === "microsoft-entra-id" && user.id) {
-        await db
-          .update(users)
-          .set({ emailVerified: new Date() })
-          .where(and(eq(users.id, user.id), isNull(users.emailVerified)));
+        const updates: any = {
+          emailVerified: new Date(),
+        };
+
+        // Update email if it's provided in the profile
+        const email = profile?.email || user.email;
+        if (email) {
+          updates.email = email.toLowerCase();
+        }
+
+        await db.update(users).set(updates).where(eq(users.id, user.id));
 
         // Save/refresh tokens in DB
         await db
@@ -183,7 +237,6 @@ export const authConfig = {
           .set({
             access_token: account.access_token ?? null,
             refresh_token: account.refresh_token ?? null,
-            // `expires_at` is seconds-since-epoch (use what your schema expects)
             expires_at:
               (account as any).expires_at ??
               (account.expires_in
@@ -216,8 +269,8 @@ export const authConfig = {
     sessionToken: {
       name:
         process.env.NODE_ENV === "production"
-          ? "__Secure-authjs.session-token.v2"
-          : "authjs.session-token.v2",
+          ? "__Secure-authjs.session-token.v3"
+          : "authjs.session-token.v3",
       options: {
         httpOnly: true,
         sameSite: "lax",
