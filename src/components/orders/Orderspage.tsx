@@ -10,7 +10,6 @@ import { Input } from "~/components/ui/input";
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -75,7 +74,9 @@ const LoadingState = () => (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading transactions...</p>
+          <p className="text-muted-foreground">
+            Transaktionen werden geladen...
+          </p>
         </div>
       </div>
     </div>
@@ -86,8 +87,8 @@ const LoadingState = () => (
 const EmptyState = ({ hasFilters }: { hasFilters: boolean }) => (
   <div className="text-center py-8 text-muted-foreground">
     {hasFilters
-      ? "No transactions found matching your filters."
-      : "No transactions found."}
+      ? "Keine Transaktionen gefunden, die Ihren Filtern entsprechen."
+      : "Keine Transaktionen gefunden."}
   </div>
 );
 
@@ -111,9 +112,9 @@ const HeaderControls = ({
 }: HeaderControlsProps) => (
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <h1 className="text-2xl font-bold sm:hidden">Orders</h1>
       <p className="text-sm sm:text-base text-muted-foreground mt-1">
-        Monitor and analyze drink purchase transactions ({totalCount} total)
+        Überwachen und analysieren Sie Getränkekauf-Transaktionen ({totalCount}{" "}
+        gesamt)
       </p>
     </div>
 
@@ -126,7 +127,7 @@ const HeaderControls = ({
         className="gap-2"
       >
         <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
-        <span className="hidden sm:inline">Refresh</span>
+        <span className="hidden sm:inline">Aktualisieren</span>
       </Button>
 
       <div className="hidden sm:flex items-center gap-2">
@@ -136,7 +137,7 @@ const HeaderControls = ({
           }`}
         />
         <span className="text-sm text-muted-foreground">
-          {isLiveTracking ? "Live Tracking" : "Manual"}
+          {isLiveTracking ? "Live-Tracking" : "Manuell"}
         </span>
       </div>
 
@@ -151,7 +152,9 @@ const HeaderControls = ({
           <Play className="w-4 h-4" />
         )}
         <span className="hidden sm:inline">
-          {isLiveTracking ? "Stop Auto-Refresh" : "Start Auto-Refresh"}
+          {isLiveTracking
+            ? "Auto-Aktualisierung stoppen"
+            : "Auto-Aktualisierung starten"}
         </span>
       </Button>
 
@@ -180,7 +183,7 @@ const SearchBar = ({ searchTerm, onSearchChange }: SearchBarProps) => (
   <div className="relative flex-1 min-w-0">
     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
     <Input
-      placeholder="Search by buyer, drink, or purpose..."
+      placeholder="Suche nach Käufer, Getränk oder Zweck..."
       value={searchTerm}
       onChange={(e) => onSearchChange(e.target.value)}
       className="pl-10"
@@ -207,7 +210,7 @@ const FilterButtons = ({
   <>
     <div className={isMobile ? "space-y-2" : "flex flex-col gap-2"}>
       <label className="text-sm font-medium whitespace-nowrap">
-        Bill Status:
+        Rechnungsstatus:
       </label>
       <div className="flex gap-2">
         <Button
@@ -216,7 +219,7 @@ const FilterButtons = ({
           onClick={() => onBillStatusChange("all")}
           className={isMobile ? "flex-1" : ""}
         >
-          All
+          Alle
         </Button>
         <Button
           variant={billStatusFilter === "billed" ? "default" : "outline"}
@@ -224,7 +227,7 @@ const FilterButtons = ({
           onClick={() => onBillStatusChange("billed")}
           className={isMobile ? "flex-1" : ""}
         >
-          In Bill
+          In Rechnung
         </Button>
         <Button
           variant={billStatusFilter === "not_billed" ? "default" : "outline"}
@@ -232,13 +235,13 @@ const FilterButtons = ({
           onClick={() => onBillStatusChange("not_billed")}
           className={isMobile ? "flex-1" : ""}
         >
-          Not in Bill
+          Nicht berechnet
         </Button>
       </div>
     </div>
 
     <div className={isMobile ? "space-y-2" : "flex flex-col gap-2"}>
-      <label className="text-sm font-medium whitespace-nowrap">Purpose:</label>
+      <label className="text-sm font-medium whitespace-nowrap">Zweck:</label>
       <div className="flex gap-2">
         <Button
           variant={purposeFilter === "all" ? "default" : "outline"}
@@ -246,7 +249,7 @@ const FilterButtons = ({
           onClick={() => onPurposeChange("all")}
           className={isMobile ? "flex-1" : ""}
         >
-          All
+          Alle
         </Button>
         <Button
           variant={purposeFilter === "personal" ? "default" : "outline"}
@@ -254,7 +257,7 @@ const FilterButtons = ({
           onClick={() => onPurposeChange("personal")}
           className={isMobile ? "flex-1" : ""}
         >
-          Personal
+          Persönlich
         </Button>
         <Button
           variant={purposeFilter === "events" ? "default" : "outline"}
@@ -262,7 +265,7 @@ const FilterButtons = ({
           onClick={() => onPurposeChange("events")}
           className={isMobile ? "flex-1" : ""}
         >
-          Events
+          Veranstaltungen
         </Button>
       </div>
     </div>
@@ -291,7 +294,7 @@ const DesktopFilters = ({
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
         <Filter className="w-5 h-5" />
-        Filters & Search
+        Filter & Suche
       </CardTitle>
     </CardHeader>
     <CardContent>
@@ -332,10 +335,9 @@ const MobileFilterSheet = ({
     </SheetTrigger>
     <SheetContent side="bottom" className="h-[400px]">
       <SheetHeader>
-        <SheetTitle>Filters</SheetTitle>
-        <SheetDescription>Filter transactions</SheetDescription>
+        <SheetTitle>Filter</SheetTitle>
       </SheetHeader>
-      <div className="space-y-4 mt-4">
+      <div className="space-y-4 px-4">
         <FilterButtons
           billStatusFilter={billStatusFilter}
           purposeFilter={purposeFilter}
@@ -344,7 +346,7 @@ const MobileFilterSheet = ({
           isMobile={true}
         />
         <Button onClick={() => onOpenChange(false)} className="w-full">
-          Apply Filters
+          Filter anwenden
         </Button>
       </div>
     </SheetContent>
@@ -381,7 +383,7 @@ const MobileTransactionCard = ({
           variant={transaction.inBill ? "default" : "outline"}
           className="text-xs"
         >
-          {transaction.inBill ? "In Bill" : "Not Billed"}
+          {transaction.inBill ? "In Rechnung" : "Nicht berechnet"}
         </Badge>
         {transaction.bookingFor && transaction.bookingFor.trim() !== "" && (
           <Badge variant="secondary" className="text-xs">
@@ -411,7 +413,7 @@ const MobileTransactionList = ({
 }: MobileTransactionListProps) => (
   <div className="sm:hidden">
     <h2 className="text-lg font-semibold mb-3">
-      Transactions ({transactions.length})
+      Transaktionen ({transactions.length})
     </h2>
     {transactions.length > 0 ? (
       <div>
@@ -447,7 +449,7 @@ const DesktopTransactionTable = ({
   <Card className="hidden sm:block">
     <CardHeader>
       <CardTitle>
-        Transaction History ({transactions.length} transactions)
+        Transaktionsverlauf ({transactions.length} Transaktionen)
       </CardTitle>
     </CardHeader>
     <CardContent>
@@ -455,15 +457,15 @@ const DesktopTransactionTable = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Buyer</TableHead>
-              <TableHead>Drink</TableHead>
-              <TableHead>Quantity</TableHead>
-              <TableHead>Price/Unit</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Purpose</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Time</TableHead>
-              <TableHead>Bill Status</TableHead>
+              <TableHead>Käufer</TableHead>
+              <TableHead>Getränk</TableHead>
+              <TableHead>Menge</TableHead>
+              <TableHead>Preis/Einheit</TableHead>
+              <TableHead>Gesamt</TableHead>
+              <TableHead>Zweck</TableHead>
+              <TableHead>Datum</TableHead>
+              <TableHead>Uhrzeit</TableHead>
+              <TableHead>Rechnungsstatus</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -487,7 +489,7 @@ const DesktopTransactionTable = ({
                   transaction.bookingFor.trim() !== "" ? (
                     <Badge variant="secondary">{transaction.bookingFor}</Badge>
                   ) : (
-                    <span className="text-muted-foreground">Personal</span>
+                    <span className="text-muted-foreground">Persönlich</span>
                   )}
                 </TableCell>
                 <TableCell>{formatDate(transaction.createdAt)}</TableCell>
@@ -496,7 +498,7 @@ const DesktopTransactionTable = ({
                 </TableCell>
                 <TableCell>
                   <Badge variant={transaction.inBill ? "default" : "outline"}>
-                    {transaction.inBill ? "In Bill" : "Not Billed"}
+                    {transaction.inBill ? "In Rechnung" : "Nicht berechnet"}
                   </Badge>
                 </TableCell>
               </TableRow>
@@ -552,12 +554,14 @@ export default function OrdersTracker() {
           );
         } else {
           toast.error(
-            transactionResult.error || "Failed to fetch transactions"
+            transactionResult.error || "Fehler beim Abrufen der Transaktionen"
           );
         }
       } catch (error) {
         console.error("Error fetching transactions:", error);
-        toast.error("An unexpected error occurred while fetching transactions");
+        toast.error(
+          "Ein unerwarteter Fehler ist beim Abrufen der Transaktionen aufgetreten"
+        );
       } finally {
         setLoading(false);
         setRefreshing(false);
