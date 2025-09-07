@@ -1,4 +1,5 @@
 // schema.ts
+
 import { relations, sql } from "drizzle-orm";
 import {
   foreignKey,
@@ -509,5 +510,186 @@ export const homepageImagesRelations = relations(homepageImages, ({ one }) => ({
   uploadedBy: one(users, {
     fields: [homepageImages.uploadedBy],
     references: [users.id],
+  }),
+}));
+
+export const inventories = createTable(
+  "inventory",
+  (i) => ({
+    id: i
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    inventoryDate: i
+      .integer({ mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    status: i
+      .text({
+        enum: ["active", "closed", "draft"],
+      })
+      .notNull()
+      .default("draft"),
+    notes: i.text(),
+    performedBy: i.text({ length: 255 }).references(() => users.id),
+    createdAt: i
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+    closedAt: i.integer({ mode: "timestamp" }),
+  }),
+  (t) => [
+    index("inventory_date_idx").on(t.inventoryDate),
+    index("inventory_status_idx").on(t.status),
+  ]
+);
+
+// Individual drink counts for each inventory
+export const inventoryItems = createTable(
+  "inventory_item",
+  (ii) => ({
+    id: ii
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    inventoryId: ii
+      .text({ length: 255 })
+      .notNull()
+      .references(() => inventories.id, { onDelete: "cascade" }),
+    drinkId: ii
+      .text({ length: 255 })
+      .notNull()
+      .references(() => drinks.id),
+    drinkName: ii.text({ length: 255 }).notNull(), // Denormalized for history
+    countedStock: ii.integer().notNull(), // What we physically counted
+    price: ii.real().notNull(), // Price at time of inventory
+    createdAt: ii
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    index("inventory_item_inventory_idx").on(t.inventoryId),
+    index("inventory_item_drink_idx").on(t.drinkId),
+  ]
+);
+
+// Stock adjustments - for purchases or corrections
+export const stockAdjustments = createTable(
+  "stock_adjustment",
+  (sa) => ({
+    id: sa
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    drinkId: sa
+      .text({ length: 255 })
+      .notNull()
+      .references(() => drinks.id),
+    drinkName: sa.text({ length: 255 }).notNull(), // Denormalized for history
+    adjustmentType: sa
+      .text({
+        enum: ["purchase", "correction", "loss", "return"],
+      })
+      .notNull(),
+    quantity: sa.integer().notNull(), // Positive for additions, negative for removals
+    unitPrice: sa.real(), // Price per unit if it's a purchase
+    totalCost: sa.real(), // Total cost if it's a purchase
+    reason: sa.text(), // Why the adjustment was made
+    invoiceNumber: sa.text({ length: 100 }), // For purchases
+    supplier: sa.text({ length: 255 }), // For purchases
+    performedBy: sa.text({ length: 255 }).references(() => users.id),
+    createdAt: sa
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    index("stock_adjustment_drink_idx").on(t.drinkId),
+    index("stock_adjustment_type_idx").on(t.adjustmentType),
+    index("stock_adjustment_date_idx").on(t.createdAt),
+  ]
+);
+
+// View/calculated table for current stock status
+// This could be a view or a materialized table that gets updated
+export const stockStatus = createTable(
+  "stock_status",
+  (ss) => ({
+    id: ss
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    drinkId: ss
+      .text({ length: 255 })
+      .notNull()
+      .unique()
+      .references(() => drinks.id),
+    drinkName: ss.text({ length: 255 }).notNull(),
+    // Stock calculations
+    lastInventoryStock: ss.integer().notNull().default(0), // From last inventory
+    purchasedSince: ss.integer().notNull().default(0), // Sum of purchases since last inventory
+    soldSince: ss.integer().notNull().default(0), // Sum of orders where inBill=false since last inventory
+    adjustmentsSince: ss.integer().notNull().default(0), // Other adjustments since last inventory
+    calculatedStock: ss.integer().notNull().default(0), // lastInventory + purchased - sold + adjustments
+    // Financial calculations
+    currentPrice: ss.real().notNull(),
+    lostValue: ss.real().default(0), // Value of lost/missing stock
+    // Metadata
+    lastInventoryId: ss.text({ length: 255 }), // Reference to last inventory
+    lastInventoryDate: ss.integer({ mode: "timestamp" }),
+    lastUpdated: ss.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
+  }),
+  (t) => [
+    index("stock_status_drink_idx").on(t.drinkId),
+    index("stock_status_updated_idx").on(t.lastUpdated),
+  ]
+);
+
+export const inventoriesRelations = relations(inventories, ({ one, many }) => ({
+  performedBy: one(users, {
+    fields: [inventories.performedBy],
+    references: [users.id],
+  }),
+  items: many(inventoryItems),
+}));
+
+export const inventoryItemsRelations = relations(inventoryItems, ({ one }) => ({
+  inventory: one(inventories, {
+    fields: [inventoryItems.inventoryId],
+    references: [inventories.id],
+  }),
+  drink: one(drinks, {
+    fields: [inventoryItems.drinkId],
+    references: [drinks.id],
+  }),
+}));
+
+export const stockAdjustmentsRelations = relations(
+  stockAdjustments,
+  ({ one }) => ({
+    drink: one(drinks, {
+      fields: [stockAdjustments.drinkId],
+      references: [drinks.id],
+    }),
+    performedBy: one(users, {
+      fields: [stockAdjustments.performedBy],
+      references: [users.id],
+    }),
+  })
+);
+
+export const stockStatusRelations = relations(stockStatus, ({ one }) => ({
+  drink: one(drinks, {
+    fields: [stockStatus.drinkId],
+    references: [drinks.id],
+  }),
+  lastInventory: one(inventories, {
+    fields: [stockStatus.lastInventoryId],
+    references: [inventories.id],
   }),
 }));
