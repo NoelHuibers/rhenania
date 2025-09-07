@@ -1,4 +1,4 @@
-// app/stock/types.ts
+// utils.ts
 export type StockStatusWithDetails = {
   drinkId: string;
   drinkName: string;
