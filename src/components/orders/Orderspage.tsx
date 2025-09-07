@@ -227,7 +227,7 @@ const FilterButtons = ({
           onClick={() => onBillStatusChange("billed")}
           className={isMobile ? "flex-1" : ""}
         >
-          In Rechnung
+          Abgerechnet
         </Button>
         <Button
           variant={billStatusFilter === "not_billed" ? "default" : "outline"}
@@ -235,7 +235,7 @@ const FilterButtons = ({
           onClick={() => onBillStatusChange("not_billed")}
           className={isMobile ? "flex-1" : ""}
         >
-          Nicht berechnet
+          Offen
         </Button>
       </div>
     </div>
@@ -383,7 +383,7 @@ const MobileTransactionCard = ({
           variant={transaction.inBill ? "default" : "outline"}
           className="text-xs"
         >
-          {transaction.inBill ? "In Rechnung" : "Nicht berechnet"}
+          {transaction.inBill ? "Abgerechnet" : "Offen"}
         </Badge>
         {transaction.bookingFor && transaction.bookingFor.trim() !== "" && (
           <Badge variant="secondary" className="text-xs">
@@ -498,7 +498,7 @@ const DesktopTransactionTable = ({
                 </TableCell>
                 <TableCell>
                   <Badge variant={transaction.inBill ? "default" : "outline"}>
-                    {transaction.inBill ? "In Rechnung" : "Nicht berechnet"}
+                    {transaction.inBill ? "Abgerechnet" : "Offen"}
                   </Badge>
                 </TableCell>
               </TableRow>
