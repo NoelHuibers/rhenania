@@ -1,3 +1,4 @@
+// HistoryTab.tsx
 "use client";
 
 import { History } from "lucide-react";

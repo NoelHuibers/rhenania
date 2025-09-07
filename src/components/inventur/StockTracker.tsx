@@ -1,3 +1,4 @@
+// StockTracker.tsx
 "use client";
 
 import { Save } from "lucide-react";

@@ -1,3 +1,4 @@
+// AdjustmentTab.tsx
 "use client";
 
 import { Calculator, Minus, Plus } from "lucide-react";

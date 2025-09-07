@@ -1,3 +1,4 @@
+// CountTab.tsx
 "use client";
 
 import { Package } from "lucide-react";

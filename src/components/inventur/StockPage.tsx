@@ -1,3 +1,4 @@
+// StockPage.tsx
 "use server";
 
 import { Suspense } from "react";
