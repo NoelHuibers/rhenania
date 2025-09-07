@@ -1,6 +1,6 @@
 "use client";
 
-import { Package, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
@@ -10,6 +10,7 @@ import {
   getStockData,
   saveInventoryCount,
 } from "~/server/actions/inventur/inventur";
+import { SiteHeader } from "../trinken/SiteHeader";
 import AdjustmentsTab from "./AdjustmentTab";
 import CountTab from "./CountTab";
 import DashboardTab from "./DashboardTab";
@@ -65,60 +66,62 @@ export default function StockTracker({
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Package className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold text-primary">Stock Tracker</h1>
+    <>
+      <SiteHeader title="Inventur" />
+      <div className="p-6">
+        <div className="max-w-7xl mx-auto space-y-6">
+          <div className="flex items-center justify-between">
+            <Button
+              onClick={handleSaveInventory}
+              disabled={isPending}
+              className="bg-secondary hover:bg-secondary/90"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isPending ? "Saving..." : "Save Inventory"}
+            </Button>
           </div>
-          <Button
-            onClick={handleSaveInventory}
-            disabled={isPending}
-            className="bg-secondary hover:bg-secondary/90"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isPending ? "Saving..." : "Save Inventory"}
-          </Button>
+
+          <Tabs defaultValue="dashboard" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="adjustments">Adjustments</TabsTrigger>
+              <TabsTrigger value="count">Count</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="dashboard">
+              <DashboardTab
+                stockItems={stockItems}
+                countedStock={countedStock}
+              />
+            </TabsContent>
+
+            <TabsContent value="history">
+              <HistoryTab history={history} />
+            </TabsContent>
+
+            <TabsContent value="adjustments">
+              <AdjustmentsTab
+                stockItems={stockItems}
+                onAdjustmentsApplied={async () => {
+                  const newStockData = await getStockData();
+                  setStockItems(newStockData);
+                }}
+              />
+            </TabsContent>
+
+            <TabsContent value="count">
+              <CountTab
+                stockItems={stockItems}
+                countedStock={countedStock}
+                onUpdateStock={(drinkId, value) => {
+                  setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
+                }}
+              />
+            </TabsContent>
+          </Tabs>
         </div>
-
-        <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="history">History</TabsTrigger>
-            <TabsTrigger value="adjustments">Adjustments</TabsTrigger>
-            <TabsTrigger value="count">Count</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard">
-            <DashboardTab stockItems={stockItems} countedStock={countedStock} />
-          </TabsContent>
-
-          <TabsContent value="history">
-            <HistoryTab history={history} />
-          </TabsContent>
-
-          <TabsContent value="adjustments">
-            <AdjustmentsTab
-              stockItems={stockItems}
-              onAdjustmentsApplied={async () => {
-                const newStockData = await getStockData();
-                setStockItems(newStockData);
-              }}
-            />
-          </TabsContent>
-
-          <TabsContent value="count">
-            <CountTab
-              stockItems={stockItems}
-              countedStock={countedStock}
-              onUpdateStock={(drinkId, value) => {
-                setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
-              }}
-            />
-          </TabsContent>
-        </Tabs>
       </div>
-    </div>
+    </>
   );
 }
