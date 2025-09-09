@@ -167,7 +167,7 @@ export function BillingOverview() {
         </div>
 
         <div className="flex items-center justify-between text-[11px] text-muted-foreground md:text-sm">
-          <span>Rechnung #{billData.billNumber}</span>
+          <span>Rechnung {billData.billNumber}</span>
           <span>
             Updated:{" "}
             {new Date(billData.lastUpdated).toLocaleDateString("de-DE")}
