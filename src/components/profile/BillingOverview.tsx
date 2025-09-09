@@ -2,6 +2,7 @@
 
 import { Download, Eye, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -13,6 +14,7 @@ import {
   DrawerTrigger,
 } from "~/components/ui/drawer";
 import { Separator } from "~/components/ui/separator";
+import { downloadUserBillPDF } from "~/server/actions/profile/downloadUserBill";
 import {
   getUserBillingData,
   type BillData,
@@ -23,6 +25,7 @@ export function BillingOverview() {
   const [billData, setBillData] = useState<BillData | null>(null);
   const [billItems, setBillItems] = useState<BillItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,6 +47,40 @@ export function BillingOverview() {
 
     fetchBillingData();
   }, []);
+
+  const handleDownloadPDF = async () => {
+    if (!billData?.billId) {
+      toast.error("No bill period found");
+      return;
+    }
+
+    try {
+      setDownloadingPDF(true);
+
+      const result = await downloadUserBillPDF(billData.billId);
+
+      if (result.success && result.downloadUrl) {
+        // Create a temporary anchor element to trigger download
+        const link = document.createElement("a");
+        link.href = result.downloadUrl;
+        link.download =
+          result.fileName || `Rechnung_${billData.billNumber}.pdf`;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast.success("PDF downloaded successfully");
+      } else {
+        toast.error(result.error || "Failed to download PDF");
+      }
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast.error("An unexpected error occurred while downloading the PDF");
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -232,9 +269,20 @@ export function BillingOverview() {
             aria-label="Download PDF"
             variant={"outline"}
             className="w-full sm:w-auto sm:self-start h-9 md:h-8 px-3 md:px-3 text-sm md:text-sm bg-transparent"
+            onClick={handleDownloadPDF}
+            disabled={downloadingPDF}
           >
-            <Download className="mr-2 h-3 w-3 md:h-3 md:w-3" />
-            Download PDF
+            {downloadingPDF ? (
+              <>
+                <Loader2 className="mr-2 h-3 w-3 md:h-3 md:w-3 animate-spin" />
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-3 w-3 md:h-3 md:w-3" />
+                Download PDF
+              </>
+            )}
           </Button>
         </div>
       </CardContent>

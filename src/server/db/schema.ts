@@ -6,6 +6,7 @@ import {
   index,
   primaryKey,
   sqliteTableCreator,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
@@ -471,6 +472,36 @@ export const billPeriodsRelations = {
     references: [billCSVs.billPeriodId],
   },
 };
+
+export const billPDFs = createTable(
+  "bill_pdf",
+  (bp) => ({
+    id: bp
+      .text({ length: 255 })
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    billId: bp.text({ length: 255 }).notNull(),
+    userId: bp.text({ length: 255 }).notNull(),
+    blobUrl: bp.text().notNull(),
+    fileName: bp.text().notNull(),
+    fileSize: bp.integer().notNull(),
+    createdAt: bp
+      .integer({ mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  }),
+  (t) => [
+    index("bill_pdf_bill_idx").on(t.billId),
+    index("bill_pdf_user_idx").on(t.userId),
+    uniqueIndex("bill_pdf_unique_idx").on(t.billId),
+    foreignKey({
+      columns: [t.billId],
+      foreignColumns: [bills.id],
+      name: "bill_pdf_bill_fk",
+    }),
+  ]
+);
 
 export const homepageImages = createTable(
   "homepage_image",
