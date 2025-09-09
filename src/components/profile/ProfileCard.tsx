@@ -312,7 +312,9 @@ export function ProfileIdentity() {
                 </TabsContent>
                 <TabsContent value="url" className="space-y-4">
                   <div>
-                    <Label htmlFor="avatar-url">Image URL</Label>
+                    <Label htmlFor="avatar-url" className="pb-2">
+                      Image URL
+                    </Label>
                     <Input
                       id="avatar-url"
                       placeholder="https://example.com/avatar.jpg"
