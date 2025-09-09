@@ -4,7 +4,6 @@
 - Rechnungsmails
 - Inventur
 - Sempro
-- Profilbild
 - Fuchsenladen
 
 Lowprio:
