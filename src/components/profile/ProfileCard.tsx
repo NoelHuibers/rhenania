@@ -259,7 +259,9 @@ export function ProfileIdentity() {
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Vollständiger Name</Label>
+                  <Label htmlFor="name" className="pb-2">
+                    Vollständiger Name
+                  </Label>
                   <Input
                     id="name"
                     value={newName}
