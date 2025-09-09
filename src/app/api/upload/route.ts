@@ -10,16 +10,32 @@ export async function POST(request: Request) {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
+        const isProfilePath =
+          pathname.startsWith("profile/") || pathname.startsWith("/profile/");
         const isDrinksPath =
           pathname.startsWith("drinks/") || pathname.startsWith("/drinks/");
         const isPicturesPath =
           pathname.startsWith("homepage/") || pathname.startsWith("/homepage/");
 
-        if (!isDrinksPath && !isPicturesPath) {
+        if (!isDrinksPath && !isPicturesPath && !isProfilePath) {
           throw new Error("Unauthorized upload path");
         }
 
-        // Different settings based on path
+        // Settings for profile pictures
+        if (isProfilePath) {
+          return {
+            allowedContentTypes: [
+              "image/jpeg",
+              "image/jpg",
+              "image/png",
+              "image/webp",
+            ],
+            maximumSizeInBytes: 5 * 1024 * 1024, // 5MB for profile pictures
+            addRandomSuffix: true,
+          };
+        }
+
+        // Settings for homepage pictures
         if (isPicturesPath) {
           return {
             allowedContentTypes: [
