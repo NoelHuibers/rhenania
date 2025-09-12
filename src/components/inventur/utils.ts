@@ -62,10 +62,10 @@ export function getStockStatus(
     item.calculatedStock > 0 ? (lostStock / item.calculatedStock) * 100 : 0;
 
   if (lossPercentage > 20) {
-    return { label: "Critical", color: "bg-destructive" };
+    return { label: "Kritisch", color: "bg-destructive" };
   }
   if (lossPercentage > 10) {
-    return { label: "Low", color: "bg-yellow-500" };
+    return { label: "Moderat", color: "bg-yellow-500" };
   }
-  return { label: "Good", color: "bg-green-500" };
+  return { label: "Gut", color: "bg-green-500" };
 }
