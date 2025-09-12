@@ -72,11 +72,7 @@ export default function StockTracker({
       <div className="p-6">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex items-center justify-between">
-            <Button
-              onClick={handleSaveInventory}
-              disabled={isPending}
-              className="bg-secondary hover:bg-secondary/90"
-            >
+            <Button onClick={handleSaveInventory} disabled={isPending}>
               <Save className="h-4 w-4 mr-2" />
               {isPending ? "Saving..." : "Save Inventory"}
             </Button>
