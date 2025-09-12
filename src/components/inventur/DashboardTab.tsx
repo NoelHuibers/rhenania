@@ -195,6 +195,11 @@ export default function DashboardTab({
     return sum + calculateLostValue(item, actualStock);
   }, 0);
 
+  const totalInventoryValue = stockItems.reduce((sum, item) => {
+    const actualStock = localCountedStock[item.drinkId] ?? item.istStock;
+    return sum + actualStock * item.currentPrice;
+  }, 0);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -211,6 +216,12 @@ export default function DashboardTab({
               Gesamteingekauft:{" "}
               <span className="font-medium text-green-600">
                 {totalPurchasedUnits} Flaschen
+              </span>
+            </span>
+            <span>
+              Bestandswert:{" "}
+              <span className="font-medium text-primary">
+                €{totalInventoryValue.toFixed(2)}
               </span>
             </span>
             <span>
