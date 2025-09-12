@@ -20,7 +20,7 @@ export default function AdjustmentsTab({
   onAdjustmentsApplied,
 }: AdjustmentsTabProps) {
   const [adjustments, setAdjustments] = useState<{
-    [key: string]: { amount: number; totalPrice: number; reason?: string };
+    [key: string]: { amount: number; reason?: string };
   }>({});
   const [adjustmentType, setAdjustmentType] = useState<"purchase" | "loss">(
     "purchase"
@@ -32,17 +32,25 @@ export default function AdjustmentsTab({
       try {
         const adjustmentPromises = Object.entries(adjustments)
           .filter(([_, adj]) => adj.amount > 0)
-          .map(([drinkId, adj]) =>
-            applyStockAdjustment({
+          .map(([drinkId, adj]) => {
+            const drink = stockItems.find((item) => item.drinkId === drinkId);
+            if (!drink) throw new Error(`Drink ${drinkId} not found`);
+
+            return applyStockAdjustment({
               drinkId,
               adjustmentType: adjustmentType,
               quantity:
                 adjustmentType === "purchase" ? adj.amount : -adj.amount,
-              unitPrice: adj.totalPrice / adj.amount,
-              totalCost: adj.totalPrice,
-              reason: adj.reason,
-            })
-          );
+              unitPrice: drink.currentPrice,
+              totalCost: adj.amount * drink.currentPrice,
+              reason: adj.reason || `${adjustmentType} adjustment`,
+            });
+          });
+
+        if (adjustmentPromises.length === 0) {
+          toast.error("Please enter an amount for at least one item");
+          return;
+        }
 
         await Promise.all(adjustmentPromises);
 
@@ -67,17 +75,23 @@ export default function AdjustmentsTab({
           </CardTitle>
           <div className="flex items-center gap-2">
             <Button
-              variant={adjustmentType === "purchase" ? "default" : "outline"}
               onClick={() => setAdjustmentType("purchase")}
-              className="bg-green-600 hover:bg-green-700 text-white"
+              className={`transition-all ${
+                adjustmentType === "purchase"
+                  ? "bg-green-600 hover:bg-green-700 text-white shadow-lg scale-105"
+                  : "bg-green-100 hover:bg-green-200 text-green-700 opacity-60"
+              }`}
             >
               <Plus className="h-4 w-4 mr-1" />
               Purchase
             </Button>
             <Button
-              variant={adjustmentType === "loss" ? "default" : "outline"}
               onClick={() => setAdjustmentType("loss")}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className={`transition-all ${
+                adjustmentType === "loss"
+                  ? "bg-red-600 hover:bg-red-700 text-white shadow-lg scale-105"
+                  : "bg-red-100 hover:bg-red-200 text-red-700 opacity-60"
+              }`}
             >
               <Minus className="h-4 w-4 mr-1" />
               Loss
@@ -98,10 +112,10 @@ export default function AdjustmentsTab({
                     Amount
                   </th>
                   <th className="text-center p-3 font-semibold text-primary">
-                    Total Price
+                    Price per Unit
                   </th>
                   <th className="text-center p-3 font-semibold text-primary">
-                    Price per Unit
+                    Total Price
                   </th>
                   <th className="text-center p-3 font-semibold text-primary">
                     Reason
@@ -112,13 +126,9 @@ export default function AdjustmentsTab({
                 {stockItems.map((item, index) => {
                   const adjustment = adjustments[item.drinkId] || {
                     amount: 0,
-                    totalPrice: 0,
                     reason: "",
                   };
-                  const pricePerUnit =
-                    adjustment.amount > 0
-                      ? adjustment.totalPrice / adjustment.amount
-                      : 0;
+                  const totalPrice = adjustment.amount * item.currentPrice;
 
                   return (
                     <tr
@@ -131,40 +141,42 @@ export default function AdjustmentsTab({
                       <td className="p-3">
                         <Input
                           type="number"
-                          value={adjustment.amount}
-                          onChange={(e) =>
+                          value={adjustment.amount || ""}
+                          onChange={(e) => {
+                            const value =
+                              e.target.value === ""
+                                ? 0
+                                : Number(e.target.value);
                             setAdjustments((prev) => ({
                               ...prev,
                               [item.drinkId]: {
-                                ...adjustment,
-                                amount: Number(e.target.value),
+                                amount: value,
+                                reason: prev[item.drinkId]?.reason || "",
                               },
-                            }))
-                          }
+                            }));
+                          }}
                           className="w-24 mx-auto"
                           min="0"
+                          placeholder="0"
                         />
                       </td>
-                      <td className="p-3">
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={adjustment.totalPrice}
-                          onChange={(e) =>
-                            setAdjustments((prev) => ({
-                              ...prev,
-                              [item.drinkId]: {
-                                ...adjustment,
-                                totalPrice: Number(e.target.value),
-                              },
-                            }))
-                          }
-                          className="w-32 mx-auto"
-                          min="0"
-                        />
+                      <td className="p-3 text-center font-medium">
+                        €{item.currentPrice.toFixed(2)}
                       </td>
-                      <td className="p-3 text-center text-muted-foreground">
-                        €{pricePerUnit.toFixed(2)}
+                      <td className="p-3 text-center font-semibold">
+                        {totalPrice > 0 ? (
+                          <span
+                            className={
+                              adjustmentType === "loss"
+                                ? "text-red-600"
+                                : "text-green-600"
+                            }
+                          >
+                            €{totalPrice.toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">€0.00</span>
+                        )}
                       </td>
                       <td className="p-3">
                         <Input
@@ -174,7 +186,7 @@ export default function AdjustmentsTab({
                             setAdjustments((prev) => ({
                               ...prev,
                               [item.drinkId]: {
-                                ...adjustment,
+                                amount: prev[item.drinkId]?.amount || 0,
                                 reason: e.target.value,
                               },
                             }))
@@ -187,6 +199,33 @@ export default function AdjustmentsTab({
                   );
                 })}
               </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-border bg-muted/30">
+                  <td colSpan={3} className="p-3 text-right font-semibold">
+                    Total {adjustmentType === "purchase" ? "Purchase" : "Loss"}:
+                  </td>
+                  <td className="p-3 text-center font-bold text-lg">
+                    <span
+                      className={
+                        adjustmentType === "loss"
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }
+                    >
+                      €
+                      {Object.entries(adjustments)
+                        .reduce((sum, [drinkId, adj]) => {
+                          const item = stockItems.find(
+                            (i) => i.drinkId === drinkId
+                          );
+                          return sum + adj.amount * (item?.currentPrice || 0);
+                        }, 0)
+                        .toFixed(2)}
+                    </span>
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
           <div className="flex justify-end">

@@ -1,4 +1,5 @@
 // utils.ts
+
 export type StockStatusWithDetails = {
   drinkId: string;
   drinkName: string;
@@ -27,6 +28,17 @@ export type InventoryWithItems = {
   }>;
 };
 
+export type StockAdjustmentInput = {
+  drinkId: string;
+  adjustmentType: "purchase" | "correction" | "loss" | "return";
+  quantity: number;
+  unitPrice: number;
+  totalCost: number;
+  reason?: string;
+  invoiceNumber?: string;
+  supplier?: string;
+};
+
 export function calculateLostStock(
   item: StockStatusWithDetails,
   actualStock: number
@@ -49,8 +61,11 @@ export function getStockStatus(
   const lossPercentage =
     item.calculatedStock > 0 ? (lostStock / item.calculatedStock) * 100 : 0;
 
-  if (lossPercentage > 10)
+  if (lossPercentage > 10) {
     return { label: "Critical", color: "bg-destructive" };
-  if (lossPercentage > 5) return { label: "Low", color: "bg-yellow-500" };
+  }
+  if (lossPercentage > 5) {
+    return { label: "Low", color: "bg-yellow-500" };
+  }
   return { label: "Good", color: "bg-green-500" };
 }

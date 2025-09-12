@@ -48,7 +48,7 @@ export default function CountTab({
               {stockItems.map((item, index) => {
                 const actualCount = countedStock[item.drinkId] ?? item.istStock;
                 const difference = actualCount - item.calculatedStock;
-
+                
                 return (
                   <tr
                     key={item.drinkId}
