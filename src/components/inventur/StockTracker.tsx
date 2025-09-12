@@ -47,6 +47,7 @@ export default function StockTracker({
         if (result.success) {
           toast.success("Inventory saved successfully");
 
+          // Fetch fresh data after saving
           const [newStockData, newHistory] = await Promise.all([
             getStockData(),
             getInventoryHistory(),
@@ -64,6 +65,11 @@ export default function StockTracker({
         );
       }
     });
+  };
+
+  // This function will be called when adjustments are applied
+  const handleAdjustmentsApplied = (updatedData: StockStatusWithDetails[]) => {
+    setStockItems(updatedData);
   };
 
   return (
