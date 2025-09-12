@@ -258,45 +258,47 @@ export async function createNewBilling() {
           )}, fees: €${fees.toFixed(2)})`
         );
 
-        // Group orders by drink to consolidate quantities
-        const drinkSummary = new Map<
-          string,
-          {
-            drinkName: string;
-            totalAmount: number;
-            pricePerUnit: number;
-            totalPrice: number;
+        // Group orders by drink to consolidate quantities (only if there are new orders)
+        if (userOrders.length > 0) {
+          const drinkSummary = new Map<
+            string,
+            {
+              drinkName: string;
+              totalAmount: number;
+              pricePerUnit: number;
+              totalPrice: number;
+            }
+          >();
+
+          for (const order of userOrders) {
+            const key = `${order.drinkName}-${order.pricePerUnit}`;
+
+            if (drinkSummary.has(key)) {
+              const existing = drinkSummary.get(key)!;
+              existing.totalAmount += order.amount;
+              existing.totalPrice += order.total;
+            } else {
+              drinkSummary.set(key, {
+                drinkName: order.drinkName,
+                totalAmount: order.amount,
+                pricePerUnit: order.pricePerUnit,
+                totalPrice: order.total,
+              });
+            }
           }
-        >();
 
-        for (const order of userOrders) {
-          const key = `${order.drinkName}-${order.pricePerUnit}`;
-
-          if (drinkSummary.has(key)) {
-            const existing = drinkSummary.get(key)!;
-            existing.totalAmount += order.amount;
-            existing.totalPrice += order.total;
-          } else {
-            drinkSummary.set(key, {
-              drinkName: order.drinkName,
-              totalAmount: order.amount,
-              pricePerUnit: order.pricePerUnit,
-              totalPrice: order.total,
+          // Create bill items for each unique drink
+          for (const drinkInfo of drinkSummary.values()) {
+            await tx.insert(billItems).values({
+              id: crypto.randomUUID(),
+              billId: billId,
+              drinkName: drinkInfo.drinkName,
+              amount: drinkInfo.totalAmount,
+              pricePerDrink: drinkInfo.pricePerUnit,
+              totalPricePerDrink: drinkInfo.totalPrice,
+              createdAt: now,
             });
           }
-        }
-
-        // Create bill items for each unique drink
-        for (const drinkInfo of drinkSummary.values()) {
-          await tx.insert(billItems).values({
-            id: crypto.randomUUID(),
-            billId: billId,
-            drinkName: drinkInfo.drinkName,
-            amount: drinkInfo.totalAmount,
-            pricePerDrink: drinkInfo.pricePerUnit,
-            totalPricePerDrink: drinkInfo.totalPrice,
-            createdAt: now,
-          });
         }
 
         // Store summary for return data
