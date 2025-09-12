@@ -1,4 +1,4 @@
-// server/actions/inventur/inventur.ts
+// server/actions/inventur/inventur.ts - COMPLETE FIXED VERSION
 "use server";
 
 import { and, desc, eq, gte, ne, sql } from "drizzle-orm";
@@ -100,7 +100,7 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
           .limit(1);
       }
 
-      // Calculate sold since last inventory from orders where inBill = false
+      // Calculate sold since last inventory from ALL orders (removed inBill filter)
       const soldSinceInventory = lastInventoryDate
         ? await db
             .select({
@@ -110,7 +110,6 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
             .where(
               and(
                 eq(orders.drinkId, drink.id),
-                eq(orders.inBill, false),
                 gte(orders.createdAt, lastInventoryDate)
               )
             )
@@ -437,7 +436,7 @@ export async function getStockAdjustments(drinkId?: string) {
   return await query;
 }
 
-// Recalculate stock status (utility function for data integrity)
+// Recalculate stock status (utility function for data integrity) - UPDATED
 export async function recalculateStockStatus(drinkId: string) {
   const session = await auth();
   if (!session?.user) {
@@ -497,7 +496,7 @@ export async function recalculateStockStatus(drinkId: string) {
             )
         : [{ total: 0 }];
 
-      // Calculate sold since last inventory from orders where inBill = false
+      // Calculate sold since last inventory from ALL orders (removed inBill filter)
       const sold = lastInventoryDate
         ? await tx
             .select({
@@ -507,7 +506,6 @@ export async function recalculateStockStatus(drinkId: string) {
             .where(
               and(
                 eq(orders.drinkId, drinkId),
-                eq(orders.inBill, false),
                 gte(orders.createdAt, lastInventoryDate)
               )
             )
@@ -556,4 +554,36 @@ export async function recalculateStockStatus(drinkId: string) {
         error instanceof Error ? error.message : "Failed to recalculate stock",
     };
   }
+}
+
+// Add a utility function to get sold orders for debugging
+export async function getSoldOrdersForDrink(drinkId: string, fromDate?: Date) {
+  const whereConditions = [eq(orders.drinkId, drinkId)];
+
+  if (fromDate) {
+    whereConditions.push(gte(orders.createdAt, fromDate));
+  }
+
+  const soldOrders = await db
+    .select({
+      id: orders.id,
+      userName: orders.userName,
+      amount: orders.amount,
+      pricePerUnit: orders.pricePerUnit,
+      total: orders.total,
+      inBill: orders.inBill,
+      createdAt: orders.createdAt,
+    })
+    .from(orders)
+    .where(and(...whereConditions))
+    .orderBy(desc(orders.createdAt));
+
+  const totalSold = soldOrders.reduce((sum, order) => sum + order.amount, 0);
+  const totalRevenue = soldOrders.reduce((sum, order) => sum + order.total, 0);
+
+  return {
+    orders: soldOrders,
+    totalSold,
+    totalRevenue,
+  };
 }

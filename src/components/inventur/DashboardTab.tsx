@@ -84,10 +84,46 @@ export default function DashboardTab({
     });
   };
 
+  // Calculate totals for summary
+  const totalSoldUnits = stockItems.reduce(
+    (sum, item) => sum + item.soldSince,
+    0
+  );
+  const totalPurchasedUnits = stockItems.reduce(
+    (sum, item) => sum + item.purchasedSince,
+    0
+  );
+  const totalLostValue = stockItems.reduce((sum, item) => {
+    const actualStock = countedStock[item.drinkId] ?? item.istStock;
+    return sum + calculateLostValue(item, actualStock);
+  }, 0);
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-primary">Current Inventory</CardTitle>
+        <div className="space-y-1">
+          <CardTitle className="text-primary">Current Inventory</CardTitle>
+          <div className="flex gap-4 text-sm text-muted-foreground">
+            <span>
+              Total Sold:{" "}
+              <span className="font-medium text-red-600">
+                {totalSoldUnits} units
+              </span>
+            </span>
+            <span>
+              Total Purchased:{" "}
+              <span className="font-medium text-green-600">
+                {totalPurchasedUnits} units
+              </span>
+            </span>
+            <span>
+              Total Losses:{" "}
+              <span className="font-medium text-destructive">
+                €{totalLostValue.toFixed(2)}
+              </span>
+            </span>
+          </div>
+        </div>
         <Button onClick={handleSaveInventory} disabled={isSaving}>
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? "Saving..." : "Save Inventory"}
@@ -191,8 +227,16 @@ export default function DashboardTab({
                         </div>
                       </div>
                     </td>
-                    <td className="p-3 text-right text-red-600 font-semibold">
-                      −{item.soldSince}
+                    <td className="p-3 text-right">
+                      <span className="text-red-600 font-semibold">
+                        −{item.soldSince}
+                      </span>
+                      {item.soldSince > 0 && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          €{(item.soldSince * item.currentPrice).toFixed(2)}{" "}
+                          revenue
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 text-right">{item.calculatedStock}</td>
                     <td className="p-3 text-center">
@@ -209,7 +253,15 @@ export default function DashboardTab({
                         disabled={isSaving}
                       />
                     </td>
-                    <td className="p-3 text-right">{lostStock}</td>
+                    <td className="p-3 text-right">
+                      <span
+                        className={
+                          lostStock > 0 ? "text-red-600 font-semibold" : ""
+                        }
+                      >
+                        {lostStock > 0 ? `-${lostStock}` : lostStock}
+                      </span>
+                    </td>
                     <td className="p-3 text-right">
                       €{item.currentPrice.toFixed(2)}
                     </td>
@@ -227,18 +279,17 @@ export default function DashboardTab({
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-border bg-muted/30">
-                <td colSpan={9} className="p-3 text-right font-semibold">
+                <td colSpan={3} className="p-3 text-right font-semibold">
+                  Totals:
+                </td>
+                <td className="p-3 text-right font-semibold text-red-600">
+                  −{totalSoldUnits} units
+                </td>
+                <td colSpan={5} className="p-3 text-right font-semibold">
                   Total Losses:
                 </td>
                 <td className="p-3 text-right text-destructive font-bold text-lg">
-                  €
-                  {stockItems
-                    .reduce((sum, item) => {
-                      const actualStock =
-                        countedStock[item.drinkId] ?? item.istStock;
-                      return sum + calculateLostValue(item, actualStock);
-                    }, 0)
-                    .toFixed(2)}
+                  €{totalLostValue.toFixed(2)}
                 </td>
               </tr>
             </tfoot>
