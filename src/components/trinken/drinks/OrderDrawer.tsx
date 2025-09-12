@@ -15,7 +15,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "~/components/ui/drawer";
-import { cn } from "~/lib/utils"; // Import cn utility for conditional classes
+import { cn } from "~/lib/utils";
 import { createGame } from "~/server/actions/game/game";
 import { getAllUsersExcept, type User } from "~/server/actions/game/getUsers";
 import type { MenuItem } from "~/server/actions/menu";

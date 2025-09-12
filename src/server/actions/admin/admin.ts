@@ -120,6 +120,7 @@ export async function initializeRoles(): Promise<void> {
         description: "Fuchsenladen Management",
       },
       { name: "Fotowart", description: "Fotos der Website verwalten" },
+      { name: "Faxe", description: "Faxe, Hausmeister, Putzfirma" },
     ];
 
     for (const role of defaultRoles) {

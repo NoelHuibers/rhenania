@@ -1,4 +1,3 @@
-- Faxe
 - Achievements
 - Stafetten
 - Rechnungsmails
@@ -13,3 +12,4 @@ Lowprio:
 - Subsenior
 - Chargen
 - Hauswart
+- Studiumsseite

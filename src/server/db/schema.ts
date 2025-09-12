@@ -429,10 +429,10 @@ export const billCSVs = createTable(
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
     billPeriodId: bc.text({ length: 255 }).notNull(),
-    blobUrl: bc.text().notNull(), // Vercel Blob URL
+    blobUrl: bc.text().notNull(),
     fileName: bc.text({ length: 255 }).notNull(),
     delimiter: bc.text({ length: 10 }).notNull().default("\t"),
-    fileSize: bc.integer(), // Size in bytes
+    fileSize: bc.integer(),
     createdAt: bc
       .integer({ mode: "timestamp" })
       .default(sql`(unixepoch())`)

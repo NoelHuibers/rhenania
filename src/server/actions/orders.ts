@@ -1,10 +1,13 @@
+// orders.ts
 "use server";
+
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth"; // Import your NextAuth auth function
 import { db } from "~/server/db";
 import { orders } from "~/server/db/schema";
 import { getUserName } from "./getUserName";
+import { getUserRole } from "./getUserRole";
 
 export interface CreateOrderRequest {
   drinkId: string;
@@ -35,16 +38,19 @@ export async function createOrder(
     }
 
     const userId = session.user.id;
-    const userNameResult = await getUserName();
+    const userName = await getUserName();
+    const role = await getUserRole(userId);
 
-    if (!userNameResult || typeof userNameResult !== "string") {
+    if (role.role?.name === "Faxe") {
+      orderData.bookingFor = "AHV";
+    }
+
+    if (!userName || typeof userName !== "string") {
       return {
         success: false,
         error: "Failed to retrieve user name",
       };
     }
-
-    const userName = userNameResult;
 
     if (orderData.amount <= 0) {
       return {
