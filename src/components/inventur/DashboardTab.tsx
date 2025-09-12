@@ -42,7 +42,7 @@ export default function DashboardTab({
   const [isPending, startTransition] = useTransition();
   const [isSaving, startSaving] = useTransition();
 
-  // Initialize local counted stock
+  // Lokalen gezählten Bestand initialisieren
   useEffect(() => {
     const initialStock: { [key: string]: number } = {};
     stockItems.forEach((item) => {
@@ -51,7 +51,7 @@ export default function DashboardTab({
     setLocalCountedStock(initialStock);
   }, [stockItems, countedStock]);
 
-  // Check if there are any changes
+  // Prüfen, ob es irgendwelche Änderungen gibt
   useEffect(() => {
     const hasPurchaseChanges = Object.values(purchases).some(
       (value) => value > 0
@@ -70,12 +70,12 @@ export default function DashboardTab({
   const handlePurchaseInput = (drinkId: string, value: number) => {
     setPurchases((prev) => ({ ...prev, [drinkId]: value }));
 
-    // Update calculated stock in real-time
+    // Berechneten Bestand in Echtzeit aktualisieren
     const item = stockItems.find((i) => i.drinkId === drinkId);
     if (item) {
       const newCalculatedStock =
         item.calculatedStock + value - (purchases[drinkId] || 0);
-      // Also update the actual stock if it was matching the calculated stock
+      // Falls der gezählte Bestand dem berechneten Bestand folgte, ebenfalls aktualisieren
       if (localCountedStock[drinkId] === item.calculatedStock) {
         setLocalCountedStock((prev) => ({
           ...prev,
@@ -93,7 +93,7 @@ export default function DashboardTab({
   const handleSaveChanges = async () => {
     startTransition(async () => {
       try {
-        // First, apply all purchases
+        // Zuerst alle Einkäufe anwenden
         for (const [drinkId, quantity] of Object.entries(purchases)) {
           if (quantity > 0) {
             const result = await applyPurchase(drinkId, quantity);
@@ -103,20 +103,20 @@ export default function DashboardTab({
           }
         }
 
-        // Get updated stock data after purchases
+        // Aktualisierte Bestandsdaten nach Einkäufen holen
         const { getStockData } = await import(
           "~/server/actions/inventur/inventur"
         );
         const updatedData = await getStockData();
 
-        // Update the parent component's state
+        // Zustand der Elternkomponente aktualisieren
         onStockUpdate(updatedData);
 
-        // Update local counted stock with the new calculated values
+        // Lokalen gezählten Bestand mit den neuen berechneten Werten aktualisieren
         const updatedLocalStock: { [key: string]: number } = {};
         updatedData.forEach((item) => {
-          // If the user manually changed the actual stock, keep that value
-          // Otherwise, update it with the new calculated stock
+          // Wenn der Benutzer den gezählten Bestand manuell geändert hat, diesen Wert beibehalten
+          // Andernfalls mit dem neuen berechneten Bestand aktualisieren
           if (localCountedStock[item.drinkId] !== undefined) {
             const originalItem = stockItems.find(
               (i) => i.drinkId === item.drinkId
@@ -126,10 +126,10 @@ export default function DashboardTab({
               localCountedStock[item.drinkId] ===
                 originalItem.calculatedStock + (purchases[item.drinkId] || 0)
             ) {
-              // The actual stock was following the calculated stock, so update it
+              // Der gezählte Bestand folgte dem berechneten Bestand – also aktualisieren
               updatedLocalStock[item.drinkId] = item.calculatedStock;
             } else {
-              // The user manually set this value, keep it
+              // Benutzer hat den Wert manuell gesetzt – beibehalten
               updatedLocalStock[item.drinkId] =
                 localCountedStock[item.drinkId] ?? item.calculatedStock;
             }
@@ -142,10 +142,12 @@ export default function DashboardTab({
         setPurchases({});
         setHasChanges(false);
 
-        toast.success("Changes saved successfully");
+        toast.success("Änderungen erfolgreich gespeichert");
       } catch (error) {
         toast.error(
-          error instanceof Error ? error.message : "Failed to save changes"
+          error instanceof Error
+            ? error.message
+            : "Änderungen konnten nicht gespeichert werden"
         );
       }
     });
@@ -162,7 +164,7 @@ export default function DashboardTab({
         const result = await saveInventoryCount(inventoryItems);
 
         if (result.success) {
-          toast.success("New inventory created successfully");
+          toast.success("Neue Inventur erfolgreich erstellt");
           onInventorySaved();
           setPurchases({});
           setHasChanges(false);
@@ -171,13 +173,15 @@ export default function DashboardTab({
         }
       } catch (error) {
         toast.error(
-          error instanceof Error ? error.message : "Failed to create inventory"
+          error instanceof Error
+            ? error.message
+            : "Inventur konnte nicht erstellt werden"
         );
       }
     });
   };
 
-  // Calculate totals for summary
+  // Summen für die Übersicht berechnen
   const totalSoldUnits = stockItems.reduce(
     (sum, item) => sum + item.soldSince,
     0
@@ -195,22 +199,22 @@ export default function DashboardTab({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="space-y-1">
-          <CardTitle className="text-primary">Current Inventory</CardTitle>
+          <CardTitle className="text-primary">Aktueller Bestand</CardTitle>
           <div className="flex gap-4 text-sm text-muted-foreground">
             <span>
-              Total Sold:{" "}
+              Gesamtverkauft:{" "}
               <span className="font-medium text-red-600">
-                {totalSoldUnits} units
+                {totalSoldUnits} Flaschen
               </span>
             </span>
             <span>
-              Total Purchased:{" "}
+              Gesamteingekauft:{" "}
               <span className="font-medium text-green-600">
-                {totalPurchasedUnits} units
+                {totalPurchasedUnits} Flaschen
               </span>
             </span>
             <span>
-              Total Losses:{" "}
+              Gesamtverluste:{" "}
               <span className="font-medium text-destructive">
                 €{totalLostValue.toFixed(2)}
               </span>
@@ -224,7 +228,7 @@ export default function DashboardTab({
             variant={hasChanges ? "default" : "outline"}
           >
             <Save className="h-4 w-4 mr-2" />
-            {isPending ? "Saving..." : "Save Changes"}
+            {isPending ? "Speichere..." : "Änderungen speichern"}
           </Button>
           <Button
             onClick={handleCreateNewInventory}
@@ -232,7 +236,7 @@ export default function DashboardTab({
             variant="secondary"
           >
             <FileSpreadsheet className="h-4 w-4 mr-2" />
-            {isSaving ? "Creating..." : "Complete Inventory Count"}
+            {isSaving ? "Erstelle..." : "Inventur abschließen"}
           </Button>
         </div>
       </CardHeader>
@@ -242,34 +246,34 @@ export default function DashboardTab({
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left p-3 font-semibold text-primary">
-                  Drink Name
+                  Getränk
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
-                  Last Inventory
+                  Letzte Inventur
                 </th>
                 <th className="text-center p-3 font-semibold text-green-600">
-                  Purchased (+)
+                  Eingekauft (+)
                 </th>
                 <th className="text-right p-3 font-semibold text-red-600">
-                  Sold (−)
+                  Verkauft (−)
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
-                  Calculated Stock
+                  Berechneter Bestand
                 </th>
                 <th className="text-center p-3 font-semibold text-primary">
-                  Actual Stock
+                  Gezählter Bestand
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
-                  Lost Stock
+                  Schwund
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
-                  Price
+                  Preis
                 </th>
                 <th className="text-center p-3 font-semibold text-primary">
                   Status
                 </th>
                 <th className="text-right p-3 font-semibold text-destructive">
-                  Lost (€)
+                  Verlust (€)
                 </th>
               </tr>
             </thead>
@@ -328,7 +332,7 @@ export default function DashboardTab({
                               purchaseValue > 0 ? "border-green-500" : ""
                             }`}
                             min="0"
-                            placeholder="Add"
+                            placeholder="Hinzufügen"
                             disabled={isPending}
                           />
                           {purchaseValue > 0 && (
@@ -346,7 +350,7 @@ export default function DashboardTab({
                       {item.soldSince > 0 && (
                         <div className="text-xs text-muted-foreground mt-1">
                           €{(item.soldSince * item.currentPrice).toFixed(2)}{" "}
-                          revenue
+                          Umsatz
                         </div>
                       )}
                     </td>
@@ -405,13 +409,13 @@ export default function DashboardTab({
             <tfoot>
               <tr className="border-t-2 border-border bg-muted/30">
                 <td colSpan={3} className="p-3 text-right font-semibold">
-                  Totals:
+                  Summen:
                 </td>
                 <td className="p-3 text-right font-semibold text-red-600">
-                  −{totalSoldUnits} units
+                  -{totalSoldUnits} Flaschen
                 </td>
                 <td colSpan={5} className="p-3 text-right font-semibold">
-                  Total Losses:
+                  Gesamtverluste:
                 </td>
                 <td className="p-3 text-right text-destructive font-bold text-lg">
                   €{totalLostValue.toFixed(2)}
