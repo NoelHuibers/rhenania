@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import {
   applyPurchase,
+  getStockData,
   saveInventoryCount,
 } from "~/server/actions/inventur/inventur";
 import type { StockStatusWithDetails } from "./utils";
@@ -42,7 +43,6 @@ export default function DashboardTab({
   const [isPending, startTransition] = useTransition();
   const [isSaving, startSaving] = useTransition();
 
-  // Lokalen gezählten Bestand initialisieren
   useEffect(() => {
     const initialStock: { [key: string]: number } = {};
     stockItems.forEach((item) => {
@@ -51,7 +51,6 @@ export default function DashboardTab({
     setLocalCountedStock(initialStock);
   }, [stockItems, countedStock]);
 
-  // Prüfen, ob es irgendwelche Änderungen gibt
   useEffect(() => {
     const hasPurchaseChanges = Object.values(purchases).some(
       (value) => value > 0
@@ -70,12 +69,10 @@ export default function DashboardTab({
   const handlePurchaseInput = (drinkId: string, value: number) => {
     setPurchases((prev) => ({ ...prev, [drinkId]: value }));
 
-    // Berechneten Bestand in Echtzeit aktualisieren
     const item = stockItems.find((i) => i.drinkId === drinkId);
     if (item) {
       const newCalculatedStock =
         item.calculatedStock + value - (purchases[drinkId] || 0);
-      // Falls der gezählte Bestand dem berechneten Bestand folgte, ebenfalls aktualisieren
       if (localCountedStock[drinkId] === item.calculatedStock) {
         setLocalCountedStock((prev) => ({
           ...prev,
@@ -93,7 +90,6 @@ export default function DashboardTab({
   const handleSaveChanges = async () => {
     startTransition(async () => {
       try {
-        // Zuerst alle Einkäufe anwenden
         for (const [drinkId, quantity] of Object.entries(purchases)) {
           if (quantity > 0) {
             const result = await applyPurchase(drinkId, quantity);
@@ -103,20 +99,12 @@ export default function DashboardTab({
           }
         }
 
-        // Aktualisierte Bestandsdaten nach Einkäufen holen
-        const { getStockData } = await import(
-          "~/server/actions/inventur/inventur"
-        );
         const updatedData = await getStockData();
 
-        // Zustand der Elternkomponente aktualisieren
         onStockUpdate(updatedData);
 
-        // Lokalen gezählten Bestand mit den neuen berechneten Werten aktualisieren
         const updatedLocalStock: { [key: string]: number } = {};
         updatedData.forEach((item) => {
-          // Wenn der Benutzer den gezählten Bestand manuell geändert hat, diesen Wert beibehalten
-          // Andernfalls mit dem neuen berechneten Bestand aktualisieren
           if (localCountedStock[item.drinkId] !== undefined) {
             const originalItem = stockItems.find(
               (i) => i.drinkId === item.drinkId
@@ -126,10 +114,8 @@ export default function DashboardTab({
               localCountedStock[item.drinkId] ===
                 originalItem.calculatedStock + (purchases[item.drinkId] || 0)
             ) {
-              // Der gezählte Bestand folgte dem berechneten Bestand – also aktualisieren
               updatedLocalStock[item.drinkId] = item.calculatedStock;
             } else {
-              // Benutzer hat den Wert manuell gesetzt – beibehalten
               updatedLocalStock[item.drinkId] =
                 localCountedStock[item.drinkId] ?? item.calculatedStock;
             }
@@ -181,7 +167,6 @@ export default function DashboardTab({
     });
   };
 
-  // Summen für die Übersicht berechnen
   const totalSoldUnits = stockItems.reduce(
     (sum, item) => sum + item.soldSince,
     0
@@ -269,10 +254,10 @@ export default function DashboardTab({
                   Verkauft (−)
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
-                  Berechneter Bestand
+                  Soll Bestand
                 </th>
                 <th className="text-center p-3 font-semibold text-primary">
-                  Gezählter Bestand
+                  Ist Bestand
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
                   Schwund

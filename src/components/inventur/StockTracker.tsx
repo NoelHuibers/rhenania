@@ -56,8 +56,8 @@ export default function StockTracker({
         <div className="max-w-7xl mx-auto space-y-6">
           <Tabs defaultValue="dashboard" className="space-y-6">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
+              <TabsTrigger value="dashboard">Übersicht</TabsTrigger>
+              <TabsTrigger value="history">Verlauf</TabsTrigger>
             </TabsList>
 
             <TabsContent value="dashboard">
