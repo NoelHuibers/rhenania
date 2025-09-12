@@ -607,7 +607,7 @@ export const inventoryItems = createTable(
   ]
 );
 
-// Stock adjustments - for purchases or corrections
+// Stock adjustments - simplified without reason field
 export const stockAdjustments = createTable(
   "stock_adjustment",
   (sa) => ({
@@ -629,7 +629,6 @@ export const stockAdjustments = createTable(
     quantity: sa.integer().notNull(), // Positive for additions, negative for removals
     unitPrice: sa.real(), // Price per unit if it's a purchase
     totalCost: sa.real(), // Total cost if it's a purchase
-    reason: sa.text(), // Why the adjustment was made
     invoiceNumber: sa.text({ length: 100 }), // For purchases
     supplier: sa.text({ length: 255 }), // For purchases
     performedBy: sa.text({ length: 255 }).references(() => users.id),

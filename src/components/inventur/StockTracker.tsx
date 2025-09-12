@@ -12,7 +12,6 @@ import {
   saveInventoryCount,
 } from "~/server/actions/inventur/inventur";
 import { SiteHeader } from "../trinken/SiteHeader";
-import AdjustmentsTab from "./AdjustmentTab";
 import CountTab from "./CountTab";
 import DashboardTab from "./DashboardTab";
 import HistoryTab from "./HistoryTab";
@@ -67,8 +66,8 @@ export default function StockTracker({
     });
   };
 
-  // This function will be called when adjustments are applied
-  const handleAdjustmentsApplied = (updatedData: StockStatusWithDetails[]) => {
+  // This function will be called when purchases are applied
+  const handleStockUpdate = (updatedData: StockStatusWithDetails[]) => {
     setStockItems(updatedData);
   };
 
@@ -85,10 +84,9 @@ export default function StockTracker({
           </div>
 
           <Tabs defaultValue="dashboard" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
-              <TabsTrigger value="adjustments">Adjustments</TabsTrigger>
               <TabsTrigger value="count">Count</TabsTrigger>
             </TabsList>
 
@@ -96,21 +94,12 @@ export default function StockTracker({
               <DashboardTab
                 stockItems={stockItems}
                 countedStock={countedStock}
+                onStockUpdate={handleStockUpdate}
               />
             </TabsContent>
 
             <TabsContent value="history">
               <HistoryTab history={history} />
-            </TabsContent>
-
-            <TabsContent value="adjustments">
-              <AdjustmentsTab
-                stockItems={stockItems}
-                onAdjustmentsApplied={async () => {
-                  const newStockData = await getStockData();
-                  setStockItems(newStockData);
-                }}
-              />
             </TabsContent>
 
             <TabsContent value="count">

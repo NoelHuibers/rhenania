@@ -47,7 +47,6 @@ export type StockAdjustmentInput = {
   quantity: number;
   unitPrice: number;
   totalCost: number;
-  reason?: string;
   invoiceNumber?: string;
   supplier?: string;
 };
@@ -101,7 +100,7 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
           .limit(1);
       }
 
-      // Calculate sold since last inventory
+      // Calculate sold since last inventory from orders where inBill = false
       const soldSinceInventory = lastInventoryDate
         ? await db
             .select({
@@ -233,7 +232,7 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
   return historyWithItems;
 }
 
-// Save inventory count - FIXED to not close ALL previous inventories
+// Save inventory count
 export async function saveInventoryCount(
   items: Array<{ drinkId: string; countedStock: number }>
 ) {
@@ -309,7 +308,6 @@ export async function saveInventoryCount(
               quantity: difference,
               unitPrice: drink[0].price,
               totalCost: Math.abs(difference) * drink[0].price,
-              reason: "Inventory count adjustment",
               performedBy: session.user.id,
             });
           }
@@ -339,8 +337,8 @@ export async function saveInventoryCount(
   }
 }
 
-// Apply stock adjustment - FIXED to properly update the UI
-export async function applyStockAdjustment(adjustment: StockAdjustmentInput) {
+// Apply purchase - simplified function specifically for purchases
+export async function applyPurchase(drinkId: string, quantity: number) {
   const session = await auth();
   if (!session?.user) {
     return { success: false, error: "Unauthorized" };
@@ -352,24 +350,21 @@ export async function applyStockAdjustment(adjustment: StockAdjustmentInput) {
       const drink = await tx
         .select()
         .from(drinks)
-        .where(eq(drinks.id, adjustment.drinkId))
+        .where(eq(drinks.id, drinkId))
         .limit(1);
 
       if (!drink[0]) {
         throw new Error("Drink not found");
       }
 
-      // Insert adjustment record
+      // Insert purchase record
       await tx.insert(stockAdjustments).values({
-        drinkId: adjustment.drinkId,
+        drinkId: drinkId,
         drinkName: drink[0].name,
-        adjustmentType: adjustment.adjustmentType,
-        quantity: adjustment.quantity,
-        unitPrice: adjustment.unitPrice,
-        totalCost: adjustment.totalCost,
-        reason: adjustment.reason,
-        invoiceNumber: adjustment.invoiceNumber,
-        supplier: adjustment.supplier,
+        adjustmentType: "purchase",
+        quantity: quantity,
+        unitPrice: drink[0].price,
+        totalCost: quantity * drink[0].price,
         performedBy: session.user.id,
       });
 
@@ -377,51 +372,40 @@ export async function applyStockAdjustment(adjustment: StockAdjustmentInput) {
       const currentStatus = await tx
         .select()
         .from(stockStatus)
-        .where(eq(stockStatus.drinkId, adjustment.drinkId))
+        .where(eq(stockStatus.drinkId, drinkId))
         .limit(1);
 
       if (currentStatus.length === 0) {
         // Create new stock status if it doesn't exist
         await tx.insert(stockStatus).values({
-          drinkId: adjustment.drinkId,
+          drinkId: drinkId,
           drinkName: drink[0].name,
           lastInventoryStock: 0,
-          purchasedSince:
-            adjustment.adjustmentType === "purchase" ? adjustment.quantity : 0,
+          purchasedSince: quantity,
           soldSince: 0,
-          adjustmentsSince:
-            adjustment.adjustmentType !== "purchase" ? adjustment.quantity : 0,
-          calculatedStock: adjustment.quantity,
+          adjustmentsSince: 0,
+          calculatedStock: quantity,
           currentPrice: drink[0].price,
           lastUpdated: new Date(),
         });
       } else {
         // Update existing stock status
         const status = currentStatus[0]!;
-        let newPurchasedSince = status.purchasedSince;
-        let newAdjustmentsSince = status.adjustmentsSince;
-
-        if (adjustment.adjustmentType === "purchase") {
-          newPurchasedSince += adjustment.quantity;
-        } else {
-          newAdjustmentsSince += adjustment.quantity;
-        }
-
+        const newPurchasedSince = status.purchasedSince + quantity;
         const newCalculatedStock =
           status.lastInventoryStock +
           newPurchasedSince -
           status.soldSince +
-          newAdjustmentsSince;
+          status.adjustmentsSince;
 
         await tx
           .update(stockStatus)
           .set({
             purchasedSince: newPurchasedSince,
-            adjustmentsSince: newAdjustmentsSince,
             calculatedStock: newCalculatedStock,
             lastUpdated: new Date(),
           })
-          .where(eq(stockStatus.drinkId, adjustment.drinkId));
+          .where(eq(stockStatus.drinkId, drinkId));
       }
     });
 
@@ -429,11 +413,11 @@ export async function applyStockAdjustment(adjustment: StockAdjustmentInput) {
     const updatedData = await getStockData();
     return { success: true, data: updatedData };
   } catch (error) {
-    console.error("Failed to apply stock adjustment:", error);
+    console.error("Failed to apply purchase:", error);
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : "Failed to apply adjustment",
+        error instanceof Error ? error.message : "Failed to apply purchase",
     };
   }
 }
@@ -513,7 +497,7 @@ export async function recalculateStockStatus(drinkId: string) {
             )
         : [{ total: 0 }];
 
-      // Calculate sold since last inventory
+      // Calculate sold since last inventory from orders where inBill = false
       const sold = lastInventoryDate
         ? await tx
             .select({

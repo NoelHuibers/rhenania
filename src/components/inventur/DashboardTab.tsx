@@ -1,8 +1,13 @@
 // DashboardTab.tsx
 "use client";
 
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { Input } from "~/components/ui/input";
+import { applyPurchase } from "~/server/actions/inventur/inventur";
 import type { StockStatusWithDetails } from "./utils";
 import {
   calculateLostStock,
@@ -13,12 +18,39 @@ import {
 interface DashboardTabProps {
   stockItems: StockStatusWithDetails[];
   countedStock: { [key: string]: number };
+  onStockUpdate: (updatedData: StockStatusWithDetails[]) => void;
 }
 
 export default function DashboardTab({
   stockItems,
   countedStock,
+  onStockUpdate,
 }: DashboardTabProps) {
+  const [purchases, setPurchases] = useState<{ [key: string]: number }>({});
+  const [isPending, startTransition] = useTransition();
+
+  const handlePurchaseUpdate = (drinkId: string, quantity: number) => {
+    if (quantity <= 0) return;
+
+    startTransition(async () => {
+      try {
+        const result = await applyPurchase(drinkId, quantity);
+
+        if (result.success && result.data) {
+          toast.success(`Purchase of ${quantity} units recorded`);
+          onStockUpdate(result.data);
+          setPurchases((prev) => ({ ...prev, [drinkId]: 0 }));
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to record purchase"
+        );
+      }
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -35,7 +67,7 @@ export default function DashboardTab({
                 <th className="text-right p-3 font-semibold text-primary">
                   Last Inventory
                 </th>
-                <th className="text-right p-3 font-semibold text-green-600">
+                <th className="text-center p-3 font-semibold text-green-600">
                   Purchased (+)
                 </th>
                 <th className="text-right p-3 font-semibold text-red-600">
@@ -67,6 +99,7 @@ export default function DashboardTab({
                 const lostStock = calculateLostStock(item, actualStock);
                 const lostValue = calculateLostValue(item, actualStock);
                 const status = getStockStatus(item, actualStock);
+                const purchaseValue = purchases[item.drinkId] || 0;
 
                 return (
                   <tr
@@ -79,8 +112,47 @@ export default function DashboardTab({
                     <td className="p-3 text-right">
                       {item.lastInventoryStock}
                     </td>
-                    <td className="p-3 text-right text-green-600 font-semibold">
-                      +{item.purchasedSince}
+                    <td className="p-3">
+                      <div className="flex items-center gap-2 justify-center">
+                        <span className="text-green-600 font-semibold min-w-[3rem] text-right">
+                          +{item.purchasedSince}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            value={purchaseValue || ""}
+                            onChange={(e) => {
+                              const value =
+                                e.target.value === ""
+                                  ? 0
+                                  : Number(e.target.value);
+                              setPurchases((prev) => ({
+                                ...prev,
+                                [item.drinkId]: value,
+                              }));
+                            }}
+                            className="w-20 h-8"
+                            min="0"
+                            placeholder="Add"
+                            disabled={isPending}
+                          />
+                          {purchaseValue > 0 && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                handlePurchaseUpdate(
+                                  item.drinkId,
+                                  purchaseValue
+                                )
+                              }
+                              disabled={isPending}
+                              className="h-8 px-2 bg-green-600 hover:bg-green-700"
+                            >
+                              ✓
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="p-3 text-right text-red-600 font-semibold">
                       −{item.soldSince}
