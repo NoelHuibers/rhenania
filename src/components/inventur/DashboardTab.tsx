@@ -1,13 +1,17 @@
 // DashboardTab.tsx
 "use client";
 
+import { Save } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import { applyPurchase } from "~/server/actions/inventur/inventur";
+import {
+  applyPurchase,
+  saveInventoryCount,
+} from "~/server/actions/inventur/inventur";
 import type { StockStatusWithDetails } from "./utils";
 import {
   calculateLostStock,
@@ -19,15 +23,20 @@ interface DashboardTabProps {
   stockItems: StockStatusWithDetails[];
   countedStock: { [key: string]: number };
   onStockUpdate: (updatedData: StockStatusWithDetails[]) => void;
+  onCountedStockUpdate: (drinkId: string, value: number) => void;
+  onInventorySaved: () => void;
 }
 
 export default function DashboardTab({
   stockItems,
   countedStock,
   onStockUpdate,
+  onCountedStockUpdate,
+  onInventorySaved,
 }: DashboardTabProps) {
   const [purchases, setPurchases] = useState<{ [key: string]: number }>({});
   const [isPending, startTransition] = useTransition();
+  const [isSaving, startSaving] = useTransition();
 
   const handlePurchaseUpdate = (drinkId: string, quantity: number) => {
     if (quantity <= 0) return;
@@ -51,10 +60,38 @@ export default function DashboardTab({
     });
   };
 
+  const handleSaveInventory = () => {
+    startSaving(async () => {
+      try {
+        const inventoryItems = stockItems.map((item) => ({
+          drinkId: item.drinkId,
+          countedStock: countedStock[item.drinkId] ?? item.istStock,
+        }));
+
+        const result = await saveInventoryCount(inventoryItems);
+
+        if (result.success) {
+          toast.success("Inventory saved successfully");
+          onInventorySaved();
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to save inventory"
+        );
+      }
+    });
+  };
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-primary">Current Inventory</CardTitle>
+        <Button onClick={handleSaveInventory} disabled={isSaving}>
+          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? "Saving..." : "Save Inventory"}
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -76,7 +113,7 @@ export default function DashboardTab({
                 <th className="text-right p-3 font-semibold text-primary">
                   Calculated Stock
                 </th>
-                <th className="text-right p-3 font-semibold text-primary">
+                <th className="text-center p-3 font-semibold text-primary">
                   Actual Stock
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
@@ -158,8 +195,19 @@ export default function DashboardTab({
                       −{item.soldSince}
                     </td>
                     <td className="p-3 text-right">{item.calculatedStock}</td>
-                    <td className="p-3 text-right font-semibold">
-                      {actualStock}
+                    <td className="p-3 text-center">
+                      <Input
+                        type="number"
+                        value={countedStock[item.drinkId] ?? actualStock}
+                        onChange={(e) => {
+                          const value =
+                            e.target.value === "" ? 0 : Number(e.target.value);
+                          onCountedStockUpdate(item.drinkId, value);
+                        }}
+                        className="w-20 h-8 mx-auto"
+                        min="0"
+                        disabled={isSaving}
+                      />
                     </td>
                     <td className="p-3 text-right">{lostStock}</td>
                     <td className="p-3 text-right">

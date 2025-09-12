@@ -1,18 +1,13 @@
 // StockTracker.tsx
 "use client";
 
-import { Save } from "lucide-react";
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
-import { Button } from "~/components/ui/button";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
   getInventoryHistory,
   getStockData,
-  saveInventoryCount,
 } from "~/server/actions/inventur/inventur";
 import { SiteHeader } from "../trinken/SiteHeader";
-import CountTab from "./CountTab";
 import DashboardTab from "./DashboardTab";
 import HistoryTab from "./HistoryTab";
 import type { InventoryWithItems, StockStatusWithDetails } from "./utils";
@@ -31,44 +26,27 @@ export default function StockTracker({
   const [countedStock, setCountedStock] = useState<{ [key: string]: number }>(
     {}
   );
-  const [isPending, startTransition] = useTransition();
-
-  const handleSaveInventory = () => {
-    startTransition(async () => {
-      try {
-        const inventoryItems = stockItems.map((item) => ({
-          drinkId: item.drinkId,
-          countedStock: countedStock[item.drinkId] ?? item.istStock,
-        }));
-
-        const result = await saveInventoryCount(inventoryItems);
-
-        if (result.success) {
-          toast.success("Inventory saved successfully");
-
-          // Fetch fresh data after saving
-          const [newStockData, newHistory] = await Promise.all([
-            getStockData(),
-            getInventoryHistory(),
-          ]);
-
-          setStockItems(newStockData);
-          setHistory(newHistory);
-          setCountedStock({});
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Failed to save inventory"
-        );
-      }
-    });
-  };
 
   // This function will be called when purchases are applied
   const handleStockUpdate = (updatedData: StockStatusWithDetails[]) => {
     setStockItems(updatedData);
+  };
+
+  // This function will be called when individual stock counts are updated
+  const handleCountedStockUpdate = (drinkId: string, value: number) => {
+    setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
+  };
+
+  // This function will be called after inventory is saved successfully
+  const handleInventorySaved = async () => {
+    // Fetch fresh data after saving
+    const [newStockData, newHistory] = await Promise.all([
+      getStockData(),
+      getInventoryHistory(),
+    ]);
+    setStockItems(newStockData);
+    setHistory(newHistory);
+    setCountedStock({});
   };
 
   return (
@@ -76,18 +54,10 @@ export default function StockTracker({
       <SiteHeader title="Inventur" />
       <div className="p-6">
         <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <Button onClick={handleSaveInventory} disabled={isPending}>
-              <Save className="h-4 w-4 mr-2" />
-              {isPending ? "Saving..." : "Save Inventory"}
-            </Button>
-          </div>
-
           <Tabs defaultValue="dashboard" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
-              <TabsTrigger value="count">Count</TabsTrigger>
             </TabsList>
 
             <TabsContent value="dashboard">
@@ -95,21 +65,13 @@ export default function StockTracker({
                 stockItems={stockItems}
                 countedStock={countedStock}
                 onStockUpdate={handleStockUpdate}
+                onCountedStockUpdate={handleCountedStockUpdate}
+                onInventorySaved={handleInventorySaved}
               />
             </TabsContent>
 
             <TabsContent value="history">
               <HistoryTab history={history} />
-            </TabsContent>
-
-            <TabsContent value="count">
-              <CountTab
-                stockItems={stockItems}
-                countedStock={countedStock}
-                onUpdateStock={(drinkId, value) => {
-                  setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
-                }}
-              />
             </TabsContent>
           </Tabs>
         </div>
