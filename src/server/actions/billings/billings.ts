@@ -160,28 +160,31 @@ export async function createNewBilling() {
         `Created bill period ${nextBillNumber} (ID: ${billPeriodId}) by user ${createdByUserId}`
       );
 
-      // 4. Get unpaid amounts from previous bills for each user
-      const unpaidAmounts = await tx
-        .select({
-          userId: bills.userId,
-          totalUnpaid: sql<number>`sum(${bills.total})`.as("totalUnpaid"),
-        })
-        .from(bills)
-        .where(
-          and(
-            eq(bills.status, "Unbezahlt"),
-            // Only include bills from previous periods (not the current one we just created)
-            sql`${bills.billPeriodId} != ${billPeriodId}`
-          )
-        )
-        .groupBy(bills.userId);
+      // 4. Get unpaid amounts from the LAST bill period only for each user
+      let unpaidAmountMap = new Map<string, number>();
 
-      const unpaidAmountMap = new Map<string, number>();
-      unpaidAmounts.forEach((row) => {
-        unpaidAmountMap.set(row.userId, Number(row.totalUnpaid) || 0);
-      });
+      if (lastBillPeriod) {
+        const unpaidAmounts = await tx
+          .select({
+            userId: bills.userId,
+            total: bills.total,
+          })
+          .from(bills)
+          .where(
+            and(
+              eq(bills.status, "Unbezahlt"),
+              eq(bills.billPeriodId, lastBillPeriod.id)
+            )
+          );
 
-      console.log(`Found unpaid amounts for ${unpaidAmountMap.size} users`);
+        unpaidAmounts.forEach((row) => {
+          unpaidAmountMap.set(row.userId, Number(row.total) || 0);
+        });
+
+        console.log(
+          `Found unpaid amounts from last bill period for ${unpaidAmountMap.size} users`
+        );
+      }
 
       // 5. Process personal orders - Group by user
       const userOrderMap = new Map<string, OrderWithDetails[]>();
@@ -224,14 +227,10 @@ export async function createNewBilling() {
           0
         );
 
-        // Get previous outstanding balance from unpaid bills
         const oldBillingAmount = unpaidAmountMap.get(userId) || 0;
-
-        // TODO: Calculate any fees (late fees, service charges, etc.)
-        const fees = 0;
-
-        // Calculate any additional fees (late fees, service charges, etc.)
-        const finalTotal = drinksTotal + fees;
+        // Calculate fees: 10% if oldBillingAmount is over 5€
+        const fees = oldBillingAmount > 5 ? oldBillingAmount * 0.1 : 0;
+        const finalTotal = drinksTotal + oldBillingAmount + fees;
 
         // Create the bill
         const billId = crypto.randomUUID();
@@ -254,7 +253,9 @@ export async function createNewBilling() {
             2
           )} (drinks: €${drinksTotal.toFixed(
             2
-          )}, old billing: €${oldBillingAmount.toFixed(2)})`
+          )}, old billing: €${oldBillingAmount.toFixed(
+            2
+          )}, fees: €${fees.toFixed(2)})`
         );
 
         // Group orders by drink to consolidate quantities
