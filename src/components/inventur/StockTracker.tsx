@@ -23,21 +23,7 @@ export default function StockTracker({
 }: StockTrackerProps) {
   const [stockItems, setStockItems] = useState(initialData);
   const [history, setHistory] = useState(initialHistory);
-  const [countedStock, setCountedStock] = useState<{ [key: string]: number }>(
-    {}
-  );
 
-  // This function will be called when purchases are applied
-  const handleStockUpdate = (updatedData: StockStatusWithDetails[]) => {
-    setStockItems(updatedData);
-  };
-
-  // This function will be called when individual stock counts are updated
-  const handleCountedStockUpdate = (drinkId: string, value: number) => {
-    setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
-  };
-
-  // This function will be called after inventory is saved successfully
   const handleInventorySaved = async () => {
     // Fetch fresh data after saving
     const [newStockData, newHistory] = await Promise.all([
@@ -46,7 +32,6 @@ export default function StockTracker({
     ]);
     setStockItems(newStockData);
     setHistory(newHistory);
-    setCountedStock({});
   };
 
   return (
@@ -59,17 +44,12 @@ export default function StockTracker({
               <TabsTrigger value="dashboard">Übersicht</TabsTrigger>
               <TabsTrigger value="history">Verlauf</TabsTrigger>
             </TabsList>
-
             <TabsContent value="dashboard">
               <DashboardTab
                 stockItems={stockItems}
-                countedStock={countedStock}
-                onStockUpdate={handleStockUpdate}
-                onCountedStockUpdate={handleCountedStockUpdate}
                 onInventorySaved={handleInventorySaved}
               />
             </TabsContent>
-
             <TabsContent value="history">
               <HistoryTab history={history} />
             </TabsContent>

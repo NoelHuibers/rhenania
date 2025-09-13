@@ -552,17 +552,12 @@ export const inventories = createTable(
       .notNull()
       .primaryKey()
       .$defaultFn(() => crypto.randomUUID()),
-    inventoryDate: i
-      .integer({ mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
     status: i
       .text({
-        enum: ["active", "closed", "draft"],
+        enum: ["active", "closed"],
       })
       .notNull()
-      .default("draft"),
-    notes: i.text(),
+      .default("active"),
     performedBy: i.text({ length: 255 }).references(() => users.id),
     createdAt: i
       .integer({ mode: "timestamp" })
@@ -570,13 +565,9 @@ export const inventories = createTable(
       .notNull(),
     closedAt: i.integer({ mode: "timestamp" }),
   }),
-  (t) => [
-    index("inventory_date_idx").on(t.inventoryDate),
-    index("inventory_status_idx").on(t.status),
-  ]
+  (t) => [index("inventory_status_idx").on(t.status)]
 );
 
-// Individual drink counts for each inventory
 export const inventoryItems = createTable(
   "inventory_item",
   (ii) => ({
@@ -593,90 +584,16 @@ export const inventoryItems = createTable(
       .text({ length: 255 })
       .notNull()
       .references(() => drinks.id),
-    drinkName: ii.text({ length: 255 }).notNull(), // Denormalized for history
-    countedStock: ii.integer().notNull(), // What we physically counted
-    price: ii.real().notNull(), // Price at time of inventory
-    createdAt: ii
-      .integer({ mode: "timestamp" })
-      .default(sql`(unixepoch())`)
-      .notNull(),
+    countedStock: ii.integer().notNull(),
+    previousStock: ii.integer().notNull().default(0),
+    purchasedSince: ii.integer().notNull().default(0),
+    soldSince: ii.integer().notNull().default(0),
+    priceAtCount: ii.real().notNull(),
   }),
   (t) => [
     index("inventory_item_inventory_idx").on(t.inventoryId),
     index("inventory_item_drink_idx").on(t.drinkId),
-  ]
-);
-
-// Stock adjustments - simplified without reason field
-export const stockAdjustments = createTable(
-  "stock_adjustment",
-  (sa) => ({
-    id: sa
-      .text({ length: 255 })
-      .notNull()
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    drinkId: sa
-      .text({ length: 255 })
-      .notNull()
-      .references(() => drinks.id),
-    drinkName: sa.text({ length: 255 }).notNull(), // Denormalized for history
-    adjustmentType: sa
-      .text({
-        enum: ["purchase", "correction", "loss", "return"],
-      })
-      .notNull(),
-    quantity: sa.integer().notNull(), // Positive for additions, negative for removals
-    unitPrice: sa.real(), // Price per unit if it's a purchase
-    totalCost: sa.real(), // Total cost if it's a purchase
-    invoiceNumber: sa.text({ length: 100 }), // For purchases
-    supplier: sa.text({ length: 255 }), // For purchases
-    performedBy: sa.text({ length: 255 }).references(() => users.id),
-    createdAt: sa
-      .integer({ mode: "timestamp" })
-      .default(sql`(unixepoch())`)
-      .notNull(),
-  }),
-  (t) => [
-    index("stock_adjustment_drink_idx").on(t.drinkId),
-    index("stock_adjustment_type_idx").on(t.adjustmentType),
-    index("stock_adjustment_date_idx").on(t.createdAt),
-  ]
-);
-
-// View/calculated table for current stock status
-// This could be a view or a materialized table that gets updated
-export const stockStatus = createTable(
-  "stock_status",
-  (ss) => ({
-    id: ss
-      .text({ length: 255 })
-      .notNull()
-      .primaryKey()
-      .$defaultFn(() => crypto.randomUUID()),
-    drinkId: ss
-      .text({ length: 255 })
-      .notNull()
-      .unique()
-      .references(() => drinks.id),
-    drinkName: ss.text({ length: 255 }).notNull(),
-    // Stock calculations
-    lastInventoryStock: ss.integer().notNull().default(0), // From last inventory
-    purchasedSince: ss.integer().notNull().default(0), // Sum of purchases since last inventory
-    soldSince: ss.integer().notNull().default(0), // Sum of orders where inBill=false since last inventory
-    adjustmentsSince: ss.integer().notNull().default(0), // Other adjustments since last inventory
-    calculatedStock: ss.integer().notNull().default(0), // lastInventory + purchased - sold + adjustments
-    // Financial calculations
-    currentPrice: ss.real().notNull(),
-    lostValue: ss.real().default(0), // Value of lost/missing stock
-    // Metadata
-    lastInventoryId: ss.text({ length: 255 }), // Reference to last inventory
-    lastInventoryDate: ss.integer({ mode: "timestamp" }),
-    lastUpdated: ss.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
-  }),
-  (t) => [
-    index("stock_status_drink_idx").on(t.drinkId),
-    index("stock_status_updated_idx").on(t.lastUpdated),
+    uniqueIndex("inventory_item_unique_idx").on(t.inventoryId, t.drinkId),
   ]
 );
 
@@ -699,27 +616,18 @@ export const inventoryItemsRelations = relations(inventoryItems, ({ one }) => ({
   }),
 }));
 
-export const stockAdjustmentsRelations = relations(
-  stockAdjustments,
-  ({ one }) => ({
-    drink: one(drinks, {
-      fields: [stockAdjustments.drinkId],
-      references: [drinks.id],
-    }),
-    performedBy: one(users, {
-      fields: [stockAdjustments.performedBy],
-      references: [users.id],
-    }),
-  })
-);
+export const drinksRelations = relations(drinks, ({ many }) => ({
+  orders: many(orders),
+  inventoryItems: many(inventoryItems),
+}));
 
-export const stockStatusRelations = relations(stockStatus, ({ one }) => ({
+export const ordersRelations = relations(orders, ({ one }) => ({
   drink: one(drinks, {
-    fields: [stockStatus.drinkId],
+    fields: [orders.drinkId],
     references: [drinks.id],
   }),
-  lastInventory: one(inventories, {
-    fields: [stockStatus.lastInventoryId],
-    references: [inventories.id],
+  user: one(users, {
+    fields: [orders.userId],
+    references: [users.id],
   }),
 }));

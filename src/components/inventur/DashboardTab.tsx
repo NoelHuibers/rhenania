@@ -1,18 +1,14 @@
 // DashboardTab.tsx
 "use client";
 
-import { FileSpreadsheet, Save } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import {
-  applyPurchase,
-  getStockData,
-  saveInventoryCount,
-} from "~/server/actions/inventur/inventur";
+import { saveInventoryCount } from "~/server/actions/inventur/inventur";
 import type { StockStatusWithDetails } from "./utils";
 import {
   calculateLostStock,
@@ -22,138 +18,63 @@ import {
 
 interface DashboardTabProps {
   stockItems: StockStatusWithDetails[];
-  countedStock: { [key: string]: number };
-  onStockUpdate: (updatedData: StockStatusWithDetails[]) => void;
-  onCountedStockUpdate: (drinkId: string, value: number) => void;
   onInventorySaved: () => void;
 }
 
 export default function DashboardTab({
   stockItems,
-  countedStock,
-  onStockUpdate,
-  onCountedStockUpdate,
   onInventorySaved,
 }: DashboardTabProps) {
   const [purchases, setPurchases] = useState<{ [key: string]: number }>({});
-  const [localCountedStock, setLocalCountedStock] = useState<{
-    [key: string]: number;
-  }>({});
-  const [hasChanges, setHasChanges] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [countedStock, setCountedStock] = useState<{ [key: string]: number }>(
+    {}
+  );
   const [isSaving, startSaving] = useTransition();
 
   useEffect(() => {
+    // Initialize counted stock with calculated values
     const initialStock: { [key: string]: number } = {};
     stockItems.forEach((item) => {
-      initialStock[item.drinkId] = countedStock[item.drinkId] ?? item.istStock;
+      initialStock[item.drinkId] = item.calculatedStock;
     });
-    setLocalCountedStock(initialStock);
-  }, [stockItems, countedStock]);
-
-  useEffect(() => {
-    const hasPurchaseChanges = Object.values(purchases).some(
-      (value) => value > 0
-    );
-    const hasStockChanges = Object.keys(localCountedStock).some((drinkId) => {
-      const original = stockItems.find((item) => item.drinkId === drinkId);
-      return (
-        original &&
-        localCountedStock[drinkId] !==
-          (countedStock[drinkId] ?? original.istStock)
-      );
-    });
-    setHasChanges(hasPurchaseChanges || hasStockChanges);
-  }, [purchases, localCountedStock, stockItems, countedStock]);
+    setCountedStock(initialStock);
+  }, [stockItems]);
 
   const handlePurchaseInput = (drinkId: string, value: number) => {
     setPurchases((prev) => ({ ...prev, [drinkId]: value }));
 
+    // Auto-update counted stock if it matches calculated
     const item = stockItems.find((i) => i.drinkId === drinkId);
-    if (item) {
-      const newCalculatedStock =
-        item.calculatedStock + value - (purchases[drinkId] || 0);
-      if (localCountedStock[drinkId] === item.calculatedStock) {
-        setLocalCountedStock((prev) => ({
-          ...prev,
-          [drinkId]: newCalculatedStock,
-        }));
-      }
+    if (
+      item &&
+      countedStock[drinkId] === item.calculatedStock + (purchases[drinkId] || 0)
+    ) {
+      setCountedStock((prev) => ({
+        ...prev,
+        [drinkId]: item.calculatedStock + value,
+      }));
     }
   };
 
-  const handleActualStockInput = (drinkId: string, value: number) => {
-    setLocalCountedStock((prev) => ({ ...prev, [drinkId]: value }));
-    onCountedStockUpdate(drinkId, value);
+  const handleCountedStockInput = (drinkId: string, value: number) => {
+    setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
   };
 
-  const handleSaveChanges = async () => {
-    startTransition(async () => {
-      try {
-        for (const [drinkId, quantity] of Object.entries(purchases)) {
-          if (quantity > 0) {
-            const result = await applyPurchase(drinkId, quantity);
-            if (!result.success) {
-              throw new Error(result.error);
-            }
-          }
-        }
-
-        const updatedData = await getStockData();
-
-        onStockUpdate(updatedData);
-
-        const updatedLocalStock: { [key: string]: number } = {};
-        updatedData.forEach((item) => {
-          if (localCountedStock[item.drinkId] !== undefined) {
-            const originalItem = stockItems.find(
-              (i) => i.drinkId === item.drinkId
-            );
-            if (
-              originalItem &&
-              localCountedStock[item.drinkId] ===
-                originalItem.calculatedStock + (purchases[item.drinkId] || 0)
-            ) {
-              updatedLocalStock[item.drinkId] = item.calculatedStock;
-            } else {
-              updatedLocalStock[item.drinkId] =
-                localCountedStock[item.drinkId] ?? item.calculatedStock;
-            }
-          } else {
-            updatedLocalStock[item.drinkId] = item.calculatedStock;
-          }
-        });
-
-        setLocalCountedStock(updatedLocalStock);
-        setPurchases({});
-        setHasChanges(false);
-
-        toast.success("Änderungen erfolgreich gespeichert");
-      } catch (error) {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Änderungen konnten nicht gespeichert werden"
-        );
-      }
-    });
-  };
-
-  const handleCreateNewInventory = () => {
+  const handleCreateInventory = () => {
     startSaving(async () => {
       try {
         const inventoryItems = stockItems.map((item) => ({
           drinkId: item.drinkId,
-          countedStock: localCountedStock[item.drinkId] ?? item.istStock,
+          countedStock: countedStock[item.drinkId] ?? item.calculatedStock,
+          purchasedSince: purchases[item.drinkId] || 0,
         }));
 
         const result = await saveInventoryCount(inventoryItems);
 
         if (result.success) {
-          toast.success("Neue Inventur erfolgreich erstellt");
+          toast.success("Inventur erfolgreich erstellt");
           onInventorySaved();
           setPurchases({});
-          setHasChanges(false);
         } else {
           throw new Error(result.error);
         }
@@ -167,21 +88,31 @@ export default function DashboardTab({
     });
   };
 
+  // Calculate totals
   const totalSoldUnits = stockItems.reduce(
     (sum, item) => sum + item.soldSince,
     0
   );
   const totalPurchasedUnits = stockItems.reduce(
-    (sum, item) => sum + item.purchasedSince + (purchases[item.drinkId] || 0),
+    (sum, item) => sum + (purchases[item.drinkId] || 0),
     0
   );
+
   const totalLostValue = stockItems.reduce((sum, item) => {
-    const actualStock = localCountedStock[item.drinkId] ?? item.istStock;
-    return sum + calculateLostValue(item, actualStock);
+    const purchaseValue = purchases[item.drinkId] || 0;
+    const calculatedWithPurchase = item.calculatedStock + purchaseValue;
+    const actualStock = countedStock[item.drinkId] ?? calculatedWithPurchase;
+    return (
+      sum +
+      calculateLostValue(
+        { ...item, calculatedStock: calculatedWithPurchase },
+        actualStock
+      )
+    );
   }, 0);
 
   const totalInventoryValue = stockItems.reduce((sum, item) => {
-    const actualStock = localCountedStock[item.drinkId] ?? item.istStock;
+    const actualStock = countedStock[item.drinkId] ?? item.calculatedStock;
     return sum + actualStock * item.currentPrice;
   }, 0);
 
@@ -192,49 +123,39 @@ export default function DashboardTab({
           <CardTitle className="text-primary">Aktueller Bestand</CardTitle>
           <div className="flex gap-4 text-sm text-muted-foreground">
             <span>
-              Gesamtverkauft:{" "}
+              Verkauft seit letzter Inventur:{" "}
               <span className="font-medium text-red-600">
                 {totalSoldUnits} Flaschen
               </span>
             </span>
-            <span>
-              Gesamteingekauft:{" "}
-              <span className="font-medium text-green-600">
-                {totalPurchasedUnits} Flaschen
+            {totalPurchasedUnits > 0 && (
+              <span>
+                Eingekauft:{" "}
+                <span className="font-medium text-green-600">
+                  {totalPurchasedUnits} Flaschen
+                </span>
               </span>
-            </span>
+            )}
             <span>
               Bestandswert:{" "}
               <span className="font-medium text-primary">
                 €{totalInventoryValue.toFixed(2)}
               </span>
             </span>
-            <span>
-              Gesamtverluste:{" "}
-              <span className="font-medium text-destructive">
-                €{totalLostValue.toFixed(2)}
+            {totalLostValue > 0 && (
+              <span>
+                Verluste:{" "}
+                <span className="font-medium text-destructive">
+                  €{totalLostValue.toFixed(2)}
+                </span>
               </span>
-            </span>
+            )}
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleSaveChanges}
-            disabled={!hasChanges || isPending}
-            variant={hasChanges ? "default" : "outline"}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isPending ? "Speichere..." : "Änderungen speichern"}
-          </Button>
-          <Button
-            onClick={handleCreateNewInventory}
-            disabled={isSaving}
-            variant="secondary"
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            {isSaving ? "Erstelle..." : "Inventur abschließen"}
-          </Button>
-        </div>
+        <Button onClick={handleCreateInventory} disabled={isSaving} size="lg">
+          <FileSpreadsheet className="h-4 w-4 mr-2" />
+          {isSaving ? "Erstelle..." : "Inventur abschließen"}
+        </Button>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -254,13 +175,13 @@ export default function DashboardTab({
                   Verkauft (−)
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
-                  Soll Bestand
+                  Soll-Bestand
                 </th>
                 <th className="text-center p-3 font-semibold text-primary">
-                  Ist Bestand
+                  Ist-Bestand
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
-                  Schwund
+                  Differenz
                 </th>
                 <th className="text-right p-3 font-semibold text-primary">
                   Preis
@@ -279,9 +200,9 @@ export default function DashboardTab({
                 const calculatedWithPurchase =
                   item.calculatedStock + purchaseValue;
                 const actualStock =
-                  localCountedStock[item.drinkId] ?? item.istStock;
+                  countedStock[item.drinkId] ?? calculatedWithPurchase;
                 const lostStock = calculateLostStock(
-                  { ...item, calculatedStock: calculatedWithPurchase },
+                  { calculatedStock: calculatedWithPurchase },
                   actualStock
                 );
                 const lostValue = calculateLostValue(
@@ -289,7 +210,7 @@ export default function DashboardTab({
                   actualStock
                 );
                 const status = getStockStatus(
-                  { ...item, calculatedStock: calculatedWithPurchase },
+                  { calculatedStock: calculatedWithPurchase },
                   actualStock
                 );
 
@@ -310,45 +231,34 @@ export default function DashboardTab({
                     </td>
                     <td className="p-3">
                       <div className="flex items-center gap-2 justify-center">
-                        <span className="text-green-600 font-semibold min-w-[3rem] text-right">
-                          +{item.purchasedSince}
-                        </span>
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            value={purchaseValue || ""}
-                            onChange={(e) => {
-                              const value =
-                                e.target.value === ""
-                                  ? 0
-                                  : Number(e.target.value);
-                              handlePurchaseInput(item.drinkId, value);
-                            }}
-                            className={`w-20 h-8 ${
-                              purchaseValue > 0 ? "border-green-500" : ""
-                            }`}
-                            min="0"
-                            placeholder="Hinzufügen"
-                            disabled={isPending}
-                          />
-                          {purchaseValue > 0 && (
-                            <span className="text-green-600 font-bold">
-                              +{purchaseValue}
-                            </span>
-                          )}
-                        </div>
+                        <Input
+                          type="number"
+                          value={purchaseValue || ""}
+                          onChange={(e) => {
+                            const value =
+                              e.target.value === ""
+                                ? 0
+                                : Number(e.target.value);
+                            handlePurchaseInput(item.drinkId, value);
+                          }}
+                          className={`w-20 h-8 ${
+                            purchaseValue > 0 ? "border-green-500" : ""
+                          }`}
+                          min="0"
+                          placeholder="0"
+                          disabled={isSaving}
+                        />
+                        {purchaseValue > 0 && (
+                          <span className="text-green-600 font-bold">
+                            +{purchaseValue}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="p-3 text-right">
                       <span className="text-red-600 font-semibold">
                         −{item.soldSince}
                       </span>
-                      {item.soldSince > 0 && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          €{(item.soldSince * item.currentPrice).toFixed(2)}{" "}
-                          Umsatz
-                        </div>
-                      )}
                     </td>
                     <td className="p-3 text-right">
                       <span
@@ -358,11 +268,6 @@ export default function DashboardTab({
                       >
                         {calculatedWithPurchase}
                       </span>
-                      {purchaseValue > 0 && (
-                        <div className="text-xs text-green-600">
-                          ({item.calculatedStock} + {purchaseValue})
-                        </div>
-                      )}
                     </td>
                     <td className="p-3 text-center">
                       <Input
@@ -371,7 +276,7 @@ export default function DashboardTab({
                         onChange={(e) => {
                           const value =
                             e.target.value === "" ? 0 : Number(e.target.value);
-                          handleActualStockInput(item.drinkId, value);
+                          handleCountedStockInput(item.drinkId, value);
                         }}
                         className="w-20 h-8 mx-auto"
                         min="0"
@@ -396,28 +301,12 @@ export default function DashboardTab({
                       </Badge>
                     </td>
                     <td className="p-3 text-right text-destructive font-semibold">
-                      €{lostValue.toFixed(2)}
+                      {lostValue > 0 ? `€${lostValue.toFixed(2)}` : "-"}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-            <tfoot>
-              <tr className="border-t-2 border-border bg-muted/30">
-                <td colSpan={3} className="p-3 text-right font-semibold">
-                  Summen:
-                </td>
-                <td className="p-3 text-right font-semibold text-red-600">
-                  -{totalSoldUnits} Flaschen
-                </td>
-                <td colSpan={5} className="p-3 text-right font-semibold">
-                  Gesamtverluste:
-                </td>
-                <td className="p-3 text-right text-destructive font-bold text-lg">
-                  €{totalLostValue.toFixed(2)}
-                </td>
-              </tr>
-            </tfoot>
           </table>
         </div>
       </CardContent>
