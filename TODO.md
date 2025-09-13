@@ -1,7 +1,6 @@
 - Achievements
 - Stafetten
 - Rechnungsmails
-- Inventur
 - Sempro
 - Fuchsenladen
 
