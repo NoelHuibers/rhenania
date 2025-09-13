@@ -37,28 +37,23 @@ export type InventoryWithItems = {
   }>;
 };
 
-// Get current stock status for all drinks - ALWAYS fetch fresh sales data
 export async function getStockData(): Promise<StockStatusWithDetails[]> {
-  // Get all available drinks
   const allDrinks = await db
     .select()
     .from(drinks)
     .where(eq(drinks.isCurrentlyAvailable, true));
 
-  // Get latest inventory items for each drink
   const stockData = await Promise.all(
     allDrinks.map(async (drink) => {
-      // Get the most recent inventory item for this drink
       const lastInventoryItem = await db
         .select()
         .from(inventoryItems)
         .innerJoin(inventories, eq(inventoryItems.inventoryId, inventories.id))
         .where(eq(inventoryItems.drinkId, drink.id))
-        .orderBy(desc(inventories.createdAt)) // Use inventory's createdAt
+        .orderBy(desc(inventories.createdAt))
         .limit(1);
 
       if (!lastInventoryItem[0]) {
-        // No inventory history for this drink
         return {
           drinkId: drink.id,
           drinkName: drink.name,
@@ -72,9 +67,8 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
       }
 
       const inventoryItem = lastInventoryItem[0].inventory_item;
-      const lastInventoryDate = lastInventoryItem[0].inventory.createdAt; // Use inventory's createdAt
+      const lastInventoryDate = lastInventoryItem[0].inventory.createdAt;
 
-      // ALWAYS calculate fresh sold count from orders
       const soldSince = await db
         .select({
           total: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
@@ -93,19 +87,18 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
         drinkId: drink.id,
         drinkName: drink.name,
         lastInventoryStock: inventoryItem.countedStock,
-        purchasedSince: 0, // Will be entered in UI
-        soldSince: soldCount, // Always fresh from orders table
-        calculatedStock: inventoryItem.countedStock - soldCount,
+        purchasedSince: inventoryItem.purchasedSince,
+        soldSince: soldCount,
+        calculatedStock:
+          inventoryItem.countedStock + inventoryItem.purchasedSince - soldCount,
         currentPrice: drink.price,
         lastInventoryDate,
       };
     })
   );
-
   return stockData;
 }
 
-// Get inventory history - show historical snapshots
 export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
   const inventoriesData = await db
     .select()
@@ -321,4 +314,141 @@ export async function getDrinkStockHistory(drinkId: string, limit = 10) {
         h.inventoryItem.soldSince),
     priceAtCount: h.inventoryItem.priceAtCount,
   }));
+}
+
+export async function saveQuickAdjustments(
+  adjustments: Array<{
+    drinkId: string;
+    countedStock?: number; // The actual counted stock
+    purchasedQuantity?: number; // New purchases to add
+  }>
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      // Get the current active inventory
+      const activeInventory = await tx
+        .select()
+        .from(inventories)
+        .where(eq(inventories.status, "active"))
+        .limit(1);
+
+      if (!activeInventory[0]) {
+        // Create a new active inventory if none exists
+        const [newInventory] = await tx
+          .insert(inventories)
+          .values({
+            status: "active",
+            performedBy: session.user.id,
+          })
+          .returning();
+
+        if (!newInventory) {
+          throw new Error("Failed to create inventory");
+        }
+
+        // Initialize all drinks with zero stock
+        const allDrinks = await tx.select().from(drinks);
+        for (const drink of allDrinks) {
+          await tx.insert(inventoryItems).values({
+            inventoryId: newInventory.id,
+            drinkId: drink.id,
+            countedStock: 0,
+            previousStock: 0,
+            purchasedSince: 0,
+            soldSince: 0,
+            priceAtCount: drink.price,
+          });
+        }
+      }
+
+      const currentInventoryId = activeInventory[0]?.id;
+
+      if (!currentInventoryId) {
+        throw new Error("No active inventory found");
+      }
+
+      // Apply each adjustment
+      for (const adjustment of adjustments) {
+        if (
+          adjustment.countedStock === undefined &&
+          adjustment.purchasedQuantity === undefined
+        ) {
+          continue; // Skip if no changes
+        }
+
+        // Get current inventory item
+        const currentItem = await tx
+          .select()
+          .from(inventoryItems)
+          .where(
+            and(
+              eq(inventoryItems.inventoryId, currentInventoryId),
+              eq(inventoryItems.drinkId, adjustment.drinkId)
+            )
+          )
+          .limit(1);
+
+        if (!currentItem[0]) {
+          // Create new item if it doesn't exist
+          const drink = await tx
+            .select()
+            .from(drinks)
+            .where(eq(drinks.id, adjustment.drinkId))
+            .limit(1);
+
+          if (drink[0]) {
+            await tx.insert(inventoryItems).values({
+              inventoryId: currentInventoryId,
+              drinkId: adjustment.drinkId,
+              countedStock: adjustment.countedStock || 0,
+              previousStock: 0,
+              purchasedSince: adjustment.purchasedQuantity || 0,
+              soldSince: 0,
+              priceAtCount: drink[0].price,
+            });
+          }
+        } else {
+          const updates: any = {};
+
+          if (adjustment.countedStock !== undefined) {
+            // Directly set the counted stock (Ist-Bestand)
+            updates.countedStock = adjustment.countedStock;
+          }
+
+          if (adjustment.purchasedQuantity !== undefined) {
+            // Add to purchasedSince without affecting countedStock
+            updates.purchasedSince =
+              currentItem[0].purchasedSince + adjustment.purchasedQuantity;
+          }
+
+          // Only update if there are changes
+          if (Object.keys(updates).length > 0) {
+            await tx
+              .update(inventoryItems)
+              .set(updates)
+              .where(
+                and(
+                  eq(inventoryItems.inventoryId, currentInventoryId),
+                  eq(inventoryItems.drinkId, adjustment.drinkId)
+                )
+              );
+          }
+        }
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save adjustments:", error);
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to save adjustments",
+    };
+  }
 }

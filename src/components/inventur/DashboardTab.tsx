@@ -1,14 +1,17 @@
 // DashboardTab.tsx
 "use client";
 
-import { FileSpreadsheet } from "lucide-react";
+import { FileSpreadsheet, Save } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
-import { saveInventoryCount } from "~/server/actions/inventur/inventur";
+import {
+  saveInventoryCount,
+  saveQuickAdjustments,
+} from "~/server/actions/inventur/inventur";
 import type { StockStatusWithDetails } from "./utils";
 import {
   calculateLostStock,
@@ -29,7 +32,9 @@ export default function DashboardTab({
   const [countedStock, setCountedStock] = useState<{ [key: string]: number }>(
     {}
   );
+  const [changedItems, setChangedItems] = useState<Set<string>>(new Set());
   const [isSaving, startSaving] = useTransition();
+  const [isQuickSaving, startQuickSaving] = useTransition();
 
   useEffect(() => {
     // Initialize counted stock with calculated values
@@ -38,10 +43,28 @@ export default function DashboardTab({
       initialStock[item.drinkId] = item.calculatedStock;
     });
     setCountedStock(initialStock);
+    // Reset changed items when stock items update
+    setChangedItems(new Set());
+    setPurchases({});
   }, [stockItems]);
 
   const handlePurchaseInput = (drinkId: string, value: number) => {
     setPurchases((prev) => ({ ...prev, [drinkId]: value }));
+
+    // Mark as changed if value > 0
+    if (value > 0) {
+      setChangedItems((prev) => new Set(prev).add(drinkId));
+    } else {
+      // Remove from changed if purchase is 0 and count matches calculated
+      const item = stockItems.find((i) => i.drinkId === drinkId);
+      if (item && countedStock[drinkId] === item.calculatedStock) {
+        setChangedItems((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(drinkId);
+          return newSet;
+        });
+      }
+    }
 
     // Auto-update counted stock if it matches calculated
     const item = stockItems.find((i) => i.drinkId === drinkId);
@@ -58,6 +81,69 @@ export default function DashboardTab({
 
   const handleCountedStockInput = (drinkId: string, value: number) => {
     setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
+
+    // Mark as changed if different from calculated
+    const item = stockItems.find((i) => i.drinkId === drinkId);
+    if (item) {
+      const expectedStock = item.calculatedStock + (purchases[drinkId] || 0);
+      if (value !== expectedStock) {
+        setChangedItems((prev) => new Set(prev).add(drinkId));
+      } else if (purchases[drinkId] === 0 || !purchases[drinkId]) {
+        // Remove from changed if it matches expected and no purchases
+        setChangedItems((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(drinkId);
+          return newSet;
+        });
+      }
+    }
+  };
+
+  const handleQuickSave = () => {
+    startQuickSaving(async () => {
+      try {
+        const adjustments = Array.from(changedItems)
+          .map((drinkId) => {
+            const item = stockItems.find((i) => i.drinkId === drinkId);
+            const purchaseValue = purchases[drinkId] || 0;
+            const currentCount = countedStock[drinkId];
+
+            return {
+              drinkId,
+              // Save the actual counted stock (Ist-Bestand) as is
+              countedStock:
+                currentCount !== undefined ? currentCount : undefined,
+              // Save purchases separately
+              purchasedQuantity: purchaseValue > 0 ? purchaseValue : undefined,
+            };
+          })
+          .filter(
+            (adj) =>
+              adj.countedStock !== undefined ||
+              adj.purchasedQuantity !== undefined
+          );
+
+        if (adjustments.length === 0) {
+          toast.info("Keine Änderungen zum Speichern");
+          return;
+        }
+
+        const result = await saveQuickAdjustments(adjustments);
+
+        if (result.success) {
+          toast.success(`${adjustments.length} Artikel aktualisiert`);
+          onInventorySaved(); // Refresh parent
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Änderungen konnten nicht gespeichert werden"
+        );
+      }
+    });
   };
 
   const handleCreateInventory = () => {
@@ -74,7 +160,6 @@ export default function DashboardTab({
         if (result.success) {
           toast.success("Inventur erfolgreich erstellt");
           onInventorySaved();
-          setPurchases({});
         } else {
           throw new Error(result.error);
         }
@@ -116,6 +201,8 @@ export default function DashboardTab({
     return sum + actualStock * item.currentPrice;
   }, 0);
 
+  const hasChanges = changedItems.size > 0;
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -152,10 +239,29 @@ export default function DashboardTab({
             )}
           </div>
         </div>
-        <Button onClick={handleCreateInventory} disabled={isSaving} size="lg">
-          <FileSpreadsheet className="h-4 w-4 mr-2" />
-          {isSaving ? "Erstelle..." : "Inventur abschließen"}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleQuickSave}
+            disabled={!hasChanges || isQuickSaving}
+            variant={hasChanges ? "default" : "outline"}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isQuickSaving
+              ? "Speichere..."
+              : hasChanges
+              ? `${changedItems.size} Änderungen speichern`
+              : "Keine Änderungen"}
+          </Button>
+          <Button
+            onClick={handleCreateInventory}
+            disabled={isSaving}
+            variant="secondary"
+            size="lg"
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            {isSaving ? "Erstelle..." : "Vollständige Inventur"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -213,19 +319,21 @@ export default function DashboardTab({
                   { calculatedStock: calculatedWithPurchase },
                   actualStock
                 );
+                const isChanged = changedItems.has(item.drinkId);
 
                 return (
                   <tr
                     key={item.drinkId}
                     className={`border-b border-border ${
                       index % 2 === 0 ? "bg-muted/50" : "bg-background"
-                    } ${
-                      purchaseValue > 0
-                        ? "bg-green-50 dark:bg-green-950/20"
-                        : ""
-                    }`}
+                    } ${isChanged ? "bg-blue-50 dark:bg-blue-950/20" : ""}`}
                   >
-                    <td className="p-3 font-medium">{item.drinkName}</td>
+                    <td className="p-3 font-medium">
+                      {item.drinkName}
+                      {isChanged && (
+                        <span className="ml-2 text-xs text-blue-600">●</span>
+                      )}
+                    </td>
                     <td className="p-3 text-right">
                       {item.lastInventoryStock}
                     </td>
@@ -246,7 +354,7 @@ export default function DashboardTab({
                           }`}
                           min="0"
                           placeholder="0"
-                          disabled={isSaving}
+                          disabled={isSaving || isQuickSaving}
                         />
                         {purchaseValue > 0 && (
                           <span className="text-green-600 font-bold">
@@ -280,7 +388,7 @@ export default function DashboardTab({
                         }}
                         className="w-20 h-8 mx-auto"
                         min="0"
-                        disabled={isSaving}
+                        disabled={isSaving || isQuickSaving}
                       />
                     </td>
                     <td className="p-3 text-right">
