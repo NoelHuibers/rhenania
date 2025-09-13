@@ -86,11 +86,14 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
       return {
         drinkId: drink.id,
         drinkName: drink.name,
-        lastInventoryStock: inventoryItem.countedStock,
+        lastInventoryStock: inventoryItem.previousStock,
         purchasedSince: inventoryItem.purchasedSince,
         soldSince: soldCount,
         calculatedStock:
-          inventoryItem.countedStock + inventoryItem.purchasedSince - soldCount,
+          inventoryItem.previousStock +
+          inventoryItem.purchasedSince -
+          soldCount,
+        countedStock: inventoryItem.countedStock,
         currentPrice: drink.price,
         lastInventoryDate,
       };
@@ -120,7 +123,6 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 
       let totalLosses = 0;
       const itemsWithDetails = items.map((item) => {
-        // Use the snapshot data stored at inventory time
         const expectedStock =
           item.inventoryItem.previousStock +
           item.inventoryItem.purchasedSince -
@@ -314,8 +316,8 @@ export async function saveInventoryCount(
         await tx.insert(inventoryItems).values({
           inventoryId: newInventory.id,
           drinkId: item.drinkId,
-          previousStock: closingCounted,
-          countedStock: closingCounted,
+          previousStock: item.countedStock,
+          countedStock: item.countedStock,
           purchasedSince: 0,
           soldSince: 0,
           priceAtCount: drink[0].price,
