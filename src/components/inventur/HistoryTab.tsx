@@ -49,13 +49,6 @@ export default function HistoryTab({ history }: HistoryTabProps) {
                     </div>
                   </div>
                 </CardHeader>
-                {record.notes && (
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      {record.notes}
-                    </p>
-                  </CardContent>
-                )}
               </Card>
             ))}
           </div>
