@@ -157,12 +157,11 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
   return historyWithItems;
 }
 
-// Save inventory count - snapshot current state
 export async function saveInventoryCount(
   items: Array<{
     drinkId: string;
     countedStock: number;
-    purchasedSince: number; // From UI input
+    purchasedSince: number;
   }>
 ) {
   const session = await auth();
@@ -172,16 +171,92 @@ export async function saveInventoryCount(
 
   try {
     await db.transaction(async (tx) => {
-      // Close current active inventory if exists
-      await tx
-        .update(inventories)
-        .set({
-          status: "closed",
-          closedAt: new Date(),
-        })
-        .where(eq(inventories.status, "active"));
+      const lastActive = await tx
+        .select()
+        .from(inventories)
+        .where(eq(inventories.status, "active"))
+        .orderBy(desc(inventories.createdAt))
+        .limit(1);
 
-      // Create new inventory
+      const activeInv = lastActive[0] ?? null;
+
+      if (activeInv) {
+        for (const item of items) {
+          const drink = await tx
+            .select()
+            .from(drinks)
+            .where(eq(drinks.id, item.drinkId))
+            .limit(1);
+
+          if (!drink[0]) continue;
+
+          const soldSinceAgg = await tx
+            .select({
+              total: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
+            })
+            .from(orders)
+            .where(
+              and(
+                eq(orders.drinkId, item.drinkId),
+                gte(orders.createdAt, activeInv.createdAt)
+              )
+            );
+
+          const soldSinceFinal = Number(soldSinceAgg[0]?.total || 0);
+
+          const existingActiveItem = await tx
+            .select()
+            .from(inventoryItems)
+            .where(
+              and(
+                eq(inventoryItems.inventoryId, activeInv.id),
+                eq(inventoryItems.drinkId, item.drinkId)
+              )
+            )
+            .limit(1);
+
+          if (existingActiveItem[0]) {
+            await tx
+              .update(inventoryItems)
+              .set({
+                countedStock: item.countedStock,
+                purchasedSince: item.purchasedSince,
+                soldSince: soldSinceFinal,
+              })
+              .where(eq(inventoryItems.id, existingActiveItem[0].id));
+          } else {
+            const priorForBaseline = await tx
+              .select()
+              .from(inventoryItems)
+              .innerJoin(
+                inventories,
+                eq(inventoryItems.inventoryId, inventories.id)
+              )
+              .where(eq(inventoryItems.drinkId, item.drinkId))
+              .orderBy(desc(inventories.createdAt))
+              .limit(1);
+
+            const baselinePreviousStock =
+              priorForBaseline[0]?.inventory_item.countedStock ?? 0;
+
+            await tx.insert(inventoryItems).values({
+              inventoryId: activeInv.id,
+              drinkId: item.drinkId,
+              previousStock: baselinePreviousStock,
+              countedStock: item.countedStock,
+              purchasedSince: item.purchasedSince,
+              soldSince: soldSinceFinal,
+              priceAtCount: drink[0].price,
+            });
+          }
+        }
+
+        await tx
+          .update(inventories)
+          .set({ status: "closed", closedAt: new Date() })
+          .where(eq(inventories.id, activeInv.id));
+      }
+
       const [newInventory] = await tx
         .insert(inventories)
         .values({
@@ -194,9 +269,7 @@ export async function saveInventoryCount(
         throw new Error("Failed to create inventory");
       }
 
-      // Insert inventory items
       for (const item of items) {
-        // Get drink details
         const drink = await tx
           .select()
           .from(drinks)
@@ -205,44 +278,46 @@ export async function saveInventoryCount(
 
         if (!drink[0]) continue;
 
-        // Get previous inventory for this drink with joined inventory data
-        const previousInventory = await tx
-          .select()
-          .from(inventoryItems)
-          .innerJoin(
-            inventories,
-            eq(inventoryItems.inventoryId, inventories.id)
-          )
-          .where(eq(inventoryItems.drinkId, item.drinkId))
-          .orderBy(desc(inventories.createdAt)) // Use inventory's createdAt
-          .limit(1);
+        let closingCounted: number | null = null;
 
-        const previousStock =
-          previousInventory[0]?.inventory_item.countedStock || 0;
-        const previousDate =
-          previousInventory[0]?.inventory.createdAt || new Date(0);
-
-        // Calculate CURRENT sold count from orders for the snapshot
-        const soldSince = await tx
-          .select({
-            total: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
-          })
-          .from(orders)
-          .where(
-            and(
-              eq(orders.drinkId, item.drinkId),
-              gte(orders.createdAt, previousDate)
+        if (activeInv) {
+          const justClosedItem = await tx
+            .select()
+            .from(inventoryItems)
+            .where(
+              and(
+                eq(inventoryItems.inventoryId, activeInv.id),
+                eq(inventoryItems.drinkId, item.drinkId)
+              )
             )
-          );
+            .limit(1);
 
-        // Store snapshot of current state
+          if (justClosedItem[0])
+            closingCounted = justClosedItem[0].countedStock;
+        }
+
+        if (closingCounted === null) {
+          const latestAny = await tx
+            .select()
+            .from(inventoryItems)
+            .innerJoin(
+              inventories,
+              eq(inventoryItems.inventoryId, inventories.id)
+            )
+            .where(eq(inventoryItems.drinkId, item.drinkId))
+            .orderBy(desc(inventories.createdAt))
+            .limit(1);
+
+          closingCounted = latestAny[0]?.inventory_item.countedStock ?? 0;
+        }
+
         await tx.insert(inventoryItems).values({
           inventoryId: newInventory.id,
           drinkId: item.drinkId,
-          countedStock: item.countedStock,
-          previousStock,
-          purchasedSince: item.purchasedSince,
-          soldSince: Number(soldSince[0]?.total || 0), // Snapshot of sales at this moment
+          previousStock: closingCounted,
+          countedStock: closingCounted,
+          purchasedSince: 0,
+          soldSince: 0,
           priceAtCount: drink[0].price,
         });
       }
@@ -259,68 +334,11 @@ export async function saveInventoryCount(
   }
 }
 
-// Get current inventory status
-export async function getCurrentInventoryStatus() {
-  const activeInventory = await db
-    .select()
-    .from(inventories)
-    .where(eq(inventories.status, "active"))
-    .limit(1);
-
-  if (!activeInventory[0]) {
-    return { hasActiveInventory: false, inventoryId: null };
-  }
-
-  const itemCount = await db
-    .select({ count: sql<number>`COUNT(*)` })
-    .from(inventoryItems)
-    .where(eq(inventoryItems.inventoryId, activeInventory[0].id));
-
-  return {
-    hasActiveInventory: true,
-    inventoryId: activeInventory[0].id,
-    createdAt: activeInventory[0].createdAt,
-    itemCount: Number(itemCount[0]?.count || 0),
-  };
-}
-
-// Get detailed stock analysis for a specific drink
-export async function getDrinkStockHistory(drinkId: string, limit = 10) {
-  const history = await db
-    .select({
-      inventoryItem: inventoryItems,
-      inventory: inventories,
-    })
-    .from(inventoryItems)
-    .innerJoin(inventories, eq(inventoryItems.inventoryId, inventories.id))
-    .where(eq(inventoryItems.drinkId, drinkId))
-    .orderBy(desc(inventories.createdAt)) // Use inventory's createdAt
-    .limit(limit);
-
-  return history.map((h) => ({
-    date: h.inventory.createdAt,
-    countedStock: h.inventoryItem.countedStock,
-    previousStock: h.inventoryItem.previousStock,
-    purchasedSince: h.inventoryItem.purchasedSince,
-    soldSince: h.inventoryItem.soldSince,
-    expectedStock:
-      h.inventoryItem.previousStock +
-      h.inventoryItem.purchasedSince -
-      h.inventoryItem.soldSince,
-    difference:
-      h.inventoryItem.countedStock -
-      (h.inventoryItem.previousStock +
-        h.inventoryItem.purchasedSince -
-        h.inventoryItem.soldSince),
-    priceAtCount: h.inventoryItem.priceAtCount,
-  }));
-}
-
 export async function saveQuickAdjustments(
   adjustments: Array<{
     drinkId: string;
-    countedStock?: number; // The actual counted stock
-    purchasedQuantity?: number; // New purchases to add
+    countedStock?: number;
+    purchasedQuantity?: number;
   }>
 ) {
   const session = await auth();
