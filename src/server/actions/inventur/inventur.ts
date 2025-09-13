@@ -89,10 +89,10 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
         lastInventoryStock: inventoryItem.previousStock,
         purchasedSince: inventoryItem.purchasedSince,
         soldSince: soldCount,
-        calculatedStock:
-          inventoryItem.previousStock +
-          inventoryItem.purchasedSince -
-          soldCount,
+        calculatedStock: Math.max(
+          0,
+          inventoryItem.previousStock + inventoryItem.purchasedSince - soldCount
+        ),
         countedStock: inventoryItem.countedStock,
         currentPrice: drink.price,
         lastInventoryDate,
@@ -123,10 +123,12 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 
       let totalLosses = 0;
       const itemsWithDetails = items.map((item) => {
-        const expectedStock =
+        const expectedStock = Math.max(
+          0,
           item.inventoryItem.previousStock +
-          item.inventoryItem.purchasedSince -
-          item.inventoryItem.soldSince;
+            item.inventoryItem.purchasedSince -
+            item.inventoryItem.soldSince
+        );
 
         const difference = item.inventoryItem.countedStock - expectedStock;
         const lossValue =
@@ -184,6 +186,10 @@ export async function saveInventoryCount(
 
       if (activeInv) {
         for (const item of items) {
+          // Ensure non-negative values
+          const validatedCountedStock = Math.max(0, item.countedStock);
+          const validatedPurchasedSince = Math.max(0, item.purchasedSince);
+
           const drink = await tx
             .select()
             .from(drinks)
@@ -221,8 +227,8 @@ export async function saveInventoryCount(
             await tx
               .update(inventoryItems)
               .set({
-                countedStock: item.countedStock,
-                purchasedSince: item.purchasedSince,
+                countedStock: validatedCountedStock,
+                purchasedSince: validatedPurchasedSince,
                 soldSince: soldSinceFinal,
               })
               .where(eq(inventoryItems.id, existingActiveItem[0].id));
@@ -244,9 +250,9 @@ export async function saveInventoryCount(
             await tx.insert(inventoryItems).values({
               inventoryId: activeInv.id,
               drinkId: item.drinkId,
-              previousStock: baselinePreviousStock,
-              countedStock: item.countedStock,
-              purchasedSince: item.purchasedSince,
+              previousStock: Math.max(0, baselinePreviousStock),
+              countedStock: validatedCountedStock,
+              purchasedSince: validatedPurchasedSince,
               soldSince: soldSinceFinal,
               priceAtCount: drink[0].price,
             });
@@ -313,11 +319,14 @@ export async function saveInventoryCount(
           closingCounted = latestAny[0]?.inventory_item.countedStock ?? 0;
         }
 
+        // Use the actual counted stock from the input for the new inventory
+        const validatedCountedStock = Math.max(0, item.countedStock);
+
         await tx.insert(inventoryItems).values({
           inventoryId: newInventory.id,
           drinkId: item.drinkId,
-          previousStock: item.countedStock,
-          countedStock: item.countedStock,
+          previousStock: validatedCountedStock, // Use the count that was just saved
+          countedStock: validatedCountedStock, // Start with the same (no change yet)
           purchasedSince: 0,
           soldSince: 0,
           priceAtCount: drink[0].price,
@@ -425,9 +434,9 @@ export async function saveQuickAdjustments(
             await tx.insert(inventoryItems).values({
               inventoryId: currentInventoryId,
               drinkId: adjustment.drinkId,
-              countedStock: adjustment.countedStock || 0,
+              countedStock: Math.max(0, adjustment.countedStock || 0),
               previousStock: 0,
-              purchasedSince: adjustment.purchasedQuantity || 0,
+              purchasedSince: Math.max(0, adjustment.purchasedQuantity || 0),
               soldSince: 0,
               priceAtCount: drink[0].price,
             });
@@ -436,14 +445,16 @@ export async function saveQuickAdjustments(
           const updates: any = {};
 
           if (adjustment.countedStock !== undefined) {
-            // Directly set the counted stock (Ist-Bestand)
-            updates.countedStock = adjustment.countedStock;
+            // Directly set the counted stock (Ist-Bestand) - ensure it's not negative
+            updates.countedStock = Math.max(0, adjustment.countedStock);
           }
 
           if (adjustment.purchasedQuantity !== undefined) {
-            // Add to purchasedSince without affecting countedStock
-            updates.purchasedSince =
-              currentItem[0].purchasedSince + adjustment.purchasedQuantity;
+            // Add to purchasedSince without affecting countedStock - ensure non-negative
+            updates.purchasedSince = Math.max(
+              0,
+              currentItem[0].purchasedSince + adjustment.purchasedQuantity
+            );
           }
 
           // Only update if there are changes
