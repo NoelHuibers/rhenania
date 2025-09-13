@@ -1,7 +1,7 @@
 // DashboardTab.tsx
 "use client";
 
-import { FileSpreadsheet, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, FileSpreadsheet, Save } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
@@ -35,6 +35,7 @@ export default function DashboardTab({
   const [changedItems, setChangedItems] = useState<Set<string>>(new Set());
   const [isSaving, startSaving] = useTransition();
   const [isQuickSaving, startQuickSaving] = useTransition();
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Initialize counted stock with calculated values
@@ -47,6 +48,18 @@ export default function DashboardTab({
     setChangedItems(new Set());
     setPurchases({});
   }, [stockItems]);
+
+  const toggleItemExpansion = (drinkId: string) => {
+    setExpandedItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(drinkId)) {
+        newSet.delete(drinkId);
+      } else {
+        newSet.add(drinkId);
+      }
+      return newSet;
+    });
+  };
 
   const handlePurchaseInput = (drinkId: string, value: number) => {
     setPurchases((prev) => ({ ...prev, [drinkId]: value }));
@@ -204,67 +217,77 @@ export default function DashboardTab({
   const hasChanges = changedItems.size > 0;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <div className="space-y-1">
-          <CardTitle className="text-primary">Aktueller Bestand</CardTitle>
-          <div className="flex gap-4 text-sm text-muted-foreground">
-            <span>
-              Verkauft seit letzter Inventur:{" "}
-              <span className="font-medium text-red-600">
-                {totalSoldUnits} Flaschen
-              </span>
-            </span>
-            {totalPurchasedUnits > 0 && (
-              <span>
-                Eingekauft:{" "}
-                <span className="font-medium text-green-600">
-                  {totalPurchasedUnits} Flaschen
-                </span>
-              </span>
-            )}
-            <span>
-              Bestandswert:{" "}
-              <span className="font-medium text-primary">
-                €{totalInventoryValue.toFixed(2)}
-              </span>
-            </span>
-            {totalLostValue > 0 && (
-              <span>
-                Verluste:{" "}
-                <span className="font-medium text-destructive">
-                  €{totalLostValue.toFixed(2)}
-                </span>
-              </span>
-            )}
+    <Card className="w-full">
+      <CardHeader className="flex flex-col space-y-4 p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="space-y-1">
+            <CardTitle className="text-primary text-lg sm:text-xl">
+              Aktueller Bestand
+            </CardTitle>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={handleQuickSave}
+              disabled={!hasChanges || isQuickSaving}
+              variant={hasChanges ? "default" : "outline"}
+              className="w-full sm:w-auto text-sm"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isQuickSaving
+                ? "Speichere..."
+                : hasChanges
+                ? `${changedItems.size} speichern`
+                : "Keine Änderungen"}
+            </Button>
+            <Button
+              onClick={handleCreateInventory}
+              disabled={isSaving}
+              variant="secondary"
+              size="lg"
+              className="w-full sm:w-auto text-sm"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              {isSaving ? "Erstelle..." : "Vollständige Inventur"}
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleQuickSave}
-            disabled={!hasChanges || isQuickSaving}
-            variant={hasChanges ? "default" : "outline"}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {isQuickSaving
-              ? "Speichere..."
-              : hasChanges
-              ? `${changedItems.size} Änderungen speichern`
-              : "Keine Änderungen"}
-          </Button>
-          <Button
-            onClick={handleCreateInventory}
-            disabled={isSaving}
-            variant="secondary"
-            size="lg"
-          >
-            <FileSpreadsheet className="h-4 w-4 mr-2" />
-            {isSaving ? "Erstelle..." : "Vollständige Inventur"}
-          </Button>
+
+        {/* Stats Grid for Mobile */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm">
+          <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded">
+            <span className="text-muted-foreground block">Verkauft</span>
+            <span className="font-medium text-red-600">
+              {totalSoldUnits} Fl.
+            </span>
+          </div>
+          {totalPurchasedUnits > 0 && (
+            <div className="bg-green-50 dark:bg-green-950/20 p-2 rounded">
+              <span className="text-muted-foreground block">Eingekauft</span>
+              <span className="font-medium text-green-600">
+                {totalPurchasedUnits} Fl.
+              </span>
+            </div>
+          )}
+          <div className="bg-blue-50 dark:bg-blue-950/20 p-2 rounded">
+            <span className="text-muted-foreground block">Bestandswert</span>
+            <span className="font-medium text-primary">
+              €{totalInventoryValue.toFixed(2)}
+            </span>
+          </div>
+          {totalLostValue > 0 && (
+            <div className="bg-red-50 dark:bg-red-950/20 p-2 rounded">
+              <span className="text-muted-foreground block">Verluste</span>
+              <span className="font-medium text-destructive">
+                €{totalLostValue.toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
+
+      <CardContent className="p-0 sm:p-6">
+        {/* Desktop Table View */}
+        <div className="hidden lg:block overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-border">
@@ -416,6 +439,166 @@ export default function DashboardTab({
               })}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card View */}
+        <div className="lg:hidden space-y-2 p-4">
+          {stockItems.map((item) => {
+            const purchaseValue = purchases[item.drinkId] || 0;
+            const calculatedWithPurchase = item.calculatedStock + purchaseValue;
+            const actualStock =
+              countedStock[item.drinkId] ?? calculatedWithPurchase;
+            const lostStock = calculateLostStock(
+              { calculatedStock: calculatedWithPurchase },
+              actualStock
+            );
+            const lostValue = calculateLostValue(
+              { ...item, calculatedStock: calculatedWithPurchase },
+              actualStock
+            );
+            const status = getStockStatus(
+              { calculatedStock: calculatedWithPurchase },
+              actualStock
+            );
+            const isChanged = changedItems.has(item.drinkId);
+            const isExpanded = expandedItems.has(item.drinkId);
+
+            return (
+              <div
+                key={item.drinkId}
+                className={`border rounded-lg p-3 ${
+                  isChanged
+                    ? "bg-blue-50 dark:bg-blue-950/20 border-blue-300"
+                    : "bg-card"
+                }`}
+              >
+                {/* Header Row */}
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => toggleItemExpansion(item.drinkId)}
+                >
+                  <div className="flex items-center gap-2 flex-1">
+                    <h3 className="font-medium text-sm">
+                      {item.drinkName}
+                      {isChanged && (
+                        <span className="ml-2 text-xs text-blue-600">●</span>
+                      )}
+                    </h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className={`${status.color} text-white text-xs`}>
+                      {status.label}
+                    </Badge>
+                    {isExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Info Row */}
+                <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                  <span>Soll: {calculatedWithPurchase}</span>
+                  <span>Ist: {actualStock}</span>
+                  {lostStock > 0 && (
+                    <span className="text-red-600">Diff: -{lostStock}</span>
+                  )}
+                  {lostValue > 0 && (
+                    <span className="text-destructive">
+                      -€{lostValue.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Expanded Details */}
+                {isExpanded && (
+                  <div className="mt-3 pt-3 border-t space-y-3">
+                    {/* Stock Flow */}
+                    <div className="grid grid-cols-3 gap-2 text-xs">
+                      <div>
+                        <span className="text-muted-foreground block">
+                          Letzte Inv.
+                        </span>
+                        <span className="font-medium">
+                          {item.lastInventoryStock}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">
+                          Verkauft
+                        </span>
+                        <span className="font-medium text-red-600">
+                          −{item.soldSince}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">
+                          Preis
+                        </span>
+                        <span className="font-medium">
+                          €{item.currentPrice.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Input Fields */}
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">
+                          Eingekauft
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            value={purchaseValue || ""}
+                            onChange={(e) => {
+                              const value =
+                                e.target.value === ""
+                                  ? 0
+                                  : Number(e.target.value);
+                              handlePurchaseInput(item.drinkId, value);
+                            }}
+                            className={`h-8 ${
+                              purchaseValue > 0 ? "border-green-500" : ""
+                            }`}
+                            min="0"
+                            placeholder="0"
+                            disabled={isSaving || isQuickSaving}
+                          />
+                          {purchaseValue > 0 && (
+                            <span className="text-green-600 font-bold text-sm">
+                              +{purchaseValue}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-muted-foreground mb-1 block">
+                          Ist-Bestand
+                        </label>
+                        <Input
+                          type="number"
+                          value={actualStock}
+                          onChange={(e) => {
+                            const value =
+                              e.target.value === ""
+                                ? 0
+                                : Number(e.target.value);
+                            handleCountedStockInput(item.drinkId, value);
+                          }}
+                          className="h-8"
+                          min="0"
+                          disabled={isSaving || isQuickSaving}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </CardContent>
     </Card>
