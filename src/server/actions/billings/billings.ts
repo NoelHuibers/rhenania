@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
@@ -76,7 +76,6 @@ async function generateBillNumber(tx: any, date: Date): Promise<string> {
 
   return `${baseNumber}-${maxSuffix + 1}`;
 }
-
 export async function createNewBilling() {
   const session = await auth();
   if (!session?.user?.id) {
@@ -160,29 +159,38 @@ export async function createNewBilling() {
         `Created bill period ${nextBillNumber} (ID: ${billPeriodId}) by user ${createdByUserId}`
       );
 
-      // 4. Get unpaid amounts from the LAST bill period only for each user
+      // 4. Get unpaid and deferred amounts from the LAST bill period only for each user
       let unpaidAmountMap = new Map<string, number>();
+      let deferredStatusMap = new Map<string, boolean>();
 
       if (lastBillPeriod) {
-        const unpaidAmounts = await tx
+        const outstandingBills = await tx
           .select({
             userId: bills.userId,
             total: bills.total,
+            status: bills.status,
           })
           .from(bills)
           .where(
             and(
-              eq(bills.status, "Unbezahlt"),
+              or(eq(bills.status, "Unbezahlt"), eq(bills.status, "Gestundet")),
               eq(bills.billPeriodId, lastBillPeriod.id)
             )
           );
 
-        unpaidAmounts.forEach((row) => {
+        outstandingBills.forEach((row) => {
           unpaidAmountMap.set(row.userId, Number(row.total) || 0);
+          // Track if this user's last bill was deferred
+          if (row.status === "Gestundet") {
+            deferredStatusMap.set(row.userId, true);
+          }
         });
 
         console.log(
-          `Found unpaid amounts from last bill period for ${unpaidAmountMap.size} users`
+          `Found outstanding amounts from last bill period for ${unpaidAmountMap.size} users`
+        );
+        console.log(
+          `Of which ${deferredStatusMap.size} were deferred (Gestundet)`
         );
       }
 
@@ -228,8 +236,14 @@ export async function createNewBilling() {
         );
 
         const oldBillingAmount = unpaidAmountMap.get(userId) || 0;
-        // Calculate fees: 10% if oldBillingAmount is over 5€
-        const fees = oldBillingAmount > 5 ? oldBillingAmount * 0.1 : 0;
+
+        const wasDeferred = deferredStatusMap.get(userId) || false;
+        const fees = wasDeferred
+          ? 0
+          : oldBillingAmount > 5
+          ? oldBillingAmount * 0.1
+          : 0;
+
         const finalTotal = drinksTotal + oldBillingAmount + fees;
 
         // Create the bill
@@ -255,7 +269,9 @@ export async function createNewBilling() {
             2
           )}, old billing: €${oldBillingAmount.toFixed(
             2
-          )}, fees: €${fees.toFixed(2)})`
+          )}, fees: €${fees.toFixed(2)})${
+            wasDeferred ? " [Previous bill was deferred - no fees applied]" : ""
+          }`
         );
 
         // Group orders by drink to consolidate quantities (only if there are new orders)
