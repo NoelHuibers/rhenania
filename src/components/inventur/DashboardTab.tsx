@@ -363,7 +363,12 @@ export default function DashboardTab({
                     actualStock
                   );
                   const status = getStockStatus(
-                    { calculatedStock: calculatedWithPurchase },
+                    {
+                      calculatedStock:
+                        item.lastInventoryStock +
+                        purchaseValue -
+                        item.soldSince,
+                    },
                     actualStock
                   );
                   const isChanged = changedItems.has(item.drinkId);
