@@ -121,7 +121,6 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
         .innerJoin(drinks, eq(inventoryItems.drinkId, drinks.id))
         .where(eq(inventoryItems.inventoryId, inv.id));
 
-      let totalLosses = 0;
       const itemsWithDetails = items.map((item) => {
         const expectedStock = Math.max(
           0,
@@ -131,12 +130,6 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
         );
 
         const difference = item.inventoryItem.countedStock - expectedStock;
-        const lossValue =
-          difference < 0
-            ? Math.abs(difference) * item.inventoryItem.priceAtCount
-            : 0;
-
-        totalLosses += lossValue;
 
         return {
           drinkId: item.inventoryItem.drinkId,
@@ -144,7 +137,7 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
           countedStock: item.inventoryItem.countedStock,
           expectedStock,
           difference,
-          lossValue,
+          lossValue: item.inventoryItem.lossValue,
         };
       });
 
@@ -152,7 +145,7 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
         id: inv.id,
         inventoryDate: inv.createdAt,
         status: inv.status,
-        totalLosses,
+        totalLosses: inv.totalLoss,
         items: itemsWithDetails,
       };
     })
@@ -185,6 +178,8 @@ export async function saveInventoryCount(
       const activeInv = lastActive[0] ?? null;
 
       if (activeInv) {
+        let totalInventoryLoss = 0;
+
         for (const item of items) {
           // Ensure non-negative values
           const validatedCountedStock = Math.max(0, item.countedStock);
@@ -223,13 +218,27 @@ export async function saveInventoryCount(
             )
             .limit(1);
 
+          let itemLoss = 0;
           if (existingActiveItem[0]) {
+            const expectedStock = Math.max(
+              0,
+              existingActiveItem[0].previousStock +
+                validatedPurchasedSince -
+                soldSinceFinal
+            );
+            const difference = validatedCountedStock - expectedStock;
+            if (difference < 0) {
+              itemLoss = Math.abs(difference) * drink[0].price;
+            }
+            totalInventoryLoss += itemLoss;
+
             await tx
               .update(inventoryItems)
               .set({
                 countedStock: validatedCountedStock,
                 purchasedSince: validatedPurchasedSince,
                 soldSince: soldSinceFinal,
+                lossValue: itemLoss,
               })
               .where(eq(inventoryItems.id, existingActiveItem[0].id));
           } else {
@@ -247,6 +256,17 @@ export async function saveInventoryCount(
             const baselinePreviousStock =
               priorForBaseline[0]?.inventory_item.countedStock ?? 0;
 
+            // Calculate loss for new item
+            const expectedStock = Math.max(
+              0,
+              baselinePreviousStock + validatedPurchasedSince - soldSinceFinal
+            );
+            const difference = validatedCountedStock - expectedStock;
+            if (difference < 0) {
+              itemLoss = Math.abs(difference) * drink[0].price;
+            }
+            totalInventoryLoss += itemLoss;
+
             await tx.insert(inventoryItems).values({
               inventoryId: activeInv.id,
               drinkId: item.drinkId,
@@ -255,13 +275,18 @@ export async function saveInventoryCount(
               purchasedSince: validatedPurchasedSince,
               soldSince: soldSinceFinal,
               priceAtCount: drink[0].price,
+              lossValue: itemLoss,
             });
           }
         }
 
         await tx
           .update(inventories)
-          .set({ status: "closed", closedAt: new Date() })
+          .set({
+            status: "closed",
+            closedAt: new Date(),
+            totalLoss: totalInventoryLoss,
+          })
           .where(eq(inventories.id, activeInv.id));
       }
 
@@ -270,6 +295,7 @@ export async function saveInventoryCount(
         .values({
           status: "active",
           performedBy: session.user.id,
+          totalLoss: 0, // New inventory starts with 0 loss
         })
         .returning();
 
@@ -330,6 +356,7 @@ export async function saveInventoryCount(
           purchasedSince: 0,
           soldSince: 0,
           priceAtCount: drink[0].price,
+          lossValue: 0, // New inventory starts with 0 loss
         });
       }
     });
@@ -373,6 +400,7 @@ export async function saveQuickAdjustments(
           .values({
             status: "active",
             performedBy: session.user.id,
+            totalLoss: 0,
           })
           .returning();
 
@@ -391,6 +419,7 @@ export async function saveQuickAdjustments(
             purchasedSince: 0,
             soldSince: 0,
             priceAtCount: drink.price,
+            lossValue: 0,
           });
         }
       }
@@ -439,18 +468,17 @@ export async function saveQuickAdjustments(
               purchasedSince: Math.max(0, adjustment.purchasedQuantity || 0),
               soldSince: 0,
               priceAtCount: drink[0].price,
+              lossValue: 0,
             });
           }
         } else {
           const updates: any = {};
 
           if (adjustment.countedStock !== undefined) {
-            // Directly set the counted stock (Ist-Bestand) - ensure it's not negative
             updates.countedStock = Math.max(0, adjustment.countedStock);
           }
 
           if (adjustment.purchasedQuantity !== undefined) {
-            // Add to purchasedSince without affecting countedStock - ensure non-negative
             updates.purchasedSince = Math.max(
               0,
               currentItem[0].purchasedSince + adjustment.purchasedQuantity

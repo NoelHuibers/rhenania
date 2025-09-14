@@ -558,6 +558,7 @@ export const inventories = createTable(
       })
       .notNull()
       .default("active"),
+    totalLoss: i.real().notNull().default(0),
     performedBy: i.text({ length: 255 }).references(() => users.id),
     createdAt: i
       .integer({ mode: "timestamp" })
@@ -589,6 +590,7 @@ export const inventoryItems = createTable(
     purchasedSince: ii.integer().notNull().default(0),
     soldSince: ii.integer().notNull().default(0),
     priceAtCount: ii.real().notNull(),
+    lossValue: ii.real().notNull().default(0),
   }),
   (t) => [
     index("inventory_item_inventory_idx").on(t.inventoryId),
