@@ -53,13 +53,20 @@ export default function DashboardTab({
   useEffect(() => {
     // Initialize counted stock with calculated values
     const initialStock: { [key: string]: number } = {};
+    const initialPurchases: { [key: string]: number } = {};
+
     stockItems.forEach((item) => {
       initialStock[item.drinkId] = item.calculatedStock;
+      // Initialize purchases from the stored purchasedSince value
+      if (item.purchasedSince > 0) {
+        initialPurchases[item.drinkId] = item.purchasedSince;
+      }
     });
+
     setCountedStock(initialStock);
+    setPurchases(initialPurchases);
     // Reset changed items when stock items update
     setChangedItems(new Set());
-    setPurchases({});
   }, [stockItems]);
 
   const toggleItemExpansion = (drinkId: string) => {
@@ -221,7 +228,8 @@ export default function DashboardTab({
 
   const totalLostValue = stockItems.reduce((sum, item) => {
     const purchaseValue = purchases[item.drinkId] || 0;
-    const calculatedWithPurchase = item.calculatedStock + purchaseValue;
+    const calculatedWithPurchase =
+      item.lastInventoryStock + purchaseValue - item.soldSince;
     const actualStock = countedStock[item.drinkId] ?? calculatedWithPurchase;
     return (
       sum +
@@ -351,7 +359,7 @@ export default function DashboardTab({
                 {stockItems.map((item, index) => {
                   const purchaseValue = purchases[item.drinkId] || 0;
                   const calculatedWithPurchase =
-                    item.calculatedStock + purchaseValue;
+                    item.lastInventoryStock + purchaseValue - item.soldSince;
                   const actualStock =
                     countedStock[item.drinkId] ?? calculatedWithPurchase;
                   const lostStock = calculateLostStock(
@@ -477,7 +485,7 @@ export default function DashboardTab({
             {stockItems.map((item) => {
               const purchaseValue = purchases[item.drinkId] || 0;
               const calculatedWithPurchase =
-                item.calculatedStock + purchaseValue;
+                item.lastInventoryStock + purchaseValue - item.soldSince;
               const actualStock =
                 countedStock[item.drinkId] ?? calculatedWithPurchase;
               const lostStock = calculateLostStock(

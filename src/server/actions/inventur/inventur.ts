@@ -181,7 +181,6 @@ export async function saveInventoryCount(
         let totalInventoryLoss = 0;
 
         for (const item of items) {
-          // Ensure non-negative values
           const validatedCountedStock = Math.max(0, item.countedStock);
           const validatedPurchasedSince = Math.max(0, item.purchasedSince);
 
@@ -256,7 +255,6 @@ export async function saveInventoryCount(
             const baselinePreviousStock =
               priorForBaseline[0]?.inventory_item.countedStock ?? 0;
 
-            // Calculate loss for new item
             const expectedStock = Math.max(
               0,
               baselinePreviousStock + validatedPurchasedSince - soldSinceFinal
@@ -295,7 +293,7 @@ export async function saveInventoryCount(
         .values({
           status: "active",
           performedBy: session.user.id,
-          totalLoss: 0, // New inventory starts with 0 loss
+          totalLoss: 0,
         })
         .returning();
 
@@ -345,18 +343,17 @@ export async function saveInventoryCount(
           closingCounted = latestAny[0]?.inventory_item.countedStock ?? 0;
         }
 
-        // Use the actual counted stock from the input for the new inventory
         const validatedCountedStock = Math.max(0, item.countedStock);
 
         await tx.insert(inventoryItems).values({
           inventoryId: newInventory.id,
           drinkId: item.drinkId,
-          previousStock: validatedCountedStock, // Use the count that was just saved
-          countedStock: validatedCountedStock, // Start with the same (no change yet)
+          previousStock: validatedCountedStock,
+          countedStock: validatedCountedStock,
           purchasedSince: 0,
           soldSince: 0,
           priceAtCount: drink[0].price,
-          lossValue: 0, // New inventory starts with 0 loss
+          lossValue: 0,
         });
       }
     });
@@ -386,7 +383,6 @@ export async function saveQuickAdjustments(
 
   try {
     await db.transaction(async (tx) => {
-      // Get the current active inventory
       const activeInventory = await tx
         .select()
         .from(inventories)
@@ -394,7 +390,6 @@ export async function saveQuickAdjustments(
         .limit(1);
 
       if (!activeInventory[0]) {
-        // Create a new active inventory if none exists
         const [newInventory] = await tx
           .insert(inventories)
           .values({
@@ -408,7 +403,6 @@ export async function saveQuickAdjustments(
           throw new Error("Failed to create inventory");
         }
 
-        // Initialize all drinks with zero stock
         const allDrinks = await tx.select().from(drinks);
         for (const drink of allDrinks) {
           await tx.insert(inventoryItems).values({
@@ -430,16 +424,14 @@ export async function saveQuickAdjustments(
         throw new Error("No active inventory found");
       }
 
-      // Apply each adjustment
       for (const adjustment of adjustments) {
         if (
           adjustment.countedStock === undefined &&
           adjustment.purchasedQuantity === undefined
         ) {
-          continue; // Skip if no changes
+          continue;
         }
 
-        // Get current inventory item
         const currentItem = await tx
           .select()
           .from(inventoryItems)
@@ -452,7 +444,6 @@ export async function saveQuickAdjustments(
           .limit(1);
 
         if (!currentItem[0]) {
-          // Create new item if it doesn't exist
           const drink = await tx
             .select()
             .from(drinks)
@@ -485,7 +476,6 @@ export async function saveQuickAdjustments(
             );
           }
 
-          // Only update if there are changes
           if (Object.keys(updates).length > 0) {
             await tx
               .update(inventoryItems)
