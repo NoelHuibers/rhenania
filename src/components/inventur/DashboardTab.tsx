@@ -399,6 +399,11 @@ export default function DashboardTab({
                       </td>
                       <td className="p-3">
                         <div className="flex items-center gap-2 justify-center">
+                          {purchaseValue > 0 && (
+                            <span className="text-green-600 font-bold text-lg">
+                              +
+                            </span>
+                          )}
                           <Input
                             type="number"
                             value={purchaseValue || ""}
@@ -410,17 +415,14 @@ export default function DashboardTab({
                               handlePurchaseInput(item.drinkId, value);
                             }}
                             className={`w-20 h-8 ${
-                              purchaseValue > 0 ? "border-green-500" : ""
+                              purchaseValue > 0
+                                ? "border-green-500 text-green-600 font-semibold"
+                                : ""
                             }`}
                             min="0"
                             placeholder="0"
                             disabled={isSaving || isQuickSaving}
                           />
-                          {purchaseValue > 0 && (
-                            <span className="text-green-600 font-bold">
-                              +{purchaseValue}
-                            </span>
-                          )}
                         </div>
                       </td>
                       <td className="p-3 text-right">
@@ -589,6 +591,11 @@ export default function DashboardTab({
                             Eingekauft
                           </label>
                           <div className="flex items-center gap-2">
+                            {purchaseValue > 0 && (
+                              <span className="text-green-600 font-bold text-lg">
+                                +
+                              </span>
+                            )}
                             <Input
                               type="number"
                               value={purchaseValue || ""}
@@ -600,17 +607,14 @@ export default function DashboardTab({
                                 handlePurchaseInput(item.drinkId, value);
                               }}
                               className={`h-8 ${
-                                purchaseValue > 0 ? "border-green-500" : ""
+                                purchaseValue > 0
+                                  ? "border-green-500 text-green-600 font-semibold"
+                                  : ""
                               }`}
                               min="0"
                               placeholder="0"
                               disabled={isSaving || isQuickSaving}
                             />
-                            {purchaseValue > 0 && (
-                              <span className="text-green-600 font-bold text-sm">
-                                +{purchaseValue}
-                              </span>
-                            )}
                           </div>
                         </div>
 
