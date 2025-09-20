@@ -121,6 +121,7 @@ export async function initializeRoles(): Promise<void> {
       },
       { name: "Fotowart", description: "Fotos der Website verwalten" },
       { name: "Faxe", description: "Faxe, Hausmeister, Putzfirma" },
+      { name: "Hausbewohner", description: "Aktive" },
     ];
 
     for (const role of defaultRoles) {
