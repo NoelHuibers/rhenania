@@ -166,6 +166,8 @@ export async function saveInventoryCount(
     return { success: false, error: "Unauthorized" };
   }
 
+  let totalInventoryLoss = 0;
+
   try {
     await db.transaction(async (tx) => {
       const lastActive = await tx
@@ -178,8 +180,6 @@ export async function saveInventoryCount(
       const activeInv = lastActive[0] ?? null;
 
       if (activeInv) {
-        let totalInventoryLoss = 0;
-
         for (const item of items) {
           const validatedCountedStock = Math.max(0, item.countedStock);
           const validatedPurchasedSince = Math.max(0, item.purchasedSince);
@@ -358,7 +358,7 @@ export async function saveInventoryCount(
       }
     });
 
-    return { success: true };
+    return { success: true, totalInventoryLoss: totalInventoryLoss };
   } catch (error) {
     console.error("Failed to save inventory:", error);
     return {

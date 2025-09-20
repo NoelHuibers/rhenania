@@ -194,6 +194,12 @@ export function BillingOverview() {
             </p>
           </div>
           <div>
+            <p className="text-xs text-muted-foreground md:text-sm">Umlage</p>
+            <p className="text-base font-semibold md:text-lg">
+              €{billData.umlage?.toFixed(2) || "0.00"}
+            </p>
+          </div>
+          <div>
             <p className="text-xs text-muted-foreground md:text-sm">
               Altbetrag
             </p>

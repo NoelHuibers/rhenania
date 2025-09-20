@@ -191,7 +191,7 @@ export default function DashboardTab({
         const result = await saveInventoryCount(inventoryItems);
 
         if (withInvoice) {
-          await createNewBilling();
+          await createNewBilling(result.totalInventoryLoss);
         }
 
         if (result.success) {

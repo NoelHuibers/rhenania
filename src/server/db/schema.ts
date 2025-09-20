@@ -289,6 +289,7 @@ export const bills = createTable(
       .default("Unbezahlt"),
     oldBillingAmount: b.real().notNull().default(0),
     fees: b.real().notNull().default(0),
+    umlage: b.real().notNull().default(0),
     drinksTotal: b.real().notNull(),
     total: b.real().notNull(),
     createdAt: b

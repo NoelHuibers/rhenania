@@ -13,6 +13,7 @@ export type BillData = {
   oldBalance: number;
   billNumber: string;
   lastUpdated: string;
+  umlage?: number;
   billId: string;
 };
 

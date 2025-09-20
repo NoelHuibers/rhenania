@@ -1,9 +1,16 @@
 "use server";
 
-import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
+import {
+  billItems,
+  billPeriods,
+  bills,
+  orders,
+  roles,
+  userRoles,
+} from "~/server/db/schema";
 
 interface OrderWithDetails {
   id: string;
@@ -76,7 +83,7 @@ async function generateBillNumber(tx: any, date: Date): Promise<string> {
 
   return `${baseNumber}-${maxSuffix + 1}`;
 }
-export async function createNewBilling() {
+export async function createNewBilling(totalInventoryLoss: number = 0) {
   const session = await auth();
   if (!session?.user?.id) {
     throw new Error("User must be authenticated to view billing data");
@@ -244,7 +251,18 @@ export async function createNewBilling() {
           ? oldBillingAmount * 0.1
           : 0;
 
-        const finalTotal = drinksTotal + oldBillingAmount + fees;
+        const hausbewohnerCountResult = await db
+          .select({ count: count() })
+          .from(userRoles)
+          .innerJoin(roles, eq(userRoles.roleId, roles.id))
+          .where(eq(roles.name, "Hausbewohner"))
+          .execute();
+
+        // Calculate Umlage based on inventory loss
+        const hausbewohnerCount = hausbewohnerCountResult[0]?.count || 1;
+        const umlage = totalInventoryLoss / hausbewohnerCount;
+
+        const finalTotal = drinksTotal + oldBillingAmount + fees + umlage;
 
         // Create the bill
         const billId = crypto.randomUUID();
@@ -257,6 +275,7 @@ export async function createNewBilling() {
           status: "Unbezahlt",
           oldBillingAmount: oldBillingAmount,
           fees: fees,
+          umlage: umlage,
           drinksTotal: drinksTotal,
           total: finalTotal,
           createdAt: now,
