@@ -58,12 +58,6 @@ export function ConsumptionLineChart({
       .map((item) => item.key);
   }, [config, data]);
 
-  const lastTotal = Number(data?.[data.length - 1]?.total ?? 0);
-  const prevTotal = Number(data?.[data.length - 2]?.total ?? 0);
-  const changePct =
-    prevTotal > 0 ? ((lastTotal - prevTotal) / prevTotal) * 100 : 0;
-  const trendingUp = changePct >= 0;
-  const changePctText = `${Math.abs(changePct).toFixed(1)}%`;
   const firstLabel = data?.[0]?.label ?? "";
   const lastLabel = data?.[data.length - 1]?.label ?? "";
 

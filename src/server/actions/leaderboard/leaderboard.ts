@@ -14,12 +14,14 @@ export type LeaderboardEntry = {
 };
 
 const sixMonthsAgo = sql<number>`unixepoch('now','-6 months')`;
-const twelveMonthsAgo = sql<number>`unixepoch('now','-12 months')`;
 const now = sql<number>`unixepoch('now')`;
+const thirtyOneDaysAgo = sql<number>`unixepoch('now','-31 days')`;
+const sixtyTwoDaysAgo = sql<number>`unixepoch('now','-62 days')`;
 
 export async function getLeaderboardLast6Months({
   limit = 10,
 }: { limit?: number } = {}): Promise<LeaderboardEntry[]> {
+  // Previous 31 days data (62-31 days ago)
   const prevByUser = db
     .select({
       userId: orders.userId,
@@ -32,22 +34,29 @@ export async function getLeaderboardLast6Months({
     .leftJoin(drinks, eq(orders.drinkId, drinks.id))
     .where(
       and(
-        gte(orders.createdAt, twelveMonthsAgo),
-        lt(orders.createdAt, sixMonthsAgo),
+        gte(orders.createdAt, sixtyTwoDaysAgo),
+        lt(orders.createdAt, thirtyOneDaysAgo),
         isNull(orders.bookingFor)
       )
     )
     .groupBy(orders.userId)
     .as("prevByUser");
 
+  // Last 31 days data with 6-month total for leaderboard ranking
   const rows = await db
     .select({
       userId: orders.userId,
       userName: orders.userName,
       avatar: users.image,
+      // Total liters for last 6 months (for ranking)
       liters:
-        sql<number>`SUM(CASE WHEN ${drinks.volume} IS NOT NULL THEN ${orders.amount} * ${drinks.volume} ELSE 0 END)`.as(
+        sql<number>`SUM(CASE WHEN ${drinks.volume} IS NOT NULL AND ${orders.createdAt} >= ${sixMonthsAgo} THEN ${orders.amount} * ${drinks.volume} ELSE 0 END)`.as(
           "liters"
+        ),
+      // Last 31 days liters (for change percentage calculation)
+      lastThirtyOneDaysLiters:
+        sql<number>`SUM(CASE WHEN ${drinks.volume} IS NOT NULL AND ${orders.createdAt} >= ${thirtyOneDaysAgo} THEN ${orders.amount} * ${drinks.volume} ELSE 0 END)`.as(
+          "lastThirtyOneDaysLiters"
         ),
       prevLiters: prevByUser.prevLiters,
     })
@@ -59,73 +68,75 @@ export async function getLeaderboardLast6Months({
     .groupBy(orders.userId)
     .orderBy(
       desc(
-        sql`SUM(CASE WHEN ${drinks.volume} IS NOT NULL THEN ${orders.amount} * ${drinks.volume} ELSE 0 END)`
+        sql`SUM(CASE WHEN ${drinks.volume} IS NOT NULL AND ${orders.createdAt} >= ${sixMonthsAgo} THEN ${orders.amount} * ${drinks.volume} ELSE 0 END)`
       )
     )
     .limit(limit);
 
   return rows.map((r) => {
     const liters = Math.round(((r.liters ?? 0) as number) * 100) / 100;
+    const lastThirtyOneDaysLiters =
+      Math.round(((r.lastThirtyOneDaysLiters ?? 0) as number) * 100) / 100;
     const prevLiters = Math.round(((r.prevLiters ?? 0) as number) * 100) / 100;
 
+    // Calculate change percentage based on last 31 days vs previous 31 days
     const changePct =
       prevLiters > 0
-        ? Math.round(((liters - prevLiters) / prevLiters) * 10000) / 100
+        ? Math.round(
+            ((lastThirtyOneDaysLiters - prevLiters) / prevLiters) * 10000
+          ) / 100
         : null;
 
     return {
       userId: r.userId,
       userName: r.userName,
       avatar: r.avatar ?? null,
-      liters,
-      prevLiters,
-      changePct,
+      liters, // Still showing 6-month total for leaderboard ranking
+      prevLiters: lastThirtyOneDaysLiters, // Now showing last 31 days consumption
+      changePct, // Change from previous 31 days to last 31 days
     };
   });
 }
 
 export async function getMonthlyGrowthRate(): Promise<number | null> {
-  const thisMonthStart = sql<number>`unixepoch(date('now','start of month','localtime'))`;
-  const lastMonthStart = sql<number>`unixepoch(date('now','start of month','-1 month','localtime'))`;
-  const prevMonthStart = sql<number>`unixepoch(date('now','start of month','-2 months','localtime'))`;
-
   const [row] = await db
     .select({
-      lastMonthLiters: sql<number>`
+      lastThirtyOneDaysLiters: sql<number>`
         SUM(
-          CASE WHEN ${orders.createdAt} >= ${lastMonthStart}
-                 AND ${orders.createdAt} < ${thisMonthStart}
+          CASE WHEN ${orders.createdAt} >= ${thirtyOneDaysAgo}
                  AND ${drinks.volume} IS NOT NULL
                  AND ${orders.bookingFor} IS NULL
                THEN ${orders.amount} * ${drinks.volume}
                ELSE 0
           END
         )
-      `.as("lastMonthLiters"),
-      prevMonthLiters: sql<number>`
+      `.as("lastThirtyOneDaysLiters"),
+      prevThirtyOneDaysLiters: sql<number>`
         SUM(
-          CASE WHEN ${orders.createdAt} >= ${prevMonthStart}
-                 AND ${orders.createdAt} < ${lastMonthStart}
+          CASE WHEN ${orders.createdAt} >= ${sixtyTwoDaysAgo}
+                 AND ${orders.createdAt} < ${thirtyOneDaysAgo}
                  AND ${drinks.volume} IS NOT NULL
                  AND ${orders.bookingFor} IS NULL
                THEN ${orders.amount} * ${drinks.volume}
                ELSE 0
           END
         )
-      `.as("prevMonthLiters"),
+      `.as("prevThirtyOneDaysLiters"),
     })
     .from(orders)
     .leftJoin(drinks, eq(orders.drinkId, drinks.id));
 
-  const lastMonthLiters =
-    Math.round(Number(row?.lastMonthLiters ?? 0) * 100) / 100;
-  const prevMonthLiters =
-    Math.round(Number(row?.prevMonthLiters ?? 0) * 100) / 100;
+  const lastThirtyOneDaysLiters =
+    Math.round(Number(row?.lastThirtyOneDaysLiters ?? 0) * 100) / 100;
+  const prevThirtyOneDaysLiters =
+    Math.round(Number(row?.prevThirtyOneDaysLiters ?? 0) * 100) / 100;
 
   const growthRatePct =
-    prevMonthLiters > 0
+    prevThirtyOneDaysLiters > 0
       ? Math.round(
-          ((lastMonthLiters - prevMonthLiters) / prevMonthLiters) * 10000
+          ((lastThirtyOneDaysLiters - prevThirtyOneDaysLiters) /
+            prevThirtyOneDaysLiters) *
+            10000
         ) / 100
       : null;
 

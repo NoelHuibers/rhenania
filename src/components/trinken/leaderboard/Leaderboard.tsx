@@ -37,6 +37,26 @@ function getRankIcon(rank: number) {
   }
 }
 
+function getChangeBadgeStyle(change: string) {
+  const isNegative = change.startsWith("-");
+
+  if (isNegative) {
+    return "bg-red-100 text-red-800";
+  } else {
+    return "bg-green-100 text-green-800";
+  }
+}
+
+function getChangeBadgeStyleOutline(change: string) {
+  const isNegative = change.startsWith("-");
+
+  if (isNegative) {
+    return "text-red-600 border-red-200";
+  } else {
+    return "text-green-600 border-green-200";
+  }
+}
+
 export default function Leaderboard({ consumers }: LeaderboardProps) {
   const [showAll, setShowAll] = useState(false);
   const topConsumers = consumers.slice(0, 5);
@@ -80,7 +100,10 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
                 </p>
               </div>
             </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-800">
+            <Badge
+              variant="secondary"
+              className={getChangeBadgeStyle(consumer.change)}
+            >
               {consumer.change}
             </Badge>
           </div>
@@ -132,7 +155,10 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
                     <p className="text-sm text-gray-600">{consumer.amount}L</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-green-600">
+                <Badge
+                  variant="outline"
+                  className={getChangeBadgeStyleOutline(consumer.change)}
+                >
                   {consumer.change}
                 </Badge>
               </div>
