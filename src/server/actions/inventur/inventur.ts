@@ -464,16 +464,11 @@ export async function saveQuickAdjustments(
           }
         } else {
           const updates: any = {};
-
           if (adjustment.countedStock !== undefined) {
             updates.countedStock = Math.max(0, adjustment.countedStock);
           }
-
           if (adjustment.purchasedQuantity !== undefined) {
-            updates.purchasedSince = Math.max(
-              0,
-              currentItem[0].purchasedSince + adjustment.purchasedQuantity
-            );
+            updates.purchasedSince = Math.max(0, adjustment.purchasedQuantity);
           }
 
           if (Object.keys(updates).length > 0) {

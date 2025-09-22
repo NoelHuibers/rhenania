@@ -23,6 +23,7 @@ import {
   saveInventoryCount,
   saveQuickAdjustments,
 } from "~/server/actions/inventur/inventur";
+import { NumericInput } from "../NumericInput";
 import type { StockStatusWithDetails } from "./utils";
 import {
   calculateLostStock,
@@ -51,22 +52,11 @@ export default function DashboardTab({
   const [createInvoice, setCreateInvoice] = useState(false);
 
   useEffect(() => {
-    // Initialize counted stock with calculated values
     const initialStock: { [key: string]: number } = {};
-    const initialPurchases: { [key: string]: number } = {};
-
     stockItems.forEach((item) => {
-      initialStock[item.drinkId] = item.calculatedStock;
-      // Initialize purchases from the stored purchasedSince value
-      if (item.purchasedSince > 0) {
-        initialPurchases[item.drinkId] = item.purchasedSince;
-      }
+      initialStock[item.drinkId] = item.countedStock ?? item.calculatedStock;
     });
-
     setCountedStock(initialStock);
-    setPurchases(initialPurchases);
-    // Reset changed items when stock items update
-    setChangedItems(new Set());
   }, [stockItems]);
 
   const toggleItemExpansion = (drinkId: string) => {
@@ -143,10 +133,8 @@ export default function DashboardTab({
 
             return {
               drinkId,
-              // Save the actual counted stock (Ist-Bestand) as is
               countedStock:
                 currentCount !== undefined ? currentCount : undefined,
-              // Save purchases separately
               purchasedQuantity: purchaseValue > 0 ? purchaseValue : undefined,
             };
           })
@@ -165,7 +153,7 @@ export default function DashboardTab({
 
         if (result.success) {
           toast.success(`${adjustments.length} Artikel aktualisiert`);
-          onInventorySaved(); // Refresh parent
+          onInventorySaved();
         } else {
           throw new Error(result.error);
         }
@@ -440,18 +428,13 @@ export default function DashboardTab({
                         </span>
                       </td>
                       <td className="p-3 text-center">
-                        <Input
-                          type="number"
+                        <NumericInput
+                          min={0}
                           value={actualStock}
-                          onChange={(e) => {
-                            const value =
-                              e.target.value === ""
-                                ? 0
-                                : Number(e.target.value);
+                          onChange={(value) => {
                             handleCountedStockInput(item.drinkId, value);
                           }}
-                          className="w-20 h-8 mx-auto"
-                          min="0"
+                          className="w-20 h-8 mx-auto "
                           disabled={isSaving || isQuickSaving}
                         />
                       </td>
@@ -622,18 +605,13 @@ export default function DashboardTab({
                           <label className="text-xs text-muted-foreground mb-1 block">
                             Ist-Bestand
                           </label>
-                          <Input
-                            type="number"
+                          <NumericInput
+                            min={0}
                             value={actualStock}
-                            onChange={(e) => {
-                              const value =
-                                e.target.value === ""
-                                  ? 0
-                                  : Number(e.target.value);
+                            onChange={(value) => {
                               handleCountedStockInput(item.drinkId, value);
                             }}
-                            className="h-8"
-                            min="0"
+                            className="w-20 h-8 mx-auto "
                             disabled={isSaving || isQuickSaving}
                           />
                         </div>

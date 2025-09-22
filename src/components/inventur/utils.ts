@@ -6,6 +6,7 @@ export type StockStatusWithDetails = {
   purchasedSince: number;
   soldSince: number;
   calculatedStock: number;
+  countedStock?: number;
   currentPrice: number;
   lastInventoryDate: Date | null;
 };
