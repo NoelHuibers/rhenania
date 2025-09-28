@@ -40,7 +40,15 @@ export default function DashboardTab({
   stockItems,
   onInventorySaved,
 }: DashboardTabProps) {
-  const [purchases, setPurchases] = useState<{ [key: string]: number }>({});
+  const [purchases, setPurchases] = useState<{ [key: string]: number }>(() => {
+    const initial: { [key: string]: number } = {};
+    stockItems.forEach((item) => {
+      if (item.purchasedSince > 0) {
+        initial[item.drinkId] = item.purchasedSince;
+      }
+    });
+    return initial;
+  });
   const [countedStock, setCountedStock] = useState<{ [key: string]: number }>(
     {}
   );
@@ -53,10 +61,17 @@ export default function DashboardTab({
 
   useEffect(() => {
     const initialStock: { [key: string]: number } = {};
+    const initialPurchases: { [key: string]: number } = {};
+
     stockItems.forEach((item) => {
       initialStock[item.drinkId] = item.countedStock ?? item.calculatedStock;
+      if (item.purchasedSince > 0) {
+        initialPurchases[item.drinkId] = item.purchasedSince;
+      }
     });
+
     setCountedStock(initialStock);
+    setPurchases(initialPurchases);
   }, [stockItems]);
 
   const toggleItemExpansion = (drinkId: string) => {
