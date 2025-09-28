@@ -89,13 +89,18 @@ export default function DashboardTab({
   const handlePurchaseInput = (drinkId: string, value: number) => {
     setPurchases((prev) => ({ ...prev, [drinkId]: value }));
 
-    // Mark as changed if value > 0
-    if (value > 0) {
+    const item = stockItems.find((i) => i.drinkId === drinkId);
+    if (!item) return;
+
+    // Get the original purchase value from the stockItem
+    const originalPurchaseValue = item.purchasedSince || 0;
+
+    // Mark as changed if purchase value differs from original
+    if (value !== originalPurchaseValue) {
       setChangedItems((prev) => new Set(prev).add(drinkId));
     } else {
-      // Remove from changed if purchase is 0 and count matches calculated
-      const item = stockItems.find((i) => i.drinkId === drinkId);
-      if (item && countedStock[drinkId] === item.calculatedStock) {
+      // Remove from changed if purchase is back to original and count matches calculated
+      if (countedStock[drinkId] === item.calculatedStock) {
         setChangedItems((prev) => {
           const newSet = new Set(prev);
           newSet.delete(drinkId);
@@ -105,10 +110,9 @@ export default function DashboardTab({
     }
 
     // Auto-update counted stock if it matches calculated
-    const item = stockItems.find((i) => i.drinkId === drinkId);
     if (
-      item &&
-      countedStock[drinkId] === item.calculatedStock + (purchases[drinkId] || 0)
+      countedStock[drinkId] ===
+      item.calculatedStock + (purchases[drinkId] || 0)
     ) {
       setCountedStock((prev) => ({
         ...prev,
@@ -116,7 +120,6 @@ export default function DashboardTab({
       }));
     }
   };
-
   const handleCountedStockInput = (drinkId: string, value: number) => {
     setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
 
@@ -146,11 +149,15 @@ export default function DashboardTab({
             const purchaseValue = purchases[drinkId] || 0;
             const currentCount = countedStock[drinkId];
 
+            const originalPurchaseValue = item?.purchasedSince || 0;
+            const purchaseChanged = originalPurchaseValue !== purchaseValue;
+
             return {
               drinkId,
               countedStock:
                 currentCount !== undefined ? currentCount : undefined,
-              purchasedQuantity: purchaseValue > 0 ? purchaseValue : undefined,
+              // Always include purchasedQuantity if it changed, even if it's 0
+              purchasedQuantity: purchaseChanged ? purchaseValue : undefined,
             };
           })
           .filter(
@@ -217,6 +224,13 @@ export default function DashboardTab({
         );
       }
     });
+  };
+
+  // Helper function to get difference color class
+  const getDifferenceColorClass = (difference: number) => {
+    if (difference < 0) return "text-red-600 font-semibold";
+    if (difference > 0) return "text-green-600 font-semibold";
+    return "text-muted-foreground";
   };
 
   // Calculate totals
@@ -369,6 +383,7 @@ export default function DashboardTab({
                     { calculatedStock: calculatedWithPurchase },
                     actualStock
                   );
+                  const difference = actualStock - calculatedWithPurchase;
                   const lostValue = calculateLostValue(
                     { ...item, calculatedStock: calculatedWithPurchase },
                     actualStock
@@ -434,11 +449,7 @@ export default function DashboardTab({
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        <span
-                          className={
-                            purchaseValue > 0 ? "font-bold text-green-600" : ""
-                          }
-                        >
+                        <span className="text-foreground">
                           {calculatedWithPurchase}
                         </span>
                       </td>
@@ -454,12 +465,8 @@ export default function DashboardTab({
                         />
                       </td>
                       <td className="p-3 text-right">
-                        <span
-                          className={
-                            lostStock > 0 ? "text-red-600 font-semibold" : ""
-                          }
-                        >
-                          {lostStock > 0 ? `-${lostStock}` : lostStock}
+                        <span className={getDifferenceColorClass(difference)}>
+                          {difference > 0 ? `+${difference}` : difference}
                         </span>
                       </td>
                       <td className="p-3 text-right">
@@ -492,6 +499,7 @@ export default function DashboardTab({
                 { calculatedStock: calculatedWithPurchase },
                 actualStock
               );
+              const difference = actualStock - calculatedWithPurchase;
               const lostValue = calculateLostValue(
                 { ...item, calculatedStock: calculatedWithPurchase },
                 actualStock
@@ -541,8 +549,10 @@ export default function DashboardTab({
                   <div className="flex justify-between mt-2 text-xs text-muted-foreground">
                     <span>Soll: {calculatedWithPurchase}</span>
                     <span>Ist: {actualStock}</span>
-                    {lostStock > 0 && (
-                      <span className="text-red-600">Diff: -{lostStock}</span>
+                    {difference !== 0 && (
+                      <span className={getDifferenceColorClass(difference)}>
+                        Diff: {difference > 0 ? `+${difference}` : difference}
+                      </span>
                     )}
                     {lostValue > 0 && (
                       <span className="text-destructive">
