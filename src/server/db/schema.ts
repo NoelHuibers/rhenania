@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/sqlite-core";
 import type { AdapterAccount } from "next-auth/adapters";
 
-export const createTable = sqliteTableCreator((name) => `rhenania2_${name}`);
+export const createTable = sqliteTableCreator((name) => `rhenania_${name}`);
 
 export const users = createTable("user", (d) => ({
   id: d
@@ -634,3 +634,140 @@ export const ordersRelations = relations(orders, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// export const achievements = createTable(
+//   "achievement",
+//   (a) => ({
+//     id: a
+//       .text({ length: 255 })
+//       .notNull()
+//       .primaryKey()
+//       .$defaultFn(() => crypto.randomUUID()),
+//     key: a.text({ length: 100 }).notNull().unique(),
+//     name: a.text({ length: 255 }).notNull(),
+//     description: a.text({ length: 500 }).notNull(),
+//     category: a
+//       .text({
+//         enum: ["drinking", "games", "social", "financial", "time", "special"],
+//       })
+//       .notNull(),
+//     icon: a.text({ length: 100 }),
+//     targetValue: a.integer(),
+//     isSecret: a.integer({ mode: "boolean" }).notNull().default(false),
+//     points: a.integer().notNull().default(10),
+//     rarity: a
+//       .text({
+//         enum: ["common", "uncommon", "rare", "epic", "legendary"],
+//       })
+//       .notNull()
+//       .default("common"),
+//     isActive: a.integer({ mode: "boolean" }).notNull().default(true),
+//     createdAt: a
+//       .integer({ mode: "timestamp" })
+//       .default(sql`(unixepoch())`)
+//       .notNull(),
+//     updatedAt: a.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+//   }),
+//   (t) => [
+//     index("achievement_category_idx").on(t.category),
+//     index("achievement_active_idx").on(t.isActive),
+//     index("achievement_rarity_idx").on(t.rarity),
+//   ]
+// );
+
+// export const userAchievements = createTable(
+//   "user_achievement",
+//   (ua) => ({
+//     id: ua
+//       .text({ length: 255 })
+//       .notNull()
+//       .primaryKey()
+//       .$defaultFn(() => crypto.randomUUID()),
+//     userId: ua
+//       .text({ length: 255 })
+//       .notNull()
+//       .references(() => users.id, { onDelete: "cascade" }),
+//     achievementId: ua
+//       .text({ length: 255 })
+//       .notNull()
+//       .references(() => achievements.id, { onDelete: "cascade" }),
+//     unlockedAt: ua
+//       .integer({ mode: "timestamp" })
+//       .notNull()
+//       .$defaultFn(() => new Date()),
+//     progress: ua.integer().notNull().default(0),
+//     notificationSent: ua.integer({ mode: "boolean" }).notNull().default(false),
+//   }),
+//   (t) => [
+//     uniqueIndex("user_achievement_unique_idx").on(t.userId, t.achievementId),
+//     index("user_achievement_user_idx").on(t.userId),
+//     index("user_achievement_achievement_idx").on(t.achievementId),
+//     index("user_achievement_unlocked_idx").on(t.unlockedAt),
+//   ]
+// );
+
+// export const achievementProgress = createTable(
+//   "achievement_progress",
+//   (ap) => ({
+//     id: ap
+//       .text({ length: 255 })
+//       .notNull()
+//       .primaryKey()
+//       .$defaultFn(() => crypto.randomUUID()),
+//     userId: ap
+//       .text({ length: 255 })
+//       .notNull()
+//       .references(() => users.id, { onDelete: "cascade" }),
+//     achievementId: ap
+//       .text({ length: 255 })
+//       .notNull()
+//       .references(() => achievements.id, { onDelete: "cascade" }),
+//     currentValue: ap.integer().notNull().default(0),
+//     metadata: ap.text(),
+//     lastUpdated: ap
+//       .integer({ mode: "timestamp" })
+//       .notNull()
+//       .$defaultFn(() => new Date()),
+//   }),
+//   (t) => [
+//     uniqueIndex("achievement_progress_unique_idx").on(
+//       t.userId,
+//       t.achievementId
+//     ),
+//     index("achievement_progress_user_idx").on(t.userId),
+//     index("achievement_progress_achievement_idx").on(t.achievementId),
+//   ]
+// );
+
+// export const achievementsRelations = relations(achievements, ({ many }) => ({
+//   userAchievements: many(userAchievements),
+//   progress: many(achievementProgress),
+// }));
+
+// export const userAchievementsRelations = relations(
+//   userAchievements,
+//   ({ one }) => ({
+//     user: one(users, {
+//       fields: [userAchievements.userId],
+//       references: [users.id],
+//     }),
+//     achievement: one(achievements, {
+//       fields: [userAchievements.achievementId],
+//       references: [achievements.id],
+//     }),
+//   })
+// );
+
+// export const achievementProgressRelations = relations(
+//   achievementProgress,
+//   ({ one }) => ({
+//     user: one(users, {
+//       fields: [achievementProgress.userId],
+//       references: [users.id],
+//     }),
+//     achievement: one(achievements, {
+//       fields: [achievementProgress.achievementId],
+//       references: [achievements.id],
+//     }),
+//   })
+// );
