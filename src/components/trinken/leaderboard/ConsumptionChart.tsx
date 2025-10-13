@@ -107,7 +107,7 @@ export function ConsumptionLineChart({
               {seriesKeys.map((k) => (
                 <Area
                   key={k}
-                  type="natural"
+                  type="monotone"
                   dataKey={k}
                   stackId="a"
                   stroke="none"
