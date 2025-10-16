@@ -14,6 +14,7 @@ export type BillingOption =
   | "CBesuch"
   | "AHV"
   | "RC"
+  | "SC"
   | "Stiftungsfest"
   | null;
 
