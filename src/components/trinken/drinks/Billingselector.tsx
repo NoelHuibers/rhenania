@@ -24,7 +24,7 @@ interface BillingSelectorProps {
 }
 
 const commonOptions: BillingOption[] = ["CC", "AKN", "CBesuch"];
-const rareOptions: BillingOption[] = ["AHV", "RC", "Stiftungsfest"];
+const rareOptions: BillingOption[] = ["AHV", "RC", "SC", "Stiftungsfest"];
 
 export function BillingSelector({
   selectedBilling,
