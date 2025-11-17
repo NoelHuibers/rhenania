@@ -41,7 +41,7 @@ export default function MetricsCards({
           <div className="text-2xl font-bold">
             {totalConsumption.toLocaleString("de-DE")}L
           </div>
-          <p className="text-xs text-muted-foreground">Diesen Monat</p>
+          <p className="text-xs text-muted-foreground">Der letzten 6 Monate</p>
         </CardContent>
       </Card>
 
