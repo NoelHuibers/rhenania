@@ -69,9 +69,9 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
       const inventoryItem = lastInventoryItem[0].inventory_item;
       const lastInventoryDate = lastInventoryItem[0].inventory.createdAt;
 
-      const soldSince = await db
+      const soldSinceDrizzle = await db
         .select({
-          total: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
+          totalamount: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
         })
         .from(orders)
         .where(
@@ -81,7 +81,7 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
           )
         );
 
-      const soldCount = Number(soldSince[0]?.total || 0);
+      const soldCount = Number(soldSinceDrizzle[0]?.totalamount || 0);
 
       return {
         drinkId: drink.id,
@@ -99,6 +99,7 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
       };
     })
   );
+
   return stockData;
 }
 
