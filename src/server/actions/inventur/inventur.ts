@@ -144,7 +144,7 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 
       return {
         id: inv.id,
-        inventoryDate: inv.createdAt,
+        inventoryDate: inv.closedAt ?? inv.createdAt,
         status: inv.status,
         totalLosses: inv.totalLoss,
         items: itemsWithDetails,

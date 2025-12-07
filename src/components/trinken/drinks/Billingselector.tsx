@@ -16,6 +16,7 @@ export type BillingOption =
   | "RC"
   | "SC"
   | "Stiftungsfest"
+  | "Nikolausbowle"
   | null;
 
 interface BillingSelectorProps {
@@ -24,7 +25,13 @@ interface BillingSelectorProps {
 }
 
 const commonOptions: BillingOption[] = ["CC", "AKN", "CBesuch"];
-const rareOptions: BillingOption[] = ["AHV", "RC", "SC", "Stiftungsfest"];
+const rareOptions: BillingOption[] = [
+  "AHV",
+  "RC",
+  "SC",
+  "Stiftungsfest",
+  "Nikolausbowle",
+];
 
 export function BillingSelector({
   selectedBilling,
