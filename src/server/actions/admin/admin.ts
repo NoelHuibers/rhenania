@@ -1,10 +1,23 @@
 // actions/admin.ts
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db/index";
-import { roles, userRoles, users } from "~/server/db/schema";
+import {
+  accounts,
+  bills,
+  billPDFs,
+  games,
+  homepageImages,
+  inventories,
+  orders,
+  roles,
+  sessions,
+  userRoles,
+  users,
+  userStats,
+} from "~/server/db/schema";
 
 // Types for our data
 export type UserWithRoles = {
@@ -213,5 +226,56 @@ export async function toggleUserRole(
   } catch (error) {
     console.error("Failed to toggle role:", error);
     throw new Error("Failed to toggle role");
+  }
+}
+
+/**
+ * Delete a user and all their associated data
+ */
+export async function deleteUser(userId: string): Promise<void> {
+  try {
+    // Nullify nullable FK columns that reference this user
+    await db
+      .update(homepageImages)
+      .set({ uploadedBy: null })
+      .where(eq(homepageImages.uploadedBy, userId));
+
+    await db
+      .update(inventories)
+      .set({ performedBy: null })
+      .where(eq(inventories.performedBy, userId));
+
+    // Delete bill PDFs (no cascade from bills → billPDFs)
+    await db.delete(billPDFs).where(eq(billPDFs.userId, userId));
+
+    // Delete bills (billItems cascade from bills)
+    await db.delete(bills).where(eq(bills.userId, userId));
+
+    // Delete orders
+    await db.delete(orders).where(eq(orders.userId, userId));
+
+    // Delete games the user participated in
+    await db.delete(games).where(
+      or(
+        eq(games.player1Id, userId),
+        eq(games.player2Id, userId),
+        eq(games.winnerId, userId)
+      )
+    );
+
+    // Delete user stats
+    await db.delete(userStats).where(eq(userStats.userId, userId));
+
+    // Delete auth data
+    await db.delete(sessions).where(eq(sessions.userId, userId));
+    await db.delete(accounts).where(eq(accounts.userId, userId));
+
+    // Delete the user — cascades: userRoles, userPreferences, userAchievements, achievementProgress
+    await db.delete(users).where(eq(users.id, userId));
+
+    revalidatePath("/admin");
+  } catch (error) {
+    console.error("Failed to delete user:", error);
+    throw new Error("Failed to delete user");
   }
 }

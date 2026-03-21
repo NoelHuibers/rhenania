@@ -1,4 +1,3 @@
-- Achievements
 - Stafetten
 - Rechnungsmails
 - Sempro
