@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
+import { checkAndUnlockAchievements } from "../achievements/tracking";
 
 export async function updateUserAvatarWithUpload(formData: FormData) {
   try {
@@ -114,6 +115,8 @@ export async function updateUserAvatarUrl(formData: FormData) {
       .update(users)
       .set({ image: imageUrl })
       .where(eq(users.id, session.user.id));
+
+    void checkAndUnlockAchievements(session.user.id, "profile_picture_set");
 
     revalidatePath("/profile");
     revalidatePath("/leaderboard");

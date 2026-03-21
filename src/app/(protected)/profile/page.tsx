@@ -1,4 +1,5 @@
 import { AccountSecurity } from "~/components/profile/AccountSecurity";
+import { Achievements } from "~/components/profile/Achievements";
 import { BillingOverview } from "~/components/profile/BillingOverview";
 import GamesEloContainerDetailed from "~/components/profile/GamesEloContainer";
 import { Preferences } from "~/components/profile/Preferences";
@@ -23,6 +24,7 @@ export default function ProfilePage() {
               <BillingOverview />
               <RecentOrders />
               <GamesEloContainerDetailed />
+              <Achievements />
             </div>
           </div>
         </div>

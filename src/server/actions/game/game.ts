@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { games, userPreferences, userStats, users } from "~/server/db/schema";
 import { auth } from "../../auth";
+import { checkAndUnlockAchievements } from "../achievements/tracking";
 
 const ELO_KEY = "gamification.eloEnabled";
 const FALSE_JSON = JSON.stringify(false); // stored as "false"
@@ -191,6 +192,16 @@ export async function createGame(gameData: GameResult): Promise<{
     );
 
     revalidatePath(`/eloranking`);
+
+    const winnerId = gameData.won ? userId : gameData.player2Id;
+    const loserId = gameData.won ? gameData.player2Id : userId;
+
+    void Promise.all([
+      checkAndUnlockAchievements(userId, "game_played"),
+      checkAndUnlockAchievements(gameData.player2Id, "game_played"),
+      checkAndUnlockAchievements(winnerId, "game_won"),
+      checkAndUnlockAchievements(loserId, "game_lost"),
+    ]);
 
     return {
       success: true,

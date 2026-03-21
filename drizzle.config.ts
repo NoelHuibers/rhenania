@@ -9,5 +9,5 @@ export default {
     url: env.DATABASE_URL,
     authToken: env.DATABASE_AUTH_TOKEN,
   },
-  tablesFilter: ["rhenania2_*"],
+  tablesFilter: ["rhenania_*"],
 } satisfies Config;

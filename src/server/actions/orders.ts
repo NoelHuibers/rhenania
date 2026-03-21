@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth"; // Import your NextAuth auth function
 import { db } from "~/server/db";
 import { orders } from "~/server/db/schema";
+import { checkAndUnlockAchievements } from "./achievements/tracking";
 import { getUserName } from "./getUserName";
 import { getUserRole } from "./getUserRole";
 
@@ -83,6 +84,14 @@ export async function createOrder(
 
     revalidatePath("/leaderboard");
     revalidatePath("/rechnung");
+
+    void checkAndUnlockAchievements(userId, "order_created", {
+      drinkName: orderData.drinkName,
+      drinkId: orderData.drinkId,
+      amount: orderData.amount,
+      total: orderData.total,
+      bookingFor: orderData.bookingFor,
+    });
 
     return {
       success: true,

@@ -7,6 +7,7 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { userRoles, users, verificationTokens } from "~/server/db/schema";
 import { sendVerificationEmail } from "./email"; // You'll need to implement this
+import { checkAndUnlockAchievements } from "../achievements/tracking";
 
 // Check if user has admin role
 async function checkAdminPermission() {
@@ -105,6 +106,8 @@ export async function createUser(
     };
 
     await db.insert(users).values(newUser);
+
+    void checkAndUnlockAchievements(newUser.id, "account_created");
 
     // Generate verification token
     const token = crypto.randomBytes(32).toString("hex");
