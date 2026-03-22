@@ -59,6 +59,13 @@ export const betterAuthInstance = betterAuth({
 	},
 
 	trustedOrigins: [env.BETTER_AUTH_URL],
+
+	account: {
+		accountLinking: {
+			enabled: true,
+			trustedProviders: ["microsoft"],
+		},
+	},
 });
 
 /**
