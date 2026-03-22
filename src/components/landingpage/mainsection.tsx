@@ -1,5 +1,4 @@
 "use client";
-import React from "react";
 import Zirkel from "./zirkel";
 
 const MainSection = () => {

@@ -6,16 +6,16 @@ import { useCallback } from "react";
 import { Button } from "~/components/ui/button";
 
 export const ActionButtons = () => {
-  const handleViewHomepage = useCallback(() => {
-    window.open("/", "_blank");
-  }, []);
+	const handleViewHomepage = useCallback(() => {
+		window.open("/", "_blank");
+	}, []);
 
-  return (
-    <div className="flex justify-center gap-4">
-      <Button size="lg" className="px-8" onClick={handleViewHomepage}>
-        <Eye className="w-4 h-4 mr-2" />
-        Homepage ansehen
-      </Button>
-    </div>
-  );
+	return (
+		<div className="flex justify-center gap-4">
+			<Button size="lg" className="px-8" onClick={handleViewHomepage}>
+				<Eye className="mr-2 h-4 w-4" />
+				Homepage ansehen
+			</Button>
+		</div>
+	);
 };

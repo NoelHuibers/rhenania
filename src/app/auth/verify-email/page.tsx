@@ -3,9 +3,9 @@ import VerifyEmailPage from "~/components/auth/VerifyEmail";
 import { verifyEmailAndSetPassword } from "~/server/actions/newuser/verifyEmail";
 
 export default function Page() {
-  return (
-    <Suspense fallback={<div />}>
-      <VerifyEmailPage verifyEmailAndSetPassword={verifyEmailAndSetPassword} />
-    </Suspense>
-  );
+	return (
+		<Suspense fallback={<div />}>
+			<VerifyEmailPage verifyEmailAndSetPassword={verifyEmailAndSetPassword} />
+		</Suspense>
+	);
 }

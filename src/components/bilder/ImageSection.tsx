@@ -8,277 +8,276 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { DropZone } from "./Dropzone";
-import { OptimizedImagePreview, type ImageItem } from "./OptimizedImagePreview";
+import { type ImageItem, OptimizedImagePreview } from "./OptimizedImagePreview";
 import { VirtualImageGrid } from "./VirtualImageGrid";
 
 export interface ImageSectionConfig {
-  title: string;
-  allowMultiple: boolean;
-  description: string;
-  dropzoneHeight: string;
+	title: string;
+	allowMultiple: boolean;
+	description: string;
+	dropzoneHeight: string;
 }
 
 interface EnhancedImageSectionProps {
-  section: HomepageSection;
-  config: ImageSectionConfig;
-  images: ImageItem[];
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  uploading: HomepageSection | null;
-  deletingId: string | null;
-  onFileSelect: (files: FileList | null, section: HomepageSection) => void;
-  onToggleActive: (imageId: string) => void;
-  onDelete: (imageId: string, imageName: string) => void;
-  onReorder: (imageIds: string[]) => void;
+	section: HomepageSection;
+	config: ImageSectionConfig;
+	images: ImageItem[];
+	inputRef: React.RefObject<HTMLInputElement | null>;
+	uploading: HomepageSection | null;
+	deletingId: string | null;
+	onFileSelect: (files: FileList | null, section: HomepageSection) => void;
+	onToggleActive: (imageId: string) => void;
+	onDelete: (imageId: string, imageName: string) => void;
+	onReorder: (imageIds: string[]) => void;
 }
 
 export const EnhancedImageSection = ({
-  section,
-  config,
-  images,
-  inputRef,
-  uploading,
-  deletingId,
-  onFileSelect,
-  onToggleActive,
-  onDelete,
-  onReorder,
+	section,
+	config,
+	images,
+	inputRef,
+	uploading,
+	deletingId,
+	onFileSelect,
+	onToggleActive,
+	onDelete,
+	onReorder: _onReorder,
 }: EnhancedImageSectionProps) => {
-  const [deleteDialog, setDeleteDialog] = useState<{
-    open: boolean;
-    imageId: string;
-    imageName: string;
-  }>({ open: false, imageId: "", imageName: "" });
+	const [deleteDialog, setDeleteDialog] = useState<{
+		open: boolean;
+		imageId: string;
+		imageName: string;
+	}>({ open: false, imageId: "", imageName: "" });
 
-  const activeCount = useMemo(
-    () => images.filter((img) => img.isActive).length,
-    [images]
-  );
+	const activeCount = useMemo(
+		() => images.filter((img) => img.isActive).length,
+		[images],
+	);
 
-  const getImageSize = useCallback(() => {
-    return config.allowMultiple ? "small" : "large";
-  }, [config.allowMultiple]);
+	const getImageSize = useCallback(() => {
+		return config.allowMultiple ? "small" : "large";
+	}, [config.allowMultiple]);
 
-  const handleDeleteClick = useCallback(
-    (imageId: string, imageName: string) => {
-      setDeleteDialog({ open: true, imageId, imageName });
-    },
-    []
-  );
+	const handleDeleteClick = useCallback(
+		(imageId: string, imageName: string) => {
+			setDeleteDialog({ open: true, imageId, imageName });
+		},
+		[],
+	);
 
-  const handleDeleteConfirm = useCallback(() => {
-    if (deleteDialog.imageId && deleteDialog.imageName) {
-      onDelete(deleteDialog.imageId, deleteDialog.imageName);
-      setDeleteDialog({ open: false, imageId: "", imageName: "" });
-    }
-  }, [deleteDialog, onDelete]);
+	const handleDeleteConfirm = useCallback(() => {
+		if (deleteDialog.imageId && deleteDialog.imageName) {
+			onDelete(deleteDialog.imageId, deleteDialog.imageName);
+			setDeleteDialog({ open: false, imageId: "", imageName: "" });
+		}
+	}, [deleteDialog, onDelete]);
 
-  const renderInlineDropzoneContent = useCallback(() => {
-    if (config.allowMultiple) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full text-center p-1">
-          <Plus className="w-4 h-4 text-muted-foreground mb-1" />
-          <p className="text-xs text-muted-foreground">Bilder hinzufügen</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Mehrfachauswahl möglich
-          </p>
-        </div>
-      );
-    }
+	const renderInlineDropzoneContent = useCallback(() => {
+		if (config.allowMultiple) {
+			return (
+				<div className="flex h-full flex-col items-center justify-center p-1 text-center">
+					<Plus className="mb-1 h-4 w-4 text-muted-foreground" />
+					<p className="text-muted-foreground text-xs">Bilder hinzufügen</p>
+					<p className="mt-1 text-muted-foreground text-xs">
+						Mehrfachauswahl möglich
+					</p>
+				</div>
+			);
+		}
 
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-2">
-        <Upload className="w-6 h-6 text-muted-foreground mb-2" />
-        <p className="text-sm font-medium text-foreground mb-1">
-          {config.title} Bild hochladen
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Drag & Drop oder klicken zum Auswählen
-        </p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Max. 10MB • JPG, PNG, WebP, SVG
-        </p>
-      </div>
-    );
-  }, [config]);
+		return (
+			<div className="flex h-full flex-col items-center justify-center p-2 text-center">
+				<Upload className="mb-2 h-6 w-6 text-muted-foreground" />
+				<p className="mb-1 font-medium text-foreground text-sm">
+					{config.title} Bild hochladen
+				</p>
+				<p className="text-muted-foreground text-xs">
+					Drag & Drop oder klicken zum Auswählen
+				</p>
+				<p className="mt-1 text-muted-foreground text-xs">
+					Max. 10MB • JPG, PNG, WebP, SVG
+				</p>
+			</div>
+		);
+	}, [config]);
 
-  const renderFullSectionDropzoneContent = useCallback(() => {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-center p-6">
-        <Upload className="w-12 h-12 text-muted-foreground mb-4" />
-        <p className="text-lg font-medium text-foreground mb-2">
-          {config.title} Bild hochladen
-        </p>
-        <p className="text-sm text-muted-foreground mb-2">
-          Drag & Drop oder klicken zum Auswählen
-        </p>
-        <p className="text-xs text-muted-foreground mt-2">
-          Max. 10MB • JPG, PNG, WebP, SVG
-        </p>
-      </div>
-    );
-  }, [config]);
+	const renderFullSectionDropzoneContent = useCallback(() => {
+		return (
+			<div className="flex h-64 flex-col items-center justify-center p-6 text-center">
+				<Upload className="mb-4 h-12 w-12 text-muted-foreground" />
+				<p className="mb-2 font-medium text-foreground text-lg">
+					{config.title} Bild hochladen
+				</p>
+				<p className="mb-2 text-muted-foreground text-sm">
+					Drag & Drop oder klicken zum Auswählen
+				</p>
+				<p className="mt-2 text-muted-foreground text-xs">
+					Max. 10MB • JPG, PNG, WebP, SVG
+				</p>
+			</div>
+		);
+	}, [config]);
 
-  const renderImageGrid = useCallback(() => {
-    // If no images, show full-section dropzone
-    if (images.length === 0) {
-      return (
-        <DropZone
-          section={section}
-          inputRef={inputRef}
-          className="min-h-[256px]"
-          onFileSelect={onFileSelect}
-          uploading={uploading}
-        >
-          {renderFullSectionDropzoneContent()}
-        </DropZone>
-      );
-    }
+	const renderImageGrid = useCallback(() => {
+		// If no images, show full-section dropzone
+		if (images.length === 0) {
+			return (
+				<DropZone
+					section={section}
+					inputRef={inputRef}
+					className="min-h-[256px]"
+					onFileSelect={onFileSelect}
+					uploading={uploading}
+				>
+					{renderFullSectionDropzoneContent()}
+				</DropZone>
+			);
+		}
 
-    // Use virtual scrolling for large collections
-    if (config.allowMultiple && images.length > 50) {
-      return (
-        <div className="space-y-4">
-          <VirtualImageGrid
-            images={images}
-            itemsPerRow={5}
-            itemHeight={160}
-            containerHeight={400}
-            onToggleActive={onToggleActive}
-            onDelete={handleDeleteClick}
-            deletingId={deletingId}
-            size={getImageSize()}
-          />
-          {/* Inline dropzone below virtual grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            <DropZone
-              section={section}
-              inputRef={inputRef}
-              className="aspect-square"
-              onFileSelect={onFileSelect}
-              uploading={uploading}
-            >
-              {renderInlineDropzoneContent()}
-            </DropZone>
-          </div>
-        </div>
-      );
-    }
+		// Use virtual scrolling for large collections
+		if (config.allowMultiple && images.length > 50) {
+			return (
+				<div className="space-y-4">
+					<VirtualImageGrid
+						images={images}
+						itemsPerRow={5}
+						itemHeight={160}
+						containerHeight={400}
+						onToggleActive={onToggleActive}
+						onDelete={handleDeleteClick}
+						deletingId={deletingId}
+						size={getImageSize()}
+					/>
+					{/* Inline dropzone below virtual grid */}
+					<div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+						<DropZone
+							section={section}
+							inputRef={inputRef}
+							className="aspect-square"
+							onFileSelect={onFileSelect}
+							uploading={uploading}
+						>
+							{renderInlineDropzoneContent()}
+						</DropZone>
+					</div>
+				</div>
+			);
+		}
 
-    if (config.allowMultiple && images.length > 0) {
-      return (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {images.map((image) => (
-            <OptimizedImagePreview
-              key={image.id}
-              image={image}
-              onToggle={() => onToggleActive(image.id)}
-              onDelete={() => handleDeleteClick(image.id, image.imageName)}
-              size={getImageSize()}
-              isDeleting={deletingId === image.id}
-            />
-          ))}
+		if (config.allowMultiple && images.length > 0) {
+			return (
+				<div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+					{images.map((image) => (
+						<OptimizedImagePreview
+							key={image.id}
+							image={image}
+							onToggle={() => onToggleActive(image.id)}
+							onDelete={() => handleDeleteClick(image.id, image.imageName)}
+							size={getImageSize()}
+							isDeleting={deletingId === image.id}
+						/>
+					))}
 
-          {/* Inline dropzone as part of the grid */}
-          <DropZone
-            section={section}
-            inputRef={inputRef}
-            className="size-32"
-            onFileSelect={onFileSelect}
-            uploading={uploading}
-          >
-            {renderInlineDropzoneContent()}
-          </DropZone>
-        </div>
-      );
-    }
+					{/* Inline dropzone as part of the grid */}
+					<DropZone
+						section={section}
+						inputRef={inputRef}
+						className="size-32"
+						onFileSelect={onFileSelect}
+						uploading={uploading}
+					>
+						{renderInlineDropzoneContent()}
+					</DropZone>
+				</div>
+			);
+		}
 
-    // Single image display (no dragging needed)
-    const gridClasses = "grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6";
+		// Single image display (no dragging needed)
+		const gridClasses = "grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6";
 
-    return (
-      <div className={gridClasses}>
-        {images.map((image) => (
-          <OptimizedImagePreview
-            key={image.id}
-            image={image}
-            onToggle={() => onToggleActive(image.id)}
-            onDelete={() => handleDeleteClick(image.id, image.imageName)}
-            size={getImageSize()}
-            isDeleting={deletingId === image.id}
-          />
-        ))}
-        {/* Inline dropzone for single images */}
-        <DropZone
-          section={section}
-          inputRef={inputRef}
-          className="w-full h-64"
-          onFileSelect={onFileSelect}
-          uploading={uploading}
-        >
-          {renderInlineDropzoneContent()}
-        </DropZone>
-      </div>
-    );
-  }, [
-    images,
-    config.allowMultiple,
-    section,
-    inputRef,
-    onFileSelect,
-    uploading,
-    onToggleActive,
-    handleDeleteClick,
-    onReorder,
-    deletingId,
-    getImageSize,
-    renderInlineDropzoneContent,
-    renderFullSectionDropzoneContent,
-  ]);
+		return (
+			<div className={gridClasses}>
+				{images.map((image) => (
+					<OptimizedImagePreview
+						key={image.id}
+						image={image}
+						onToggle={() => onToggleActive(image.id)}
+						onDelete={() => handleDeleteClick(image.id, image.imageName)}
+						size={getImageSize()}
+						isDeleting={deletingId === image.id}
+					/>
+				))}
+				{/* Inline dropzone for single images */}
+				<DropZone
+					section={section}
+					inputRef={inputRef}
+					className="h-64 w-full"
+					onFileSelect={onFileSelect}
+					uploading={uploading}
+				>
+					{renderInlineDropzoneContent()}
+				</DropZone>
+			</div>
+		);
+	}, [
+		images,
+		config.allowMultiple,
+		section,
+		inputRef,
+		onFileSelect,
+		uploading,
+		onToggleActive,
+		handleDeleteClick,
+		deletingId,
+		getImageSize,
+		renderInlineDropzoneContent,
+		renderFullSectionDropzoneContent,
+	]);
 
-  return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 flex-wrap">
-            <ImageIcon className="w-5 h-5" />
-            {config.title}
-            <Badge variant="secondary">
-              {config.allowMultiple ? "Mehrere Bilder" : "Einzelbild"}
-            </Badge>
-            <Badge variant="outline">{images.length} gesamt</Badge>
-            {activeCount > 0 && (
-              <Badge className="bg-green-500/10 text-green-600 border-green-500">
-                {activeCount} aktiv
-              </Badge>
-            )}
-            {config.allowMultiple && images.length > 0 && (
-              <Badge
-                variant="outline"
-                className="bg-blue-500/10 text-blue-600 border-blue-500"
-              >
-                Drag & Drop aktiviert
-              </Badge>
-            )}
-            {images.length > 50 && (
-              <Badge
-                variant="outline"
-                className="bg-blue-500/10 text-blue-600 border-blue-500"
-              >
-                Virtuelles Scrollen
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>{renderImageGrid()}</CardContent>
-      </Card>
+	return (
+		<>
+			<Card>
+				<CardHeader>
+					<CardTitle className="flex flex-wrap items-center gap-2">
+						<ImageIcon className="h-5 w-5" />
+						{config.title}
+						<Badge variant="secondary">
+							{config.allowMultiple ? "Mehrere Bilder" : "Einzelbild"}
+						</Badge>
+						<Badge variant="outline">{images.length} gesamt</Badge>
+						{activeCount > 0 && (
+							<Badge className="border-green-500 bg-green-500/10 text-green-600">
+								{activeCount} aktiv
+							</Badge>
+						)}
+						{config.allowMultiple && images.length > 0 && (
+							<Badge
+								variant="outline"
+								className="border-blue-500 bg-blue-500/10 text-blue-600"
+							>
+								Drag & Drop aktiviert
+							</Badge>
+						)}
+						{images.length > 50 && (
+							<Badge
+								variant="outline"
+								className="border-blue-500 bg-blue-500/10 text-blue-600"
+							>
+								Virtuelles Scrollen
+							</Badge>
+						)}
+					</CardTitle>
+				</CardHeader>
+				<CardContent>{renderImageGrid()}</CardContent>
+			</Card>
 
-      <DeleteConfirmDialog
-        open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
-        imageName={deleteDialog.imageName}
-        onConfirm={handleDeleteConfirm}
-        isDeleting={deletingId === deleteDialog.imageId}
-      />
-    </>
-  );
+			<DeleteConfirmDialog
+				open={deleteDialog.open}
+				onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}
+				imageName={deleteDialog.imageName}
+				onConfirm={handleDeleteConfirm}
+				isDeleting={deletingId === deleteDialog.imageId}
+			/>
+		</>
+	);
 };

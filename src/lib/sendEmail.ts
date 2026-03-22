@@ -20,7 +20,7 @@ export async function sendEmail(name: string, email: string, message: string) {
 
 	try {
 		await transporter.sendMail(mailOptions);
-	} catch (error) {
+	} catch (_error) {
 		throw new Error("Error beim Senden der Email");
 	}
 }

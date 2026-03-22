@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { getAllDrinksForMenu, type MenuItem } from "~/server/actions/menu";
 
 import { SiteHeader } from "../SiteHeader";
-import { BillingSelector, type BillingOption } from "./Billingselector";
+import { type BillingOption, BillingSelector } from "./Billingselector";
 import { DrinksSection } from "./DrinksSection";
 import { EmptyState } from "./EmptyState";
 import { LoadingState } from "./Loadingstate";
@@ -13,92 +13,93 @@ import { MenuFooter } from "./MenuFooter";
 import { OrderDrawer } from "./OrderDrawer";
 
 export default function DrinksMenu() {
-  const [drinks, setDrinks] = useState<MenuItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedDrink, setSelectedDrink] = useState<MenuItem | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [selectedBilling, setSelectedBilling] = useState<BillingOption>(null);
+	const [drinks, setDrinks] = useState<MenuItem[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [selectedDrink, setSelectedDrink] = useState<MenuItem | null>(null);
+	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+	const [selectedBilling, setSelectedBilling] = useState<BillingOption>(null);
 
-  // Load drinks on component mount
-  useEffect(() => {
-    loadDrinks();
-  }, []);
+	// Load drinks on component mount
+	// biome-ignore lint/correctness/useExhaustiveDependencies: mount-only effect, loadDrinks is intentionally excluded
+	useEffect(() => {
+		loadDrinks();
+	}, []);
 
-  const loadDrinks = async () => {
-    try {
-      setIsLoading(true);
-      const fetchedDrinks = await getAllDrinksForMenu();
-      setDrinks(fetchedDrinks);
-    } catch (error) {
-      console.error("Error loading drinks:", error);
-      toast.error("Fehler beim Laden der Getränkekarte");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+	const loadDrinks = async () => {
+		try {
+			setIsLoading(true);
+			const fetchedDrinks = await getAllDrinksForMenu();
+			setDrinks(fetchedDrinks);
+		} catch (error) {
+			console.error("Error loading drinks:", error);
+			toast.error("Fehler beim Laden der Getränkekarte");
+		} finally {
+			setIsLoading(false);
+		}
+	};
 
-  const handleOrderClick = (drink: MenuItem) => {
-    setSelectedDrink(drink);
-    setIsDrawerOpen(true);
-  };
+	const handleOrderClick = (drink: MenuItem) => {
+		setSelectedDrink(drink);
+		setIsDrawerOpen(true);
+	};
 
-  const handleDrawerClose = () => {
-    setIsDrawerOpen(false);
-    setSelectedDrink(null);
-  };
+	const handleDrawerClose = () => {
+		setIsDrawerOpen(false);
+		setSelectedDrink(null);
+	};
 
-  // Group drinks by availability
-  const availableDrinks = drinks.filter((drink) => drink.isCurrentlyAvailable);
-  const unavailableDrinks = drinks.filter(
-    (drink) => !drink.isCurrentlyAvailable
-  );
+	// Group drinks by availability
+	const availableDrinks = drinks.filter((drink) => drink.isCurrentlyAvailable);
+	const unavailableDrinks = drinks.filter(
+		(drink) => !drink.isCurrentlyAvailable,
+	);
 
-  if (isLoading) {
-    return <LoadingState />;
-  }
+	if (isLoading) {
+		return <LoadingState />;
+	}
 
-  return (
-    <>
-      <SiteHeader title="Getränkekarte" />
-      <div className="container mx-auto p-4 space-y-6">
-        <BillingSelector
-          selectedBilling={selectedBilling}
-          onBillingChange={setSelectedBilling}
-        />
+	return (
+		<>
+			<SiteHeader title="Getränkekarte" />
+			<div className="container mx-auto space-y-6 p-4">
+				<BillingSelector
+					selectedBilling={selectedBilling}
+					onBillingChange={setSelectedBilling}
+				/>
 
-        {drinks.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="space-y-8">
-            {availableDrinks.length > 0 && (
-              <DrinksSection
-                title="Verfügbare Getränke"
-                drinks={availableDrinks}
-                icon="available"
-                onOrderClick={handleOrderClick}
-              />
-            )}
+				{drinks.length === 0 ? (
+					<EmptyState />
+				) : (
+					<div className="space-y-8">
+						{availableDrinks.length > 0 && (
+							<DrinksSection
+								title="Verfügbare Getränke"
+								drinks={availableDrinks}
+								icon="available"
+								onOrderClick={handleOrderClick}
+							/>
+						)}
 
-            {unavailableDrinks.length > 0 && (
-              <DrinksSection
-                title="Derzeit nicht verfügbar"
-                drinks={unavailableDrinks}
-                icon="unavailable"
-                onOrderClick={handleOrderClick}
-              />
-            )}
-          </div>
-        )}
+						{unavailableDrinks.length > 0 && (
+							<DrinksSection
+								title="Derzeit nicht verfügbar"
+								drinks={unavailableDrinks}
+								icon="unavailable"
+								onOrderClick={handleOrderClick}
+							/>
+						)}
+					</div>
+				)}
 
-        <MenuFooter />
-      </div>
+				<MenuFooter />
+			</div>
 
-      <OrderDrawer
-        drink={selectedDrink}
-        isOpen={isDrawerOpen}
-        onClose={handleDrawerClose}
-        selectedBilling={selectedBilling}
-      />
-    </>
-  );
+			<OrderDrawer
+				drink={selectedDrink}
+				isOpen={isDrawerOpen}
+				onClose={handleDrawerClose}
+				selectedBilling={selectedBilling}
+			/>
+		</>
+	);
 }

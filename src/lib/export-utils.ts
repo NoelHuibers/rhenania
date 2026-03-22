@@ -1,81 +1,81 @@
 import type { InventoryItem } from "./types";
 
 export function exportToCSV(
-  data: InventoryItem[],
-  filename = "inventory-report"
+	data: InventoryItem[],
+	filename = "inventory-report",
 ) {
-  // Define CSV headers
-  const headers = [
-    "Product Name",
-    "Category",
-    "Unit",
-    "Cost Per Unit",
-    "Opening Stock",
-    "Total Purchased",
-    "Total Sold",
-    "Theoretical Stock",
-    "Last Count Quantity",
-    "Last Count Date",
-    "Loss Quantity",
-    "Loss Percentage",
-    "Stock Value",
-    "Loss Value",
-  ];
+	// Define CSV headers
+	const headers = [
+		"Product Name",
+		"Category",
+		"Unit",
+		"Cost Per Unit",
+		"Opening Stock",
+		"Total Purchased",
+		"Total Sold",
+		"Theoretical Stock",
+		"Last Count Quantity",
+		"Last Count Date",
+		"Loss Quantity",
+		"Loss Percentage",
+		"Stock Value",
+		"Loss Value",
+	];
 
-  // Convert data to CSV rows
-  const rows = data.map((item) => [
-    item.product.name,
-    item.product.category,
-    item.product.unit,
-    item.product.cost_per_unit.toFixed(2),
-    item.opening_stock.toString(),
-    item.total_purchased.toString(),
-    item.total_sold.toString(),
-    item.theoretical_stock.toString(),
-    item.last_count_quantity?.toString() || "",
-    item.last_count_date || "",
-    item.loss_quantity.toString(),
-    item.loss_percentage.toFixed(2),
-    (item.theoretical_stock * item.product.cost_per_unit).toFixed(2),
-    (item.loss_quantity * item.product.cost_per_unit).toFixed(2),
-  ]);
+	// Convert data to CSV rows
+	const rows = data.map((item) => [
+		item.product.name,
+		item.product.category,
+		item.product.unit,
+		item.product.cost_per_unit.toFixed(2),
+		item.opening_stock.toString(),
+		item.total_purchased.toString(),
+		item.total_sold.toString(),
+		item.theoretical_stock.toString(),
+		item.last_count_quantity?.toString() || "",
+		item.last_count_date || "",
+		item.loss_quantity.toString(),
+		item.loss_percentage.toFixed(2),
+		(item.theoretical_stock * item.product.cost_per_unit).toFixed(2),
+		(item.loss_quantity * item.product.cost_per_unit).toFixed(2),
+	]);
 
-  // Combine headers and rows
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((field) => `"${field}"`).join(","))
-    .join("\n");
+	// Combine headers and rows
+	const csvContent = [headers, ...rows]
+		.map((row) => row.map((field) => `"${field}"`).join(","))
+		.join("\n");
 
-  // Create and download file
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
+	// Create and download file
+	const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+	const link = document.createElement("a");
+	const url = URL.createObjectURL(blob);
 
-  link.setAttribute("href", url);
-  link.setAttribute(
-    "download",
-    `${filename}-${new Date().toISOString().split("T")[0]}.csv`
-  );
-  link.style.visibility = "hidden";
+	link.setAttribute("href", url);
+	link.setAttribute(
+		"download",
+		`${filename}-${new Date().toISOString().split("T")[0]}.csv`,
+	);
+	link.style.visibility = "hidden";
 
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
 }
 
 export function printInventoryReport(data: InventoryItem[]) {
-  const printWindow = window.open("", "_blank");
-  if (!printWindow) return;
+	const printWindow = window.open("", "_blank");
+	if (!printWindow) return;
 
-  const totalStockValue = data.reduce(
-    (sum, item) => sum + item.theoretical_stock * item.product.cost_per_unit,
-    0
-  );
-  const totalLossValue = data.reduce(
-    (sum, item) => sum + item.loss_quantity * item.product.cost_per_unit,
-    0
-  );
+	const totalStockValue = data.reduce(
+		(sum, item) => sum + item.theoretical_stock * item.product.cost_per_unit,
+		0,
+	);
+	const totalLossValue = data.reduce(
+		(sum, item) => sum + item.loss_quantity * item.product.cost_per_unit,
+		0,
+	);
 
-  const htmlContent = `
+	const htmlContent = `
     <!DOCTYPE html>
     <html>
       <head>
@@ -111,8 +111,8 @@ export function printInventoryReport(data: InventoryItem[]) {
           </div>
           <div class="summary-item">
             <div class="summary-value text-red">$${totalLossValue.toFixed(
-              2
-            )}</div>
+							2,
+						)}</div>
             <div>Loss Value</div>
           </div>
         </div>
@@ -130,31 +130,31 @@ export function printInventoryReport(data: InventoryItem[]) {
           </thead>
           <tbody>
             ${data
-              .map(
-                (item) => `
+							.map(
+								(item) => `
               <tr>
                 <td>${item.product.name}</td>
                 <td>${item.product.category}</td>
                 <td class="text-right">${item.theoretical_stock}</td>
                 <td class="text-right">${item.last_count_quantity || "-"}</td>
                 <td class="text-right ${
-                  item.loss_quantity > 0 ? "text-red" : ""
-                }">${item.loss_quantity || "-"}</td>
+									item.loss_quantity > 0 ? "text-red" : ""
+								}">${item.loss_quantity || "-"}</td>
                 <td class="text-right ${
-                  item.loss_percentage > 0 ? "text-red" : ""
-                }">${item.loss_percentage.toFixed(1)}%</td>
+									item.loss_percentage > 0 ? "text-red" : ""
+								}">${item.loss_percentage.toFixed(1)}%</td>
               </tr>
-            `
-              )
-              .join("")}
+            `,
+							)
+							.join("")}
           </tbody>
         </table>
       </body>
     </html>
   `;
 
-  printWindow.document.write(htmlContent);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
+	printWindow.document.write(htmlContent);
+	printWindow.document.close();
+	printWindow.focus();
+	printWindow.print();
 }

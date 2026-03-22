@@ -12,86 +12,87 @@ import { OrderPartyDrawer } from "./OrderPartyDrawer";
 import { PartyDrinksSection } from "./PartyDrinksSection";
 
 export default function PartyDrinksMenu() {
-  const [drinks, setDrinks] = useState<MenuItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedDrink, setSelectedDrink] = useState<MenuItem | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+	const [drinks, setDrinks] = useState<MenuItem[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [selectedDrink, setSelectedDrink] = useState<MenuItem | null>(null);
+	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Load drinks on component mount
-  useEffect(() => {
-    loadDrinks();
-  }, []);
+	// Load drinks on component mount
+	// biome-ignore lint/correctness/useExhaustiveDependencies: mount-only effect, loadDrinks is intentionally excluded
+	useEffect(() => {
+		loadDrinks();
+	}, []);
 
-  const loadDrinks = async () => {
-    try {
-      setIsLoading(true);
-      const fetchedDrinks = await getAllDrinksForMenu();
-      setDrinks(fetchedDrinks);
-    } catch (error) {
-      console.error("Error loading drinks:", error);
-      toast.error("Fehler beim Laden der Getränkekarte");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+	const loadDrinks = async () => {
+		try {
+			setIsLoading(true);
+			const fetchedDrinks = await getAllDrinksForMenu();
+			setDrinks(fetchedDrinks);
+		} catch (error) {
+			console.error("Error loading drinks:", error);
+			toast.error("Fehler beim Laden der Getränkekarte");
+		} finally {
+			setIsLoading(false);
+		}
+	};
 
-  const handleOrderClick = (drink: MenuItem) => {
-    setSelectedDrink(drink);
-    setIsDrawerOpen(true);
-  };
+	const handleOrderClick = (drink: MenuItem) => {
+		setSelectedDrink(drink);
+		setIsDrawerOpen(true);
+	};
 
-  const handleDrawerClose = () => {
-    setIsDrawerOpen(false);
-    setSelectedDrink(null);
-  };
+	const handleDrawerClose = () => {
+		setIsDrawerOpen(false);
+		setSelectedDrink(null);
+	};
 
-  // Group drinks by availability
-  const availableDrinks = drinks.filter((drink) => drink.isCurrentlyAvailable);
-  const unavailableDrinks = drinks.filter(
-    (drink) => !drink.isCurrentlyAvailable
-  );
+	// Group drinks by availability
+	const availableDrinks = drinks.filter((drink) => drink.isCurrentlyAvailable);
+	const unavailableDrinks = drinks.filter(
+		(drink) => !drink.isCurrentlyAvailable,
+	);
 
-  if (isLoading) {
-    return <LoadingState />;
-  }
+	if (isLoading) {
+		return <LoadingState />;
+	}
 
-  return (
-    <>
-      <div className="container mx-auto p-6 space-y-8">
-        <MenuHeader />
+	return (
+		<>
+			<div className="container mx-auto space-y-8 p-6">
+				<MenuHeader />
 
-        {drinks.length === 0 ? (
-          <EmptyState />
-        ) : (
-          <div className="space-y-8">
-            {availableDrinks.length > 0 && (
-              <PartyDrinksSection
-                title="Verfügbare Getränke"
-                drinks={availableDrinks}
-                icon="available"
-                onOrderClick={handleOrderClick}
-              />
-            )}
+				{drinks.length === 0 ? (
+					<EmptyState />
+				) : (
+					<div className="space-y-8">
+						{availableDrinks.length > 0 && (
+							<PartyDrinksSection
+								title="Verfügbare Getränke"
+								drinks={availableDrinks}
+								icon="available"
+								onOrderClick={handleOrderClick}
+							/>
+						)}
 
-            {unavailableDrinks.length > 0 && (
-              <PartyDrinksSection
-                title="Derzeit nicht verfügbar"
-                drinks={unavailableDrinks}
-                icon="unavailable"
-                onOrderClick={handleOrderClick}
-              />
-            )}
-          </div>
-        )}
+						{unavailableDrinks.length > 0 && (
+							<PartyDrinksSection
+								title="Derzeit nicht verfügbar"
+								drinks={unavailableDrinks}
+								icon="unavailable"
+								onOrderClick={handleOrderClick}
+							/>
+						)}
+					</div>
+				)}
 
-        <MenuFooter />
-      </div>
+				<MenuFooter />
+			</div>
 
-      <OrderPartyDrawer
-        drink={selectedDrink}
-        isOpen={isDrawerOpen}
-        onClose={handleDrawerClose}
-      />
-    </>
-  );
+			<OrderPartyDrawer
+				drink={selectedDrink}
+				isOpen={isDrawerOpen}
+				onClose={handleDrawerClose}
+			/>
+		</>
+	);
 }

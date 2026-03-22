@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { FaWikipediaW } from "react-icons/fa6";
 import { IoLogoInstagram, IoMailOutline } from "react-icons/io5";
