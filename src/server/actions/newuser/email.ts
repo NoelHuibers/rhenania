@@ -89,7 +89,7 @@ export async function sendVerificationEmail(
 ): Promise<void> {
 	try {
 		const verificationUrl = `${
-			env.NEXTAUTH_URL
+			env.BETTER_AUTH_URL
 		}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 		const template = getVerificationEmailTemplate(verificationUrl);
 
@@ -206,7 +206,7 @@ export async function sendPasswordResetEmail(
 	token: string,
 ): Promise<void> {
 	try {
-		const resetUrl = `${env.NEXTAUTH_URL}/auth/reset-password?token=${token}`;
+		const resetUrl = `${env.BETTER_AUTH_URL}/auth/reset-password?token=${token}`;
 
 		const mailOptions = {
 			from: env.GMAIL,

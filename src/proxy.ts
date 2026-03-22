@@ -3,21 +3,9 @@
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { auth } from "~/server/auth";
+import { betterAuthInstance } from "~/server/auth";
 import { db } from "~/server/db";
 import { roles, userRoles } from "~/server/db/schema";
-
-// Extend NextRequest to include the auth property added by NextAuth.js
-interface AuthenticatedRequest extends NextRequest {
-	auth: {
-		user?: {
-			id: string;
-			name?: string | null;
-			email?: string | null;
-			image?: string | null;
-		};
-	} | null;
-}
 
 // A simple list of the paths you want to remain public:
 const PUBLIC_PATHS = [
@@ -26,7 +14,7 @@ const PUBLIC_PATHS = [
 	"/contact", // contact page
 	"/datenschutz", // privacy policy
 	"/impressum", // imprint
-	"/api/auth/(.*)", // all NextAuth endpoints
+	"/api/auth/(.*)", // all Better Auth endpoints
 	"/auth/(.*)", // all auth endpoints
 	"/party",
 ];
@@ -51,11 +39,9 @@ const ROLE_PROTECTED_PATHS: Record<string, string[]> = {
 	"/admin": ["Admin"],
 };
 
-// Helper to check if a path requires specific roles (case-insensitive)
 function getRequiredRoles(pathname: string): string[] | null {
 	const lowerPathname = pathname.toLowerCase();
 
-	// Check exact matches first
 	for (const [protectedPath, requiredRoles] of Object.entries(
 		ROLE_PROTECTED_PATHS,
 	)) {
@@ -64,7 +50,6 @@ function getRequiredRoles(pathname: string): string[] | null {
 		}
 	}
 
-	// Check if pathname starts with any protected path (for nested routes)
 	for (const [protectedPath, requiredRoles] of Object.entries(
 		ROLE_PROTECTED_PATHS,
 	)) {
@@ -76,7 +61,6 @@ function getRequiredRoles(pathname: string): string[] | null {
 	return null;
 }
 
-// Helper to check if user has required roles
 async function userHasRequiredRoles(
 	userId: string,
 	requiredRoles: string[],
@@ -89,8 +73,6 @@ async function userHasRequiredRoles(
 			.where(eq(userRoles.userId, userId));
 
 		const userRoleNames = userRolesList.map((r) => r.roleName);
-
-		// Check if user has any of the required roles
 		return requiredRoles.some((role) => userRoleNames.includes(role));
 	} catch (error) {
 		console.error("Error checking user roles:", error);
@@ -98,68 +80,56 @@ async function userHasRequiredRoles(
 	}
 }
 
-// Wrap every request in your Auth.js logic:
-export default auth(async (req: AuthenticatedRequest) => {
-	const { pathname } = req.nextUrl;
+export default async function middleware(request: NextRequest) {
+	const { pathname } = request.nextUrl;
 
-	// 1) ALWAYS redirect to lowercase if the pathname contains uppercase letters
-	// This should be the first check to ensure consistent URLs
+	// 1) Redirect to lowercase
 	if (pathname !== pathname.toLowerCase()) {
-		const lowercaseUrl = req.nextUrl.clone();
+		const lowercaseUrl = request.nextUrl.clone();
 		lowercaseUrl.pathname = pathname.toLowerCase();
-		return NextResponse.redirect(lowercaseUrl, { status: 301 }); // 301 for permanent redirect
+		return NextResponse.redirect(lowercaseUrl, { status: 301 });
 	}
 
-	// 2) Allow any public URL
+	// 2) Allow public URLs
 	if (isPublic(pathname)) {
 		return NextResponse.next();
 	}
 
-	// 3) If not signed in, redirect to /api/auth/signin with callbackUrl
-	if (!req.auth?.user) {
-		const signInUrl = req.nextUrl.clone();
+	// 3) Check session via Better Auth
+	const session = await betterAuthInstance.api.getSession({
+		headers: request.headers,
+	});
+
+	if (!session?.user) {
+		const signInUrl = request.nextUrl.clone();
 		signInUrl.pathname = "/auth/signin";
-		// Add the current URL as callbackUrl parameter
-		// This will preserve the original route for redirect after login
-		signInUrl.searchParams.set("callbackUrl", req.nextUrl.href);
+		signInUrl.searchParams.set("callbackUrl", request.nextUrl.href);
 		return NextResponse.redirect(signInUrl);
 	}
 
-	// 4) Check if the path requires specific roles
+	// 4) Check role-protected paths
 	const requiredRoles = getRequiredRoles(pathname);
 
 	if (requiredRoles) {
-		const userId = req.auth.user.id;
-		const hasRequiredRole = await userHasRequiredRoles(userId, requiredRoles);
+		const hasRequiredRole = await userHasRequiredRoles(
+			session.user.id,
+			requiredRoles,
+		);
 
 		if (!hasRequiredRole) {
-			// Redirect to an access denied page or home page
-			const accessDeniedUrl = req.nextUrl.clone();
-			accessDeniedUrl.pathname = "/access-denied"; // You'll need to create this page
+			const accessDeniedUrl = request.nextUrl.clone();
+			accessDeniedUrl.pathname = "/access-denied";
 			accessDeniedUrl.searchParams.set("required", requiredRoles.join(","));
 			accessDeniedUrl.searchParams.set("path", pathname);
-
 			return NextResponse.redirect(accessDeniedUrl);
 		}
 	}
 
-	// 5) User is authenticated and has required roles (if any), allow access
 	return NextResponse.next();
-});
+}
 
-// Never run middleware on _next internals, static files, or public assets:
 export const config = {
 	matcher: [
-		/*
-		 * Match all request paths except:
-		 * - _next/static (static files)
-		 * - _next/image (image optimization files)
-		 * - favicon.ico
-		 * - All files with extensions (images, fonts, etc.)
-		 *
-		 * Note: We removed 'api/' from exclusions since we want to handle
-		 * /api/auth/* routes in the middleware for lowercase redirect
-		 */
 		"/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)",
 	],
 };

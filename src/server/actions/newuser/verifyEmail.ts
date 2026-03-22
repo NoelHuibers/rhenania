@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { db } from "~/server/db";
 import {
+	accounts,
 	passwordResetTokens,
 	users,
 	verificationTokens,
@@ -41,7 +42,7 @@ export async function verifyEmailAndSetPassword(
 			};
 		}
 
-		// Find and verify the token
+		// Find and verify the invitation token
 		const verificationToken = await db
 			.select()
 			.from(verificationTokens)
@@ -62,9 +63,7 @@ export async function verifyEmailAndSetPassword(
 
 		const tokenData = verificationToken[0];
 
-		// Check if token is expired
 		if (!tokenData?.expires || new Date() > tokenData.expires) {
-			// Clean up expired token
 			await db
 				.delete(verificationTokens)
 				.where(eq(verificationTokens.token, token));
@@ -84,15 +83,11 @@ export async function verifyEmailAndSetPassword(
 			.limit(1);
 
 		if (user.length === 0) {
-			return {
-				success: false,
-				error: "Benutzer nicht gefunden.",
-			};
+			return { success: false, error: "Benutzer nicht gefunden." };
 		}
 
 		const userData = user[0];
 
-		// Check if user is already verified
 		if (userData?.emailVerified) {
 			return {
 				success: false,
@@ -100,20 +95,49 @@ export async function verifyEmailAndSetPassword(
 			};
 		}
 
-		// Hash the password
 		const saltRounds = 12;
 		const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-		// Update user with verified email and password
+		// Mark user as verified (boolean in Better Auth schema)
 		await db
 			.update(users)
-			.set({
-				emailVerified: new Date(),
-				password: hashedPassword,
-			})
+			.set({ emailVerified: true, updatedAt: new Date() })
 			.where(eq(users.id, userData?.id ?? ""));
 
-		// Delete the verification token
+		// Create or update the credential account with the password
+		const existingCredentialAccount = await db
+			.select()
+			.from(accounts)
+			.where(
+				and(
+					eq(accounts.userId, userData?.id ?? ""),
+					eq(accounts.providerId, "credential"),
+				),
+			)
+			.limit(1);
+
+		if (existingCredentialAccount.length > 0) {
+			await db
+				.update(accounts)
+				.set({ password: hashedPassword, updatedAt: new Date() })
+				.where(
+					and(
+						eq(accounts.userId, userData?.id ?? ""),
+						eq(accounts.providerId, "credential"),
+					),
+				);
+		} else {
+			await db.insert(accounts).values({
+				accountId: email.toLowerCase(),
+				providerId: "credential",
+				userId: userData?.id ?? "",
+				password: hashedPassword,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			});
+		}
+
+		// Delete the invitation token
 		await db
 			.delete(verificationTokens)
 			.where(eq(verificationTokens.token, token));
@@ -121,10 +145,7 @@ export async function verifyEmailAndSetPassword(
 		return { success: true };
 	} catch (error) {
 		console.error("Error verifying email and setting password:", error);
-		return {
-			success: false,
-			error: "Ein unerwarteter Fehler ist aufgetreten.",
-		};
+		return { success: false, error: "Ein unerwarteter Fehler ist aufgetreten." };
 	}
 }
 
@@ -132,7 +153,6 @@ export async function requestPasswordReset(
 	email: string,
 ): Promise<VerifyEmailResult> {
 	try {
-		// Check if user exists and is verified
 		const user = await db
 			.select()
 			.from(users)
@@ -140,7 +160,7 @@ export async function requestPasswordReset(
 			.limit(1);
 
 		if (user.length === 0) {
-			// Don't reveal that user doesn't exist for security
+			// Don't reveal that user doesn't exist
 			return { success: true };
 		}
 
@@ -153,32 +173,23 @@ export async function requestPasswordReset(
 			};
 		}
 
-		// Generate reset token
 		const token = crypto.randomBytes(32).toString("hex");
-		const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+		const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-		// Delete any existing reset tokens for this email
 		await db
 			.delete(passwordResetTokens)
 			.where(eq(passwordResetTokens.email, email.toLowerCase()));
 
-		// Create new reset token
 		await db.insert(passwordResetTokens).values({
 			email: email.toLowerCase(),
 			token,
 			expires,
 		});
 
-		// Send password reset email (import from your email service)
-		// await sendPasswordResetEmail(email, token);
-
 		return { success: true };
 	} catch (error) {
 		console.error("Error requesting password reset:", error);
-		return {
-			success: false,
-			error: "Ein Fehler ist aufgetreten.",
-		};
+		return { success: false, error: "Ein Fehler ist aufgetreten." };
 	}
 }
 
@@ -187,7 +198,6 @@ export async function resetPassword(
 	newPassword: string,
 ): Promise<VerifyEmailResult> {
 	try {
-		// Validate password requirements
 		if (newPassword.length < 8) {
 			return {
 				success: false,
@@ -207,7 +217,6 @@ export async function resetPassword(
 			};
 		}
 
-		// Find and verify the reset token
 		const resetToken = await db
 			.select()
 			.from(passwordResetTokens)
@@ -223,20 +232,14 @@ export async function resetPassword(
 
 		const tokenData = resetToken[0];
 
-		// Check if token is expired
 		if (!tokenData?.expires || new Date() > tokenData.expires) {
-			// Clean up expired token
 			await db
 				.delete(passwordResetTokens)
 				.where(eq(passwordResetTokens.token, token));
 
-			return {
-				success: false,
-				error: "Der Reset-Link ist abgelaufen.",
-			};
+			return { success: false, error: "Der Reset-Link ist abgelaufen." };
 		}
 
-		// Find the user
 		const user = await db
 			.select()
 			.from(users)
@@ -244,23 +247,45 @@ export async function resetPassword(
 			.limit(1);
 
 		if (user.length === 0) {
-			return {
-				success: false,
-				error: "Benutzer nicht gefunden.",
-			};
+			return { success: false, error: "Benutzer nicht gefunden." };
 		}
 
-		// Hash the new password
 		const saltRounds = 12;
 		const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-		// Update user password
-		await db
-			.update(users)
-			.set({ password: hashedPassword })
-			.where(eq(users.id, user[0]?.id ?? ""));
+		// Update the credential account password (create if it doesn't exist)
+		const existingCredentialAccount = await db
+			.select()
+			.from(accounts)
+			.where(
+				and(
+					eq(accounts.userId, user[0]?.id ?? ""),
+					eq(accounts.providerId, "credential"),
+				),
+			)
+			.limit(1);
 
-		// Delete the reset token
+		if (existingCredentialAccount.length > 0) {
+			await db
+				.update(accounts)
+				.set({ password: hashedPassword, updatedAt: new Date() })
+				.where(
+					and(
+						eq(accounts.userId, user[0]?.id ?? ""),
+						eq(accounts.providerId, "credential"),
+					),
+				);
+		} else {
+			await db.insert(accounts).values({
+				accountId: tokenData?.email ?? "",
+				providerId: "credential",
+				userId: user[0]?.id ?? "",
+				password: hashedPassword,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			});
+		}
+
 		await db
 			.delete(passwordResetTokens)
 			.where(eq(passwordResetTokens.token, token));
@@ -268,9 +293,6 @@ export async function resetPassword(
 		return { success: true };
 	} catch (error) {
 		console.error("Error resetting password:", error);
-		return {
-			success: false,
-			error: "Ein unerwarteter Fehler ist aufgetreten.",
-		};
+		return { success: false, error: "Ein unerwarteter Fehler ist aufgetreten." };
 	}
 }

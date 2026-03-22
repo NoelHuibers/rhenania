@@ -1,7 +1,7 @@
 "use client";
 
 import { Link, Shield, Unlink } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "~/server/auth/client";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";

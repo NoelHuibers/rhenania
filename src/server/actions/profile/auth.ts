@@ -6,7 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { accounts, users } from "~/server/db/schema";
+import { accounts } from "~/server/db/schema";
 
 type ActionResult<T = void> = {
 	success: boolean;
@@ -16,7 +16,7 @@ type ActionResult<T = void> = {
 
 export async function getConnectedAccountsAction(): Promise<
 	ActionResult<{
-		accounts: Array<{ provider: string; type: string }>;
+		accounts: Array<{ provider: string }>;
 		hasPassword: boolean;
 	}>
 > {
@@ -27,28 +27,20 @@ export async function getConnectedAccountsAction(): Promise<
 			return { success: false, error: "Unauthorized" };
 		}
 
-		// Get user's connected accounts
 		const userAccounts = await db
-			.select({
-				provider: accounts.provider,
-				type: accounts.type,
-			})
+			.select({ provider: accounts.providerId })
 			.from(accounts)
 			.where(eq(accounts.userId, session.user.id));
 
-		// Check if user has a password set
-		const user = await db
-			.select({ password: users.password })
-			.from(users)
-			.where(eq(users.id, session.user.id))
-			.limit(1);
-
-		const hasPassword = !!user[0]?.password;
+		const credentialAccount = userAccounts.find(
+			(a) => a.provider === "credential",
+		);
+		const hasPassword = credentialAccount !== undefined;
 
 		return {
 			success: true,
 			data: {
-				accounts: userAccounts,
+				accounts: userAccounts.filter((a) => a.provider !== "credential"),
 				hasPassword,
 			},
 		};
@@ -72,23 +64,15 @@ export async function disconnectProviderAction(
 			return { success: false, error: "Provider is required" };
 		}
 
-		// Check if user has other login methods before allowing disconnect
 		const userAccounts = await db
-			.select()
+			.select({ provider: accounts.providerId, id: accounts.id })
 			.from(accounts)
 			.where(eq(accounts.userId, session.user.id));
 
-		const user = await db
-			.select({ password: users.password })
-			.from(users)
-			.where(eq(users.id, session.user.id))
-			.limit(1);
-
-		const hasPassword = !!user[0]?.password;
+		const hasPassword = userAccounts.some((a) => a.provider === "credential");
 		const providerName =
 			provider === "microsoft" ? "microsoft-entra-id" : provider;
 
-		// Don't allow disconnect if it's the only login method
 		if (!hasPassword && userAccounts.length <= 1) {
 			return {
 				success: false,
@@ -97,19 +81,16 @@ export async function disconnectProviderAction(
 			};
 		}
 
-		// Disconnect the provider
-		const _deleteResult = await db
+		await db
 			.delete(accounts)
 			.where(
 				and(
 					eq(accounts.userId, session.user.id),
-					eq(accounts.provider, providerName),
+					eq(accounts.providerId, providerName),
 				),
 			);
 
-		// Revalidate the current page to reflect changes
 		revalidatePath("/", "layout");
-
 		return { success: true };
 	} catch (error) {
 		console.error("Error disconnecting provider:", error);
@@ -138,42 +119,54 @@ export async function changePasswordAction({
 			};
 		}
 
-		// Get current user
-		const user = await db
+		const credentialAccount = await db
 			.select()
-			.from(users)
-			.where(eq(users.id, session.user.id))
+			.from(accounts)
+			.where(
+				and(
+					eq(accounts.userId, session.user.id),
+					eq(accounts.providerId, "credential"),
+				),
+			)
 			.limit(1);
 
-		if (!user[0]) {
-			return { success: false, error: "User not found" };
-		}
-
-		// If user has a current password, verify it
-		if (user[0].password && currentPassword) {
+		if (credentialAccount[0]?.password && currentPassword) {
 			const isValidPassword = await bcrypt.compare(
 				currentPassword,
-				user[0].password,
+				credentialAccount[0].password,
 			);
 			if (!isValidPassword) {
 				return { success: false, error: "Current password is incorrect" };
 			}
-		} else if (user[0].password && !currentPassword) {
+		} else if (credentialAccount[0]?.password && !currentPassword) {
 			return { success: false, error: "Current password is required" };
 		}
 
-		// Hash the new password
 		const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-		// Update the password
-		await db
-			.update(users)
-			.set({ password: hashedPassword })
-			.where(eq(users.id, session.user.id));
+		if (credentialAccount[0]) {
+			await db
+				.update(accounts)
+				.set({ password: hashedPassword, updatedAt: new Date() })
+				.where(
+					and(
+						eq(accounts.userId, session.user.id),
+						eq(accounts.providerId, "credential"),
+					),
+				);
+		} else {
+			// No credential account yet — create one
+			await db.insert(accounts).values({
+				accountId: session.user.email ?? session.user.id,
+				providerId: "credential",
+				userId: session.user.id,
+				password: hashedPassword,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			});
+		}
 
-		// Revalidate the current page to reflect changes
 		revalidatePath("/", "layout");
-
 		return { success: true };
 	} catch (error) {
 		console.error("Error changing password:", error);
@@ -181,7 +174,6 @@ export async function changePasswordAction({
 	}
 }
 
-// Optional: Action to connect a new provider (if you want to handle this server-side)
 export async function connectProviderAction(
 	provider: string,
 ): Promise<ActionResult<{ redirectUrl: string }>> {
@@ -192,24 +184,20 @@ export async function connectProviderAction(
 			return { success: false, error: "Unauthorized" };
 		}
 
-		// Generate the appropriate OAuth redirect URL
-		const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
-		const callbackUrl = encodeURIComponent(`${baseUrl}/account/security`);
+		const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+		const callbackURL = encodeURIComponent(`${baseUrl}/account/security`);
 
 		let redirectUrl: string;
 
 		switch (provider.toLowerCase()) {
 			case "microsoft":
-				redirectUrl = `/api/auth/signin/microsoft-entra-id?callbackUrl=${callbackUrl}`;
+				redirectUrl = `/api/auth/sign-in/microsoft-entra-id?callbackURL=${callbackURL}`;
 				break;
 			default:
 				return { success: false, error: "Unsupported provider" };
 		}
 
-		return {
-			success: true,
-			data: { redirectUrl },
-		};
+		return { success: true, data: { redirectUrl } };
 	} catch (error) {
 		console.error("Error connecting provider:", error);
 		return { success: false, error: "Failed to connect provider" };

@@ -9,7 +9,7 @@ import {
 	Mail,
 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn } from "~/server/auth/client";
 import { useState } from "react";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
@@ -41,39 +41,33 @@ export default function SignInPage() {
 		setIsLoading(true);
 		setError("");
 
-		const result = await signIn("credentials", {
+		const { error } = await signIn.email({
 			email,
 			password,
-			redirect: true,
-			callbackUrl,
+			callbackURL: callbackUrl,
 		});
 
 		setIsLoading(false);
 
-		if (result?.error) {
+		if (error) {
 			setError(
-				result.error === "CredentialsSignin"
+				error.message === "Invalid email or password"
 					? "Ungültige E-Mail-Adresse oder Passwort."
 					: "Ein Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
 			);
 			return;
 		}
 
-		// IMPORTANT: follow the callback URL so NextAuth can set the cookie/session
-		if (result?.url) {
-			router.push(result.url);
-		} else {
-			router.push(callbackUrl);
-		}
+		router.push(callbackUrl);
 	};
 
 	const handleProviderSignIn = async (providerId: string) => {
 		setIsLoading(true);
-		// For OAuth, let NextAuth redirect to the provider (redirect: true)
 		if (providerId === "microsoft-entra-id") {
-			await signIn("microsoft-entra-id", { callbackUrl, redirect: true });
-		} else {
-			await signIn("credentials", { email, password, callbackUrl });
+			await signIn.social({
+				provider: "microsoft-entra-id",
+				callbackURL: callbackUrl,
+			});
 		}
 		setIsLoading(false);
 	};

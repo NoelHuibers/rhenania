@@ -15,7 +15,7 @@ import {
 	Warehouse,
 } from "lucide-react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { signOut } from "~/server/auth/client";
 import { useCallback, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import {
@@ -117,7 +117,7 @@ export function AppSidebarClient({
 
 	const handleSignOut = useCallback(async () => {
 		try {
-			await signOut({ callbackUrl: "/" });
+			await signOut({ callbackURL: "/" });
 		} catch (error) {
 			console.error("Sign out error:", error);
 		}

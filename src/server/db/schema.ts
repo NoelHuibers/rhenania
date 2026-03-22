@@ -8,7 +8,6 @@ import {
 	sqliteTableCreator,
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import type { AdapterAccount } from "next-auth/adapters";
 
 export const createTable = sqliteTableCreator((name) => `rhenania_${name}`);
 
@@ -20,9 +19,17 @@ export const users = createTable("user", (d) => ({
 		.$defaultFn(() => crypto.randomUUID()),
 	name: d.text({ length: 255 }),
 	email: d.text({ length: 255 }).notNull().unique(),
-	emailVerified: d.integer({ mode: "timestamp" }),
+	emailVerified: d.integer({ mode: "boolean" }).notNull().default(false),
 	image: d.text({ length: 255 }),
-	password: d.text({ length: 255 }),
+	createdAt: d
+		.integer({ mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date()),
+	updatedAt: d
+		.integer({ mode: "timestamp" })
+		.notNull()
+		.$defaultFn(() => new Date())
+		.$onUpdate(() => new Date()),
 }));
 
 export const roles = createTable("role", (d) => ({
@@ -63,6 +70,7 @@ export const usersRelations = relations(users, ({ many }) => ({
 	sessions: many(sessions),
 	userRoles: many(userRoles),
 }));
+
 
 export const rolesRelations = relations(roles, ({ many }) => ({
 	userRoles: many(userRoles),
@@ -109,27 +117,35 @@ export const userPreferencesRelations = relations(
 export const accounts = createTable(
 	"account",
 	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		accountId: d.text({ length: 255 }).notNull(),
+		providerId: d.text({ length: 255 }).notNull(),
 		userId: d
 			.text({ length: 255 })
 			.notNull()
 			.references(() => users.id),
-		type: d.text({ length: 255 }).$type<AdapterAccount["type"]>().notNull(),
-		provider: d.text({ length: 255 }).notNull(),
-		providerAccountId: d.text({ length: 255 }).notNull(),
-		refresh_token: d.text(),
-		access_token: d.text(),
-		expires_at: d.integer(),
-		token_type: d.text({ length: 255 }),
+		accessToken: d.text(),
+		refreshToken: d.text(),
+		idToken: d.text(),
+		accessTokenExpiresAt: d.integer({ mode: "timestamp" }),
+		refreshTokenExpiresAt: d.integer({ mode: "timestamp" }),
 		scope: d.text({ length: 255 }),
-		id_token: d.text(),
-		session_state: d.text({ length: 255 }),
+		password: d.text({ length: 255 }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdate(() => new Date()),
 	}),
-	(t) => [
-		primaryKey({
-			columns: [t.provider, t.providerAccountId],
-		}),
-		index("account_user_id_idx").on(t.userId),
-	],
+	(t) => [index("account_user_id_idx").on(t.userId)],
 );
 
 export const accountsRelations = relations(accounts, ({ one }) => ({
@@ -139,12 +155,28 @@ export const accountsRelations = relations(accounts, ({ one }) => ({
 export const sessions = createTable(
 	"session",
 	(d) => ({
-		sessionToken: d.text({ length: 255 }).notNull().primaryKey(),
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		expiresAt: d.integer({ mode: "timestamp" }).notNull(),
+		token: d.text({ length: 255 }).notNull().unique(),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdate(() => new Date()),
+		ipAddress: d.text({ length: 255 }),
+		userAgent: d.text({ length: 255 }),
 		userId: d
 			.text({ length: 255 })
 			.notNull()
 			.references(() => users.id),
-		expires: d.integer({ mode: "timestamp" }).notNull(),
 	}),
 	(t) => [index("session_userId_idx").on(t.userId)],
 );
@@ -153,6 +185,24 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 	user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }));
 
+// Better Auth internal verification table (for OAuth state, email verification tokens, etc.)
+export const verifications = createTable("verification", (d) => ({
+	id: d
+		.text({ length: 255 })
+		.notNull()
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	identifier: d.text({ length: 255 }).notNull(),
+	value: d.text({ length: 255 }).notNull(),
+	expiresAt: d.integer({ mode: "timestamp" }).notNull(),
+	createdAt: d.integer({ mode: "timestamp" }).$defaultFn(() => new Date()),
+	updatedAt: d
+		.integer({ mode: "timestamp" })
+		.$defaultFn(() => new Date())
+		.$onUpdate(() => new Date()),
+}));
+
+// Custom invitation tokens table (admin creates user → sends email → user activates)
 export const verificationTokens = createTable(
 	"verification_token",
 	(d) => ({

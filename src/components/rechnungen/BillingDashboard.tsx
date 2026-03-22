@@ -1,7 +1,7 @@
 "use client";
 
 import { Loader2, Plus } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "~/server/auth/client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatCurrency } from "~/components/rechnungen/BillingTable";
@@ -52,7 +52,7 @@ interface BillPeriod {
 }
 
 export default function BillingDashboard() {
-	const { data: session, status } = useSession();
+	const { data: session, isPending } = useSession();
 	const [isCreatingReport, setIsCreatingReport] = useState(false);
 	const [activeTab, setActiveTab] = useState("current-orders");
 	const [showConfirmDialog, setShowConfirmDialog] = useState(false);
@@ -92,7 +92,7 @@ export default function BillingDashboard() {
 		return userRoles.includes("Versorger");
 	};
 
-	const isAuthenticated = status === "authenticated" && session?.user?.id;
+	const isAuthenticated = !isPending && !!session?.user?.id;
 
 	useEffect(() => {
 		const fetchUserRoles = async () => {

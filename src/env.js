@@ -13,7 +13,7 @@ export const env = createEnv({
 			process.env.NODE_ENV === "production"
 				? z.string()
 				: z.string().optional(),
-		NEXTAUTH_URL: z.string().url(),
+		BETTER_AUTH_URL: z.string().url(),
 		AZURE_AD_CLIENT_ID: z.string().optional(),
 		AZURE_AD_CLIENT_SECRET: z.string().optional(),
 		AZURE_AD_TENANT_ID: z.string().optional(),
@@ -41,7 +41,7 @@ export const env = createEnv({
 	 */
 	runtimeEnv: {
 		AUTH_SECRET: process.env.AUTH_SECRET,
-		NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+		BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
 		AZURE_AD_CLIENT_ID: process.env.AZURE_AD_CLIENT_ID,
 		AZURE_AD_CLIENT_SECRET: process.env.AZURE_AD_CLIENT_SECRET,
 		AZURE_AD_TENANT_ID: process.env.AZURE_AD_TENANT_ID,
