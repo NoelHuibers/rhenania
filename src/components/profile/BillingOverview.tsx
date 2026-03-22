@@ -1,6 +1,7 @@
 "use client";
 
-import { Download, Eye, Loader2 } from "lucide-react";
+import { Check, Copy, Download, Eye, Loader2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
@@ -21,12 +22,21 @@ import {
 	getUserBillingData,
 } from "~/server/actions/profile/getUserBill";
 
+const PAYPAL_BASE_URL = "https://paypal.me/CorpsRhenaniaBier/";
+const IBAN = "DE65 5002 4024 3386 7890 30";
+const IBAN_RAW = "DE65500240243386789030";
+const ACCOUNT_HOLDER = "Noel Huibers";
+
 export function BillingOverview() {
 	const [billData, setBillData] = useState<BillData | null>(null);
 	const [billItems, setBillItems] = useState<BillItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [downloadingPDF, setDownloadingPDF] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [selectedPayment, setSelectedPayment] = useState<
+		"paypal" | "iban" | null
+	>(null);
+	const [copiedField, setCopiedField] = useState<string | null>(null);
 
 	useEffect(() => {
 		async function fetchBillingData() {
@@ -48,6 +58,27 @@ export function BillingOverview() {
 		fetchBillingData();
 	}, []);
 
+	const paypalNote = billData
+		? `${billData.userName} - Rechnung ${billData.billNumber}`
+		: "";
+
+	const copyToClipboard = (text: string, field: string) => {
+		navigator.clipboard.writeText(text).then(() => {
+			setCopiedField(field);
+			toast.success(`${field} kopiert`);
+			setTimeout(() => setCopiedField(null), 2000);
+		});
+	};
+
+	const handlePayWithPayPal = () => {
+		if (!billData) return;
+		window.open(
+			`${PAYPAL_BASE_URL}${billData.total.toFixed(2)}EUR`,
+			"_blank",
+			"noopener,noreferrer",
+		);
+	};
+
 	const handleDownloadPDF = async () => {
 		if (!billData?.billId) {
 			toast.error("No bill period found");
@@ -60,7 +91,6 @@ export function BillingOverview() {
 			const result = await downloadUserBillPDF(billData.billId);
 
 			if (result.success && result.downloadUrl) {
-				// Create a temporary anchor element to trigger download
 				const link = document.createElement("a");
 				link.href = result.downloadUrl;
 				link.download =
@@ -158,6 +188,42 @@ export function BillingOverview() {
 		);
 	}
 
+	const epcData = [
+		"BCD",
+		"002",
+		"1",
+		"SCT",
+		"",
+		ACCOUNT_HOLDER,
+		IBAN_RAW,
+		`EUR${billData.total.toFixed(2)}`,
+		"",
+		"",
+		paypalNote,
+	].join("\n");
+
+	const ibanRows = [
+		{
+			label: "Kontoinhaber",
+			value: ACCOUNT_HOLDER,
+			copy: ACCOUNT_HOLDER,
+			mono: false,
+		},
+		{ label: "IBAN", value: IBAN, copy: IBAN_RAW, mono: true },
+		{
+			label: "Betrag",
+			value: `€${billData.total.toFixed(2)}`,
+			copy: billData.total.toFixed(2),
+			mono: false,
+		},
+		{
+			label: "Verwendungszweck",
+			value: paypalNote,
+			copy: paypalNote,
+			mono: false,
+		},
+	] as const;
+
 	return (
 		<Card>
 			<CardHeader>
@@ -217,15 +283,16 @@ export function BillingOverview() {
 					</span>
 				</div>
 
+				{/* Document buttons */}
 				<div className="flex flex-col gap-2 sm:flex-row">
 					<Drawer>
 						<DrawerTrigger asChild>
 							<Button
 								aria-label="Rechnung ansehen"
-								variant={"outline"}
+								variant="outline"
 								className="h-9 w-full bg-transparent px-3 text-sm sm:w-auto sm:self-start md:h-8 md:px-3 md:text-sm"
 							>
-								<Eye className="mr-2 h-3 w-3 md:h-3 md:w-3" />
+								<Eye className="mr-2 h-3 w-3" />
 								Rechnung ansehen
 							</Button>
 						</DrawerTrigger>
@@ -274,24 +341,185 @@ export function BillingOverview() {
 
 					<Button
 						aria-label="Download PDF"
-						variant={"outline"}
+						variant="outline"
 						className="h-9 w-full bg-transparent px-3 text-sm sm:w-auto sm:self-start md:h-8 md:px-3 md:text-sm"
 						onClick={handleDownloadPDF}
 						disabled={downloadingPDF}
 					>
 						{downloadingPDF ? (
 							<>
-								<Loader2 className="mr-2 h-3 w-3 animate-spin md:h-3 md:w-3" />
+								<Loader2 className="mr-2 h-3 w-3 animate-spin" />
 								Generating PDF...
 							</>
 						) : (
 							<>
-								<Download className="mr-2 h-3 w-3 md:h-3 md:w-3" />
+								<Download className="mr-2 h-3 w-3" />
 								Download PDF
 							</>
 						)}
 					</Button>
 				</div>
+
+				{/* Payment section — only when unpaid */}
+				{billData.status === "Unbezahlt" && (
+					<div className="space-y-2">
+						<Separator />
+						<p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
+							Bezahlen
+						</p>
+
+						{/* Method selector */}
+						<div className="grid grid-cols-3 gap-2">
+							<Button
+								variant="outline"
+								onClick={() =>
+									setSelectedPayment(
+										selectedPayment === "paypal" ? null : "paypal",
+									)
+								}
+								className={`h-auto flex-col items-start gap-0 px-3 py-2 ${
+									selectedPayment === "paypal"
+										? "border-[#0070ba] bg-[#0070ba]/10 hover:bg-[#0070ba]/15"
+										: ""
+								}`}
+							>
+								<span className="font-semibold text-[#0070ba] text-xs">
+									PayPal
+								</span>
+								<span className="text-[10px] text-muted-foreground">
+									Freunde &amp; Familie
+								</span>
+							</Button>
+
+							<Button
+								variant="outline"
+								onClick={() =>
+									setSelectedPayment(selectedPayment === "iban" ? null : "iban")
+								}
+								className={`h-auto flex-col items-start gap-0 px-3 py-2 ${
+									selectedPayment === "iban"
+										? "border-foreground bg-foreground/5 hover:bg-foreground/10"
+										: ""
+								}`}
+							>
+								<span className="font-semibold text-xs">Überweisung</span>
+								<span className="text-[10px] text-muted-foreground">IBAN</span>
+							</Button>
+
+							{/* Wero — coming soon */}
+							<Button
+								variant="outline"
+								disabled
+								className="relative h-auto flex-col items-start gap-0 px-3 py-2 opacity-40"
+							>
+								<span className="font-semibold text-xs">Wero</span>
+								<span className="text-[10px] text-muted-foreground">
+									Demnächst
+								</span>
+								<Badge
+									variant="secondary"
+									className="absolute top-1.5 right-1.5 px-1 py-0 text-[9px] leading-tight"
+								>
+									bald
+								</Badge>
+							</Button>
+						</div>
+
+						{/* PayPal detail panel */}
+						{selectedPayment === "paypal" && (
+							<div className="space-y-2 rounded-lg border border-[#0070ba]/25 bg-[#0070ba]/5 p-3">
+								<div className="flex items-center justify-between">
+									<span className="text-muted-foreground text-xs">Betrag</span>
+									<span className="font-semibold text-xs">
+										€{billData.total.toFixed(2)}
+									</span>
+								</div>
+								<Separator />
+								<div className="flex items-center justify-between gap-2">
+									<span className="shrink-0 text-muted-foreground text-xs">
+										Notiz
+									</span>
+									<div className="flex min-w-0 items-center gap-1">
+										<span className="wrap-break-word text-right font-mono text-[11px] leading-snug">
+											{paypalNote}
+										</span>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-6 w-6 shrink-0"
+											onClick={() => copyToClipboard(paypalNote, "Notiz")}
+											aria-label="Notiz kopieren"
+										>
+											{copiedField === "Notiz" ? (
+												<Check className="h-3 w-3 text-green-500" />
+											) : (
+												<Copy className="h-3 w-3" />
+											)}
+										</Button>
+									</div>
+								</div>
+								<Button
+									onClick={handlePayWithPayPal}
+									className="h-8 w-full bg-[#0070ba] text-white text-xs hover:bg-[#005ea6]"
+								>
+									Jetzt mit PayPal bezahlen
+								</Button>
+							</div>
+						)}
+
+						{/* IBAN detail panel */}
+						{selectedPayment === "iban" && (
+							<div className="flex overflow-hidden rounded-lg border">
+								{/* Copy fields */}
+								<div className="min-w-0 flex-1 divide-y">
+									{ibanRows.map(({ label, value, copy, mono }) => (
+										<div
+											key={label}
+											className="flex items-center justify-between px-3 py-2"
+										>
+											<div className="min-w-0">
+												<p className="text-[10px] text-muted-foreground">
+													{label}
+												</p>
+												<p
+													className={`wrap-break-word text-xs ${mono ? "font-mono" : "font-medium"}`}
+												>
+													{value}
+												</p>
+											</div>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="ml-2 h-6 w-6 shrink-0"
+												onClick={() => copyToClipboard(copy, label)}
+												aria-label={`${label} kopieren`}
+											>
+												{copiedField === label ? (
+													<Check className="h-3 w-3 text-green-500" />
+												) : (
+													<Copy className="h-3 w-3" />
+												)}
+											</Button>
+										</div>
+									))}
+								</div>
+
+								{/* QR code */}
+								<div className="flex shrink-0 flex-col items-center justify-center gap-1.5 border-l bg-white px-3 py-3 dark:bg-white">
+									<QRCodeSVG
+										value={epcData}
+										size={96}
+										level="M"
+										className="rounded"
+									/>
+									<p className="text-center text-[9px] text-gray-400">
+										GiroCode
+									</p>
+								</div>
+							</div>
+						)}
+					</div>
+				)}
 			</CardContent>
 		</Card>
 	);

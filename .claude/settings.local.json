@@ -1,3 +1,8 @@
 {
-	"permissions": {}
+  "permissions": {
+    "allow": [
+      "Bash(pnpm add:*)",
+      "Bash(pnpm biome:*)"
+    ]
+  }
 }
