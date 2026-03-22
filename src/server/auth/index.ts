@@ -39,7 +39,7 @@ export const betterAuthInstance = betterAuth({
 	},
 
 	socialProviders: {
-		microsoftEntraId: {
+		microsoft: {
 			// biome-ignore lint/style/noNonNullAssertion: env vars validated at startup
 			clientId: env.AZURE_AD_CLIENT_ID!,
 			// biome-ignore lint/style/noNonNullAssertion: env vars validated at startup

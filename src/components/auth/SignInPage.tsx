@@ -63,9 +63,9 @@ export default function SignInPage() {
 
 	const handleProviderSignIn = async (providerId: string) => {
 		setIsLoading(true);
-		if (providerId === "microsoft-entra-id") {
+		if (providerId === "microsoft") {
 			await signIn.social({
-				provider: "microsoft-entra-id",
+				provider: "microsoft",
 				callbackURL: callbackUrl,
 			});
 		}
@@ -119,7 +119,7 @@ export default function SignInPage() {
 					{/* Microsoft OAuth button */}
 					<Button
 						variant="outline"
-						onClick={() => handleProviderSignIn("microsoft-entra-id")}
+						onClick={() => handleProviderSignIn("microsoft")}
 						disabled={isLoading}
 						className="w-full"
 					>

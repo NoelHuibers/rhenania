@@ -70,8 +70,7 @@ export async function disconnectProviderAction(
 			.where(eq(accounts.userId, session.user.id));
 
 		const hasPassword = userAccounts.some((a) => a.provider === "credential");
-		const providerName =
-			provider === "microsoft" ? "microsoft-entra-id" : provider;
+		const providerName = provider === "microsoft" ? "microsoft" : provider;
 
 		if (!hasPassword && userAccounts.length <= 1) {
 			return {
