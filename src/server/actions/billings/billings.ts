@@ -9,8 +9,12 @@ import {
 	bills,
 	orders,
 	roles,
+	userPreferences,
 	userRoles,
+	users,
 } from "~/server/db/schema";
+import { sendBillNotificationEmail } from "../newuser/email";
+import { generateUserBillPDF } from "./createUserPDF";
 
 interface OrderWithDetails {
 	id: string;
@@ -481,6 +485,71 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 		});
 
 		console.log("Billing process completed successfully:", result);
+
+		// Send email notifications to users who have bills and haven't opted out
+		if (result.success && result.billPeriod) {
+			const billPeriodId = result.billPeriod.id;
+			const billNumber = result.billPeriod.billNumber;
+
+			try {
+				// Find users with bills in this period + their email + notification preference
+				// Left join on preferences so users without a row default to enabled (true)
+				const usersWithBills = await db
+					.select({
+						billId: bills.id,
+						userName: bills.userName,
+						total: bills.total,
+						email: users.email,
+						emailPref: userPreferences.value,
+					})
+					.from(bills)
+					.innerJoin(users, eq(bills.userId, users.id))
+					.leftJoin(
+						userPreferences,
+						and(
+							eq(userPreferences.userId, bills.userId),
+							eq(userPreferences.key, "notifications.emailEnabled"),
+						),
+					)
+					.where(eq(bills.billPeriodId, billPeriodId));
+
+				// Only notify users who haven't explicitly disabled notifications (default = enabled)
+				const toNotify = usersWithBills.filter(
+					(u) => u.emailPref === null || u.emailPref === "true",
+				);
+
+				console.log(
+					`Sending bill notification emails to ${toNotify.length} users...`,
+				);
+
+				for (const user of toNotify) {
+					try {
+						const pdfResult = await generateUserBillPDF(user.billId);
+						if (!pdfResult.success || !pdfResult.pdfContent) {
+							console.error(
+								`Failed to generate PDF for bill ${user.billId}:`,
+								pdfResult.error,
+							);
+							continue;
+						}
+						await sendBillNotificationEmail(
+							user.email,
+							user.userName,
+							billNumber,
+							user.total,
+							pdfResult.pdfContent,
+							pdfResult.fileName ?? `Rechnung_${billNumber}.pdf`,
+						);
+					} catch (emailError) {
+						// Log but don't fail the whole billing process
+						console.error(`Failed to send email to ${user.email}:`, emailError);
+					}
+				}
+			} catch (notifyError) {
+				console.error("Error during email notification phase:", notifyError);
+			}
+		}
+
 		return result;
 	} catch (error) {
 		console.error("Error creating billing:", error);

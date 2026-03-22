@@ -109,6 +109,98 @@ export async function sendVerificationEmail(
 	}
 }
 
+export async function sendBillNotificationEmail(
+	email: string,
+	userName: string,
+	billNumber: string,
+	total: number,
+	pdfBuffer: Buffer,
+	fileName: string,
+): Promise<void> {
+	try {
+		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
+
+		const mailOptions = {
+			from: env.GMAIL,
+			to: email,
+			subject: `Deine Getränkerechnung ${billNumber} ist bereit`,
+			text: `
+Hallo ${userName},
+
+deine Getränkerechnung für die Abrechnungsperiode ${billNumber} wurde erstellt.
+Im Anhang findest du deine Rechnung als PDF.
+
+Gesamtbetrag: ${formattedTotal}
+
+Bitte überweise den Betrag innerhalb von 14 Tagen.
+
+Mit freundlichen Grüßen,
+Corps Rhenania Stuttgart
+      `,
+			html: `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <title>Getränkerechnung ${billNumber}</title>
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { background-color: #1a1a2e; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+              .header h1 { color: #ffffff; margin: 0; font-size: 22px; }
+              .content { background-color: #ffffff; padding: 30px; border: 1px solid #dee2e6; }
+              .total-box { background-color: #f8f9fa; border-left: 4px solid #1a1a2e; padding: 15px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+              .total-box .amount { font-size: 24px; font-weight: bold; color: #1a1a2e; }
+              .footer { background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; font-size: 13px; color: #6c757d; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Corps Rhenania Stuttgart</h1>
+              </div>
+              <div class="content">
+                <h2>Hallo ${userName},</h2>
+                <p>
+                  deine Getränkerechnung für die Abrechnungsperiode <strong>${billNumber}</strong> wurde erstellt.
+                  Im Anhang findest du deine Rechnung als PDF.
+                </p>
+                <div class="total-box">
+                  <p style="margin: 0 0 4px 0; font-size: 13px; color: #6c757d;">Gesamtbetrag</p>
+                  <div class="amount">${formattedTotal}</div>
+                </div>
+                <p>Bitte überweise den Betrag innerhalb von <strong>14 Tagen</strong>.</p>
+                <p>Falls du Fragen zu deiner Rechnung hast, wende dich an den Versorger.</p>
+                <p>Mit freundlichen Grüßen <br><strong>Corps Rhenania Stuttgart</strong></p>
+              </div>
+              <div class="footer">
+                <p>Diese E-Mail wurde automatisch generiert. Bitte antworte nicht auf diese E-Mail.</p>
+                <p>Du kannst E-Mail-Benachrichtigungen in deinen Profileinstellungen deaktivieren.</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+			attachments: [
+				{
+					filename: fileName,
+					content: pdfBuffer,
+					contentType: "application/pdf",
+				},
+			],
+		};
+
+		const result = await transporter.sendMail(mailOptions);
+		console.log(
+			`Bill notification email sent to ${email} (${billNumber}):`,
+			result.messageId,
+		);
+	} catch (error) {
+		console.error(`Error sending bill notification to ${email}:`, error);
+		throw new Error(`Failed to send bill notification email to ${email}`);
+	}
+}
+
 export async function sendPasswordResetEmail(
 	email: string,
 	token: string,

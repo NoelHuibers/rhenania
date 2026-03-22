@@ -93,6 +93,26 @@ export async function setEloPreferenceAction(opts: { enabled: boolean }) {
 	return res;
 }
 
+// --- Email notification sugar ---
+
+const EMAIL_NOTIFICATION_KEY = "notifications.emailEnabled";
+
+export async function getEmailNotificationPreferenceAction() {
+	// Default: true (receive email notifications)
+	const enabled = await getUserPreference<boolean>(
+		EMAIL_NOTIFICATION_KEY,
+		true,
+		"boolean",
+	);
+	return { enabled };
+}
+
+export async function setEmailNotificationPreferenceAction(opts: {
+	enabled: boolean;
+}) {
+	return await setUserPreference(EMAIL_NOTIFICATION_KEY, opts.enabled, "boolean");
+}
+
 // --- (Optional) Fetch all preferences to render a generic card ---
 
 export async function getAllPreferences() {
