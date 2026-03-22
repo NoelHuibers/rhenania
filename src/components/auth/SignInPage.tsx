@@ -122,6 +122,35 @@ export default function SignInPage() {
 						</Alert>
 					)}
 
+					{/* Microsoft OAuth button */}
+					<Button
+						variant="outline"
+						onClick={() => handleProviderSignIn("microsoft-entra-id")}
+						disabled={isLoading}
+						className="w-full"
+					>
+						<svg
+							className="mr-2 h-4 w-4"
+							viewBox="0 0 23 23"
+							aria-hidden="true"
+						>
+							<path fill="#f35325" d="M1 1h10v10H1z" />
+							<path fill="#81bc06" d="M12 1h10v10H12z" />
+							<path fill="#05a6f0" d="M1 12h10v10H1z" />
+							<path fill="#ffba08" d="M12 12h10v10H12z" />
+						</svg>
+						Mit Microsoft anmelden
+					</Button>
+
+					<div className="relative">
+						<div className="absolute inset-0 flex items-center">
+							<span className="w-full border-t" />
+						</div>
+						<div className="relative flex justify-center text-xs uppercase">
+							<span className="bg-white px-2 text-muted-foreground">oder</span>
+						</div>
+					</div>
+
 					<form onSubmit={handleEmailSignIn} className="space-y-4">
 						<div className="space-y-2">
 							<Label htmlFor="email">E-Mail-Adresse</Label>
@@ -188,29 +217,6 @@ export default function SignInPage() {
 							className="text-sm"
 						>
 							Passwort vergessen?
-						</Button>
-					</div>
-
-					{/* Microsoft OAuth button (optional – you can render dynamically) */}
-					<div className="space-y-3 pt-2">
-						<Button
-							key="microsoft-entra-id"
-							variant="outline"
-							onClick={() => handleProviderSignIn("microsoft-entra-id")}
-							disabled={isLoading}
-							className="w-full"
-						>
-							<svg
-								className="mr-2 h-4 w-4"
-								viewBox="0 0 23 23"
-								aria-hidden="true"
-							>
-								<path fill="#f35325" d="M1 1h10v10H1z" />
-								<path fill="#81bc06" d="M12 1h10v10H12z" />
-								<path fill="#05a6f0" d="M1 12h10v10H1z" />
-								<path fill="#ffba08" d="M12 12h10v10H12z" />
-							</svg>
-							Mit Microsoft anmelden
 						</Button>
 					</div>
 				</CardContent>
