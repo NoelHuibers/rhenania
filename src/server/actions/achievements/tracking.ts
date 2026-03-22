@@ -620,17 +620,17 @@ async function getConsecutiveWeekends(userId: string): Promise<number> {
 	return streak;
 }
 
-// Account age in full days, based on emailVerified timestamp
+// Account age in full days, based on account creation timestamp
 async function getAccountAgeInDays(userId: string): Promise<number> {
 	const user = await db
-		.select({ emailVerified: users.emailVerified })
+		.select({ createdAt: users.createdAt })
 		.from(users)
 		.where(eq(users.id, userId))
 		.limit(1);
 
-	if (!user[0]?.emailVerified) return 0;
+	if (!user[0]?.createdAt) return 0;
 	return Math.floor(
-		(Date.now() - user[0].emailVerified.getTime()) / (1000 * 60 * 60 * 24),
+		(Date.now() - user[0].createdAt.getTime()) / (1000 * 60 * 60 * 24),
 	);
 }
 

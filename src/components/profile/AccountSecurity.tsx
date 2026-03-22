@@ -1,7 +1,7 @@
 "use client";
 
 import { Link, Shield, Unlink } from "lucide-react";
-import { useSession } from "~/server/auth/client";
+import { signIn, useSession } from "~/server/auth/client";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
@@ -49,7 +49,7 @@ export function AccountSecurity() {
 							provider: "Microsoft",
 							connected: result.data.accounts.some(
 								(acc: { provider: string }) =>
-									acc.provider === "microsoft-entra-id",
+									acc.provider === "microsoft",
 							),
 							icon: "🔷",
 							canDisconnect:
@@ -105,9 +105,10 @@ export function AccountSecurity() {
 					}
 				} else {
 					// Zu Anbieter-Login weiterleiten
-					window.location.href = `/api/auth/signin/microsoft-entra-id?callbackUrl=${encodeURIComponent(
-						window.location.pathname,
-					)}`;
+					await signIn.social({
+						provider: "microsoft",
+						callbackURL: window.location.pathname,
+					});
 				}
 			} catch (_error) {
 				toast.error("Fehler", {

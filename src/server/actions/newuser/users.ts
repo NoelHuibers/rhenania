@@ -71,7 +71,7 @@ interface CreateUserResult {
 		email: string;
 		name: string | null;
 		image: string | null;
-		emailVerified: Date | null;
+		emailVerified: boolean | null;
 	};
 	error?: string;
 }
@@ -102,7 +102,7 @@ export async function createUser(
 			email: data.email.toLowerCase(),
 			name: data.name || null,
 			image: null,
-			emailVerified: null, // Will be set when they verify their email
+			emailVerified: false, // Will be set when they verify their email
 		};
 
 		await db.insert(users).values(newUser);

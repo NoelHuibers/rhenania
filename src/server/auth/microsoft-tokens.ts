@@ -7,25 +7,23 @@ import { accounts } from "~/server/db/schema";
 const tokenEndpoint = `https://login.microsoftonline.com/${env.AZURE_AD_TENANT_ID}/oauth2/v2.0/token`;
 
 type MsAccountRow = {
-	access_token: string | null;
-	refresh_token: string | null;
-	expires_at: number | null; // seconds since epoch
-	token_type: string | null;
+	accessToken: string | null;
+	refreshToken: string | null;
+	accessTokenExpiresAt: Date | null;
 };
 
 export async function getGraphAccessToken(userId: string): Promise<string> {
 	const [acc] = (await db
 		.select({
-			access_token: accounts.access_token,
-			refresh_token: accounts.refresh_token,
-			expires_at: accounts.expires_at,
-			token_type: accounts.token_type,
+			accessToken: accounts.accessToken,
+			refreshToken: accounts.refreshToken,
+			accessTokenExpiresAt: accounts.accessTokenExpiresAt,
 		})
 		.from(accounts)
 		.where(
 			and(
 				eq(accounts.userId, userId),
-				eq(accounts.provider, "microsoft-entra-id"),
+				eq(accounts.providerId, "microsoft"),
 			),
 		)
 		.limit(1)) as [MsAccountRow?];
@@ -35,39 +33,40 @@ export async function getGraphAccessToken(userId: string): Promise<string> {
 	}
 
 	const now = Math.floor(Date.now() / 1000);
-	const expiresAt = acc.expires_at ?? 0;
+	const expiresAt = acc.accessTokenExpiresAt
+		? Math.floor(acc.accessTokenExpiresAt.getTime() / 1000)
+		: 0;
 
 	// If token valid for at least 60 more seconds, use it
-	if (acc.access_token && expiresAt - 60 > now) {
-		return acc.access_token;
+	if (acc.accessToken && expiresAt - 60 > now) {
+		return acc.accessToken;
 	}
 
 	// Otherwise refresh
-	if (!acc.refresh_token) {
+	if (!acc.refreshToken) {
 		throw new Error(
 			"No refresh token available; user must re-consent Microsoft.",
 		);
 	}
 
-	const refreshed = await refreshMicrosoftToken(acc.refresh_token);
+	const refreshed = await refreshMicrosoftToken(acc.refreshToken);
 
 	// Persist new tokens
 	await db
 		.update(accounts)
 		.set({
-			access_token: refreshed.access_token,
-			refresh_token: refreshed.refresh_token,
-			expires_at: refreshed.expires_at,
-			token_type: refreshed.token_type ?? acc.token_type,
+			accessToken: refreshed.accessToken,
+			refreshToken: refreshed.refreshToken,
+			accessTokenExpiresAt: new Date(refreshed.expiresAt * 1000),
 		})
 		.where(
 			and(
 				eq(accounts.userId, userId),
-				eq(accounts.provider, "microsoft-entra-id"),
+				eq(accounts.providerId, "microsoft"),
 			),
 		);
 
-	return refreshed.access_token;
+	return refreshed.accessToken;
 }
 
 async function refreshMicrosoftToken(refreshToken: string) {
@@ -81,7 +80,7 @@ async function refreshMicrosoftToken(refreshToken: string) {
 		// Keep scopes consistent with your provider config
 		scope: "openid profile email offline_access User.Read",
 		// Many Azure tenants require the original redirect_uri for refresh:
-		redirect_uri: `${env.NEXTAUTH_URL}/api/auth/callback/microsoft-entra-id`,
+		redirect_uri: `${env.BETTER_AUTH_URL}/api/auth/callback/microsoft`,
 	});
 
 	const res = await fetch(tokenEndpoint, {
@@ -107,10 +106,9 @@ async function refreshMicrosoftToken(refreshToken: string) {
 	};
 
 	return {
-		access_token: json.access_token,
-		refresh_token: json.refresh_token ?? refreshToken, // MS may rotate it
-		expires_at: Math.floor(Date.now() / 1000) + Number(json.expires_in),
-		token_type: json.token_type,
+		accessToken: json.access_token,
+		refreshToken: json.refresh_token ?? refreshToken, // MS may rotate it
+		expiresAt: Math.floor(Date.now() / 1000) + Number(json.expires_in),
 	};
 }
 
