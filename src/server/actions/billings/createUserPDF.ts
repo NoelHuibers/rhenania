@@ -40,12 +40,12 @@ interface PDFGenerationResult {
 
 // Configuration constants
 const SENDER_INFO = {
-	name: "Manuel Amadeus Riek",
-	street: "Viehmarktstraße 28",
-	city: "88400 Biberach",
-	location: "Stuttgart",
-	iban: "DE87 1001 1001 2107 9193 13",
-	accountHolder: "Manuel Riek",
+	name: "Noel Huibers",
+	street: "Unterbibergerstraße 72",
+	city: "81737 München",
+	location: "München",
+	iban: "DE65 5002 4024 3386 7890 30",
+	accountHolder: "Noel Huibers",
 	paypalBaseUrl: "https://paypal.me/CorpsRhenaniaBier/",
 	website: "www.rhenania-stuttgart.de/trinken",
 	paymentDueDays: 14,
