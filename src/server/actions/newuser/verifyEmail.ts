@@ -145,7 +145,10 @@ export async function verifyEmailAndSetPassword(
 		return { success: true };
 	} catch (error) {
 		console.error("Error verifying email and setting password:", error);
-		return { success: false, error: "Ein unerwarteter Fehler ist aufgetreten." };
+		return {
+			success: false,
+			error: "Ein unerwarteter Fehler ist aufgetreten.",
+		};
 	}
 }
 
@@ -293,6 +296,9 @@ export async function resetPassword(
 		return { success: true };
 	} catch (error) {
 		console.error("Error resetting password:", error);
-		return { success: false, error: "Ein unerwarteter Fehler ist aufgetreten." };
+		return {
+			success: false,
+			error: "Ein unerwarteter Fehler ist aufgetreten.",
+		};
 	}
 }

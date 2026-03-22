@@ -78,7 +78,7 @@ export async function getUserBillingData(): Promise<{
 					bill.createdAt.toISOString().split("T")[0]) ||
 				"",
 			billId: bill.id,
-		userName: bill.userName,
+			userName: bill.userName,
 		};
 
 		const transformedBillItems: BillItem[] = items.map((item) => ({
@@ -238,7 +238,7 @@ export async function getBillById(billId: string): Promise<{
 				bill.createdAt.toISOString().split("T")[0] ??
 				"",
 			billId: bill.id,
-		userName: bill.userName,
+			userName: bill.userName,
 		};
 
 		const transformedBillItems: BillItem[] = items.map((item) => ({

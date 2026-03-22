@@ -70,9 +70,7 @@ async function main() {
 	// ────────────────────────────────────────────────────────────────────────
 	console.log("Migrating users table…");
 
-	await run(
-		"ALTER TABLE rhenania_user RENAME TO rhenania_user_old",
-	);
+	await run("ALTER TABLE rhenania_user RENAME TO rhenania_user_old");
 
 	await run(`
     CREATE TABLE rhenania_user (
@@ -106,9 +104,7 @@ async function main() {
 	// ────────────────────────────────────────────────────────────────────────
 	console.log("Migrating accounts table…");
 
-	await run(
-		"ALTER TABLE rhenania_account RENAME TO rhenania_account_old",
-	);
+	await run("ALTER TABLE rhenania_account RENAME TO rhenania_account_old");
 
 	await run(`
     CREATE TABLE rhenania_account (
@@ -175,9 +171,7 @@ async function main() {
 	// ────────────────────────────────────────────────────────────────────────
 	console.log("Migrating sessions table (old sessions will be invalidated)…");
 
-	await run(
-		"DROP TABLE IF EXISTS rhenania_session",
-	);
+	await run("DROP TABLE IF EXISTS rhenania_session");
 
 	await run(`
     CREATE TABLE rhenania_session (

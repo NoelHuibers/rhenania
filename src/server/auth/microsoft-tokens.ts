@@ -21,10 +21,7 @@ export async function getGraphAccessToken(userId: string): Promise<string> {
 		})
 		.from(accounts)
 		.where(
-			and(
-				eq(accounts.userId, userId),
-				eq(accounts.providerId, "microsoft"),
-			),
+			and(eq(accounts.userId, userId), eq(accounts.providerId, "microsoft")),
 		)
 		.limit(1)) as [MsAccountRow?];
 
@@ -60,10 +57,7 @@ export async function getGraphAccessToken(userId: string): Promise<string> {
 			accessTokenExpiresAt: new Date(refreshed.expiresAt * 1000),
 		})
 		.where(
-			and(
-				eq(accounts.userId, userId),
-				eq(accounts.providerId, "microsoft"),
-			),
+			and(eq(accounts.userId, userId), eq(accounts.providerId, "microsoft")),
 		);
 
 	return refreshed.accessToken;

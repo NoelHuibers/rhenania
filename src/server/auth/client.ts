@@ -6,7 +6,7 @@ export const authClient = createAuthClient({
 	baseURL:
 		typeof window !== "undefined"
 			? window.location.origin
-			: process.env.BETTER_AUTH_URL ?? "",
+			: (process.env.BETTER_AUTH_URL ?? ""),
 });
 
 export const { useSession, signIn, signOut } = authClient;

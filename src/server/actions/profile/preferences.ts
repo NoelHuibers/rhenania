@@ -110,7 +110,11 @@ export async function getEmailNotificationPreferenceAction() {
 export async function setEmailNotificationPreferenceAction(opts: {
 	enabled: boolean;
 }) {
-	return await setUserPreference(EMAIL_NOTIFICATION_KEY, opts.enabled, "boolean");
+	return await setUserPreference(
+		EMAIL_NOTIFICATION_KEY,
+		opts.enabled,
+		"boolean",
+	);
 }
 
 // --- (Optional) Fetch all preferences to render a generic card ---

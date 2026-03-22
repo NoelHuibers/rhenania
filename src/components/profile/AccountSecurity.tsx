@@ -48,8 +48,7 @@ export function AccountSecurity() {
 						{
 							provider: "Microsoft",
 							connected: result.data.accounts.some(
-								(acc: { provider: string }) =>
-									acc.provider === "microsoft",
+								(acc: { provider: string }) => acc.provider === "microsoft",
 							),
 							icon: "🔷",
 							canDisconnect:

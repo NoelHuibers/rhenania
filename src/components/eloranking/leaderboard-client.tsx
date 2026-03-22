@@ -104,7 +104,9 @@ export function LeaderboardClient({
 								<div className="flex items-center gap-0.5 text-[10px] text-muted-foreground sm:gap-1 sm:text-xs">
 									<TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
 									<span className="sm:hidden">{player.peakElo}</span>
-									<span className="hidden sm:inline">Peak: {player.peakElo}</span>
+									<span className="hidden sm:inline">
+										Peak: {player.peakElo}
+									</span>
 									{isPeakElo && (
 										<Target className="h-2.5 w-2.5 text-green-500 sm:h-3 sm:w-3" />
 									)}

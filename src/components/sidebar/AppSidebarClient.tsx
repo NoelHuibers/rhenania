@@ -118,7 +118,7 @@ export function AppSidebarClient({
 	const handleSignOut = useCallback(async () => {
 		try {
 			await signOut();
-		window.location.href = "/";
+			window.location.href = "/";
 		} catch (error) {
 			console.error("Sign out error:", error);
 		}
