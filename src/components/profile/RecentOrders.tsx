@@ -102,7 +102,8 @@ export function RecentOrders() {
 				if (from && d < from) return false;
 				if (to && d > to) return false;
 				return true;
-			});
+			})
+			.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 	}, [orders, showOutOfBillOnly, fromDate, toDate]);
 
 	const totalPages = Math.ceil(filteredOrders.length / itemsPerPage) || 1;
