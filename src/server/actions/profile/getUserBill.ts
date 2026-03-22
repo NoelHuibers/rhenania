@@ -155,6 +155,7 @@ export async function getAllUserBills(): Promise<
 					bill.createdAt.toISOString().split("T")[0] ??
 					"",
 				billId: bill.id,
+				userName: bill.userName,
 			};
 
 			const transformedBillItems: BillItem[] = items.map((item) => ({

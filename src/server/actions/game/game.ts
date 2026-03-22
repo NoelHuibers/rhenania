@@ -481,6 +481,7 @@ export async function getUserGames(
 // Get leaderboard (top players by ELO)
 export async function getLeaderboard(
 	limit: number = 10,
+	offset: number = 0,
 ): Promise<UserGameStats[]> {
 	try {
 		const topPlayers = await db
@@ -515,7 +516,8 @@ export async function getLeaderboard(
 				),
 			)
 			.orderBy(desc(userStats.currentElo))
-			.limit(limit);
+			.limit(limit)
+			.offset(offset);
 
 		return topPlayers.map((stats) => ({
 			userId: stats.userId,
