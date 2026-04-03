@@ -3,6 +3,7 @@
 import {
 	Beer,
 	BottleWine,
+	CalendarDays,
 	Camera,
 	House,
 	LogOut,
@@ -47,36 +48,38 @@ type NavItem = {
 	roles: Role[];
 };
 
-const navigationItems: NavItem[] = [
-	{ title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
-	{ title: "Rechnungen", href: "/rechnungen", icon: ReceiptEuro, roles: [] },
+type NavGroup = {
+	label: string;
+	items: NavItem[];
+};
+
+const navGroups: NavGroup[] = [
 	{
-		title: "Bestellungen",
-		href: "/bestellungen",
-		icon: ReceiptText,
-		roles: [],
-	},
-	{ title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
-	{ title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
-	{
-		title: "Versorger",
-		href: "/versorger",
-		icon: Truck,
-		roles: ["Versorger", "Admin"],
+		label: "Getränke",
+		items: [
+			{ title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
+			{ title: "Rechnungen", href: "/rechnungen", icon: ReceiptEuro, roles: [] },
+			{ title: "Bestellungen", href: "/bestellungen", icon: ReceiptText, roles: [] },
+		],
 	},
 	{
-		title: "Inventur",
-		href: "/inventur",
-		icon: Warehouse,
-		roles: ["Admin", "Versorger"],
+		label: "Allgemein",
+		items: [
+			{ title: "Termine", href: "/termine", icon: CalendarDays, roles: [] },
+			{ title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
+			{ title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
+		],
 	},
 	{
-		title: "Bilder",
-		href: "/bilder",
-		icon: Camera,
-		roles: ["Admin", "Fotowart"],
+		label: "Verwaltung",
+		items: [
+			{ title: "Versorger", href: "/versorger", icon: Truck, roles: ["Versorger", "Admin"] },
+			{ title: "Inventur", href: "/inventur", icon: Warehouse, roles: ["Admin", "Versorger"] },
+			{ title: "Bilder", href: "/bilder", icon: Camera, roles: ["Admin", "Fotowart"] },
+			{ title: "Veranstaltungen", href: "/admin/termine", icon: CalendarDays, roles: ["Admin"] },
+			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
+		],
 	},
-	{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
 ];
 
 export type AppSidebarClientProps = {
@@ -105,13 +108,18 @@ export function AppSidebarClient({
 }: AppSidebarClientProps) {
 	const userRoles = userData?.roles ?? [];
 
-	const filteredNavItems = useMemo(
+	const filteredGroups = useMemo(
 		() =>
-			navigationItems.filter(
-				(item) =>
-					item.roles.length === 0 ||
-					item.roles.some((r) => userRoles.includes(r)),
-			),
+			navGroups
+				.map((group) => ({
+					...group,
+					items: group.items.filter(
+						(item) =>
+							item.roles.length === 0 ||
+							item.roles.some((r) => userRoles.includes(r)),
+					),
+				}))
+				.filter((group) => group.items.length > 0),
 		[userRoles],
 	);
 
@@ -139,26 +147,28 @@ export function AppSidebarClient({
 			</SidebarHeader>
 
 			<SidebarContent>
-				<SidebarGroup>
-					<SidebarGroupLabel>Navigation</SidebarGroupLabel>
-					<SidebarGroupContent>
-						<SidebarMenu>
-							{filteredNavItems.map((item) => {
-								const Icon = item.icon;
-								return (
-									<SidebarMenuItem key={item.href}>
-										<SidebarMenuButton asChild>
-											<Link href={item.href}>
-												<Icon />
-												<span>{item.title}</span>
-											</Link>
-										</SidebarMenuButton>
-									</SidebarMenuItem>
-								);
-							})}
-						</SidebarMenu>
-					</SidebarGroupContent>
-				</SidebarGroup>
+				{filteredGroups.map((group) => (
+					<SidebarGroup key={group.label}>
+						<SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+						<SidebarGroupContent>
+							<SidebarMenu>
+								{group.items.map((item) => {
+									const Icon = item.icon;
+									return (
+										<SidebarMenuItem key={item.href}>
+											<SidebarMenuButton asChild>
+												<Link href={item.href}>
+													<Icon />
+													<span>{item.title}</span>
+												</Link>
+											</SidebarMenuButton>
+										</SidebarMenuItem>
+									);
+								})}
+							</SidebarMenu>
+						</SidebarGroupContent>
+					</SidebarGroup>
+				))}
 			</SidebarContent>
 
 			<SidebarFooter>

@@ -820,3 +820,110 @@ export const achievementProgressRelations = relations(
 		}),
 	}),
 );
+
+export const recurringEvents = createTable(
+	"recurring_event",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		title: d.text({ length: 255 }).notNull(),
+		description: d.text({ length: 1000 }),
+		location: d.text({ length: 255 }).default("adH Rhenania"),
+		type: d
+			.text({
+				enum: ["Intern", "AHV", "oCC", "SC", "Jour Fix", "Stammtisch", "Sonstige"],
+			})
+			.notNull()
+			.default("Sonstige"),
+		// biweekly | monthly_1st_wednesday | monthly_1st_3rd_wednesday | occ_semester
+		recurrenceType: d
+			.text({
+				enum: ["biweekly", "monthly_1st_wednesday", "monthly_1st_3rd_wednesday", "occ_semester"],
+			})
+			.notNull(),
+		// 0=Sun 1=Mon ... 6=Sat — used for biweekly
+		dayOfWeek: d.integer(),
+		// HH:MM e.g. "18:00"
+		time: d.text({ length: 5 }).notNull().default("20:00"),
+		isPublic: d.integer({ mode: "boolean" }).notNull().default(true),
+		// Semester bounds — generation is clamped to this range
+		startDate: d.integer({ mode: "timestamp" }),
+		endDate: d.integer({ mode: "timestamp" }),
+		isActive: d.integer({ mode: "boolean" }).notNull().default(true),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("recurring_event_type_idx").on(t.type),
+		index("recurring_event_active_idx").on(t.isActive),
+	],
+);
+
+export const recurringEventsRelations = relations(recurringEvents, ({ one, many }) => ({
+	createdBy: one(users, {
+		fields: [recurringEvents.createdBy],
+		references: [users.id],
+	}),
+	instances: many(events),
+}));
+
+export const events = createTable(
+	"event",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		title: d.text({ length: 255 }).notNull(),
+		description: d.text({ length: 1000 }),
+		date: d.integer({ mode: "timestamp" }).notNull(),
+		endDate: d.integer({ mode: "timestamp" }),
+		location: d.text({ length: 255 }),
+		type: d
+			.text({
+				enum: ["Intern", "AHV", "oCC", "SC", "Jour Fix", "Stammtisch", "Sonstige"],
+			})
+			.notNull()
+			.default("Sonstige"),
+		isPublic: d.integer({ mode: "boolean" }).notNull().default(true),
+		isCancelled: d.integer({ mode: "boolean" }).notNull().default(false),
+		recurringEventId: d
+			.text({ length: 255 })
+			.references(() => recurringEvents.id, { onDelete: "set null" }),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("event_date_idx").on(t.date),
+		index("event_type_idx").on(t.type),
+		index("event_public_idx").on(t.isPublic),
+		index("event_recurring_idx").on(t.recurringEventId),
+	],
+);
+
+export const eventsRelations = relations(events, ({ one }) => ({
+	createdBy: one(users, {
+		fields: [events.createdBy],
+		references: [users.id],
+	}),
+	recurringEvent: one(recurringEvents, {
+		fields: [events.recurringEventId],
+		references: [recurringEvents.id],
+	}),
+}));

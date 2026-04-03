@@ -1,12 +1,13 @@
 {
-	"permissions": {
-		"allow": [
-			"Bash(pnpm add:*)",
-			"Bash(pnpm biome:*)",
-			"Bash(pnpm lint:*)",
-			"Bash(pnpm remove:*)",
-			"Bash(pnpm tsx:*)",
-			"Bash(pnpm db:push)"
-		]
-	}
+  "permissions": {
+    "allow": [
+      "Bash(pnpm add:*)",
+      "Bash(pnpm biome:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(pnpm tsx:*)",
+      "Bash(pnpm db:push)",
+      "Bash(pnpm drizzle-kit:*)"
+    ]
+  }
 }
