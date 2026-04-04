@@ -228,12 +228,12 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 											<TableHeader>
 												<TableRow>
 													<TableHead>Getränk</TableHead>
-													<TableHead className="text-right">Gezählt</TableHead>
-													<TableHead className="text-right">Erwartet</TableHead>
+													<TableHead className="hidden text-right sm:table-cell">Gezählt</TableHead>
+													<TableHead className="hidden text-right sm:table-cell">Erwartet</TableHead>
 													<TableHead className="text-right">
 														Differenz
 													</TableHead>
-													<TableHead className="text-center">Status</TableHead>
+													<TableHead className="hidden text-center sm:table-cell">Status</TableHead>
 													<TableHead className="text-right">
 														Verlust (€)
 													</TableHead>
@@ -247,10 +247,10 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 															<TableCell className="font-medium">
 																{item.drinkName}
 															</TableCell>
-															<TableCell className="text-right">
+															<TableCell className="hidden text-right sm:table-cell">
 																{item.countedStock}
 															</TableCell>
-															<TableCell className="text-right">
+															<TableCell className="hidden text-right sm:table-cell">
 																{item.expectedStock}
 															</TableCell>
 															<TableCell className="text-right">
@@ -267,7 +267,7 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 																	{item.difference}
 																</span>
 															</TableCell>
-															<TableCell className="text-center">
+															<TableCell className="hidden text-center sm:table-cell">
 																<DiffBadge difference={item.difference} />
 															</TableCell>
 															<TableCell className="text-right">
@@ -287,13 +287,13 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 											<TableFooter>
 												<TableRow>
 													<TableCell className="font-bold">Gesamt</TableCell>
-													<TableCell className="text-right font-bold">
+													<TableCell className="hidden text-right font-bold sm:table-cell">
 														{record.items.reduce(
 															(s, i) => s + i.countedStock,
 															0,
 														)}
 													</TableCell>
-													<TableCell />
+													<TableCell className="hidden sm:table-cell" />
 													<TableCell className="text-right font-bold">
 														<span
 															className={totalDiff < 0 ? "text-red-600" : ""}
@@ -302,7 +302,7 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 															{totalDiff}
 														</span>
 													</TableCell>
-													<TableCell />
+													<TableCell className="hidden sm:table-cell" />
 													<TableCell className="text-right font-bold text-destructive">
 														€{record.totalLosses.toFixed(2)}
 													</TableCell>

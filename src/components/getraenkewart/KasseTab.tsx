@@ -399,7 +399,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 					<Table>
 						<TableHeader>
 							<TableRow>
-								<TableHead>Datum</TableHead>
+								<TableHead className="hidden sm:table-cell">Datum</TableHead>
 								<TableHead>Beschreibung</TableHead>
 								<TableHead className="text-right">Betrag</TableHead>
 								<TableHead />
@@ -408,7 +408,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 						<TableBody>
 							{entries.map((e) => (
 								<TableRow key={e.id}>
-									<TableCell className="text-sm">{fmtDate(e.date)}</TableCell>
+									<TableCell className="hidden text-sm sm:table-cell">{fmtDate(e.date)}</TableCell>
 									<TableCell className="text-sm">{e.description}</TableCell>
 									<TableCell className="text-right font-medium text-sm">
 										<span
@@ -440,7 +440,10 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 						</TableBody>
 						<TableFooter>
 							<TableRow>
-								<TableCell colSpan={2} className="font-semibold">
+								<TableCell colSpan={1} className="font-semibold sm:hidden">
+									Aktueller Stand
+								</TableCell>
+								<TableCell colSpan={2} className="hidden font-semibold sm:table-cell">
 									Aktueller Stand
 								</TableCell>
 								<TableCell
@@ -623,7 +626,7 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 					<TableHeader>
 						<TableRow>
 							<TableHead>Gruppe</TableHead>
-							<TableHead>Datum</TableHead>
+							<TableHead className="hidden sm:table-cell">Datum</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead className="text-right">Betrag</TableHead>
 							<TableHead />
@@ -638,7 +641,7 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 								<TableCell className="font-medium text-sm">
 									{b.userName}
 								</TableCell>
-								<TableCell className="text-sm">
+								<TableCell className="hidden text-sm sm:table-cell">
 									{fmtDate(b.createdAt)}
 								</TableCell>
 								<TableCell>
@@ -800,7 +803,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 					<TableHeader>
 						<TableRow>
 							<TableHead>Gläubiger</TableHead>
-							<TableHead>Beschreibung</TableHead>
+							<TableHead className="hidden sm:table-cell">Beschreibung</TableHead>
 							<TableHead className="text-right">Betrag</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead />
@@ -815,7 +818,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 								<TableCell className="font-medium text-sm">
 									{b.creditor}
 								</TableCell>
-								<TableCell className="text-sm">{b.description}</TableCell>
+								<TableCell className="hidden text-sm sm:table-cell">{b.description}</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
 									{fmt(b.amount)}
 								</TableCell>
