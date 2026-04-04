@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AcademicDateTimePicker } from "~/components/ui/academic-date-time-picker";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -35,6 +36,7 @@ import {
 } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
+import { academicTimeLabel } from "~/lib/academic-time";
 import {
 	createEvent,
 	deleteEvent,
@@ -100,18 +102,19 @@ const EVENT_TYPES: EventType[] = [
 ];
 
 function toInputDate(d: Date) {
-	return d.toISOString().slice(0, 16);
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function formatDate(d: Date) {
-	return d.toLocaleDateString("de-DE", {
+	const datePart = d.toLocaleDateString("de-DE", {
 		weekday: "short",
 		day: "2-digit",
 		month: "short",
 		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
 	});
+	const timePart = academicTimeLabel(d.getHours(), d.getMinutes());
+	return `${datePart}, ${timePart}`;
 }
 
 // Shared inline form card used both for create (top) and edit (inline below card)
@@ -167,25 +170,18 @@ function EventFormCard({
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="ev-date">Datum & Uhrzeit *</Label>
-							<Input
-								id="ev-date"
-								type="datetime-local"
+							<Label>Datum & Uhrzeit *</Label>
+							<AcademicDateTimePicker
 								value={form.date}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, date: e.target.value }))
-								}
+								onChange={(v) => setForm((f) => ({ ...f, date: v }))}
 							/>
 						</div>
 						<div className="space-y-2">
-							<Label htmlFor="ev-endDate">Ende (optional)</Label>
-							<Input
-								id="ev-endDate"
-								type="datetime-local"
+							<Label>Ende (optional)</Label>
+							<AcademicDateTimePicker
 								value={form.endDate}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, endDate: e.target.value }))
-								}
+								onChange={(v) => setForm((f) => ({ ...f, endDate: v }))}
+								placeholder="Kein Enddatum"
 							/>
 						</div>
 						<div className="space-y-2">

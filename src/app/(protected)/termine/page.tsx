@@ -2,6 +2,7 @@ import { CalendarDays, MapPin } from "lucide-react";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Card, CardContent } from "~/components/ui/card";
+import { academicTimeLabel } from "~/lib/academic-time";
 import { getUpcomingEvents } from "~/server/actions/events/events";
 
 export const metadata = {
@@ -29,7 +30,7 @@ function formatTime(d: Date) {
 	const h = d.getHours();
 	const m = d.getMinutes();
 	if (h === 0 && m === 0) return null;
-	return d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
+	return academicTimeLabel(h, m);
 }
 
 export default async function TerminePage() {
@@ -64,7 +65,7 @@ export default async function TerminePage() {
 											<span className="flex items-center gap-1.5">
 												<CalendarDays className="h-4 w-4" />
 												{formatDate(event.date)}
-												{time && <span>· {time} Uhr</span>}
+												{time && <span>· {time}</span>}
 											</span>
 											{event.location && (
 												<span className="flex items-center gap-1.5">

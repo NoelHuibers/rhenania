@@ -8,7 +8,10 @@
 			"Bash(pnpm tsx:*)",
 			"Bash(pnpm db:push)",
 			"Bash(pnpm drizzle-kit:*)",
-			"Bash(pnpm check:*)"
+			"Bash(pnpm check:*)",
+			"Bash(pnpm dlx:*)",
+			"Bash(grep -E \"^.*\\\\.\\(tsx|ts\\).*$\")",
+			"Bash(pnpm check:write)"
 		]
 	}
 }
