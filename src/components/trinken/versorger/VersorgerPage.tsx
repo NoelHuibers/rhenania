@@ -6,16 +6,8 @@ import { toast } from "sonner";
 
 import { AddDrinkDialog } from "~/components/trinken/versorger/AddDrinkDialog";
 import { DrinksTableDesktop } from "~/components/trinken/versorger/DesktopCard";
-import { Header } from "~/components/trinken/versorger/Header";
 import { DrinksCardsMobile } from "~/components/trinken/versorger/MobileCard";
 import { Button } from "~/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "~/components/ui/card";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
 import {
 	type Drink,
@@ -103,21 +95,17 @@ export default function VersorgerPage() {
 
 	const handleImageUpdate = async (drinkId: string, file: File) => {
 		try {
-			// Validate file
 			validateImageFile(file);
 
-			// Set uploading state
 			setUploadingImage(drinkId);
 			setUploadProgress(0);
 
-			// Upload image to Vercel Blob from client side
 			const pictureUrl = await uploadDrinkImage(file, {
 				onProgress: (progress) => {
 					setUploadProgress(progress);
 				},
 			});
 
-			// Update drink with new image URL
 			startTransition(async () => {
 				try {
 					const result = await updateDrink(drinkId, { pictureUrl });
@@ -125,7 +113,6 @@ export default function VersorgerPage() {
 					if (result.success && result.data) {
 						toast.success("Bild erfolgreich aktualisiert");
 
-						// Update local state with new drink data
 						setDrinks((prev) =>
 							prev.map((drink) =>
 								// biome-ignore lint/style/noNonNullAssertion: result.data checked above in result.success && result.data
@@ -251,101 +238,86 @@ export default function VersorgerPage() {
 
 	if (isLoading) {
 		return (
-			<div className="container mx-auto p-6" role="status" aria-live="polite">
-				<div className="flex items-center justify-center py-8">
-					<div className="text-muted-foreground">Getränke werden geladen…</div>
-				</div>
+			<div
+				className="flex items-center justify-center py-8"
+				role="status"
+				aria-live="polite"
+			>
+				<div className="text-muted-foreground">Getränke werden geladen…</div>
 			</div>
 		);
 	}
 
 	return (
-		<main
-			className="container mx-auto space-y-4 p-4 sm:space-y-6 sm:p-6"
-			aria-busy={isPending}
-		>
-			<Header
-				count={drinks.length}
-				onAdd={() => setIsAddDialogOpen(true)}
-				isPending={isPending}
-			/>
-
+		<div className="flex flex-col gap-4" aria-busy={isPending}>
 			<AddDrinkDialog
 				isOpen={isAddDialogOpen}
 				onOpenChange={setIsAddDialogOpen}
 				onDrinkAdded={handleDrinkAdded}
 			/>
 
-			<Card>
-				<section>
-					<CardHeader>
-						<CardTitle>Getränkekarte</CardTitle>
-						<CardDescription aria-live="polite">
-							{drinks.length} Getränke in Ihrer Karte
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						{/* Desktop Table */}
-						<div
-							className="hidden rounded-md border md:block"
-							role="region"
-							aria-label="Getränke Tabelle"
-						>
-							<DrinksTableDesktop
-								drinks={drinks}
-								editingId={editingId}
-								editingData={editingData}
-								setEditingData={setEditingData}
-								startEditing={startEditing}
-								cancelEditing={cancelEditing}
-								saveEdit={saveEdit}
-								onDelete={handleDeleteDrink}
-								onToggleAvailability={handleToggleAvailability}
-								onImageUpdate={handleImageUpdate}
-								isPending={isPending}
-								uploadingImage={uploadingImage}
-								uploadProgress={uploadProgress}
-							/>
-						</div>
-
-						{/* Mobile Cards */}
-						<div
-							className="md:hidden"
-							role="region"
-							aria-label="Getränke Liste mobil"
-						>
-							<DrinksCardsMobile
-								drinks={drinks}
-								editingId={editingId}
-								editingData={editingData}
-								setEditingData={setEditingData}
-								startEditing={startEditing}
-								cancelEditing={cancelEditing}
-								saveEdit={saveEdit}
-								onDelete={handleDeleteDrink}
-								onToggleAvailability={handleToggleAvailability}
-								onImageUpdate={handleImageUpdate}
-								isPending={isPending}
-								uploadingImage={uploadingImage}
-								uploadProgress={uploadProgress}
-							/>
-						</div>
-					</CardContent>
-				</section>
-			</Card>
-
-			{/* Floating Add Button for mobile */}
-			<div className="fixed right-6 bottom-6 z-50 md:hidden">
+			<div className="flex items-center justify-between gap-4">
+				<div>
+					<h2 className="font-semibold text-lg">Getränkekarte</h2>
+					<p className="text-muted-foreground text-sm" aria-live="polite">
+						{drinks.length} {drinks.length === 1 ? "Getränk" : "Getränke"}
+					</p>
+				</div>
 				<Button
 					onClick={() => setIsAddDialogOpen(true)}
-					size="lg"
-					aria-label="Neues Getränk hinzufügen"
 					disabled={isPending}
-					className="h-12 w-12 rounded-full p-0 shadow-lg"
+					aria-label="Getränk hinzufügen"
 				>
-					<Plus className="h-6 w-6" />
+					<Plus className="mr-2 h-4 w-4" />
+					Getränk hinzufügen
 				</Button>
 			</div>
-		</main>
+
+			{/* Desktop Table */}
+			<div
+				className="hidden rounded-md border md:block"
+				role="region"
+				aria-label="Getränke Tabelle"
+			>
+				<DrinksTableDesktop
+					drinks={drinks}
+					editingId={editingId}
+					editingData={editingData}
+					setEditingData={setEditingData}
+					startEditing={startEditing}
+					cancelEditing={cancelEditing}
+					saveEdit={saveEdit}
+					onDelete={handleDeleteDrink}
+					onToggleAvailability={handleToggleAvailability}
+					onImageUpdate={handleImageUpdate}
+					isPending={isPending}
+					uploadingImage={uploadingImage}
+					uploadProgress={uploadProgress}
+				/>
+			</div>
+
+			{/* Mobile Cards */}
+			<div
+				className="md:hidden"
+				role="region"
+				aria-label="Getränke Liste mobil"
+			>
+				<DrinksCardsMobile
+					drinks={drinks}
+					editingId={editingId}
+					editingData={editingData}
+					setEditingData={setEditingData}
+					startEditing={startEditing}
+					cancelEditing={cancelEditing}
+					saveEdit={saveEdit}
+					onDelete={handleDeleteDrink}
+					onToggleAvailability={handleToggleAvailability}
+					onImageUpdate={handleImageUpdate}
+					isPending={isPending}
+					uploadingImage={uploadingImage}
+					uploadProgress={uploadProgress}
+				/>
+			</div>
+		</div>
 	);
 }

@@ -5,13 +5,18 @@ import {
 	ArrowUpCircle,
 	Building2,
 	CheckCircle,
+	ChevronDown,
+	ChevronUp,
+	Download,
 	Euro,
 	Package,
+	Pencil,
 	Plus,
 	Receipt,
 	Trash2,
 	Users,
 	Warehouse,
+	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -19,6 +24,11 @@ import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "~/components/ui/collapsible";
 import {
 	Dialog,
 	DialogContent,
@@ -33,6 +43,7 @@ import {
 	Table,
 	TableBody,
 	TableCell,
+	TableFooter,
 	TableHead,
 	TableHeader,
 	TableRow,
@@ -120,10 +131,38 @@ function fmtDate(date: Date | null) {
 	return new Date(date).toLocaleDateString("de-DE");
 }
 
-// ─── Summary Cards ────────────────────────────────────────────────────────────
+// ─── Summary ──────────────────────────────────────────────────────────────────
 
-function SummaryCards({ summary }: { summary: Summary }) {
-	const cards = [
+function SummarySection({
+	summary,
+	pfandWert,
+}: {
+	summary: Summary;
+	pfandWert: number;
+}) {
+	const router = useRouter();
+	const [editingPfand, setEditingPfand] = useState(false);
+	const [pfandInput, setPfandInput] = useState(
+		pfandWert.toFixed(2).replace(".", ","),
+	);
+	const [isPending, startTransition] = useTransition();
+
+	function handleSavePfand() {
+		const parsed = Number.parseFloat(pfandInput.replace(",", "."));
+		if (Number.isNaN(parsed)) return;
+		startTransition(async () => {
+			const res = await setPfandWert(parsed);
+			if (res.success) {
+				toast.success("Pfandwert gespeichert");
+				setEditingPfand(false);
+				router.refresh();
+			} else {
+				toast.error("Fehler beim Speichern");
+			}
+		});
+	}
+
+	const supportingCards = [
 		{
 			label: "Kassenstand",
 			value: fmt(summary.kassenstand),
@@ -152,50 +191,107 @@ function SummaryCards({ summary }: { summary: Summary }) {
 			color: "text-purple-600",
 		},
 		{
-			label: "Pfandguthaben",
-			value: fmt(summary.pfand),
-			icon: Package,
-			color: "text-green-600",
-		},
-		{
 			label: "Externe Verbindlichkeiten",
 			value: fmt(summary.externOffen),
 			icon: Building2,
 			color: "text-red-600",
 		},
-		{
-			label: "Gesamtvermögen",
-			value: fmt(summary.gesamt),
-			icon: Euro,
-			color: summary.gesamt >= 0 ? "text-green-600" : "text-red-600",
-			highlight: true,
-		},
 	];
 
+	const gesamtColor = summary.gesamt >= 0 ? "text-green-600" : "text-red-600";
+
 	return (
-		<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-			{cards.map((c) => {
-				const Icon = c.icon;
-				return (
-					<Card
-						key={c.label}
-						className={
-							c.highlight ? "col-span-full border-primary lg:col-span-4" : ""
-						}
-					>
-						<CardContent className="flex items-center gap-4 p-4">
-							<Icon className={`size-8 shrink-0 ${c.color}`} />
-							<div className="min-w-0">
-								<p className="text-muted-foreground text-xs">{c.label}</p>
-								<p className={`font-bold text-xl ${c.color}`}>{c.value}</p>
-								{c.sub && (
-									<p className="text-muted-foreground text-xs">{c.sub}</p>
-								)}
-							</div>
-						</CardContent>
-					</Card>
-				);
-			})}
+		<div className="flex flex-col gap-3">
+			{/* Hero: Gesamtvermögen */}
+			<Card className="border-primary">
+				<CardContent className="flex items-center justify-between p-5">
+					<div>
+						<p className="text-muted-foreground text-sm">Gesamtvermögen</p>
+						<p className={`font-bold text-3xl ${gesamtColor}`}>
+							{fmt(summary.gesamt)}
+						</p>
+					</div>
+					<Euro className={`size-10 ${gesamtColor}`} />
+				</CardContent>
+			</Card>
+
+			{/* Supporting cards */}
+			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+				{supportingCards.map((c) => {
+					const Icon = c.icon;
+					return (
+						<Card key={c.label}>
+							<CardContent className="flex items-center gap-3 p-4">
+								<Icon className={`size-5 shrink-0 ${c.color}`} />
+								<div className="min-w-0">
+									<p className="text-muted-foreground text-xs">{c.label}</p>
+									<p className={`font-bold text-lg ${c.color}`}>{c.value}</p>
+									{c.sub && (
+										<p className="text-muted-foreground text-xs">{c.sub}</p>
+									)}
+								</div>
+							</CardContent>
+						</Card>
+					);
+				})}
+
+				{/* Pfand card — inline editable */}
+				<Card>
+					<CardContent className="flex items-center gap-3 p-4">
+						<Package className="size-5 shrink-0 text-green-600" />
+						<div className="min-w-0 flex-1">
+							<p className="text-muted-foreground text-xs">Pfandguthaben</p>
+							{editingPfand ? (
+								<div className="mt-1 flex items-center gap-2">
+									<Input
+										value={pfandInput}
+										onChange={(e) => setPfandInput(e.target.value)}
+										className="h-7 w-28 text-sm"
+										placeholder="0,00"
+										autoFocus
+										onKeyDown={(e) => {
+											if (e.key === "Enter") handleSavePfand();
+											if (e.key === "Escape") setEditingPfand(false);
+										}}
+									/>
+									<Button
+										size="icon"
+										variant="ghost"
+										className="size-6"
+										onClick={handleSavePfand}
+										disabled={isPending}
+									>
+										<CheckCircle className="size-3.5 text-green-600" />
+									</Button>
+									<Button
+										size="icon"
+										variant="ghost"
+										className="size-6"
+										onClick={() => setEditingPfand(false)}
+										disabled={isPending}
+									>
+										<X className="size-3.5" />
+									</Button>
+								</div>
+							) : (
+								<div className="flex items-center gap-2">
+									<p className="font-bold text-green-600 text-lg">
+										{fmt(summary.pfand)}
+									</p>
+									<Button
+										size="icon"
+										variant="ghost"
+										className="size-6"
+										onClick={() => setEditingPfand(true)}
+									>
+										<Pencil className="size-3 text-muted-foreground" />
+									</Button>
+								</div>
+							)}
+						</div>
+					</CardContent>
+				</Card>
+			</div>
 		</div>
 	);
 }
@@ -213,7 +309,6 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 	function handleAdd() {
 		const parsed = Number.parseFloat(amount.replace(",", "."));
 		if (Number.isNaN(parsed) || !description.trim()) return;
-
 		startTransition(async () => {
 			const res = await addBankEntry({
 				amount: parsed,
@@ -243,6 +338,8 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 			}
 		});
 	}
+
+	const balance = entries.reduce((s, e) => s + e.amount, 0);
 
 	return (
 		<Card>
@@ -341,6 +438,19 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 								</TableRow>
 							))}
 						</TableBody>
+						<TableFooter>
+							<TableRow>
+								<TableCell colSpan={2} className="font-semibold">
+									Aktueller Stand
+								</TableCell>
+								<TableCell
+									className={`text-right font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}
+								>
+									{fmt(balance)}
+								</TableCell>
+								<TableCell />
+							</TableRow>
+						</TableFooter>
 					</Table>
 				)}
 			</CardContent>
@@ -348,106 +458,123 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 	);
 }
 
-// ─── Pfand ────────────────────────────────────────────────────────────────────
+// ─── Collapsible bill card shell ──────────────────────────────────────────────
 
-function PfandCard({ initial }: { initial: number }) {
-	const router = useRouter();
-	const [value, setValue] = useState(initial.toFixed(2).replace(".", ","));
-	const [isPending, startTransition] = useTransition();
-
-	function handleSave() {
-		const parsed = Number.parseFloat(value.replace(",", "."));
-		if (Number.isNaN(parsed)) return;
-		startTransition(async () => {
-			const res = await setPfandWert(parsed);
-			if (res.success) {
-				toast.success("Pfandwert gespeichert");
-				router.refresh();
-			} else {
-				toast.error("Fehler beim Speichern");
-			}
-		});
-	}
-
+function CollapsibleCard({
+	title,
+	meta,
+	action,
+	children,
+	defaultOpen = true,
+}: {
+	title: string;
+	meta?: React.ReactNode;
+	action?: React.ReactNode;
+	children: React.ReactNode;
+	defaultOpen?: boolean;
+}) {
+	const [open, setOpen] = useState(defaultOpen);
 	return (
 		<Card>
-			<CardHeader>
-				<CardTitle className="text-base">Pfandguthaben</CardTitle>
-			</CardHeader>
-			<CardContent className="flex items-end gap-3">
-				<div className="grid flex-1 gap-1.5">
-					<Label>Pfandwert (€)</Label>
-					<Input
-						value={value}
-						onChange={(e) => setValue(e.target.value)}
-						placeholder="0,00"
-					/>
-				</div>
-				<Button onClick={handleSave} disabled={isPending}>
-					Speichern
-				</Button>
-			</CardContent>
+			<Collapsible open={open} onOpenChange={setOpen}>
+				<CollapsibleTrigger asChild>
+					<CardHeader className="flex cursor-pointer flex-row items-center justify-between transition-colors hover:bg-muted/50">
+						<div className="flex items-center gap-2">
+							<CardTitle className="text-base">{title}</CardTitle>
+							{meta}
+						</div>
+						<div className="flex items-center gap-2">
+							{action}
+							<Button
+								variant="ghost"
+								size="icon"
+								className="size-7"
+								tabIndex={-1}
+							>
+								{open ? (
+									<ChevronUp className="size-4" />
+								) : (
+									<ChevronDown className="size-4" />
+								)}
+							</Button>
+						</div>
+					</CardHeader>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<CardContent className="p-0">{children}</CardContent>
+				</CollapsibleContent>
+			</Collapsible>
 		</Card>
 	);
 }
 
-// ─── Open Member Bills ────────────────────────────────────────────────────────
+// ─── Member Bills ─────────────────────────────────────────────────────────────
 
 function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 	const total = bills.reduce((s, b) => s + b.total, 0);
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle className="text-base">Offene Mitgliederrechnungen</CardTitle>
-			</CardHeader>
-			<CardContent className="p-0">
-				{bills.length === 0 ? (
-					<p className="p-4 text-muted-foreground text-sm">
-						Keine offenen Rechnungen.
-					</p>
-				) : (
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Mitglied</TableHead>
-								<TableHead>Status</TableHead>
-								<TableHead className="text-right">Betrag</TableHead>
+		<CollapsibleCard
+			title="Offene Mitgliederrechnungen"
+			meta={
+				bills.length > 0 ? (
+					<span className="text-muted-foreground text-xs">
+						{bills.length} • {fmt(total)}
+					</span>
+				) : undefined
+			}
+		>
+			{bills.length === 0 ? (
+				<p className="p-4 text-muted-foreground text-sm">
+					Keine offenen Rechnungen.
+				</p>
+			) : (
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Mitglied</TableHead>
+							<TableHead>Status</TableHead>
+							<TableHead className="text-right">Betrag</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{bills.map((b) => (
+							<TableRow key={b.id}>
+								<TableCell className="font-medium text-sm">
+									{b.userName}
+								</TableCell>
+								<TableCell>
+									<Badge
+										variant={
+											b.status === "Gestundet" ? "secondary" : "destructive"
+										}
+									>
+										{b.status}
+									</Badge>
+								</TableCell>
+								<TableCell className="text-right font-semibold text-sm">
+									{fmt(b.total)}
+								</TableCell>
 							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{bills.map((b) => (
-								<TableRow key={b.id}>
-									<TableCell className="font-medium text-sm">
-										{b.userName}
-									</TableCell>
-									<TableCell>
-										<Badge
-											variant={
-												b.status === "Gestundet" ? "secondary" : "destructive"
-											}
-										>
-											{b.status}
-										</Badge>
-									</TableCell>
-									<TableCell className="text-right font-semibold text-sm">
-										{fmt(b.total)}
-									</TableCell>
-								</TableRow>
-							))}
-							<TableRow className="bg-muted/50 font-bold">
-								<TableCell colSpan={2}>Gesamt</TableCell>
-								<TableCell className="text-right">{fmt(total)}</TableCell>
-							</TableRow>
-						</TableBody>
-					</Table>
-				)}
-			</CardContent>
-		</Card>
+						))}
+					</TableBody>
+					<TableFooter>
+						<TableRow>
+							<TableCell colSpan={2} className="font-semibold">
+								Gesamt
+							</TableCell>
+							<TableCell className="text-right font-bold">
+								{fmt(total)}
+							</TableCell>
+						</TableRow>
+					</TableFooter>
+				</Table>
+			)}
+		</CollapsibleCard>
 	);
 }
 
-// ─── Entity Bills with PDF ────────────────────────────────────────────────────
+// ─── Entity Bills ─────────────────────────────────────────────────────────────
 
 function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 	const [downloading, setDownloading] = useState<string | null>(null);
@@ -473,71 +600,77 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 		}
 	}
 
-	const open = bills.filter((b) => b.status === "Unbezahlt");
+	const unpaid = bills.filter((b) => b.status === "Unbezahlt");
 	const paid = bills.filter((b) => b.status !== "Unbezahlt");
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle className="text-base">Gruppenrechnungen</CardTitle>
-			</CardHeader>
-			<CardContent className="p-0">
-				{bills.length === 0 ? (
-					<p className="p-4 text-muted-foreground text-sm">
-						Keine Gruppenrechnungen vorhanden.
-					</p>
-				) : (
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Gruppe</TableHead>
-								<TableHead>Datum</TableHead>
-								<TableHead>Status</TableHead>
-								<TableHead className="text-right">Betrag</TableHead>
-								<TableHead />
+		<CollapsibleCard
+			title="Gruppenrechnungen"
+			meta={
+				unpaid.length > 0 ? (
+					<span className="text-muted-foreground text-xs">
+						{unpaid.length} offen
+					</span>
+				) : undefined
+			}
+		>
+			{bills.length === 0 ? (
+				<p className="p-4 text-muted-foreground text-sm">
+					Keine Gruppenrechnungen vorhanden.
+				</p>
+			) : (
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Gruppe</TableHead>
+							<TableHead>Datum</TableHead>
+							<TableHead>Status</TableHead>
+							<TableHead className="text-right">Betrag</TableHead>
+							<TableHead />
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{[...unpaid, ...paid].map((b) => (
+							<TableRow
+								key={b.id}
+								className={b.status !== "Unbezahlt" ? "opacity-50" : ""}
+							>
+								<TableCell className="font-medium text-sm">
+									{b.userName}
+								</TableCell>
+								<TableCell className="text-sm">
+									{fmtDate(b.createdAt)}
+								</TableCell>
+								<TableCell>
+									<Badge
+										variant={
+											b.status === "Bezahlt" ? "secondary" : "destructive"
+										}
+									>
+										{b.status}
+									</Badge>
+								</TableCell>
+								<TableCell className="text-right font-semibold text-sm">
+									{fmt(b.total)}
+								</TableCell>
+								<TableCell>
+									<Button
+										size="icon"
+										variant="ghost"
+										className="size-7"
+										disabled={downloading === b.id}
+										onClick={() => handleDownload(b)}
+										aria-label={`PDF für ${b.userName} herunterladen`}
+									>
+										<Download className="size-3.5" />
+									</Button>
+								</TableCell>
 							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{[...open, ...paid].map((b) => (
-								<TableRow
-									key={b.id}
-									className={b.status !== "Unbezahlt" ? "opacity-50" : ""}
-								>
-									<TableCell className="font-medium text-sm">
-										{b.userName}
-									</TableCell>
-									<TableCell className="text-sm">
-										{fmtDate(b.createdAt)}
-									</TableCell>
-									<TableCell>
-										<Badge
-											variant={
-												b.status === "Bezahlt" ? "secondary" : "destructive"
-											}
-										>
-											{b.status}
-										</Badge>
-									</TableCell>
-									<TableCell className="text-right font-semibold text-sm">
-										{fmt(b.total)}
-									</TableCell>
-									<TableCell>
-										<Button
-											size="sm"
-											variant="outline"
-											disabled={downloading === b.id}
-											onClick={() => handleDownload(b)}
-										>
-											PDF
-										</Button>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				)}
-			</CardContent>
-		</Card>
+						))}
+					</TableBody>
+				</Table>
+			)}
+		</CollapsibleCard>
 	);
 }
 
@@ -545,7 +678,7 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 
 function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 	const router = useRouter();
-	const [open, setOpen] = useState(false);
+	const [dialogOpen, setDialogOpen] = useState(false);
 	const [creditor, setCreditor] = useState("");
 	const [description, setDescription] = useState("");
 	const [amount, setAmount] = useState("");
@@ -554,7 +687,6 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 	function handleAdd() {
 		const parsed = Number.parseFloat(amount.replace(",", "."));
 		if (Number.isNaN(parsed) || !creditor.trim() || !description.trim()) return;
-
 		startTransition(async () => {
 			const res = await addExternalBill({
 				creditor: creditor.trim(),
@@ -563,7 +695,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			});
 			if (res.success) {
 				toast.success("Verbindlichkeit hinzugefügt");
-				setOpen(false);
+				setDialogOpen(false);
 				setCreditor("");
 				setDescription("");
 				setAmount("");
@@ -596,14 +728,26 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 
 	const openBills = bills.filter((b) => b.status === "Offen");
 	const paidBills = bills.filter((b) => b.status === "Bezahlt");
+	const openTotal = openBills.reduce((s, b) => s + b.amount, 0);
 
 	return (
-		<Card>
-			<CardHeader className="flex flex-row items-center justify-between">
-				<CardTitle className="text-base">Externe Verbindlichkeiten</CardTitle>
-				<Dialog open={open} onOpenChange={setOpen}>
+		<CollapsibleCard
+			title="Externe Verbindlichkeiten"
+			meta={
+				openBills.length > 0 ? (
+					<span className="text-muted-foreground text-xs">
+						{openBills.length} offen • {fmt(openTotal)}
+					</span>
+				) : undefined
+			}
+			action={
+				<Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
 					<DialogTrigger asChild>
-						<Button size="sm" variant="outline">
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={(e) => e.stopPropagation()}
+						>
 							<Plus className="mr-1 size-4" />
 							Hinzufügen
 						</Button>
@@ -645,76 +789,77 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 						</DialogFooter>
 					</DialogContent>
 				</Dialog>
-			</CardHeader>
-			<CardContent className="p-0">
-				{bills.length === 0 ? (
-					<p className="p-4 text-muted-foreground text-sm">
-						Keine Verbindlichkeiten.
-					</p>
-				) : (
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Gläubiger</TableHead>
-								<TableHead>Beschreibung</TableHead>
-								<TableHead className="text-right">Betrag</TableHead>
-								<TableHead>Status</TableHead>
-								<TableHead />
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{[...openBills, ...paidBills].map((b) => (
-								<TableRow
-									key={b.id}
-									className={b.status === "Bezahlt" ? "opacity-50" : ""}
-								>
-									<TableCell className="font-medium text-sm">
-										{b.creditor}
-									</TableCell>
-									<TableCell className="text-sm">{b.description}</TableCell>
-									<TableCell className="text-right font-semibold text-sm">
-										{fmt(b.amount)}
-									</TableCell>
-									<TableCell>
-										<Badge
-											variant={
-												b.status === "Bezahlt" ? "secondary" : "destructive"
-											}
-										>
-											{b.status}
-										</Badge>
-									</TableCell>
-									<TableCell>
-										<div className="flex gap-1">
-											{b.status === "Offen" && (
-												<Button
-													variant="ghost"
-													size="icon"
-													className="size-7"
-													disabled={isPending}
-													onClick={() => handlePaid(b.id)}
-												>
-													<CheckCircle className="size-3.5 text-green-500" />
-												</Button>
-											)}
+			}
+		>
+			{bills.length === 0 ? (
+				<p className="p-4 text-muted-foreground text-sm">
+					Keine Verbindlichkeiten.
+				</p>
+			) : (
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Gläubiger</TableHead>
+							<TableHead>Beschreibung</TableHead>
+							<TableHead className="text-right">Betrag</TableHead>
+							<TableHead>Status</TableHead>
+							<TableHead />
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{[...openBills, ...paidBills].map((b) => (
+							<TableRow
+								key={b.id}
+								className={b.status === "Bezahlt" ? "opacity-50" : ""}
+							>
+								<TableCell className="font-medium text-sm">
+									{b.creditor}
+								</TableCell>
+								<TableCell className="text-sm">{b.description}</TableCell>
+								<TableCell className="text-right font-semibold text-sm">
+									{fmt(b.amount)}
+								</TableCell>
+								<TableCell>
+									<Badge
+										variant={
+											b.status === "Bezahlt" ? "secondary" : "destructive"
+										}
+									>
+										{b.status}
+									</Badge>
+								</TableCell>
+								<TableCell>
+									<div className="flex gap-1">
+										{b.status === "Offen" && (
 											<Button
 												variant="ghost"
 												size="icon"
 												className="size-7"
 												disabled={isPending}
-												onClick={() => handleDelete(b.id)}
+												onClick={() => handlePaid(b.id)}
+												aria-label="Als bezahlt markieren"
 											>
-												<Trash2 className="size-3.5 text-red-500" />
+												<CheckCircle className="size-3.5 text-green-500" />
 											</Button>
-										</div>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				)}
-			</CardContent>
-		</Card>
+										)}
+										<Button
+											variant="ghost"
+											size="icon"
+											className="size-7"
+											disabled={isPending}
+											onClick={() => handleDelete(b.id)}
+											aria-label="Löschen"
+										>
+											<Trash2 className="size-3.5 text-red-500" />
+										</Button>
+									</div>
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			)}
+		</CollapsibleCard>
 	);
 }
 
@@ -730,13 +875,8 @@ export default function KasseTab({
 }: Props) {
 	return (
 		<div className="flex flex-col gap-6">
-			<SummaryCards summary={summary} />
-
-			<div className="grid gap-6 lg:grid-cols-2">
-				<BankLog entries={bankEntries} />
-				<PfandCard initial={pfandWert} />
-			</div>
-
+			<SummarySection summary={summary} pfandWert={pfandWert} />
+			<BankLog entries={bankEntries} />
 			<MemberBillsCard bills={memberBills} />
 			<EntityBillsCard bills={entityBills} />
 			<ExternalBillsCard bills={externalBills} />

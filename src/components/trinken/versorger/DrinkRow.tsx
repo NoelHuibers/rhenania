@@ -1,7 +1,7 @@
 // DrinkRow.tsx
 "use client";
 
-import { Check, Upload, X } from "lucide-react";
+import { Check, Pencil, Upload, X } from "lucide-react";
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { Badge } from "~/components/ui/badge";
@@ -153,15 +153,7 @@ export function DrinkRow({
 						}}
 					/>
 				) : (
-					<button
-						type="button"
-						className="w-full cursor-pointer rounded p-2 text-left hover:bg-muted disabled:opacity-50"
-						onClick={onStartEdit}
-						aria-label={`"${drink.name}" bearbeiten`}
-						disabled={isPending || isUploadingImage}
-					>
-						{drink.name}
-					</button>
+					drink.name
 				)}
 			</TableCell>
 
@@ -188,15 +180,7 @@ export function DrinkRow({
 						/>
 					</div>
 				) : (
-					<button
-						type="button"
-						className="w-full cursor-pointer rounded p-2 text-left hover:bg-muted disabled:opacity-50"
-						onClick={onStartEdit}
-						aria-label={`${drink.name} Preis bearbeiten`}
-						disabled={isPending || isUploadingImage}
-					>
-						€{drink.price.toFixed(2)}
-					</button>
+					<span>€{drink.price.toFixed(2)}</span>
 				)}
 			</TableCell>
 
@@ -225,16 +209,10 @@ export function DrinkRow({
 							L
 						</span>
 					</div>
+				) : drink.volume ? (
+					`${drink.volume}L`
 				) : (
-					<button
-						type="button"
-						className="w-full cursor-pointer rounded p-2 text-left hover:bg-muted disabled:opacity-50"
-						onClick={onStartEdit}
-						aria-label={`${drink.name} Volumen bearbeiten`}
-						disabled={isPending || isUploadingImage}
-					>
-						{drink.volume ? `${drink.volume}L` : "-"}
-					</button>
+					"-"
 				)}
 			</TableCell>
 
@@ -262,15 +240,7 @@ export function DrinkRow({
 						}}
 					/>
 				) : (
-					<button
-						type="button"
-						className="w-full cursor-pointer rounded p-2 text-left hover:bg-muted disabled:opacity-50"
-						onClick={onStartEdit}
-						aria-label={`${drink.name} Kastengröße bearbeiten`}
-						disabled={isPending || isUploadingImage}
-					>
-						{drink.kastengroesse ? drink.kastengroesse : "-"}
-					</button>
+					<span>{drink.kastengroesse ?? "-"}</span>
 				)}
 			</TableCell>
 
@@ -317,11 +287,22 @@ export function DrinkRow({
 							</Button>
 						</>
 					) : (
-						<DeleteButton
-							onConfirm={onDelete}
-							disabled={isPending || isUploadingImage}
-							label={`"${drink.name}" löschen`}
-						/>
+						<>
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={onStartEdit}
+								disabled={isPending || isUploadingImage}
+								aria-label={`"${drink.name}" bearbeiten`}
+							>
+								<Pencil className="h-4 w-4" />
+							</Button>
+							<DeleteButton
+								onConfirm={onDelete}
+								disabled={isPending || isUploadingImage}
+								label={`"${drink.name}" löschen`}
+							/>
+						</>
 					)}
 				</div>
 			</TableCell>

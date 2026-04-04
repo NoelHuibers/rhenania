@@ -2,11 +2,11 @@
 "use client";
 
 import { ChevronDown, ChevronUp, FileSpreadsheet, Save } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
 	Dialog,
@@ -18,6 +18,14 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "~/components/ui/table";
 import { createNewBilling } from "~/server/actions/billings/billings";
 import {
 	saveInventoryCount,
@@ -25,28 +33,20 @@ import {
 } from "~/server/actions/inventur/inventur";
 import { NumericInput } from "../NumericInput";
 import type { StockStatusWithDetails } from "./utils";
-import {
-	calculateLostStock,
-	calculateLostValue,
-	getStockStatus,
-} from "./utils";
+import { calculateLostValue, getStockStatus } from "./utils";
 
 interface DashboardTabProps {
 	stockItems: StockStatusWithDetails[];
-	onInventorySaved: () => void;
 }
 
-export default function DashboardTab({
-	stockItems,
-	onInventorySaved,
-}: DashboardTabProps) {
+export default function DashboardTab({ stockItems }: DashboardTabProps) {
+	const router = useRouter();
+
 	const [purchases, setPurchases] = useState<{ [key: string]: number }>(() => {
 		const initial: { [key: string]: number } = {};
-		stockItems.forEach((item) => {
-			if (item.purchasedSince > 0) {
-				initial[item.drinkId] = item.purchasedSince;
-			}
-		});
+		for (const item of stockItems) {
+			if (item.purchasedSince > 0) initial[item.drinkId] = item.purchasedSince;
+		}
 		return initial;
 	});
 	const [countedStock, setCountedStock] = useState<{ [key: string]: number }>(
@@ -62,54 +62,38 @@ export default function DashboardTab({
 	useEffect(() => {
 		const initialStock: { [key: string]: number } = {};
 		const initialPurchases: { [key: string]: number } = {};
-
-		stockItems.forEach((item) => {
+		for (const item of stockItems) {
 			initialStock[item.drinkId] = item.countedStock ?? item.calculatedStock;
-			if (item.purchasedSince > 0) {
+			if (item.purchasedSince > 0)
 				initialPurchases[item.drinkId] = item.purchasedSince;
-			}
-		});
-
+		}
 		setCountedStock(initialStock);
 		setPurchases(initialPurchases);
 	}, [stockItems]);
 
 	const toggleItemExpansion = (drinkId: string) => {
 		setExpandedItems((prev) => {
-			const newSet = new Set(prev);
-			if (newSet.has(drinkId)) {
-				newSet.delete(drinkId);
-			} else {
-				newSet.add(drinkId);
-			}
-			return newSet;
+			const next = new Set(prev);
+			if (next.has(drinkId)) next.delete(drinkId);
+			else next.add(drinkId);
+			return next;
 		});
 	};
 
 	const handlePurchaseInput = (drinkId: string, value: number) => {
 		setPurchases((prev) => ({ ...prev, [drinkId]: value }));
-
 		const item = stockItems.find((i) => i.drinkId === drinkId);
 		if (!item) return;
-
-		// Get the original purchase value from the stockItem
-		const originalPurchaseValue = item.purchasedSince || 0;
-
-		// Mark as changed if purchase value differs from original
-		if (value !== originalPurchaseValue) {
+		const originalPurchase = item.purchasedSince || 0;
+		if (value !== originalPurchase) {
 			setChangedItems((prev) => new Set(prev).add(drinkId));
-		} else {
-			// Remove from changed if purchase is back to original and count matches calculated
-			if (countedStock[drinkId] === item.calculatedStock) {
-				setChangedItems((prev) => {
-					const newSet = new Set(prev);
-					newSet.delete(drinkId);
-					return newSet;
-				});
-			}
+		} else if (countedStock[drinkId] === item.calculatedStock) {
+			setChangedItems((prev) => {
+				const next = new Set(prev);
+				next.delete(drinkId);
+				return next;
+			});
 		}
-
-		// Auto-update counted stock if it matches calculated
 		if (
 			countedStock[drinkId] ===
 			item.calculatedStock + (purchases[drinkId] || 0)
@@ -120,23 +104,20 @@ export default function DashboardTab({
 			}));
 		}
 	};
+
 	const handleCountedStockInput = (drinkId: string, value: number) => {
 		setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
-
-		// Mark as changed if different from calculated
 		const item = stockItems.find((i) => i.drinkId === drinkId);
-		if (item) {
-			const expectedStock = item.calculatedStock + (purchases[drinkId] || 0);
-			if (value !== expectedStock) {
-				setChangedItems((prev) => new Set(prev).add(drinkId));
-			} else if (purchases[drinkId] === 0 || !purchases[drinkId]) {
-				// Remove from changed if it matches expected and no purchases
-				setChangedItems((prev) => {
-					const newSet = new Set(prev);
-					newSet.delete(drinkId);
-					return newSet;
-				});
-			}
+		if (!item) return;
+		const expected = item.calculatedStock + (purchases[drinkId] || 0);
+		if (value !== expected) {
+			setChangedItems((prev) => new Set(prev).add(drinkId));
+		} else if (!purchases[drinkId]) {
+			setChangedItems((prev) => {
+				const next = new Set(prev);
+				next.delete(drinkId);
+				return next;
+			});
 		}
 	};
 
@@ -148,15 +129,12 @@ export default function DashboardTab({
 						const item = stockItems.find((i) => i.drinkId === drinkId);
 						const purchaseValue = purchases[drinkId] || 0;
 						const currentCount = countedStock[drinkId];
-
-						const originalPurchaseValue = item?.purchasedSince || 0;
-						const purchaseChanged = originalPurchaseValue !== purchaseValue;
-
+						const originalPurchase = item?.purchasedSince || 0;
+						const purchaseChanged = originalPurchase !== purchaseValue;
 						return {
 							drinkId,
 							countedStock:
 								currentCount !== undefined ? currentCount : undefined,
-							// Always include purchasedQuantity if it changed, even if it's 0
 							purchasedQuantity: purchaseChanged ? purchaseValue : undefined,
 						};
 					})
@@ -170,12 +148,10 @@ export default function DashboardTab({
 					toast.info("Keine Änderungen zum Speichern");
 					return;
 				}
-
 				const result = await saveQuickAdjustments(adjustments);
-
 				if (result.success) {
 					toast.success(`${adjustments.length} Artikel aktualisiert`);
-					onInventorySaved();
+					router.refresh();
 				} else {
 					throw new Error(result.error);
 				}
@@ -189,7 +165,7 @@ export default function DashboardTab({
 		});
 	};
 
-	const handleCreateInventory = (withInvoice: boolean = false) => {
+	const handleCreateInventory = (withInvoice = false) => {
 		startSaving(async () => {
 			try {
 				const inventoryItems = stockItems.map((item) => ({
@@ -197,20 +173,15 @@ export default function DashboardTab({
 					countedStock: countedStock[item.drinkId] ?? item.calculatedStock,
 					purchasedSince: purchases[item.drinkId] || 0,
 				}));
-
 				const result = await saveInventoryCount(inventoryItems);
-
-				if (withInvoice) {
-					await createNewBilling(result.totalInventoryLoss);
-				}
-
+				if (withInvoice) await createNewBilling(result.totalInventoryLoss);
 				if (result.success) {
 					toast.success(
 						withInvoice
 							? "Inventur und Rechnung erfolgreich erstellt"
 							: "Inventur erfolgreich erstellt",
 					);
-					onInventorySaved();
+					router.refresh();
 					setShowInventoryDialog(false);
 					setCreateInvoice(false);
 				} else {
@@ -226,435 +197,344 @@ export default function DashboardTab({
 		});
 	};
 
-	// Helper function to get difference color class
-	const getDifferenceColorClass = (difference: number) => {
-		if (difference < 0) return "text-red-600 font-semibold";
-		if (difference > 0) return "text-green-600 font-semibold";
+	const diffClass = (diff: number) => {
+		if (diff < 0) return "text-red-600 font-semibold";
+		if (diff > 0) return "text-green-600 font-semibold";
 		return "text-muted-foreground";
 	};
 
-	// Calculate totals
-	const totalSoldUnits = stockItems.reduce(
-		(sum, item) => sum + item.soldSince,
-		0,
-	);
+	const totalSoldUnits = stockItems.reduce((s, i) => s + i.soldSince, 0);
 	const totalPurchasedUnits = stockItems.reduce(
-		(sum, item) => sum + (purchases[item.drinkId] || 0),
+		(s, i) => s + (purchases[i.drinkId] || 0),
 		0,
 	);
-
-	const totalLostValue = stockItems.reduce((sum, item) => {
-		const purchaseValue = purchases[item.drinkId] || 0;
-		const calculatedWithPurchase =
-			item.lastInventoryStock + purchaseValue - item.soldSince;
-		const actualStock = countedStock[item.drinkId] ?? calculatedWithPurchase;
-		return (
-			sum +
-			calculateLostValue(
-				{ ...item, calculatedStock: calculatedWithPurchase },
-				actualStock,
-			)
-		);
+	const totalLostValue = stockItems.reduce((s, item) => {
+		const p = purchases[item.drinkId] || 0;
+		const calc = item.lastInventoryStock + p - item.soldSince;
+		const actual = countedStock[item.drinkId] ?? calc;
+		return s + calculateLostValue({ ...item, calculatedStock: calc }, actual);
 	}, 0);
-
-	const totalInventoryValue = stockItems.reduce((sum, item) => {
-		const actualStock = countedStock[item.drinkId] ?? item.calculatedStock;
-		return sum + actualStock * item.currentPrice;
+	const totalInventoryValue = stockItems.reduce((s, item) => {
+		const actual = countedStock[item.drinkId] ?? item.calculatedStock;
+		return s + actual * item.currentPrice;
 	}, 0);
 
 	const hasChanges = changedItems.size > 0;
 
 	return (
 		<>
-			<Card className="w-full">
-				<CardHeader className="flex flex-col space-y-4 p-4 sm:p-6">
-					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-						<div className="space-y-1">
-							<CardTitle className="text-lg text-primary sm:text-xl">
-								Aktueller Bestand
-							</CardTitle>
-						</div>
-						<div className="flex flex-col gap-2 sm:flex-row">
-							<Button
-								onClick={handleQuickSave}
-								disabled={!hasChanges || isQuickSaving}
-								variant={hasChanges ? "default" : "outline"}
-								className="w-full text-sm sm:w-auto"
-							>
-								<Save className="mr-2 h-4 w-4" />
-								{isQuickSaving
-									? "Speichere..."
-									: hasChanges
-										? `${changedItems.size} speichern`
-										: "Keine Änderungen"}
-							</Button>
-							<Button
-								onClick={() => setShowInventoryDialog(true)}
-								disabled={isSaving}
-								variant="secondary"
-								size="lg"
-								className="w-full text-sm sm:w-auto"
-							>
-								<FileSpreadsheet className="mr-2 h-4 w-4" />
-								{isSaving ? "Erstelle..." : "Vollständige Inventur"}
-							</Button>
-						</div>
-					</div>
-
-					{/* Stats Grid for Mobile */}
-					<div className="grid grid-cols-2 gap-2 text-xs sm:flex sm:flex-wrap sm:gap-4 sm:text-sm">
-						<div className="rounded bg-red-50 p-2 dark:bg-red-950/20">
-							<span className="block text-muted-foreground">Verkauft</span>
-							<span className="font-medium text-red-600">
+			{/* Header */}
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+				<div>
+					<h2 className="font-semibold text-lg">Aktueller Bestand</h2>
+					<div className="mt-2 flex flex-wrap gap-2">
+						<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
+							<span className="text-muted-foreground">Verkauft</span>
+							<span className="font-semibold text-red-600">
 								{totalSoldUnits} Fl.
 							</span>
-						</div>
+						</span>
 						{totalPurchasedUnits > 0 && (
-							<div className="rounded bg-green-50 p-2 dark:bg-green-950/20">
-								<span className="block text-muted-foreground">Eingekauft</span>
-								<span className="font-medium text-green-600">
+							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
+								<span className="text-muted-foreground">Eingekauft</span>
+								<span className="font-semibold text-green-600">
 									{totalPurchasedUnits} Fl.
 								</span>
-							</div>
+							</span>
 						)}
-						<div className="rounded bg-blue-50 p-2 dark:bg-blue-950/20">
-							<span className="block text-muted-foreground">Bestandswert</span>
-							<span className="font-medium text-primary">
+						<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
+							<span className="text-muted-foreground">Bestandswert</span>
+							<span className="font-semibold text-primary">
 								€{totalInventoryValue.toFixed(2)}
 							</span>
-						</div>
+						</span>
 						{totalLostValue > 0 && (
-							<div className="rounded bg-red-50 p-2 dark:bg-red-950/20">
-								<span className="block text-muted-foreground">Verluste</span>
-								<span className="font-medium text-destructive">
+							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
+								<span className="text-muted-foreground">Verluste</span>
+								<span className="font-semibold text-destructive">
 									€{totalLostValue.toFixed(2)}
 								</span>
-							</div>
+							</span>
 						)}
 					</div>
-				</CardHeader>
+				</div>
+				<div className="flex shrink-0 gap-2">
+					<Button
+						onClick={handleQuickSave}
+						disabled={!hasChanges || isQuickSaving}
+						variant={hasChanges ? "default" : "outline"}
+						size="sm"
+					>
+						<Save className="mr-2 h-4 w-4" />
+						{isQuickSaving
+							? "Speichere..."
+							: hasChanges
+								? `${changedItems.size} speichern`
+								: "Keine Änderungen"}
+					</Button>
+					<Button
+						onClick={() => setShowInventoryDialog(true)}
+						disabled={isSaving}
+						variant="secondary"
+						size="sm"
+					>
+						<FileSpreadsheet className="mr-2 h-4 w-4" />
+						{isSaving ? "Erstelle..." : "Vollständige Inventur"}
+					</Button>
+				</div>
+			</div>
 
-				<CardContent className="p-0 sm:p-6">
-					{/* Desktop Table View */}
-					<div className="hidden overflow-x-auto lg:block">
-						<table className="w-full border-collapse">
-							<thead>
-								<tr className="border-border border-b">
-									<th className="p-3 text-left font-semibold text-primary">
-										Getränk
-									</th>
-									<th className="p-3 text-right font-semibold text-primary">
-										Letzte Inventur
-									</th>
-									<th className="p-3 text-center font-semibold text-green-600">
-										Eingekauft (+)
-									</th>
-									<th className="p-3 text-right font-semibold text-red-600">
-										Verkauft (−)
-									</th>
-									<th className="p-3 text-right font-semibold text-primary">
-										Soll-Bestand
-									</th>
-									<th className="p-3 text-center font-semibold text-primary">
-										Ist-Bestand
-									</th>
-									<th className="p-3 text-right font-semibold text-primary">
-										Differenz
-									</th>
-									<th className="p-3 text-right font-semibold text-primary">
-										Preis
-									</th>
-									<th className="p-3 text-center font-semibold text-primary">
-										Status
-									</th>
-									<th className="p-3 text-right font-semibold text-destructive">
-										Verlust (€)
-									</th>
-								</tr>
-							</thead>
-							<tbody>
-								{stockItems.map((item, index) => {
-									const purchaseValue = purchases[item.drinkId] || 0;
-									const calculatedWithPurchase =
-										item.lastInventoryStock + purchaseValue - item.soldSince;
-									const actualStock =
-										countedStock[item.drinkId] ?? calculatedWithPurchase;
-									const _lostStock = calculateLostStock(
-										{ calculatedStock: calculatedWithPurchase },
-										actualStock,
-									);
-									const difference = actualStock - calculatedWithPurchase;
-									const lostValue = calculateLostValue(
-										{ ...item, calculatedStock: calculatedWithPurchase },
-										actualStock,
-									);
-									const status = getStockStatus(
-										{
-											calculatedStock:
-												item.lastInventoryStock +
-												purchaseValue -
-												item.soldSince,
-										},
-										actualStock,
-									);
-									const isChanged = changedItems.has(item.drinkId);
-
-									return (
-										<tr
-											key={item.drinkId}
-											className={`border-border border-b ${
-												index % 2 === 0 ? "bg-muted/50" : "bg-background"
-											} ${isChanged ? "bg-blue-50 dark:bg-blue-950/20" : ""}`}
-										>
-											<td className="p-3 font-medium">
-												{item.drinkName}
-												{isChanged && (
-													<span className="ml-2 text-blue-600 text-xs">●</span>
-												)}
-											</td>
-											<td className="p-3 text-right">
-												{item.lastInventoryStock}
-											</td>
-											<td className="p-3">
-												<div className="flex items-center justify-center gap-2">
-													{purchaseValue > 0 && (
-														<span className="font-bold text-green-600 text-lg">
-															+
-														</span>
-													)}
-													<Input
-														type="number"
-														value={purchaseValue || ""}
-														onChange={(e) => {
-															const value =
-																e.target.value === ""
-																	? 0
-																	: Number(e.target.value);
-															handlePurchaseInput(item.drinkId, value);
-														}}
-														className={`h-8 w-20 ${
-															purchaseValue > 0
-																? "border-green-500 font-semibold text-green-600"
-																: ""
-														}`}
-														min="0"
-														placeholder="0"
-														disabled={isSaving || isQuickSaving}
-													/>
-												</div>
-											</td>
-											<td className="p-3 text-right">
-												<span className="font-semibold text-red-600">
-													−{item.soldSince}
-												</span>
-											</td>
-											<td className="p-3 text-right">
-												<span className="text-foreground">
-													{calculatedWithPurchase}
-												</span>
-											</td>
-											<td className="p-3 text-center">
-												<NumericInput
-													min={0}
-													value={actualStock}
-													onChange={(value) => {
-														handleCountedStockInput(item.drinkId, value);
-													}}
-													className="mx-auto h-8 w-20"
-													disabled={isSaving || isQuickSaving}
-												/>
-											</td>
-											<td className="p-3 text-right">
-												<span className={getDifferenceColorClass(difference)}>
-													{difference > 0 ? `+${difference}` : difference}
-												</span>
-											</td>
-											<td className="p-3 text-right">
-												€{item.currentPrice.toFixed(2)}
-											</td>
-											<td className="p-3 text-center">
-												<Badge className={`${status.color} text-white`}>
-													{status.label}
-												</Badge>
-											</td>
-											<td className="p-3 text-right font-semibold text-destructive">
-												{lostValue > 0 ? `€${lostValue.toFixed(2)}` : "-"}
-											</td>
-										</tr>
-									);
-								})}
-							</tbody>
-						</table>
-					</div>
-
-					{/* Mobile Card View */}
-					<div className="space-y-2 p-4 lg:hidden">
+			{/* Desktop Table */}
+			<div className="mt-4 hidden rounded-md border lg:block">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Getränk</TableHead>
+							<TableHead className="text-right">Letzte Inventur</TableHead>
+							<TableHead className="text-center text-green-600">
+								Eingekauft (+)
+							</TableHead>
+							<TableHead className="text-right text-red-600">
+								Verkauft (−)
+							</TableHead>
+							<TableHead className="text-right">Soll</TableHead>
+							<TableHead className="text-center">Ist</TableHead>
+							<TableHead className="text-right">Differenz</TableHead>
+							<TableHead className="text-right">Preis</TableHead>
+							<TableHead className="text-center">Status</TableHead>
+							<TableHead className="text-right text-destructive">
+								Verlust (€)
+							</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
 						{stockItems.map((item) => {
-							const purchaseValue = purchases[item.drinkId] || 0;
-							const calculatedWithPurchase =
-								item.lastInventoryStock + purchaseValue - item.soldSince;
-							const actualStock =
-								countedStock[item.drinkId] ?? calculatedWithPurchase;
-							const _lostStock = calculateLostStock(
-								{ calculatedStock: calculatedWithPurchase },
-								actualStock,
-							);
-							const difference = actualStock - calculatedWithPurchase;
+							const p = purchases[item.drinkId] || 0;
+							const calc = item.lastInventoryStock + p - item.soldSince;
+							const actual = countedStock[item.drinkId] ?? calc;
+							const diff = actual - calc;
 							const lostValue = calculateLostValue(
-								{ ...item, calculatedStock: calculatedWithPurchase },
-								actualStock,
+								{ ...item, calculatedStock: calc },
+								actual,
 							);
-							const status = getStockStatus(
-								{ calculatedStock: calculatedWithPurchase },
-								actualStock,
-							);
+							const status = getStockStatus({ calculatedStock: calc }, actual);
 							const isChanged = changedItems.has(item.drinkId);
-							const isExpanded = expandedItems.has(item.drinkId);
 
 							return (
-								<div
+								<TableRow
 									key={item.drinkId}
-									className={`rounded-lg border p-3 ${
-										isChanged
-											? "border-blue-300 bg-blue-50 dark:bg-blue-950/20"
-											: "bg-card"
-									}`}
+									className={
+										isChanged ? "bg-blue-50 dark:bg-blue-950/20" : undefined
+									}
 								>
-									{/* Header Row */}
-									<div
-										className="flex cursor-pointer items-center justify-between"
-										onClick={() => toggleItemExpansion(item.drinkId)}
-										role="button"
-										tabIndex={0}
-										onKeyDown={(e) => {
-											if (e.key === "Enter" || e.key === " ")
-												toggleItemExpansion(item.drinkId);
-										}}
-									>
-										<div className="flex flex-1 items-center gap-2">
-											<h3 className="font-medium text-sm">
-												{item.drinkName}
-												{isChanged && (
-													<span className="ml-2 text-blue-600 text-xs">●</span>
-												)}
-											</h3>
-										</div>
-										<div className="flex items-center gap-2">
-											<Badge className={`${status.color} text-white text-xs`}>
-												{status.label}
-											</Badge>
-											{isExpanded ? (
-												<ChevronUp className="h-4 w-4 text-muted-foreground" />
-											) : (
-												<ChevronDown className="h-4 w-4 text-muted-foreground" />
+									<TableCell className="font-medium">
+										{item.drinkName}
+										{isChanged && (
+											<span className="ml-2 text-blue-600 text-xs">●</span>
+										)}
+									</TableCell>
+									<TableCell className="text-right">
+										{item.lastInventoryStock}
+									</TableCell>
+									<TableCell className="text-center">
+										<div className="flex items-center justify-center gap-1">
+											{p > 0 && (
+												<span className="font-bold text-green-600">+</span>
 											)}
+											<Input
+												type="number"
+												value={p || ""}
+												onChange={(e) =>
+													handlePurchaseInput(
+														item.drinkId,
+														e.target.value === "" ? 0 : Number(e.target.value),
+													)
+												}
+												className={`h-8 w-20 ${p > 0 ? "border-green-500 font-semibold text-green-600" : ""}`}
+												min="0"
+												placeholder="0"
+												disabled={isSaving || isQuickSaving}
+											/>
 										</div>
-									</div>
-
-									{/* Quick Info Row */}
-									<div className="mt-2 flex justify-between text-muted-foreground text-xs">
-										<span>Soll: {calculatedWithPurchase}</span>
-										<span>Ist: {actualStock}</span>
-										{difference !== 0 && (
-											<span className={getDifferenceColorClass(difference)}>
-												Diff: {difference > 0 ? `+${difference}` : difference}
-											</span>
-										)}
-										{lostValue > 0 && (
-											<span className="text-destructive">
-												-€{lostValue.toFixed(2)}
-											</span>
-										)}
-									</div>
-
-									{/* Expanded Details */}
-									{isExpanded && (
-										<div className="mt-3 space-y-3 border-t pt-3">
-											{/* Stock Flow */}
-											<div className="grid grid-cols-3 gap-2 text-xs">
-												<div>
-													<span className="block text-muted-foreground">
-														Letzte Inv.
-													</span>
-													<span className="font-medium">
-														{item.lastInventoryStock}
-													</span>
-												</div>
-												<div>
-													<span className="block text-muted-foreground">
-														Verkauft
-													</span>
-													<span className="font-medium text-red-600">
-														−{item.soldSince}
-													</span>
-												</div>
-												<div>
-													<span className="block text-muted-foreground">
-														Preis
-													</span>
-													<span className="font-medium">
-														€{item.currentPrice.toFixed(2)}
-													</span>
-												</div>
-											</div>
-
-											{/* Input Fields */}
-											<div className="space-y-2">
-												<div>
-													<span className="mb-1 block text-muted-foreground text-xs">
-														Eingekauft
-													</span>
-													<div className="flex items-center gap-2">
-														{purchaseValue > 0 && (
-															<span className="font-bold text-green-600 text-lg">
-																+
-															</span>
-														)}
-														<Input
-															type="number"
-															value={purchaseValue || ""}
-															onChange={(e) => {
-																const value =
-																	e.target.value === ""
-																		? 0
-																		: Number(e.target.value);
-																handlePurchaseInput(item.drinkId, value);
-															}}
-															className={`h-8 ${
-																purchaseValue > 0
-																	? "border-green-500 font-semibold text-green-600"
-																	: ""
-															}`}
-															min="0"
-															placeholder="0"
-															disabled={isSaving || isQuickSaving}
-														/>
-													</div>
-												</div>
-
-												<div>
-													<span className="mb-1 block text-muted-foreground text-xs">
-														Ist-Bestand
-													</span>
-													<NumericInput
-														min={0}
-														value={actualStock}
-														onChange={(value) => {
-															handleCountedStockInput(item.drinkId, value);
-														}}
-														className="mx-auto h-8 w-20"
-														disabled={isSaving || isQuickSaving}
-													/>
-												</div>
-											</div>
-										</div>
-									)}
-								</div>
+									</TableCell>
+									<TableCell className="text-right">
+										<span className="font-semibold text-red-600">
+											−{item.soldSince}
+										</span>
+									</TableCell>
+									<TableCell className="text-right">{calc}</TableCell>
+									<TableCell className="text-center">
+										<NumericInput
+											min={0}
+											value={actual}
+											onChange={(value) =>
+												handleCountedStockInput(item.drinkId, value)
+											}
+											className="mx-auto h-8 w-20"
+											disabled={isSaving || isQuickSaving}
+										/>
+									</TableCell>
+									<TableCell className="text-right">
+										<span className={diffClass(diff)}>
+											{diff > 0 ? `+${diff}` : diff}
+										</span>
+									</TableCell>
+									<TableCell className="text-right">
+										€{item.currentPrice.toFixed(2)}
+									</TableCell>
+									<TableCell className="text-center">
+										<Badge className={`${status.color} text-white`}>
+											{status.label}
+										</Badge>
+									</TableCell>
+									<TableCell className="text-right font-semibold text-destructive">
+										{lostValue > 0 ? `€${lostValue.toFixed(2)}` : "-"}
+									</TableCell>
+								</TableRow>
 							);
 						})}
-					</div>
-				</CardContent>
-			</Card>
+					</TableBody>
+				</Table>
+			</div>
+
+			{/* Mobile Card View */}
+			<div className="mt-4 space-y-2 lg:hidden">
+				{stockItems.map((item) => {
+					const p = purchases[item.drinkId] || 0;
+					const calc = item.lastInventoryStock + p - item.soldSince;
+					const actual = countedStock[item.drinkId] ?? calc;
+					const diff = actual - calc;
+					const lostValue = calculateLostValue(
+						{ ...item, calculatedStock: calc },
+						actual,
+					);
+					const status = getStockStatus({ calculatedStock: calc }, actual);
+					const isChanged = changedItems.has(item.drinkId);
+					const isExpanded = expandedItems.has(item.drinkId);
+
+					return (
+						<div
+							key={item.drinkId}
+							className={`rounded-lg border p-3 ${
+								isChanged
+									? "border-blue-300 bg-blue-50 dark:bg-blue-950/20"
+									: "bg-card"
+							}`}
+						>
+							<button
+								type="button"
+								className="flex w-full items-center justify-between"
+								onClick={() => toggleItemExpansion(item.drinkId)}
+							>
+								<span className="font-medium text-sm">
+									{item.drinkName}
+									{isChanged && (
+										<span className="ml-2 text-blue-600 text-xs">●</span>
+									)}
+								</span>
+								<div className="flex items-center gap-2">
+									<Badge className={`${status.color} text-white text-xs`}>
+										{status.label}
+									</Badge>
+									{isExpanded ? (
+										<ChevronUp className="h-4 w-4 text-muted-foreground" />
+									) : (
+										<ChevronDown className="h-4 w-4 text-muted-foreground" />
+									)}
+								</div>
+							</button>
+
+							<div className="mt-2 flex justify-between text-muted-foreground text-xs">
+								<span>Soll: {calc}</span>
+								<span>Ist: {actual}</span>
+								{diff !== 0 && (
+									<span className={diffClass(diff)}>
+										Diff: {diff > 0 ? `+${diff}` : diff}
+									</span>
+								)}
+								{lostValue > 0 && (
+									<span className="text-destructive">
+										-€{lostValue.toFixed(2)}
+									</span>
+								)}
+							</div>
+
+							{isExpanded && (
+								<div className="mt-3 space-y-3 border-t pt-3">
+									<div className="grid grid-cols-3 gap-2 text-xs">
+										<div>
+											<span className="block text-muted-foreground">
+												Letzte Inv.
+											</span>
+											<span className="font-medium">
+												{item.lastInventoryStock}
+											</span>
+										</div>
+										<div>
+											<span className="block text-muted-foreground">
+												Verkauft
+											</span>
+											<span className="font-medium text-red-600">
+												−{item.soldSince}
+											</span>
+										</div>
+										<div>
+											<span className="block text-muted-foreground">Preis</span>
+											<span className="font-medium">
+												€{item.currentPrice.toFixed(2)}
+											</span>
+										</div>
+									</div>
+									<div className="space-y-2">
+										<div>
+											<span className="mb-1 block text-muted-foreground text-xs">
+												Eingekauft
+											</span>
+											<div className="flex items-center gap-2">
+												{p > 0 && (
+													<span className="font-bold text-green-600 text-lg">
+														+
+													</span>
+												)}
+												<Input
+													type="number"
+													value={p || ""}
+													onChange={(e) =>
+														handlePurchaseInput(
+															item.drinkId,
+															e.target.value === ""
+																? 0
+																: Number(e.target.value),
+														)
+													}
+													className={`h-8 ${p > 0 ? "border-green-500 font-semibold text-green-600" : ""}`}
+													min="0"
+													placeholder="0"
+													disabled={isSaving || isQuickSaving}
+												/>
+											</div>
+										</div>
+										<div>
+											<span className="mb-1 block text-muted-foreground text-xs">
+												Ist-Bestand
+											</span>
+											<NumericInput
+												min={0}
+												value={actual}
+												onChange={(value) =>
+													handleCountedStockInput(item.drinkId, value)
+												}
+												className="h-8 w-20"
+												disabled={isSaving || isQuickSaving}
+											/>
+										</div>
+									</div>
+								</div>
+							)}
+						</div>
+					);
+				})}
+			</div>
 
 			{/* Inventory Confirmation Dialog */}
 			<Dialog open={showInventoryDialog} onOpenChange={setShowInventoryDialog}>
@@ -671,7 +551,6 @@ export default function DashboardTab({
 							)}
 						</DialogDescription>
 					</DialogHeader>
-
 					<div className="flex items-center space-x-2 py-4">
 						<Checkbox
 							id="create-invoice"
@@ -687,7 +566,6 @@ export default function DashboardTab({
 							Auch Rechnung erstellen
 						</Label>
 					</div>
-
 					<DialogFooter className="flex gap-2">
 						<Button
 							variant="outline"

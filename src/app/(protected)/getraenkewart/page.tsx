@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import GetraenkewartPage from "~/components/getraenkewart/GetraenkewartPage";
 import KasseTab from "~/components/getraenkewart/KasseTab";
-import StockPage from "~/components/inventur/StockPage";
+import DashboardTab from "~/components/inventur/DashboardTab";
+import HistoryTab from "~/components/inventur/HistoryTab";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import VersorgerPage from "~/components/trinken/versorger/VersorgerPage";
 import {
@@ -12,6 +13,10 @@ import {
 	getOpenMemberBills,
 	getPfandWert,
 } from "~/server/actions/getraenkewart/kasse";
+import {
+	getInventoryHistory,
+	getStockData,
+} from "~/server/actions/inventur/inventur";
 
 async function GetraenkewartData() {
 	const [
@@ -21,6 +26,8 @@ async function GetraenkewartData() {
 		entityBills,
 		memberBills,
 		pfandWert,
+		stockData,
+		inventoryHistory,
 	] = await Promise.all([
 		getKasseSummary(),
 		getBankEntries(),
@@ -28,12 +35,15 @@ async function GetraenkewartData() {
 		getOpenEntityBills(),
 		getOpenMemberBills(),
 		getPfandWert(),
+		getStockData(),
+		getInventoryHistory(),
 	]);
 
 	return (
 		<GetraenkewartPage
 			getraenkeTab={<VersorgerPage />}
-			inventurTab={<StockPage />}
+			inventurTab={<DashboardTab stockItems={stockData} />}
+			verlaufTab={<HistoryTab history={inventoryHistory} />}
 			kasseTab={
 				<KasseTab
 					summary={kasseSummary}
