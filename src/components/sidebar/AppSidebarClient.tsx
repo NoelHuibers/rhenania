@@ -13,7 +13,6 @@ import {
 	Trophy,
 	Truck,
 	User as UserIcon,
-	Warehouse,
 } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "~/server/auth/client";
@@ -73,8 +72,7 @@ const navGroups: NavGroup[] = [
 	{
 		label: "Verwaltung",
 		items: [
-			{ title: "Versorger", href: "/versorger", icon: Truck, roles: ["Versorger", "Admin"] },
-			{ title: "Inventur", href: "/inventur", icon: Warehouse, roles: ["Admin", "Versorger"] },
+			{ title: "Getränkewart", href: "/getraenkewart", icon: Truck, roles: ["Versorger", "Admin"] },
 			{ title: "Bilder", href: "/bilder", icon: Camera, roles: ["Admin", "Fotowart"] },
 			{ title: "Veranstaltungen", href: "/admin/termine", icon: CalendarDays, roles: ["Admin"] },
 			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },

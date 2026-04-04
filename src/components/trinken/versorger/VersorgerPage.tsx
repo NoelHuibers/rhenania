@@ -24,7 +24,6 @@ import {
 	toggleDrinkAvailability,
 	updateDrink,
 } from "~/server/actions/drinks";
-import { SiteHeader } from "../SiteHeader";
 
 export default function VersorgerPage() {
 	const [drinks, setDrinks] = useState<Drink[]>([]);
@@ -261,12 +260,10 @@ export default function VersorgerPage() {
 	}
 
 	return (
-		<>
-			<SiteHeader title="Getränkeverwaltung" />
-			<main
-				className="container mx-auto space-y-4 p-4 sm:space-y-6 sm:p-6"
-				aria-busy={isPending}
-			>
+		<main
+			className="container mx-auto space-y-4 p-4 sm:space-y-6 sm:p-6"
+			aria-busy={isPending}
+		>
 				<Header
 					count={drinks.length}
 					onAdd={() => setIsAddDialogOpen(true)}
@@ -349,7 +346,6 @@ export default function VersorgerPage() {
 						<Plus className="h-6 w-6" />
 					</Button>
 				</div>
-			</main>
-		</>
+		</main>
 	);
 }

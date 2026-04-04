@@ -927,3 +927,65 @@ export const eventsRelations = relations(events, ({ one }) => ({
 		references: [recurringEvents.id],
 	}),
 }));
+
+// ─── Getränkewart / Kasse ─────────────────────────────────────────────────────
+
+export const bankEntries = createTable(
+	"bank_entry",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		amount: d.real().notNull(), // positive = Einzahlung, negative = Ausgabe
+		description: d.text({ length: 500 }).notNull(),
+		date: d.integer({ mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+		createdBy: d.text({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+	}),
+	(t) => [
+		index("bank_entry_date_idx").on(t.date),
+		index("bank_entry_created_idx").on(t.createdAt),
+	],
+);
+
+export const externalBills = createTable(
+	"external_bill",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		creditor: d.text({ length: 255 }).notNull(),
+		description: d.text({ length: 500 }).notNull(),
+		amount: d.real().notNull(),
+		status: d
+			.text({ enum: ["Offen", "Bezahlt"] })
+			.notNull()
+			.default("Offen"),
+		paidAt: d.integer({ mode: "timestamp" }),
+		createdBy: d.text({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("external_bill_status_idx").on(t.status),
+		index("external_bill_created_idx").on(t.createdAt),
+	],
+);
+
+// Singleton config row for Kasse (pfand value etc.)
+export const kasseConfig = createTable("kasse_config", (d) => ({
+	id: d.text({ length: 50 }).notNull().primaryKey().default("singleton"),
+	pfandWert: d.real().notNull().default(0),
+	updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	updatedBy: d.text({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+}));

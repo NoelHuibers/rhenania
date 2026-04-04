@@ -1,10 +1,5 @@
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
-import VersorgerPage from "~/components/trinken/versorger/VersorgerPage";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-	return (
-		<SidebarLayout>
-			<VersorgerPage />
-		</SidebarLayout>
-	);
+	redirect("/getraenkewart?tab=getraenke");
 }

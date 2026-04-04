@@ -7,7 +7,6 @@ import {
 	getInventoryHistory,
 	getStockData,
 } from "~/server/actions/inventur/inventur";
-import { SiteHeader } from "../trinken/SiteHeader";
 import DashboardTab from "./DashboardTab";
 import HistoryTab from "./HistoryTab";
 import type { InventoryWithItems, StockStatusWithDetails } from "./utils";
@@ -35,9 +34,7 @@ export default function StockTracker({
 	};
 
 	return (
-		<>
-			<SiteHeader title="Inventur" />
-			<div className="p-6">
+		<div className="p-6">
 				<div className="mx-auto max-w-7xl space-y-6">
 					<Tabs defaultValue="dashboard" className="space-y-6">
 						<TabsList className="grid w-full grid-cols-2">
@@ -56,6 +53,5 @@ export default function StockTracker({
 					</Tabs>
 				</div>
 			</div>
-		</>
 	);
 }

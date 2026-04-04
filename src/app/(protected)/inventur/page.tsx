@@ -1,10 +1,5 @@
-import StockPage from "~/components/inventur/StockPage";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-	return (
-		<SidebarLayout>
-			<StockPage />
-		</SidebarLayout>
-	);
+	redirect("/getraenkewart?tab=inventur");
 }

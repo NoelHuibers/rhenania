@@ -7,7 +7,8 @@
       "Bash(pnpm remove:*)",
       "Bash(pnpm tsx:*)",
       "Bash(pnpm db:push)",
-      "Bash(pnpm drizzle-kit:*)"
+      "Bash(pnpm drizzle-kit:*)",
+      "Bash(pnpm check:*)"
     ]
   }
 }
