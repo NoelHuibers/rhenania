@@ -84,7 +84,12 @@ type EntityBill = {
 	total: number;
 	status: string;
 	createdAt: Date;
-	items: { drinkName: string; amount: number; pricePerDrink: number; totalPricePerDrink: number }[];
+	items: {
+		drinkName: string;
+		amount: number;
+		pricePerDrink: number;
+		totalPricePerDrink: number;
+	}[];
 };
 
 type MemberBill = {
@@ -129,7 +134,9 @@ function SummaryCards({ summary }: { summary: Summary }) {
 			label: "Lagerwert",
 			value: fmt(summary.lagerwert),
 			icon: Warehouse,
-			sub: summary.lagerwertDate ? `Letzte Inventur: ${fmtDate(summary.lagerwertDate)}` : "Keine Inventur",
+			sub: summary.lagerwertDate
+				? `Letzte Inventur: ${fmtDate(summary.lagerwertDate)}`
+				: "Keine Inventur",
 			color: "text-orange-500",
 		},
 		{
@@ -170,13 +177,20 @@ function SummaryCards({ summary }: { summary: Summary }) {
 			{cards.map((c) => {
 				const Icon = c.icon;
 				return (
-					<Card key={c.label} className={c.highlight ? "border-primary col-span-full lg:col-span-4" : ""}>
+					<Card
+						key={c.label}
+						className={
+							c.highlight ? "col-span-full border-primary lg:col-span-4" : ""
+						}
+					>
 						<CardContent className="flex items-center gap-4 p-4">
 							<Icon className={`size-8 shrink-0 ${c.color}`} />
 							<div className="min-w-0">
 								<p className="text-muted-foreground text-xs">{c.label}</p>
-								<p className={`text-xl font-bold ${c.color}`}>{c.value}</p>
-								{c.sub && <p className="text-muted-foreground text-xs">{c.sub}</p>}
+								<p className={`font-bold text-xl ${c.color}`}>{c.value}</p>
+								{c.sub && (
+									<p className="text-muted-foreground text-xs">{c.sub}</p>
+								)}
 							</div>
 						</CardContent>
 					</Card>
@@ -201,7 +215,11 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 		if (Number.isNaN(parsed) || !description.trim()) return;
 
 		startTransition(async () => {
-			const res = await addBankEntry({ amount: parsed, description: description.trim(), date: new Date(date) });
+			const res = await addBankEntry({
+				amount: parsed,
+				description: description.trim(),
+				date: new Date(date),
+			});
 			if (res.success) {
 				toast.success("Eintrag hinzugefügt");
 				setOpen(false);
@@ -260,7 +278,11 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 							</div>
 							<div className="grid gap-1.5">
 								<Label>Datum</Label>
-								<Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+								<Input
+									type="date"
+									value={date}
+									onChange={(e) => setDate(e.target.value)}
+								/>
 							</div>
 						</div>
 						<DialogFooter>
@@ -273,7 +295,9 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 			</CardHeader>
 			<CardContent className="p-0">
 				{entries.length === 0 ? (
-					<p className="text-muted-foreground p-4 text-sm">Noch keine Einträge.</p>
+					<p className="p-4 text-muted-foreground text-sm">
+						Noch keine Einträge.
+					</p>
 				) : (
 					<Table>
 						<TableHeader>
@@ -289,8 +313,12 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 								<TableRow key={e.id}>
 									<TableCell className="text-sm">{fmtDate(e.date)}</TableCell>
 									<TableCell className="text-sm">{e.description}</TableCell>
-									<TableCell className="text-right text-sm font-medium">
-										<span className={e.amount >= 0 ? "text-green-600" : "text-red-600"}>
+									<TableCell className="text-right font-medium text-sm">
+										<span
+											className={
+												e.amount >= 0 ? "text-green-600" : "text-red-600"
+											}
+										>
 											{e.amount >= 0 ? (
 												<ArrowUpCircle className="mr-1 inline size-3.5" />
 											) : (
@@ -375,7 +403,9 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 			</CardHeader>
 			<CardContent className="p-0">
 				{bills.length === 0 ? (
-					<p className="text-muted-foreground p-4 text-sm">Keine offenen Rechnungen.</p>
+					<p className="p-4 text-muted-foreground text-sm">
+						Keine offenen Rechnungen.
+					</p>
 				) : (
 					<Table>
 						<TableHeader>
@@ -388,13 +418,21 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 						<TableBody>
 							{bills.map((b) => (
 								<TableRow key={b.id}>
-									<TableCell className="text-sm font-medium">{b.userName}</TableCell>
+									<TableCell className="font-medium text-sm">
+										{b.userName}
+									</TableCell>
 									<TableCell>
-										<Badge variant={b.status === "Gestundet" ? "secondary" : "destructive"}>
+										<Badge
+											variant={
+												b.status === "Gestundet" ? "secondary" : "destructive"
+											}
+										>
 											{b.status}
 										</Badge>
 									</TableCell>
-									<TableCell className="text-right text-sm font-semibold">{fmt(b.total)}</TableCell>
+									<TableCell className="text-right font-semibold text-sm">
+										{fmt(b.total)}
+									</TableCell>
 								</TableRow>
 							))}
 							<TableRow className="bg-muted/50 font-bold">
@@ -445,7 +483,9 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 			</CardHeader>
 			<CardContent className="p-0">
 				{bills.length === 0 ? (
-					<p className="text-muted-foreground p-4 text-sm">Keine Gruppenrechnungen vorhanden.</p>
+					<p className="p-4 text-muted-foreground text-sm">
+						Keine Gruppenrechnungen vorhanden.
+					</p>
 				) : (
 					<Table>
 						<TableHeader>
@@ -459,15 +499,28 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 						</TableHeader>
 						<TableBody>
 							{[...open, ...paid].map((b) => (
-								<TableRow key={b.id} className={b.status !== "Unbezahlt" ? "opacity-50" : ""}>
-									<TableCell className="text-sm font-medium">{b.userName}</TableCell>
-									<TableCell className="text-sm">{fmtDate(b.createdAt)}</TableCell>
+								<TableRow
+									key={b.id}
+									className={b.status !== "Unbezahlt" ? "opacity-50" : ""}
+								>
+									<TableCell className="font-medium text-sm">
+										{b.userName}
+									</TableCell>
+									<TableCell className="text-sm">
+										{fmtDate(b.createdAt)}
+									</TableCell>
 									<TableCell>
-										<Badge variant={b.status === "Bezahlt" ? "secondary" : "destructive"}>
+										<Badge
+											variant={
+												b.status === "Bezahlt" ? "secondary" : "destructive"
+											}
+										>
 											{b.status}
 										</Badge>
 									</TableCell>
-									<TableCell className="text-right text-sm font-semibold">{fmt(b.total)}</TableCell>
+									<TableCell className="text-right font-semibold text-sm">
+										{fmt(b.total)}
+									</TableCell>
 									<TableCell>
 										<Button
 											size="sm"
@@ -503,7 +556,11 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 		if (Number.isNaN(parsed) || !creditor.trim() || !description.trim()) return;
 
 		startTransition(async () => {
-			const res = await addExternalBill({ creditor: creditor.trim(), description: description.trim(), amount: parsed });
+			const res = await addExternalBill({
+				creditor: creditor.trim(),
+				description: description.trim(),
+				amount: parsed,
+			});
 			if (res.success) {
 				toast.success("Verbindlichkeit hinzugefügt");
 				setOpen(false);
@@ -591,7 +648,9 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			</CardHeader>
 			<CardContent className="p-0">
 				{bills.length === 0 ? (
-					<p className="text-muted-foreground p-4 text-sm">Keine Verbindlichkeiten.</p>
+					<p className="p-4 text-muted-foreground text-sm">
+						Keine Verbindlichkeiten.
+					</p>
 				) : (
 					<Table>
 						<TableHeader>
@@ -605,12 +664,23 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 						</TableHeader>
 						<TableBody>
 							{[...openBills, ...paidBills].map((b) => (
-								<TableRow key={b.id} className={b.status === "Bezahlt" ? "opacity-50" : ""}>
-									<TableCell className="text-sm font-medium">{b.creditor}</TableCell>
+								<TableRow
+									key={b.id}
+									className={b.status === "Bezahlt" ? "opacity-50" : ""}
+								>
+									<TableCell className="font-medium text-sm">
+										{b.creditor}
+									</TableCell>
 									<TableCell className="text-sm">{b.description}</TableCell>
-									<TableCell className="text-right text-sm font-semibold">{fmt(b.amount)}</TableCell>
+									<TableCell className="text-right font-semibold text-sm">
+										{fmt(b.amount)}
+									</TableCell>
 									<TableCell>
-										<Badge variant={b.status === "Bezahlt" ? "secondary" : "destructive"}>
+										<Badge
+											variant={
+												b.status === "Bezahlt" ? "secondary" : "destructive"
+											}
+										>
 											{b.status}
 										</Badge>
 									</TableCell>
@@ -650,7 +720,14 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 
 // ─── KasseTab ─────────────────────────────────────────────────────────────────
 
-export default function KasseTab({ summary, bankEntries, externalBills, entityBills, memberBills, pfandWert }: Props) {
+export default function KasseTab({
+	summary,
+	bankEntries,
+	externalBills,
+	entityBills,
+	memberBills,
+	pfandWert,
+}: Props) {
 	return (
 		<div className="flex flex-col gap-6">
 			<SummaryCards summary={summary} />

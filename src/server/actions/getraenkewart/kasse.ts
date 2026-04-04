@@ -19,66 +19,72 @@ import { generateUserBillPDF } from "../billings/createUserPDF";
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 export async function getKasseSummary() {
-	const [kassenstand, lagerwert, offeneMitglieder, offeneGruppen, externOffen, pfand] =
-		await Promise.all([
-			// Sum of all bank entries
-			db
-				.select({ total: sql<number>`COALESCE(SUM(${bankEntries.amount}), 0)` })
-				.from(bankEntries)
-				.then((r) => Number(r[0]?.total ?? 0)),
+	const [
+		kassenstand,
+		lagerwert,
+		offeneMitglieder,
+		offeneGruppen,
+		externOffen,
+		pfand,
+	] = await Promise.all([
+		// Sum of all bank entries
+		db
+			.select({ total: sql<number>`COALESCE(SUM(${bankEntries.amount}), 0)` })
+			.from(bankEntries)
+			.then((r) => Number(r[0]?.total ?? 0)),
 
-			// Value of last closed inventory: SUM(countedStock * priceAtCount)
-			(async () => {
-				const [lastClosed] = await db
-					.select({ id: inventories.id, closedAt: inventories.closedAt })
-					.from(inventories)
-					.where(eq(inventories.status, "closed"))
-					.orderBy(desc(inventories.closedAt))
-					.limit(1);
-				if (!lastClosed) return { value: 0, date: null as Date | null };
-				const items = await db
-					.select({
-						counted: inventoryItems.countedStock,
-						price: inventoryItems.priceAtCount,
-					})
-					.from(inventoryItems)
-					.where(eq(inventoryItems.inventoryId, lastClosed.id));
-				const value = items.reduce((sum, i) => sum + i.counted * i.price, 0);
-				return { value, date: lastClosed.closedAt };
-			})(),
+		// Value of last closed inventory: SUM(countedStock * priceAtCount)
+		(async () => {
+			const [lastClosed] = await db
+				.select({ id: inventories.id, closedAt: inventories.closedAt })
+				.from(inventories)
+				.where(eq(inventories.status, "closed"))
+				.orderBy(desc(inventories.closedAt))
+				.limit(1);
+			if (!lastClosed) return { value: 0, date: null as Date | null };
+			const items = await db
+				.select({
+					counted: inventoryItems.countedStock,
+					price: inventoryItems.priceAtCount,
+				})
+				.from(inventoryItems)
+				.where(eq(inventoryItems.inventoryId, lastClosed.id));
+			const value = items.reduce((sum, i) => sum + i.counted * i.price, 0);
+			return { value, date: lastClosed.closedAt };
+		})(),
 
-			// Open personal member bills
-			db
-				.select({ total: sql<number>`COALESCE(SUM(${bills.total}), 0)` })
-				.from(bills)
-				.where(
-					sql`${bills.status} = 'Unbezahlt' AND ${bills.userId} NOT LIKE 'event-%'`,
-				)
-				.then((r) => Number(r[0]?.total ?? 0)),
+		// Open personal member bills
+		db
+			.select({ total: sql<number>`COALESCE(SUM(${bills.total}), 0)` })
+			.from(bills)
+			.where(
+				sql`${bills.status} = 'Unbezahlt' AND ${bills.userId} NOT LIKE 'event-%'`,
+			)
+			.then((r) => Number(r[0]?.total ?? 0)),
 
-			// Open entity/group bills
-			db
-				.select({ total: sql<number>`COALESCE(SUM(${bills.total}), 0)` })
-				.from(bills)
-				.where(
-					sql`${bills.status} = 'Unbezahlt' AND ${bills.userId} LIKE 'event-%'`,
-				)
-				.then((r) => Number(r[0]?.total ?? 0)),
+		// Open entity/group bills
+		db
+			.select({ total: sql<number>`COALESCE(SUM(${bills.total}), 0)` })
+			.from(bills)
+			.where(
+				sql`${bills.status} = 'Unbezahlt' AND ${bills.userId} LIKE 'event-%'`,
+			)
+			.then((r) => Number(r[0]?.total ?? 0)),
 
-			// Open external bills
-			db
-				.select({ total: sql<number>`COALESCE(SUM(${externalBills.amount}), 0)` })
-				.from(externalBills)
-				.where(eq(externalBills.status, "Offen"))
-				.then((r) => Number(r[0]?.total ?? 0)),
+		// Open external bills
+		db
+			.select({ total: sql<number>`COALESCE(SUM(${externalBills.amount}), 0)` })
+			.from(externalBills)
+			.where(eq(externalBills.status, "Offen"))
+			.then((r) => Number(r[0]?.total ?? 0)),
 
-			// Pfand from config
-			db
-				.select({ pfandWert: kasseConfig.pfandWert })
-				.from(kasseConfig)
-				.where(eq(kasseConfig.id, "singleton"))
-				.then((r) => Number(r[0]?.pfandWert ?? 0)),
-		]);
+		// Pfand from config
+		db
+			.select({ pfandWert: kasseConfig.pfandWert })
+			.from(kasseConfig)
+			.where(eq(kasseConfig.id, "singleton"))
+			.then((r) => Number(r[0]?.pfandWert ?? 0)),
+	]);
 
 	const gesamt =
 		kassenstand +
@@ -103,10 +109,7 @@ export async function getKasseSummary() {
 // ─── Bank Entries ─────────────────────────────────────────────────────────────
 
 export async function getBankEntries() {
-	return db
-		.select()
-		.from(bankEntries)
-		.orderBy(desc(bankEntries.date));
+	return db.select().from(bankEntries).orderBy(desc(bankEntries.date));
 }
 
 export async function addBankEntry(data: {
@@ -137,10 +140,7 @@ export async function deleteBankEntry(id: string) {
 // ─── External Bills ───────────────────────────────────────────────────────────
 
 export async function getExternalBills() {
-	return db
-		.select()
-		.from(externalBills)
-		.orderBy(desc(externalBills.createdAt));
+	return db.select().from(externalBills).orderBy(desc(externalBills.createdAt));
 }
 
 export async function addExternalBill(data: {
@@ -256,7 +256,9 @@ async function hasVersorgerRole(userId: string): Promise<boolean> {
 		.select({ roleId: userRoles.roleId })
 		.from(userRoles)
 		.innerJoin(roles, eq(userRoles.roleId, roles.id))
-		.where(sql`${userRoles.userId} = ${userId} AND (${roles.name} = 'Versorger' OR ${roles.name} = 'Admin')`)
+		.where(
+			sql`${userRoles.userId} = ${userId} AND (${roles.name} = 'Versorger' OR ${roles.name} = 'Admin')`,
+		)
 		.limit(1);
 	return !!row;
 }
@@ -275,7 +277,10 @@ export async function downloadEntityBillPDF(billId: string): Promise<{
 
 	const result = await generateUserBillPDF(billId);
 	if (!result.success || !result.pdfContent) {
-		return { success: false, error: result.error ?? "PDF-Generierung fehlgeschlagen" };
+		return {
+			success: false,
+			error: result.error ?? "PDF-Generierung fehlgeschlagen",
+		};
 	}
 
 	return {

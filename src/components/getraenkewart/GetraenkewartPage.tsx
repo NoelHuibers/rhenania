@@ -10,7 +10,11 @@ type Props = {
 	kasseTab: React.ReactNode;
 };
 
-export default function GetraenkewartPage({ getraenkeTab, inventurTab, kasseTab }: Props) {
+export default function GetraenkewartPage({
+	getraenkeTab,
+	inventurTab,
+	kasseTab,
+}: Props) {
 	const searchParams = useSearchParams();
 	const router = useRouter();
 	const activeTab = searchParams.get("tab") ?? "getraenke";

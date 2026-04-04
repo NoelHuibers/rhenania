@@ -1,7 +1,6 @@
 "use client";
 
 import { Link, Shield, Unlink } from "lucide-react";
-import { signIn, useSession } from "~/server/auth/client";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
@@ -15,6 +14,7 @@ import {
 	disconnectProviderAction,
 	getConnectedAccountsAction,
 } from "~/server/actions/profile/auth";
+import { signIn, useSession } from "~/server/auth/client";
 
 interface ConnectedAccount {
 	provider: string;

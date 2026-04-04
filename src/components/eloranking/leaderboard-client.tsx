@@ -4,8 +4,8 @@ import { Target, TrendingUp, Trophy } from "lucide-react";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
-import { getLeaderboard } from "~/server/actions/game/game";
 import type { UserGameStats } from "~/server/actions/game/game";
+import { getLeaderboard } from "~/server/actions/game/game";
 
 const PAGE_SIZE = 10;
 

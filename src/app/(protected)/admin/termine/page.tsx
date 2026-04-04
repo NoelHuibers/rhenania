@@ -1,7 +1,7 @@
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
-import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { EventsManager } from "~/components/admin/termine/EventsManager";
 import { RecurringEventsManager } from "~/components/admin/termine/RecurringEventsManager";
+import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
+import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { getAllEvents } from "~/server/actions/events/events";
 import { getAllRecurringEvents } from "~/server/actions/events/recurring";

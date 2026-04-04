@@ -9,10 +9,10 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import {
-	getEmailNotificationPreferenceAction,
 	getEloPreferenceAction,
-	setEmailNotificationPreferenceAction,
+	getEmailNotificationPreferenceAction,
 	setEloPreferenceAction,
+	setEmailNotificationPreferenceAction,
 } from "~/server/actions/profile/preferences";
 
 export function Preferences() {

@@ -40,7 +40,7 @@ const Veranstaltungen = async () => {
 							>
 								<div className="flex items-start justify-between gap-2">
 									<h3 className="font-bold text-lg">{event.title}</h3>
-									<span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+									<span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 text-xs">
 										{event.type}
 									</span>
 								</div>
@@ -56,7 +56,9 @@ const Veranstaltungen = async () => {
 										{formatDate(event.date)}
 									</div>
 									{event.location && (
-										<span className="text-gray-400 text-xs">{event.location}</span>
+										<span className="text-gray-400 text-xs">
+											{event.location}
+										</span>
 									)}
 								</div>
 							</div>

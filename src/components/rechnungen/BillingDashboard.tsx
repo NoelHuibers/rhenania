@@ -1,7 +1,6 @@
 "use client";
 
 import { Loader2, Plus } from "lucide-react";
-import { useSession } from "~/server/auth/client";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatCurrency } from "~/components/rechnungen/BillingTable";
@@ -25,6 +24,7 @@ import {
 	updateBillStatus,
 } from "~/server/actions/billings/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
+import { useSession } from "~/server/auth/client";
 import { SiteHeader } from "../trinken/SiteHeader";
 
 export interface DrinkItem {

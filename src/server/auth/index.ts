@@ -1,6 +1,6 @@
+import bcrypt from "bcryptjs";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { env } from "~/env";

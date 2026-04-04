@@ -38,8 +38,7 @@ export default async function TerminePage() {
 	return (
 		<SidebarLayout>
 			<SiteHeader title="Termine" />
-			<div className="mx-auto max-w-3xl p-6 space-y-6">
-
+			<div className="mx-auto max-w-3xl space-y-6 p-6">
 				{events.length === 0 ? (
 					<p className="py-16 text-center text-muted-foreground">
 						Keine kommenden Termine geplant.
@@ -50,13 +49,13 @@ export default async function TerminePage() {
 							const time = formatTime(event.date);
 							return (
 								<Card key={event.id}>
-									<CardContent className="p-5 space-y-2">
+									<CardContent className="space-y-2 p-5">
 										<div className="flex flex-wrap items-start justify-between gap-2">
 											<h2 className="font-semibold text-lg leading-tight">
 												{event.title}
 											</h2>
 											<span
-												className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[event.type] ?? TYPE_COLORS.Sonstige}`}
+												className={`rounded-full px-2.5 py-0.5 font-medium text-xs ${TYPE_COLORS[event.type] ?? TYPE_COLORS.Sonstige}`}
 											>
 												{event.type}
 											</span>
@@ -75,7 +74,7 @@ export default async function TerminePage() {
 											)}
 										</div>
 										{event.description && (
-											<p className="text-sm text-muted-foreground">
+											<p className="text-muted-foreground text-sm">
 												{event.description}
 											</p>
 										)}

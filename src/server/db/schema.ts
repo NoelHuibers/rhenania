@@ -834,14 +834,27 @@ export const recurringEvents = createTable(
 		location: d.text({ length: 255 }).default("adH Rhenania"),
 		type: d
 			.text({
-				enum: ["Intern", "AHV", "oCC", "SC", "Jour Fix", "Stammtisch", "Sonstige"],
+				enum: [
+					"Intern",
+					"AHV",
+					"oCC",
+					"SC",
+					"Jour Fix",
+					"Stammtisch",
+					"Sonstige",
+				],
 			})
 			.notNull()
 			.default("Sonstige"),
 		// biweekly | monthly_1st_wednesday | monthly_1st_3rd_wednesday | occ_semester
 		recurrenceType: d
 			.text({
-				enum: ["biweekly", "monthly_1st_wednesday", "monthly_1st_3rd_wednesday", "occ_semester"],
+				enum: [
+					"biweekly",
+					"monthly_1st_wednesday",
+					"monthly_1st_3rd_wednesday",
+					"occ_semester",
+				],
 			})
 			.notNull(),
 		// 0=Sun 1=Mon ... 6=Sat — used for biweekly
@@ -868,13 +881,16 @@ export const recurringEvents = createTable(
 	],
 );
 
-export const recurringEventsRelations = relations(recurringEvents, ({ one, many }) => ({
-	createdBy: one(users, {
-		fields: [recurringEvents.createdBy],
-		references: [users.id],
+export const recurringEventsRelations = relations(
+	recurringEvents,
+	({ one, many }) => ({
+		createdBy: one(users, {
+			fields: [recurringEvents.createdBy],
+			references: [users.id],
+		}),
+		instances: many(events),
 	}),
-	instances: many(events),
-}));
+);
 
 export const events = createTable(
 	"event",
@@ -891,7 +907,15 @@ export const events = createTable(
 		location: d.text({ length: 255 }),
 		type: d
 			.text({
-				enum: ["Intern", "AHV", "oCC", "SC", "Jour Fix", "Stammtisch", "Sonstige"],
+				enum: [
+					"Intern",
+					"AHV",
+					"oCC",
+					"SC",
+					"Jour Fix",
+					"Stammtisch",
+					"Sonstige",
+				],
 			})
 			.notNull()
 			.default("Sonstige"),
@@ -940,8 +964,13 @@ export const bankEntries = createTable(
 			.$defaultFn(() => crypto.randomUUID()),
 		amount: d.real().notNull(), // positive = Einzahlung, negative = Ausgabe
 		description: d.text({ length: 500 }).notNull(),
-		date: d.integer({ mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
-		createdBy: d.text({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+		date: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
 		createdAt: d
 			.integer({ mode: "timestamp" })
 			.default(sql`(unixepoch())`)
@@ -969,7 +998,9 @@ export const externalBills = createTable(
 			.notNull()
 			.default("Offen"),
 		paidAt: d.integer({ mode: "timestamp" }),
-		createdBy: d.text({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
 		createdAt: d
 			.integer({ mode: "timestamp" })
 			.default(sql`(unixepoch())`)
@@ -987,5 +1018,7 @@ export const kasseConfig = createTable("kasse_config", (d) => ({
 	id: d.text({ length: 50 }).notNull().primaryKey().default("singleton"),
 	pfandWert: d.real().notNull().default(0),
 	updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
-	updatedBy: d.text({ length: 255 }).references(() => users.id, { onDelete: "set null" }),
+	updatedBy: d
+		.text({ length: 255 })
+		.references(() => users.id, { onDelete: "set null" }),
 }));

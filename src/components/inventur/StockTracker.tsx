@@ -35,23 +35,23 @@ export default function StockTracker({
 
 	return (
 		<div className="p-6">
-				<div className="mx-auto max-w-7xl space-y-6">
-					<Tabs defaultValue="dashboard" className="space-y-6">
-						<TabsList className="grid w-full grid-cols-2">
-							<TabsTrigger value="dashboard">Übersicht</TabsTrigger>
-							<TabsTrigger value="history">Verlauf</TabsTrigger>
-						</TabsList>
-						<TabsContent value="dashboard">
-							<DashboardTab
-								stockItems={stockItems}
-								onInventorySaved={handleInventorySaved}
-							/>
-						</TabsContent>
-						<TabsContent value="history">
-							<HistoryTab history={history} />
-						</TabsContent>
-					</Tabs>
-				</div>
+			<div className="mx-auto max-w-7xl space-y-6">
+				<Tabs defaultValue="dashboard" className="space-y-6">
+					<TabsList className="grid w-full grid-cols-2">
+						<TabsTrigger value="dashboard">Übersicht</TabsTrigger>
+						<TabsTrigger value="history">Verlauf</TabsTrigger>
+					</TabsList>
+					<TabsContent value="dashboard">
+						<DashboardTab
+							stockItems={stockItems}
+							onInventorySaved={handleInventorySaved}
+						/>
+					</TabsContent>
+					<TabsContent value="history">
+						<HistoryTab history={history} />
+					</TabsContent>
+				</Tabs>
 			</div>
+		</div>
 	);
 }

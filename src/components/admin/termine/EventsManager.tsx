@@ -1,6 +1,15 @@
 "use client";
 
-import { Ban, CalendarDays, MapPin, Pencil, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import {
+	Ban,
+	CalendarDays,
+	MapPin,
+	Pencil,
+	Plus,
+	RotateCcw,
+	Trash2,
+	X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -29,8 +38,8 @@ import { Textarea } from "~/components/ui/textarea";
 import {
 	createEvent,
 	deleteEvent,
-	updateEvent,
 	type EventType,
+	updateEvent,
 } from "~/server/actions/events/events";
 import { toggleEventCancelled } from "~/server/actions/events/recurring";
 
@@ -80,7 +89,15 @@ export const TYPE_COLORS: Record<EventType, string> = {
 	Sonstige: "bg-gray-100 text-gray-800",
 };
 
-const EVENT_TYPES: EventType[] = ["Intern", "AHV", "oCC", "SC", "Jour Fix", "Stammtisch", "Sonstige"];
+const EVENT_TYPES: EventType[] = [
+	"Intern",
+	"AHV",
+	"oCC",
+	"SC",
+	"Jour Fix",
+	"Stammtisch",
+	"Sonstige",
+];
 
 function toInputDate(d: Date) {
 	return d.toISOString().slice(0, 16);
@@ -133,7 +150,9 @@ function EventFormCard({
 							<Input
 								id="ev-title"
 								value={form.title}
-								onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, title: e.target.value }))
+								}
 								placeholder="z.B. Sommerfest"
 							/>
 						</div>
@@ -142,7 +161,9 @@ function EventFormCard({
 							<Input
 								id="ev-location"
 								value={form.location}
-								onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, location: e.target.value }))
+								}
 							/>
 						</div>
 						<div className="space-y-2">
@@ -151,7 +172,9 @@ function EventFormCard({
 								id="ev-date"
 								type="datetime-local"
 								value={form.date}
-								onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, date: e.target.value }))
+								}
 							/>
 						</div>
 						<div className="space-y-2">
@@ -160,21 +183,27 @@ function EventFormCard({
 								id="ev-endDate"
 								type="datetime-local"
 								value={form.endDate}
-								onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, endDate: e.target.value }))
+								}
 							/>
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="ev-type">Typ</Label>
 							<Select
 								value={form.type}
-								onValueChange={(v) => setForm((f) => ({ ...f, type: v as EventType }))}
+								onValueChange={(v) =>
+									setForm((f) => ({ ...f, type: v as EventType }))
+								}
 							>
 								<SelectTrigger id="ev-type">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
 									{EVENT_TYPES.map((t) => (
-										<SelectItem key={t} value={t}>{t}</SelectItem>
+										<SelectItem key={t} value={t}>
+											{t}
+										</SelectItem>
 									))}
 								</SelectContent>
 							</Select>
@@ -193,7 +222,9 @@ function EventFormCard({
 						<Textarea
 							id="ev-description"
 							value={form.description}
-							onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+							onChange={(e) =>
+								setForm((f) => ({ ...f, description: e.target.value }))
+							}
 							placeholder="Kurze Beschreibung..."
 							rows={3}
 						/>
@@ -298,7 +329,15 @@ export function EventsManager({ initialEvents }: { initialEvents: Event[] }) {
 		router.refresh();
 	}
 
-	const formProps = { form, setForm, onSubmit: handleSubmit, onClose: closeForm, isEditing: !!editingId, loading, error };
+	const formProps = {
+		form,
+		setForm,
+		onSubmit: handleSubmit,
+		onClose: closeForm,
+		isEditing: !!editingId,
+		loading,
+		error,
+	};
 
 	function renderRow(event: Event, past?: boolean) {
 		return (
@@ -317,7 +356,10 @@ export function EventsManager({ initialEvents }: { initialEvents: Event[] }) {
 
 	return (
 		<>
-			<AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+			<AlertDialog
+				open={!!deleteId}
+				onOpenChange={(open) => !open && setDeleteId(null)}
+			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>Veranstaltung löschen?</AlertDialogTitle>
@@ -327,7 +369,10 @@ export function EventsManager({ initialEvents }: { initialEvents: Event[] }) {
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete} className="bg-destructive text-white hover:bg-destructive/90">
+						<AlertDialogAction
+							onClick={confirmDelete}
+							className="bg-destructive text-white hover:bg-destructive/90"
+						>
 							Löschen
 						</AlertDialogAction>
 					</AlertDialogFooter>
@@ -355,7 +400,7 @@ export function EventsManager({ initialEvents }: { initialEvents: Event[] }) {
 
 				{upcoming.length > 0 && (
 					<div className="space-y-3">
-						<h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+						<h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide">
 							Kommende Veranstaltungen
 						</h2>
 						{upcoming.map((event) => renderRow(event))}
@@ -364,7 +409,7 @@ export function EventsManager({ initialEvents }: { initialEvents: Event[] }) {
 
 				{past.length > 0 && (
 					<div className="space-y-3">
-						<h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+						<h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide">
 							Vergangene Veranstaltungen
 						</h2>
 						{past.map((event) => renderRow(event, true))}
@@ -393,24 +438,28 @@ function EventRow({
 			<CardContent className="flex items-start justify-between gap-4 p-4">
 				<div className="min-w-0 flex-1 space-y-1">
 					<div className="flex flex-wrap items-center gap-2">
-						<span className={`font-medium ${event.isCancelled ? "line-through text-muted-foreground" : ""}`}>
+						<span
+							className={`font-medium ${event.isCancelled ? "text-muted-foreground line-through" : ""}`}
+						>
 							{event.title}
 						</span>
-						<span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[event.type]}`}>
+						<span
+							className={`rounded-full px-2 py-0.5 font-medium text-xs ${TYPE_COLORS[event.type]}`}
+						>
 							{event.type}
 						</span>
 						{event.isCancelled && (
-							<span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+							<span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-700 text-xs">
 								Abgesagt
 							</span>
 						)}
 						{event.recurringEventId && (
-							<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+							<span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500 text-xs">
 								Wiederkehrend
 							</span>
 						)}
 						{!event.isPublic && (
-							<span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+							<span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 text-xs">
 								Intern
 							</span>
 						)}
@@ -428,7 +477,9 @@ function EventRow({
 						)}
 					</div>
 					{event.description && (
-						<p className="line-clamp-1 text-muted-foreground text-sm">{event.description}</p>
+						<p className="line-clamp-1 text-muted-foreground text-sm">
+							{event.description}
+						</p>
 					)}
 				</div>
 				<div className="flex shrink-0 gap-1">

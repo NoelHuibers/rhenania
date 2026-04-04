@@ -15,7 +15,14 @@ export type RecurringEventInput = {
 	title: string;
 	description?: string;
 	location?: string;
-	type: "Intern" | "AHV" | "oCC" | "SC" | "Jour Fix" | "Stammtisch" | "Sonstige";
+	type:
+		| "Intern"
+		| "AHV"
+		| "oCC"
+		| "SC"
+		| "Jour Fix"
+		| "Stammtisch"
+		| "Sonstige";
 	recurrenceType: RecurrenceType;
 	dayOfWeek?: number;
 	time: string;
@@ -102,7 +109,10 @@ function generateMonthlyWednesdays(
 			if (third <= toDate && third >= fromDate) items.push({ date: third });
 		}
 		month++;
-		if (month > 11) { month = 0; year++; }
+		if (month > 11) {
+			month = 0;
+			year++;
+		}
 	}
 	return items;
 }
@@ -157,12 +167,23 @@ function generateOccurrences(
 	switch (template.recurrenceType) {
 		case "biweekly": {
 			// startDate serves as the anchor for the biweekly cadence
-			return generateBiweekly(fromDate, template.dayOfWeek ?? 1, template.time, fromDate, toDate);
+			return generateBiweekly(
+				fromDate,
+				template.dayOfWeek ?? 1,
+				template.time,
+				fromDate,
+				toDate,
+			);
 		}
 		case "monthly_1st_wednesday":
 			return generateMonthlyWednesdays("1st", template.time, fromDate, toDate);
 		case "monthly_1st_3rd_wednesday":
-			return generateMonthlyWednesdays("1st_3rd", template.time, fromDate, toDate);
+			return generateMonthlyWednesdays(
+				"1st_3rd",
+				template.time,
+				fromDate,
+				toDate,
+			);
 		case "occ_semester": {
 			if (!template.startDate || !template.endDate) return [];
 			return generateOCCSemester(template.startDate, template.endDate);
@@ -176,7 +197,10 @@ function generateOccurrences(
 
 export async function getAllRecurringEvents() {
 	try {
-		return await db.select().from(recurringEvents).orderBy(recurringEvents.startDate);
+		return await db
+			.select()
+			.from(recurringEvents)
+			.orderBy(recurringEvents.startDate);
 	} catch (error) {
 		console.error("Error fetching recurring events:", error);
 		return [];
@@ -206,16 +230,23 @@ export async function createRecurringEvent(input: RecurringEventInput) {
 	}
 }
 
-export async function updateRecurringEvent(id: string, input: Partial<RecurringEventInput>) {
+export async function updateRecurringEvent(
+	id: string,
+	input: Partial<RecurringEventInput>,
+) {
 	try {
 		await db
 			.update(recurringEvents)
 			.set({
 				...(input.title !== undefined && { title: input.title }),
-				...(input.description !== undefined && { description: input.description }),
+				...(input.description !== undefined && {
+					description: input.description,
+				}),
 				...(input.location !== undefined && { location: input.location }),
 				...(input.type !== undefined && { type: input.type }),
-				...(input.recurrenceType !== undefined && { recurrenceType: input.recurrenceType }),
+				...(input.recurrenceType !== undefined && {
+					recurrenceType: input.recurrenceType,
+				}),
 				...(input.dayOfWeek !== undefined && { dayOfWeek: input.dayOfWeek }),
 				...(input.time !== undefined && { time: input.time }),
 				...(input.isPublic !== undefined && { isPublic: input.isPublic }),

@@ -30,12 +30,19 @@ import {
 	createRecurringEvent,
 	deleteRecurringEvent,
 	generateInstances,
+	type RecurrenceType,
 	toggleRecurringEventActive,
 	updateRecurringEvent,
-	type RecurrenceType,
 } from "~/server/actions/events/recurring";
 
-type EventType = "Intern" | "AHV" | "oCC" | "SC" | "Jour Fix" | "Stammtisch" | "Sonstige";
+type EventType =
+	| "Intern"
+	| "AHV"
+	| "oCC"
+	| "SC"
+	| "Jour Fix"
+	| "Stammtisch"
+	| "Sonstige";
 
 type RecurringEvent = {
 	id: string;
@@ -78,8 +85,24 @@ const emptyForm: FormState = {
 	endDate: "",
 };
 
-const DAY_NAMES = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
-const EVENT_TYPES: EventType[] = ["Intern", "AHV", "oCC", "SC", "Jour Fix", "Stammtisch", "Sonstige"];
+const DAY_NAMES = [
+	"Sonntag",
+	"Montag",
+	"Dienstag",
+	"Mittwoch",
+	"Donnerstag",
+	"Freitag",
+	"Samstag",
+];
+const EVENT_TYPES: EventType[] = [
+	"Intern",
+	"AHV",
+	"oCC",
+	"SC",
+	"Jour Fix",
+	"Stammtisch",
+	"Sonstige",
+];
 
 const TYPE_COLORS: Record<EventType, string> = {
 	Intern: "bg-blue-100 text-blue-800",
@@ -92,7 +115,11 @@ const TYPE_COLORS: Record<EventType, string> = {
 };
 
 function formatShortDate(d: Date) {
-	return d.toLocaleDateString("de-DE", { day: "2-digit", month: "short", year: "numeric" });
+	return d.toLocaleDateString("de-DE", {
+		day: "2-digit",
+		month: "short",
+		year: "numeric",
+	});
 }
 
 function recurrenceSummary(r: RecurringEvent): string {
@@ -123,7 +150,9 @@ export function RecurringEventsManager({
 	const [error, setError] = useState<string | null>(null);
 	const [generating, setGenerating] = useState<string | null>(null);
 	const [deleteId, setDeleteId] = useState<string | null>(null);
-	const [generateResult, setGenerateResult] = useState<Record<string, string>>({});
+	const [generateResult, setGenerateResult] = useState<Record<string, string>>(
+		{},
+	);
 
 	function openCreate() {
 		setForm(emptyForm);
@@ -159,8 +188,14 @@ export function RecurringEventsManager({
 
 	async function handleSubmit(e: React.FormEvent) {
 		e.preventDefault();
-		if (!form.title) { setError("Titel ist ein Pflichtfeld."); return; }
-		if (form.recurrenceType === "occ_semester" && (!form.startDate || !form.endDate)) {
+		if (!form.title) {
+			setError("Titel ist ein Pflichtfeld.");
+			return;
+		}
+		if (
+			form.recurrenceType === "occ_semester" &&
+			(!form.startDate || !form.endDate)
+		) {
 			setError("Für das oCC-Semester bitte AnCC- und AbCC-Datum angeben.");
 			return;
 		}
@@ -178,7 +213,8 @@ export function RecurringEventsManager({
 			location: form.location || "adH Rhenania",
 			type: form.type,
 			recurrenceType: form.recurrenceType,
-			dayOfWeek: form.recurrenceType === "biweekly" ? Number(form.dayOfWeek) : undefined,
+			dayOfWeek:
+				form.recurrenceType === "biweekly" ? Number(form.dayOfWeek) : undefined,
 			time: form.time,
 			isPublic: form.isPublic,
 			startDate: form.startDate ? new Date(form.startDate) : undefined,
@@ -190,7 +226,10 @@ export function RecurringEventsManager({
 			: await createRecurringEvent(input);
 
 		setLoading(false);
-		if (!result.success) { setError(result.error ?? "Fehler aufgetreten"); return; }
+		if (!result.success) {
+			setError(result.error ?? "Fehler aufgetreten");
+			return;
+		}
 		closeForm();
 		router.refresh();
 	}
@@ -200,12 +239,21 @@ export function RecurringEventsManager({
 		const result = await generateInstances(id);
 		setGenerating(null);
 		if (result.success) {
-			const msg = result.created === 0 ? "Alle Termine bereits vorhanden" : `${result.created} Termine erstellt`;
+			const msg =
+				result.created === 0
+					? "Alle Termine bereits vorhanden"
+					: `${result.created} Termine erstellt`;
 			setGenerateResult((prev) => ({ ...prev, [id]: msg }));
 			router.refresh();
-			setTimeout(() => setGenerateResult((prev) => ({ ...prev, [id]: "" })), 3000);
+			setTimeout(
+				() => setGenerateResult((prev) => ({ ...prev, [id]: "" })),
+				3000,
+			);
 		} else {
-			setGenerateResult((prev) => ({ ...prev, [id]: result.error ?? "Fehler" }));
+			setGenerateResult((prev) => ({
+				...prev,
+				[id]: result.error ?? "Fehler",
+			}));
 		}
 	}
 
@@ -245,7 +293,9 @@ export function RecurringEventsManager({
 							<Input
 								id="r-title"
 								value={form.title}
-								onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, title: e.target.value }))
+								}
 								placeholder={isOCC ? "oCC" : "z.B. Jour Fix"}
 							/>
 						</div>
@@ -254,15 +304,28 @@ export function RecurringEventsManager({
 							<Input
 								id="r-location"
 								value={form.location}
-								onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, location: e.target.value }))
+								}
 							/>
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="r-type">Typ</Label>
-							<Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v as EventType }))}>
-								<SelectTrigger id="r-type"><SelectValue /></SelectTrigger>
+							<Select
+								value={form.type}
+								onValueChange={(v) =>
+									setForm((f) => ({ ...f, type: v as EventType }))
+								}
+							>
+								<SelectTrigger id="r-type">
+									<SelectValue />
+								</SelectTrigger>
 								<SelectContent>
-									{EVENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+									{EVENT_TYPES.map((t) => (
+										<SelectItem key={t} value={t}>
+											{t}
+										</SelectItem>
+									))}
 								</SelectContent>
 							</Select>
 						</div>
@@ -278,14 +341,27 @@ export function RecurringEventsManager({
 							<Label htmlFor="r-recurrence">Wiederholung</Label>
 							<Select
 								value={form.recurrenceType}
-								onValueChange={(v) => setForm((f) => ({ ...f, recurrenceType: v as RecurrenceType }))}
+								onValueChange={(v) =>
+									setForm((f) => ({
+										...f,
+										recurrenceType: v as RecurrenceType,
+									}))
+								}
 							>
-								<SelectTrigger id="r-recurrence"><SelectValue /></SelectTrigger>
+								<SelectTrigger id="r-recurrence">
+									<SelectValue />
+								</SelectTrigger>
 								<SelectContent>
-									<SelectItem value="occ_semester">oCC Semester (AnCC → AbCC)</SelectItem>
+									<SelectItem value="occ_semester">
+										oCC Semester (AnCC → AbCC)
+									</SelectItem>
 									<SelectItem value="biweekly">Alle 2 Wochen</SelectItem>
-									<SelectItem value="monthly_1st_wednesday">Jeden 1. Mittwoch</SelectItem>
-									<SelectItem value="monthly_1st_3rd_wednesday">Jeden 1. und 3. Mittwoch</SelectItem>
+									<SelectItem value="monthly_1st_wednesday">
+										Jeden 1. Mittwoch
+									</SelectItem>
+									<SelectItem value="monthly_1st_3rd_wednesday">
+										Jeden 1. und 3. Mittwoch
+									</SelectItem>
 								</SelectContent>
 							</Select>
 						</div>
@@ -294,30 +370,39 @@ export function RecurringEventsManager({
 								<div className="space-y-2">
 									<Label htmlFor="r-start">
 										AnCC Datum *{" "}
-										<span className="text-muted-foreground text-xs">(Sonntag 18:00)</span>
+										<span className="text-muted-foreground text-xs">
+											(Sonntag 18:00)
+										</span>
 									</Label>
 									<Input
 										id="r-start"
 										type="date"
 										value={form.startDate}
-										onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+										onChange={(e) =>
+											setForm((f) => ({ ...f, startDate: e.target.value }))
+										}
 									/>
 								</div>
 								<div className="space-y-2">
 									<Label htmlFor="r-end">
 										AbCC Datum *{" "}
-										<span className="text-muted-foreground text-xs">(Sonntag 18:00)</span>
+										<span className="text-muted-foreground text-xs">
+											(Sonntag 18:00)
+										</span>
 									</Label>
 									<Input
 										id="r-end"
 										type="date"
 										value={form.endDate}
-										onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+										onChange={(e) =>
+											setForm((f) => ({ ...f, endDate: e.target.value }))
+										}
 									/>
 								</div>
 								<div className="col-span-2 rounded-md border border-green-200 bg-green-50 p-3 text-green-800 text-sm">
 									System generiert: <strong>AnCC</strong> (So 18:00) →{" "}
-									<strong>2. oCC, 3. oCC …</strong> (Mo 20:00) → <strong>AbCC</strong> (So 18:00)
+									<strong>2. oCC, 3. oCC …</strong> (Mo 20:00) →{" "}
+									<strong>AbCC</strong> (So 18:00)
 								</div>
 							</>
 						)}
@@ -329,16 +414,27 @@ export function RecurringEventsManager({
 										id="r-time"
 										type="time"
 										value={form.time}
-										onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
+										onChange={(e) =>
+											setForm((f) => ({ ...f, time: e.target.value }))
+										}
 									/>
 								</div>
 								<div className="space-y-2">
 									<Label htmlFor="r-dow">Wochentag</Label>
-									<Select value={form.dayOfWeek} onValueChange={(v) => setForm((f) => ({ ...f, dayOfWeek: v }))}>
-										<SelectTrigger id="r-dow"><SelectValue /></SelectTrigger>
+									<Select
+										value={form.dayOfWeek}
+										onValueChange={(v) =>
+											setForm((f) => ({ ...f, dayOfWeek: v }))
+										}
+									>
+										<SelectTrigger id="r-dow">
+											<SelectValue />
+										</SelectTrigger>
 										<SelectContent>
 											{DAY_NAMES.map((name, i) => (
-												<SelectItem key={i} value={String(i)}>{name}</SelectItem>
+												<SelectItem key={name} value={String(i)}>
+													{name}
+												</SelectItem>
 											))}
 										</SelectContent>
 									</Select>
@@ -346,13 +442,17 @@ export function RecurringEventsManager({
 								<div className="space-y-2">
 									<Label htmlFor="r-start-bw">
 										Semester Beginn *{" "}
-										<span className="text-muted-foreground text-xs">erster Termin</span>
+										<span className="text-muted-foreground text-xs">
+											erster Termin
+										</span>
 									</Label>
 									<Input
 										id="r-start-bw"
 										type="date"
 										value={form.startDate}
-										onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+										onChange={(e) =>
+											setForm((f) => ({ ...f, startDate: e.target.value }))
+										}
 									/>
 								</div>
 								<div className="space-y-2">
@@ -361,7 +461,9 @@ export function RecurringEventsManager({
 										id="r-end-bw"
 										type="date"
 										value={form.endDate}
-										onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+										onChange={(e) =>
+											setForm((f) => ({ ...f, endDate: e.target.value }))
+										}
 									/>
 								</div>
 							</>
@@ -374,7 +476,9 @@ export function RecurringEventsManager({
 										id="r-time-m"
 										type="time"
 										value={form.time}
-										onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))}
+										onChange={(e) =>
+											setForm((f) => ({ ...f, time: e.target.value }))
+										}
 									/>
 								</div>
 								<div className="space-y-2">
@@ -383,7 +487,9 @@ export function RecurringEventsManager({
 										id="r-start-m"
 										type="date"
 										value={form.startDate}
-										onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
+										onChange={(e) =>
+											setForm((f) => ({ ...f, startDate: e.target.value }))
+										}
 									/>
 								</div>
 								<div className="space-y-2">
@@ -392,7 +498,9 @@ export function RecurringEventsManager({
 										id="r-end-m"
 										type="date"
 										value={form.endDate}
-										onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+										onChange={(e) =>
+											setForm((f) => ({ ...f, endDate: e.target.value }))
+										}
 									/>
 								</div>
 							</>
@@ -403,7 +511,9 @@ export function RecurringEventsManager({
 						<Textarea
 							id="r-description"
 							value={form.description}
-							onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+							onChange={(e) =>
+								setForm((f) => ({ ...f, description: e.target.value }))
+							}
 							rows={2}
 						/>
 					</div>
@@ -423,17 +533,24 @@ export function RecurringEventsManager({
 
 	return (
 		<>
-			<AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+			<AlertDialog
+				open={!!deleteId}
+				onOpenChange={(open) => !open && setDeleteId(null)}
+			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>Vorlage löschen?</AlertDialogTitle>
 						<AlertDialogDescription>
-							Bereits generierte Termine bleiben erhalten. Die Vorlage selbst wird unwiderruflich gelöscht.
+							Bereits generierte Termine bleiben erhalten. Die Vorlage selbst
+							wird unwiderruflich gelöscht.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete} className="bg-destructive text-white hover:bg-destructive/90">
+						<AlertDialogAction
+							onClick={confirmDelete}
+							className="bg-destructive text-white hover:bg-destructive/90"
+						>
 							Löschen
 						</AlertDialogAction>
 					</AlertDialogFooter>
@@ -445,7 +562,8 @@ export function RecurringEventsManager({
 					<div>
 						<h2 className="font-semibold text-base">Wiederkehrende Termine</h2>
 						<p className="text-muted-foreground text-xs">
-							Vorlagen für regelmäßige Veranstaltungen — Termine werden daraus generiert
+							Vorlagen für regelmäßige Veranstaltungen — Termine werden daraus
+							generiert
 						</p>
 					</div>
 					<Button variant="outline" size="sm" onClick={openCreate}>
@@ -465,21 +583,23 @@ export function RecurringEventsManager({
 				{initialRecurringEvents.map((r) => (
 					<div key={r.id} className="space-y-2">
 						<Card className={r.isActive ? "" : "opacity-50"}>
-							<CardContent className="p-4 space-y-3">
+							<CardContent className="space-y-3 p-4">
 								<div className="flex items-start justify-between gap-3">
 									<div className="space-y-1">
 										<div className="flex flex-wrap items-center gap-2">
 											<span className="font-medium">{r.title}</span>
-											<span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE_COLORS[r.type]}`}>
+											<span
+												className={`rounded-full px-2 py-0.5 font-medium text-xs ${TYPE_COLORS[r.type]}`}
+											>
 												{r.type}
 											</span>
 											{!r.isActive && (
-												<span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+												<span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 text-xs">
 													Inaktiv
 												</span>
 											)}
 											{!r.isPublic && (
-												<span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+												<span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 text-xs">
 													Intern
 												</span>
 											)}
@@ -506,7 +626,11 @@ export function RecurringEventsManager({
 										>
 											<Power className="h-4 w-4" />
 										</Button>
-										<Button variant="ghost" size="icon" onClick={() => openEdit(r)}>
+										<Button
+											variant="ghost"
+											size="icon"
+											onClick={() => openEdit(r)}
+										>
 											<Pencil className="h-4 w-4" />
 										</Button>
 										<Button
@@ -529,10 +653,14 @@ export function RecurringEventsManager({
 											disabled={generating === r.id}
 											onClick={() => handleGenerate(r.id)}
 										>
-											{generating === r.id ? "Generiere..." : "Termine generieren"}
+											{generating === r.id
+												? "Generiere..."
+												: "Termine generieren"}
 										</Button>
 										{generateResult[r.id] && (
-											<span className={`text-xs ${generateResult[r.id]?.startsWith("Fehler") ? "text-destructive" : "text-green-600"}`}>
+											<span
+												className={`text-xs ${generateResult[r.id]?.startsWith("Fehler") ? "text-destructive" : "text-green-600"}`}
+											>
 												{generateResult[r.id]}
 											</span>
 										)}

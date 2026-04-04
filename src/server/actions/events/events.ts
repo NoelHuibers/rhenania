@@ -5,7 +5,14 @@ import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { events } from "~/server/db/schema";
 
-export type EventType = "Intern" | "AHV" | "oCC" | "SC" | "Jour Fix" | "Stammtisch" | "Sonstige";
+export type EventType =
+	| "Intern"
+	| "AHV"
+	| "oCC"
+	| "SC"
+	| "Jour Fix"
+	| "Stammtisch"
+	| "Sonstige";
 
 export type EventInput = {
 	title: string;
@@ -98,7 +105,10 @@ export async function createEvent(input: EventInput) {
 		return { success: true };
 	} catch (error) {
 		console.error("Error creating event:", error);
-		return { success: false, error: "Veranstaltung konnte nicht erstellt werden" };
+		return {
+			success: false,
+			error: "Veranstaltung konnte nicht erstellt werden",
+		};
 	}
 }
 
@@ -108,7 +118,9 @@ export async function updateEvent(id: string, input: Partial<EventInput>) {
 			.update(events)
 			.set({
 				...(input.title !== undefined && { title: input.title }),
-				...(input.description !== undefined && { description: input.description }),
+				...(input.description !== undefined && {
+					description: input.description,
+				}),
 				...(input.date !== undefined && { date: input.date }),
 				...(input.endDate !== undefined && { endDate: input.endDate }),
 				...(input.location !== undefined && { location: input.location }),
@@ -123,7 +135,10 @@ export async function updateEvent(id: string, input: Partial<EventInput>) {
 		return { success: true };
 	} catch (error) {
 		console.error("Error updating event:", error);
-		return { success: false, error: "Veranstaltung konnte nicht aktualisiert werden" };
+		return {
+			success: false,
+			error: "Veranstaltung konnte nicht aktualisiert werden",
+		};
 	}
 }
 
@@ -137,6 +152,9 @@ export async function deleteEvent(id: string) {
 		return { success: true };
 	} catch (error) {
 		console.error("Error deleting event:", error);
-		return { success: false, error: "Veranstaltung konnte nicht gelöscht werden" };
+		return {
+			success: false,
+			error: "Veranstaltung konnte nicht gelöscht werden",
+		};
 	}
 }

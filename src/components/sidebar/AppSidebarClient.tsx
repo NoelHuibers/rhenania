@@ -15,7 +15,6 @@ import {
 	User as UserIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { signOut } from "~/server/auth/client";
 import { useCallback, useMemo } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import {
@@ -37,6 +36,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "~/components/ui/sidebar";
+import { signOut } from "~/server/auth/client";
 
 type Role = "Admin" | "Versorger" | string;
 
@@ -57,8 +57,18 @@ const navGroups: NavGroup[] = [
 		label: "Getränke",
 		items: [
 			{ title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
-			{ title: "Rechnungen", href: "/rechnungen", icon: ReceiptEuro, roles: [] },
-			{ title: "Bestellungen", href: "/bestellungen", icon: ReceiptText, roles: [] },
+			{
+				title: "Rechnungen",
+				href: "/rechnungen",
+				icon: ReceiptEuro,
+				roles: [],
+			},
+			{
+				title: "Bestellungen",
+				href: "/bestellungen",
+				icon: ReceiptText,
+				roles: [],
+			},
 		],
 	},
 	{
@@ -72,9 +82,24 @@ const navGroups: NavGroup[] = [
 	{
 		label: "Verwaltung",
 		items: [
-			{ title: "Getränkewart", href: "/getraenkewart", icon: Truck, roles: ["Versorger", "Admin"] },
-			{ title: "Bilder", href: "/bilder", icon: Camera, roles: ["Admin", "Fotowart"] },
-			{ title: "Veranstaltungen", href: "/admin/termine", icon: CalendarDays, roles: ["Admin"] },
+			{
+				title: "Getränkewart",
+				href: "/getraenkewart",
+				icon: Truck,
+				roles: ["Versorger", "Admin"],
+			},
+			{
+				title: "Bilder",
+				href: "/bilder",
+				icon: Camera,
+				roles: ["Admin", "Fotowart"],
+			},
+			{
+				title: "Veranstaltungen",
+				href: "/admin/termine",
+				icon: CalendarDays,
+				roles: ["Admin"],
+			},
 			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
 		],
 	},

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import GetraenkewartPage from "~/components/getraenkewart/GetraenkewartPage";
 import KasseTab from "~/components/getraenkewart/KasseTab";
 import StockPage from "~/components/inventur/StockPage";
@@ -12,33 +13,47 @@ import {
 	getPfandWert,
 } from "~/server/actions/getraenkewart/kasse";
 
-export default async function Page() {
-	const [kasseSummary, bankEntriesData, externalBillsData, entityBills, memberBills, pfandWert] =
-		await Promise.all([
-			getKasseSummary(),
-			getBankEntries(),
-			getExternalBills(),
-			getOpenEntityBills(),
-			getOpenMemberBills(),
-			getPfandWert(),
-		]);
+async function GetraenkewartData() {
+	const [
+		kasseSummary,
+		bankEntriesData,
+		externalBillsData,
+		entityBills,
+		memberBills,
+		pfandWert,
+	] = await Promise.all([
+		getKasseSummary(),
+		getBankEntries(),
+		getExternalBills(),
+		getOpenEntityBills(),
+		getOpenMemberBills(),
+		getPfandWert(),
+	]);
 
 	return (
+		<GetraenkewartPage
+			getraenkeTab={<VersorgerPage />}
+			inventurTab={<StockPage />}
+			kasseTab={
+				<KasseTab
+					summary={kasseSummary}
+					bankEntries={bankEntriesData}
+					externalBills={externalBillsData}
+					entityBills={entityBills}
+					memberBills={memberBills}
+					pfandWert={pfandWert}
+				/>
+			}
+		/>
+	);
+}
+
+export default function Page() {
+	return (
 		<SidebarLayout>
-			<GetraenkewartPage
-				getraenkeTab={<VersorgerPage />}
-				inventurTab={<StockPage />}
-				kasseTab={
-					<KasseTab
-						summary={kasseSummary}
-						bankEntries={bankEntriesData}
-						externalBills={externalBillsData}
-						entityBills={entityBills}
-						memberBills={memberBills}
-						pfandWert={pfandWert}
-					/>
-				}
-			/>
+			<Suspense fallback={<div className="p-6">Laden...</div>}>
+				<GetraenkewartData />
+			</Suspense>
 		</SidebarLayout>
 	);
 }

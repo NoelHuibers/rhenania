@@ -264,88 +264,88 @@ export default function VersorgerPage() {
 			className="container mx-auto space-y-4 p-4 sm:space-y-6 sm:p-6"
 			aria-busy={isPending}
 		>
-				<Header
-					count={drinks.length}
-					onAdd={() => setIsAddDialogOpen(true)}
-					isPending={isPending}
-				/>
+			<Header
+				count={drinks.length}
+				onAdd={() => setIsAddDialogOpen(true)}
+				isPending={isPending}
+			/>
 
-				<AddDrinkDialog
-					isOpen={isAddDialogOpen}
-					onOpenChange={setIsAddDialogOpen}
-					onDrinkAdded={handleDrinkAdded}
-				/>
+			<AddDrinkDialog
+				isOpen={isAddDialogOpen}
+				onOpenChange={setIsAddDialogOpen}
+				onDrinkAdded={handleDrinkAdded}
+			/>
 
-				<Card>
-					<section>
-						<CardHeader>
-							<CardTitle>Getränkekarte</CardTitle>
-							<CardDescription aria-live="polite">
-								{drinks.length} Getränke in Ihrer Karte
-							</CardDescription>
-						</CardHeader>
-						<CardContent>
-							{/* Desktop Table */}
-							<div
-								className="hidden rounded-md border md:block"
-								role="region"
-								aria-label="Getränke Tabelle"
-							>
-								<DrinksTableDesktop
-									drinks={drinks}
-									editingId={editingId}
-									editingData={editingData}
-									setEditingData={setEditingData}
-									startEditing={startEditing}
-									cancelEditing={cancelEditing}
-									saveEdit={saveEdit}
-									onDelete={handleDeleteDrink}
-									onToggleAvailability={handleToggleAvailability}
-									onImageUpdate={handleImageUpdate}
-									isPending={isPending}
-									uploadingImage={uploadingImage}
-									uploadProgress={uploadProgress}
-								/>
-							</div>
+			<Card>
+				<section>
+					<CardHeader>
+						<CardTitle>Getränkekarte</CardTitle>
+						<CardDescription aria-live="polite">
+							{drinks.length} Getränke in Ihrer Karte
+						</CardDescription>
+					</CardHeader>
+					<CardContent>
+						{/* Desktop Table */}
+						<div
+							className="hidden rounded-md border md:block"
+							role="region"
+							aria-label="Getränke Tabelle"
+						>
+							<DrinksTableDesktop
+								drinks={drinks}
+								editingId={editingId}
+								editingData={editingData}
+								setEditingData={setEditingData}
+								startEditing={startEditing}
+								cancelEditing={cancelEditing}
+								saveEdit={saveEdit}
+								onDelete={handleDeleteDrink}
+								onToggleAvailability={handleToggleAvailability}
+								onImageUpdate={handleImageUpdate}
+								isPending={isPending}
+								uploadingImage={uploadingImage}
+								uploadProgress={uploadProgress}
+							/>
+						</div>
 
-							{/* Mobile Cards */}
-							<div
-								className="md:hidden"
-								role="region"
-								aria-label="Getränke Liste mobil"
-							>
-								<DrinksCardsMobile
-									drinks={drinks}
-									editingId={editingId}
-									editingData={editingData}
-									setEditingData={setEditingData}
-									startEditing={startEditing}
-									cancelEditing={cancelEditing}
-									saveEdit={saveEdit}
-									onDelete={handleDeleteDrink}
-									onToggleAvailability={handleToggleAvailability}
-									onImageUpdate={handleImageUpdate}
-									isPending={isPending}
-									uploadingImage={uploadingImage}
-									uploadProgress={uploadProgress}
-								/>
-							</div>
-						</CardContent>
-					</section>
-				</Card>
+						{/* Mobile Cards */}
+						<div
+							className="md:hidden"
+							role="region"
+							aria-label="Getränke Liste mobil"
+						>
+							<DrinksCardsMobile
+								drinks={drinks}
+								editingId={editingId}
+								editingData={editingData}
+								setEditingData={setEditingData}
+								startEditing={startEditing}
+								cancelEditing={cancelEditing}
+								saveEdit={saveEdit}
+								onDelete={handleDeleteDrink}
+								onToggleAvailability={handleToggleAvailability}
+								onImageUpdate={handleImageUpdate}
+								isPending={isPending}
+								uploadingImage={uploadingImage}
+								uploadProgress={uploadProgress}
+							/>
+						</div>
+					</CardContent>
+				</section>
+			</Card>
 
-				{/* Floating Add Button for mobile */}
-				<div className="fixed right-6 bottom-6 z-50 md:hidden">
-					<Button
-						onClick={() => setIsAddDialogOpen(true)}
-						size="lg"
-						aria-label="Neues Getränk hinzufügen"
-						disabled={isPending}
-						className="h-12 w-12 rounded-full p-0 shadow-lg"
-					>
-						<Plus className="h-6 w-6" />
-					</Button>
-				</div>
+			{/* Floating Add Button for mobile */}
+			<div className="fixed right-6 bottom-6 z-50 md:hidden">
+				<Button
+					onClick={() => setIsAddDialogOpen(true)}
+					size="lg"
+					aria-label="Neues Getränk hinzufügen"
+					disabled={isPending}
+					className="h-12 w-12 rounded-full p-0 shadow-lg"
+				>
+					<Plus className="h-6 w-6" />
+				</Button>
+			</div>
 		</main>
 	);
 }
