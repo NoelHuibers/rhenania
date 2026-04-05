@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import { EventsManager } from "~/components/admin/semesterprogramm/EventsManager";
 import { RecurringEventsManager } from "~/components/admin/semesterprogramm/RecurringEventsManager";
+import { SemProGenerieren } from "~/components/admin/semesterprogramm/SemProGenerieren";
 import { VenuesManager } from "~/components/admin/semesterprogramm/VenuesManager";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
@@ -19,6 +21,10 @@ export default async function AdminSemesterprogrammPage() {
 		getVenues(),
 	]);
 
+	const host = (await headers()).get("host") ?? "localhost:3000";
+	const protocol = host.startsWith("localhost") ? "http" : "https";
+	const semproUrl = `${protocol}://${host}/api/calendar`;
+
 	return (
 		<SidebarLayout>
 			<SiteHeader title="Veranstaltungen verwalten" />
@@ -28,6 +34,7 @@ export default async function AdminSemesterprogrammPage() {
 						<TabsTrigger value="events">Einzeltermine</TabsTrigger>
 						<TabsTrigger value="recurring">Wiederkehrend</TabsTrigger>
 						<TabsTrigger value="venues">Orte</TabsTrigger>
+						<TabsTrigger value="generieren">Generieren</TabsTrigger>
 					</TabsList>
 					<TabsContent value="events">
 						<EventsManager initialEvents={events} venues={venues} />
@@ -40,6 +47,9 @@ export default async function AdminSemesterprogrammPage() {
 					</TabsContent>
 					<TabsContent value="venues">
 						<VenuesManager initialVenues={venues} />
+					</TabsContent>
+					<TabsContent value="generieren">
+						<SemProGenerieren calendarUrl={semproUrl} />
 					</TabsContent>
 				</Tabs>
 			</div>
