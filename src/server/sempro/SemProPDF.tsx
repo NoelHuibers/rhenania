@@ -11,6 +11,9 @@ import path from "node:path";
 import type { PDFData, PDFEvent } from "./getPDFData";
 import { RANK_MAP } from "./getPDFData";
 
+// ─── Font Registration ───────────────────────────────────────────────────────
+// Carlito is a metric-compatible open-source replacement for Calibri (OFL license).
+// Place Carlito-Regular.ttf, Carlito-Bold.ttf, Carlito-Italic.ttf in public/fonts/.
 const fontsDir = path.join(process.cwd(), "public", "fonts", "Carlito");
 
 Font.register({
@@ -36,15 +39,21 @@ Font.register({
 
 // ─── Dimensions ───────────────────────────────────────────────────────────────
 const MM = 2.8346;
-const PW = 185.25 * MM;
-const PH = 90 * MM;
+const BLEED = 3 * MM; // 3mm bleed on each side (matches Scribus)
+const PW = 185.25 * MM; // 525.1pt — unfolded width (3 × 61.75mm)
+const PH = 90 * MM; // 255.1pt — height (landscape)
+const PAGE_W = PW + 2 * BLEED; // 191.25mm — page width including bleed
+const PAGE_H = PH + 2 * BLEED; // 96mm — page height including bleed
 const F1 = 61.75 * MM;
 const F2 = 123.5 * MM;
 const P1W = F1;
 const P2W = F2 - F1;
 const P3W = PW - F2;
-const PAD = 2.5 * MM;
+const PAD = 3 * MM; // ~8.5pt — matches Scribus frame offset
 
+// ─── FIX: Timezone offset ────────────────────────────────────────────────────
+// Events are stored in UTC but represent Europe/Berlin (CEST = UTC+2, CET = UTC+1).
+// We extract hours in UTC and add the appropriate offset.
 function toLocalDate(d: Date): Date {
 	// Determine if the date falls in CEST (last Sunday of March to last Sunday of October)
 	const year = d.getUTCFullYear();
@@ -65,6 +74,8 @@ function toLocalDate(d: Date): Date {
 
 	return new Date(d.getTime() + offsetMs);
 }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtTime(d: Date): string {
 	const local = toLocalDate(d);
@@ -103,6 +114,7 @@ function formatIBAN(iban: string): string {
 	return iban.replace(/(.{4})/g, "$1 ").trim();
 }
 
+// FIX: Normalize various Unicode hyphens to standard ASCII hyphen
 function normalizeBankName(name: string): string {
 	// Replace Unicode hyphens (U+2010, U+2011, U+2012, U+2013, U+2014) with ASCII hyphen
 	return name.replace(/[\u2010\u2011\u2012\u2013\u2014]/g, "-");
@@ -117,11 +129,11 @@ function category(type: string, isPublic: boolean): 1 | 2 | 3 {
 // Superscript digit as inline small Text
 function Sup({ n }: { n: 1 | 2 | 3 }) {
 	return (
-		<Text style={{ fontSize: 4, verticalAlign: "super" }}>{String(n)}</Text>
+		<Text style={{ fontSize: 6, verticalAlign: "super" }}>{String(n)}</Text>
 	);
 }
 
-// Check if an event is an oCC-type event (AnCC, AbCC, or numbered oCC)
+// FIX: Check if an event is an oCC-type event (AnCC, AbCC, or numbered oCC)
 function isOCCEvent(e: PDFEvent): boolean {
 	return e.type === "oCC";
 }
@@ -136,6 +148,8 @@ function groupByMonth(evts: PDFEvent[]): Map<string, PDFEvent[]> {
 	}
 	return map;
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
 	row: { flexDirection: "row", width: PW, height: PH, fontFamily: "Carlito" },
@@ -163,17 +177,12 @@ const s = StyleSheet.create({
 	},
 });
 
+// ─── Month header component (View wrapper so borderBottom is reliable) ────────
+
 function MonthHeader({ label }: { label: string }) {
 	return (
-		<View
-			style={{
-				borderBottomWidth: 0.5,
-				borderBottomColor: "#000",
-				paddingBottom: 0.5,
-				marginBottom: 1.5,
-			}}
-		>
-			<Text style={{ fontFamily: "Carlito", fontWeight: "bold", fontSize: 7 }}>
+		<View style={{ marginBottom: 1.5 }}>
+			<Text style={{ fontFamily: "Carlito", fontWeight: "bold", fontSize: 10 }}>
 				{label}
 			</Text>
 		</View>
@@ -189,7 +198,7 @@ function P1Left({
 	qrDataUrl: string | null;
 	semesterName: string;
 }) {
-	const QR = 50 * MM; // ~142pt — fills most of the left panel width
+	const QR = 56.5 * MM; // ~160pt — matches Scribus QR frame width
 	return (
 		<View style={s.panelLeft}>
 			{/* QR code — top-aligned, no gap above */}
@@ -208,16 +217,18 @@ function P1Left({
 						fontSize: 10,
 						fontFamily: "Carlito",
 						textAlign: "center",
-						lineHeight: 1.5,
-						color: "#333",
+						lineHeight: 1.2,
+						color: "#000",
 					}}
 				>
-					{`Zum ${semesterName} erlaubt sich der CC der Rhenania sein Semesterprogramm zu überreichen und zu allen Veranstaltungen herzlich einzuladen.`}
+					{`Zum ${semesterName} erlaubt\nsich der CC der Rhenania sein\nSemesterprogramm zu überreichen\nund zu allen Veranstaltungen herzlich\neinzuladen.`}
 				</Text>
 			</View>
 		</View>
 	);
 }
+
+// ─── PAGE 1 — MIDDLE PANEL: Corps info + leadership + bank ────────────────────
 
 function P1Middle({ data }: { data: PDFData }) {
 	const cbLeaders = data.leaders.filter((l) =>
@@ -225,6 +236,7 @@ function P1Middle({ data }: { data: PDFData }) {
 	);
 	const fm = data.leaders.find((l) => l.role === "Fuchsmajor");
 
+	// FIX: Normalize Unicode hyphens in bank name (U+2010 → ASCII hyphen)
 	const bankName = data.ccKonto ? normalizeBankName(data.ccKonto.bankName) : "";
 
 	return (
@@ -251,14 +263,14 @@ function P1Middle({ data }: { data: PDFData }) {
 				].map((line) => (
 					<Text
 						key={line}
-						style={{ fontSize: 10, textAlign: "center", lineHeight: 1.4 }}
+						style={{ fontSize: 10, textAlign: "center", lineHeight: 1.2 }}
 					>
 						{line}
 					</Text>
 				))}
 			</View>
 
-			{/* Leadership table */}
+			{/* Leadership table — fixed columns for consistent alignment */}
 			<View
 				style={{ alignSelf: "center", width: 45 * MM, marginBottom: 3 * MM }}
 			>
@@ -302,7 +314,7 @@ function P1Middle({ data }: { data: PDFData }) {
 								flex: 1,
 							}}
 						>
-							{`IaCB ${fm.name.split(" ").pop()}`}
+							{`iaCB ${fm.name.split(" ").pop()}`}
 						</Text>
 						<View style={{ width: 10 * MM }}>
 							<Text style={{ fontSize: 10, fontWeight: "bold" }}>FM</Text>
@@ -322,7 +334,7 @@ function P1Middle({ data }: { data: PDFData }) {
 					].map((line) => (
 						<Text
 							key={line}
-							style={{ fontSize: 10, textAlign: "center", lineHeight: 1.4 }}
+							style={{ fontSize: 10, textAlign: "center", lineHeight: 1.2 }}
 						>
 							{line}
 						</Text>
@@ -333,27 +345,29 @@ function P1Middle({ data }: { data: PDFData }) {
 	);
 }
 
+// ─── PAGE 1 — RIGHT PANEL: Cover ─────────────────────────────────────────────
+
 function P1Right({ data, wappenPath }: { data: PDFData; wappenPath: string }) {
 	return (
 		<View style={[s.panelRight, { alignItems: "center" }]}>
-			{/* Coat of arms */}
+			{/* Coat of arms — fills top ~85%, centered */}
 			<View
 				style={{
-					flex: 0.7,
+					flex: 0.85,
 					alignItems: "center",
 					justifyContent: "center",
 				}}
 			>
 				<Image
 					src={wappenPath}
-					style={{ width: 48 * MM, height: 54 * MM, objectFit: "contain" }}
+					style={{ width: 54 * MM, height: 72 * MM, objectFit: "contain" }}
 				/>
 			</View>
 
-			{/* Title block */}
+			{/* Title block — anchored to bottom */}
 			<View
 				style={{
-					flex: 0.3,
+					flex: 0.15,
 					alignItems: "center",
 					justifyContent: "flex-end",
 					paddingBottom: 2,
@@ -385,6 +399,8 @@ function P1Right({ data, wappenPath }: { data: PDFData; wappenPath: string }) {
 	);
 }
 
+// ─── PAGE 2 — LEFT PANEL: Title + Jour Fixe section + oCC list ───────────────
+
 function P2Left({ data }: { data: PDFData }) {
 	const anCC = data.events.find(
 		(e) => e.title.toLowerCase().includes("ancc") && !e.isCancelled,
@@ -407,26 +423,25 @@ function P2Left({ data }: { data: PDFData }) {
 					fontWeight: "bold",
 					fontSize: 14,
 					textAlign: "center",
-					marginBottom: 1.5 * MM,
 					paddingTop: PAD,
 				}}
 			>
-				{`Semesterprogramm ${data.semesterName}`}
+				Semesterprogramm
+			</Text>
+			<Text
+				style={{
+					fontFamily: "Carlito",
+					fontWeight: "bold",
+					fontSize: 14,
+					textAlign: "center",
+					marginBottom: 1.5 * MM,
+				}}
+			>
+				{data.semesterName}
 			</Text>
 
-			{/* Jour Fixe und Rhenanenstammtisch section */}
+			{/* FIX: Jour Fixe und Rhenanenstammtisch section — hardcoded text */}
 			<View style={{ marginBottom: 1.5 * MM }}>
-				<Text
-					style={{
-						fontFamily: "Carlito",
-						fontWeight: "bold",
-						fontSize: 10,
-						textAlign: "center",
-						marginBottom: 1.5,
-					}}
-				>
-					Jour Fixe und
-				</Text>
 				<Text
 					style={{
 						fontFamily: "Carlito",
@@ -436,13 +451,15 @@ function P2Left({ data }: { data: PDFData }) {
 						marginBottom: 2,
 					}}
 				>
-					Rhenanenstammtisch
+					Jour Fixe und Rhenanenstammtisch
 				</Text>
-				<Text style={{ fontSize: 10, lineHeight: 1.4, textAlign: "center" }}>
+				<Text style={{ fontSize: 10, lineHeight: 1.2, textAlign: "center" }}>
 					{
 						"Der Rhenanenstammtisch findet in der Regel jeden 1. Mittwoch im Monat statt."
 					}
 					<Sup n={3} />
+				</Text>
+				<Text style={{ fontSize: 10, lineHeight: 1.2, textAlign: "center" }}>
 					{"Der Jour Fix findet jeden 1. und 3. Mittwoch im Monat adH statt."}
 				</Text>
 			</View>
@@ -475,9 +492,9 @@ function OCCRow({
 	event: { date: Date; title: string; type: string; isPublic: boolean };
 	label: string;
 }) {
-	const DATE_W = 10 * MM;
-	const DAY_W = 6 * MM;
-	const TIME_W = 13 * MM;
+	const DATE_W = 12.7 * MM; // ~36pt — matches target tab position
+	const DAY_W = 7 * MM; // ~20pt — day abbreviation column
+	const TIME_W = 15 * MM; // ~43pt — matches target tab position
 	const cat = category(event.type, event.isPublic);
 
 	return (
@@ -489,9 +506,7 @@ function OCCRow({
 			}}
 		>
 			<Text style={{ fontSize: 10, width: DATE_W }}>{fmtDate(event.date)}</Text>
-			<Text style={{ fontSize: 10, width: DAY_W, color: "#555" }}>
-				{fmtDay(event.date)}
-			</Text>
+			<Text style={{ fontSize: 10, width: DAY_W }}>{fmtDay(event.date)}</Text>
 			<Text style={{ fontSize: 10, width: TIME_W }}>{fmtTime(event.date)}</Text>
 			<Text style={{ fontSize: 10, flex: 1 }}>
 				{label}
@@ -504,10 +519,10 @@ function OCCRow({
 // ─── PAGE 2 — MIDDLE PANEL: First months (April–Juni) ────────────────────────
 
 function P2Middle({ data }: { data: PDFData }) {
-	const DATE_W = 18 * MM; // wide enough for "13.05. – 17.05."
-	const TIME_W = 14 * MM;
+	const DATE_W = 13 * MM; // single-day date column
+	const TIME_W = 14.5 * MM; // time column
 
-	// Filter out oCC events — they only appear in the left panel
+	// FIX: Filter out oCC events — they only appear in the left panel
 	const active = data.events.filter((e) => !e.isCancelled && !isOCCEvent(e));
 	const entries = Array.from(groupByMonth(active).entries()).slice(0, 3);
 
@@ -533,10 +548,10 @@ function P2Middle({ data }: { data: PDFData }) {
 // ─── PAGE 2 — RIGHT PANEL: Remaining months + footnote legend ────────────────
 
 function P2Right({ data }: { data: PDFData }) {
-	const DATE_W = 18 * MM;
-	const TIME_W = 14 * MM;
+	const DATE_W = 13 * MM;
+	const TIME_W = 14.5 * MM;
 
-	// Filter out oCC events — they only appear in the left panel
+	// FIX: Filter out oCC events — they only appear in the left panel
 	const active = data.events.filter((e) => !e.isCancelled && !isOCCEvent(e));
 	const entries = Array.from(groupByMonth(active).entries()).slice(3);
 
@@ -564,26 +579,23 @@ function P2Right({ data }: { data: PDFData }) {
 			<View
 				style={{
 					marginTop: "auto",
-					borderTopWidth: 0.5,
-					borderTopColor: "#bbb",
-					paddingTop: 2,
 				}}
 			>
 				{catsUsed.has(1) && (
-					<Text style={{ fontSize: 10, color: "#555", lineHeight: 1.4 }}>
-						<Text style={{ fontSize: 6.6, verticalAlign: "super" }}>1</Text>
+					<Text style={{ fontSize: 10, lineHeight: 1.2 }}>
+						<Text style={{ fontSize: 6, verticalAlign: "super" }}>1</Text>
 						{" interne Veranstaltung"}
 					</Text>
 				)}
 				{catsUsed.has(2) && (
-					<Text style={{ fontSize: 10, color: "#555", lineHeight: 1.4 }}>
-						<Text style={{ fontSize: 6.6, verticalAlign: "super" }}>2</Text>
+					<Text style={{ fontSize: 10, lineHeight: 1.2 }}>
+						<Text style={{ fontSize: 6, verticalAlign: "super" }}>2</Text>
 						{" CC lädt ein"}
 					</Text>
 				)}
 				{catsUsed.has(3) && (
-					<Text style={{ fontSize: 10, color: "#555", lineHeight: 1.4 }}>
-						<Text style={{ fontSize: 6.6, verticalAlign: "super" }}>3</Text>
+					<Text style={{ fontSize: 10, lineHeight: 1.2 }}>
+						<Text style={{ fontSize: 6, verticalAlign: "super" }}>3</Text>
 						{" AHV lädt ein"}
 					</Text>
 				)}
@@ -614,13 +626,23 @@ function EventRow({
 				alignItems: "flex-start",
 			}}
 		>
-			<Text style={{ fontSize: 10, width: dateW, color: "#333" }}>
-				{fmtDateRange(event.date, event.endDate)}
-			</Text>
-			{/* No time shown for multi-day events */}
-			<Text style={{ fontSize: 10, width: timeW, color: "#333" }}>
-				{isMultiDay ? "" : fmtTime(event.date)}
-			</Text>
+			{isMultiDay ? (
+				<>
+					{/* Multi-day: date range spans date+time columns */}
+					<Text style={{ fontSize: 10, width: dateW + timeW }}>
+						{fmtDateRange(event.date, event.endDate)}
+					</Text>
+				</>
+			) : (
+				<>
+					<Text style={{ fontSize: 10, width: dateW }}>
+						{fmtDate(event.date)}
+					</Text>
+					<Text style={{ fontSize: 10, width: timeW }}>
+						{fmtTime(event.date)}
+					</Text>
+				</>
+			)}
 			<Text style={{ fontSize: 10, flex: 1 }}>
 				{event.title}
 				<Sup n={cat} />
@@ -646,8 +668,8 @@ export function SemProPDFDocument({
 			author="Corps Rhenania zu Stuttgart"
 		>
 			{/* Page 1 — Outside cover */}
-			<Page size={[PW, PH]}>
-				<View style={s.row}>
+			<Page size={[PAGE_W, PAGE_H]}>
+				<View style={[s.row, { marginLeft: BLEED, marginTop: BLEED }]}>
 					<P1Left qrDataUrl={qrDataUrl} semesterName={data.semesterName} />
 					<P1Middle data={data} />
 					<P1Right data={data} wappenPath={wappenPath} />
@@ -655,8 +677,8 @@ export function SemProPDFDocument({
 			</Page>
 
 			{/* Page 2 — Inside */}
-			<Page size={[PW, PH]}>
-				<View style={s.row}>
+			<Page size={[PAGE_W, PAGE_H]}>
+				<View style={[s.row, { marginLeft: BLEED, marginTop: BLEED }]}>
 					<P2Left data={data} />
 					<P2Middle data={data} />
 					<P2Right data={data} />
