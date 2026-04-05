@@ -1069,9 +1069,7 @@ export const kontos = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
-		kasseType: d
-			.text({ enum: KASSE_TYPES })
-			.notNull(),
+		kasseType: d.text({ enum: KASSE_TYPES }).notNull(),
 		iban: d.text({ length: 50 }).notNull(),
 		bic: d.text({ length: 20 }).notNull(),
 		bankName: d.text({ length: 255 }).notNull(),

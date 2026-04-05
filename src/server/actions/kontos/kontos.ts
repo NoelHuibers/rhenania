@@ -73,7 +73,8 @@ export async function createKonto(
 	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
 
 	const roleNames = await getUserRoleNames(session.user.id);
-	if (!isAdmin(roleNames)) return { success: false, error: "Keine Berechtigung" };
+	if (!isAdmin(roleNames))
+		return { success: false, error: "Keine Berechtigung" };
 
 	const [row] = await db
 		.insert(kontos)
@@ -100,7 +101,11 @@ export async function updateKonto(
 	const session = await auth();
 	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
 
-	const [existing] = await db.select().from(kontos).where(eq(kontos.id, id)).limit(1);
+	const [existing] = await db
+		.select()
+		.from(kontos)
+		.where(eq(kontos.id, id))
+		.limit(1);
 	if (!existing) return { success: false, error: "Konto nicht gefunden" };
 
 	const roleNames = await getUserRoleNames(session.user.id);
@@ -111,7 +116,8 @@ export async function updateKonto(
 	if (input.iban !== undefined) updateData.iban = input.iban;
 	if (input.bic !== undefined) updateData.bic = input.bic;
 	if (input.bankName !== undefined) updateData.bankName = input.bankName;
-	if (input.description !== undefined) updateData.description = input.description;
+	if (input.description !== undefined)
+		updateData.description = input.description;
 	if (input.isActive !== undefined) updateData.isActive = input.isActive;
 	// Only admin may change the type
 	if (isAdmin(roleNames) && input.kasseType !== undefined) {
@@ -132,7 +138,8 @@ export async function deleteKonto(
 	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
 
 	const roleNames = await getUserRoleNames(session.user.id);
-	if (!isAdmin(roleNames)) return { success: false, error: "Keine Berechtigung" };
+	if (!isAdmin(roleNames))
+		return { success: false, error: "Keine Berechtigung" };
 
 	await db.delete(kontos).where(eq(kontos.id, id));
 	revalidatePath("/konten");
