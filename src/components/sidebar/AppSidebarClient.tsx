@@ -6,6 +6,7 @@ import {
 	CalendarDays,
 	Camera,
 	House,
+	Landmark,
 	LogOut,
 	ReceiptEuro,
 	ReceiptText,
@@ -38,7 +39,7 @@ import {
 } from "~/components/ui/sidebar";
 import { signOut } from "~/server/auth/client";
 
-type Role = "Admin" | "Versorger" | string;
+type Role = "Admin" | "Getränkewart" | string;
 
 type NavItem = {
 	title: string;
@@ -86,7 +87,7 @@ const navGroups: NavGroup[] = [
 				title: "Getränkewart",
 				href: "/getraenkewart",
 				icon: Truck,
-				roles: ["Versorger", "Admin"],
+				roles: ["Getränkewart", "Admin"],
 			},
 			{
 				title: "Bilder",
@@ -99,6 +100,12 @@ const navGroups: NavGroup[] = [
 				href: "/admin/semesterprogramm",
 				icon: CalendarDays,
 				roles: ["Admin"],
+			},
+			{
+				title: "Konten",
+				href: "/konten",
+				icon: Landmark,
+				roles: ["Admin", "Getränkewart", "CCKasse", "Aktivenkasse"],
 			},
 			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
 		],

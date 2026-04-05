@@ -44,6 +44,7 @@ const VALID_PATHS = [
 	"/inventur",
 	"/getraenkewart",
 	"/semesterprogramm",
+	"/konten",
 ];
 
 function isValidPath(pathname: string) {
@@ -69,9 +70,9 @@ function isPublic(pathname: string) {
 
 // Role-protected paths configuration
 const ROLE_PROTECTED_PATHS: Record<string, string[]> = {
-	"/versorger": ["Admin", "Versorger"],
-	"/inventur": ["Admin", "Versorger"],
-	"/orders": ["Admin", "Versorger"],
+	"/versorger": ["Admin", "Getränkewart"],
+	"/inventur": ["Admin", "Getränkewart"],
+	"/orders": ["Admin", "Getränkewart"],
 	"/bilder": ["Admin", "Fotowart"],
 	"/admin": ["Admin"],
 };

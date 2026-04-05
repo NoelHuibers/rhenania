@@ -89,7 +89,7 @@ export default function BillingDashboard() {
 	>(new Map());
 
 	const hasRequiredRole = () => {
-		return userRoles.includes("Versorger");
+		return userRoles.includes("Getränkewart");
 	};
 
 	const isAuthenticated = !isPending && !!session?.user?.id;

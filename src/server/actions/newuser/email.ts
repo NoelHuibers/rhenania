@@ -170,7 +170,7 @@ Corps Rhenania Stuttgart
                   <div class="amount">${formattedTotal}</div>
                 </div>
                 <p>Bitte überweise den Betrag innerhalb von <strong>14 Tagen</strong>.</p>
-                <p>Falls du Fragen zu deiner Rechnung hast, wende dich an den Versorger.</p>
+                <p>Falls du Fragen zu deiner Rechnung hast, wende dich an den Getränkewart.</p>
                 <p>Mit freundlichen Grüßen <br><strong>Corps Rhenania Stuttgart</strong></p>
               </div>
               <div class="footer">

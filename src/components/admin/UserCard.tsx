@@ -8,7 +8,7 @@ import type { UserWithRoles } from "./dashboard";
 const getRoleBadgeVariant = (roleName: string) => {
 	const variants = {
 		Admin: "destructive" as const,
-		Versorger: "default" as const,
+		Getränkewart: "default" as const,
 		Fuchsenladen: "secondary" as const,
 		Fotowart: "outline" as const,
 	};

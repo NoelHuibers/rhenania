@@ -9,6 +9,16 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
+// Inlined so drizzle-kit can parse the schema without resolving path aliases
+const KASSE_TYPES = [
+	"Getränkekasse",
+	"Aktivenkasse",
+	"CC-Kasse",
+	"Fuchsenkasse",
+	"AHV Kasse",
+	"Hausverein Kasse",
+] as const;
+
 export const createTable = sqliteTableCreator((name) => `rhenania_${name}`);
 
 export const users = createTable("user", (d) => ({
@@ -1040,3 +1050,38 @@ export const kasseConfig = createTable("kasse_config", (d) => ({
 		.text({ length: 255 })
 		.references(() => users.id, { onDelete: "set null" }),
 }));
+
+// ─── Semester Config ──────────────────────────────────────────────────────────
+export const semesterConfig = createTable("semester_config", (d) => ({
+	id: d.text({ length: 50 }).notNull().primaryKey().default("singleton"),
+	name: d.text({ length: 255 }).notNull().default(""),
+	startDate: d.integer({ mode: "timestamp" }),
+	endDate: d.integer({ mode: "timestamp" }),
+	updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+}));
+
+// ─── Corps Konten ─────────────────────────────────────────────────────────────
+export const kontos = createTable(
+	"konto",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		kasseType: d
+			.text({ enum: KASSE_TYPES })
+			.notNull(),
+		iban: d.text({ length: 50 }).notNull(),
+		bic: d.text({ length: 20 }).notNull(),
+		bankName: d.text({ length: 255 }).notNull(),
+		description: d.text({ length: 500 }),
+		isActive: d.integer({ mode: "boolean" }).notNull().default(true),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [index("konto_type_idx").on(t.kasseType)],
+);

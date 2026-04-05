@@ -249,7 +249,7 @@ export async function getOpenMemberBills() {
 		.orderBy(bills.userName);
 }
 
-// ─── PDF download for entity bills (Versorger only) ──────────────────────────
+// ─── PDF download for entity bills (Getränkewart only) ───────────────────────
 
 async function hasVersorgerRole(userId: string): Promise<boolean> {
 	const [row] = await db
@@ -257,7 +257,7 @@ async function hasVersorgerRole(userId: string): Promise<boolean> {
 		.from(userRoles)
 		.innerJoin(roles, eq(userRoles.roleId, roles.id))
 		.where(
-			sql`${userRoles.userId} = ${userId} AND (${roles.name} = 'Versorger' OR ${roles.name} = 'Admin')`,
+			sql`${userRoles.userId} = ${userId} AND (${roles.name} = 'Getränkewart' OR ${roles.name} = 'Admin')`,
 		)
 		.limit(1);
 	return !!row;

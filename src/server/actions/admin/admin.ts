@@ -126,16 +126,32 @@ export async function getRolesWithUserCount(): Promise<Role[]> {
  */
 export async function initializeRoles(): Promise<void> {
 	try {
+		// Rename legacy "Versorger" → "Getränkewart" if it still exists
+		const versorger = await db
+			.select()
+			.from(roles)
+			.where(eq(roles.name, "Versorger"))
+			.limit(1);
+		if (versorger.length > 0) {
+			await db
+				.update(roles)
+				.set({ name: "Getränkewart", description: "Getränkeversorgung" })
+				.where(eq(roles.name, "Versorger"));
+		}
+
 		const defaultRoles = [
 			{ name: "Admin", description: "Systemadministration" },
-			{ name: "Versorger", description: "Getränkeversorgung" },
-			{
-				name: "Fuchs",
-				description: "Fuchsenladen Management",
-			},
+			{ name: "Getränkewart", description: "Getränkeversorgung" },
+			{ name: "Fuchs", description: "Fuchsenladen Management" },
 			{ name: "Fotowart", description: "Fotos der Website verwalten" },
 			{ name: "Faxe", description: "Faxe, Hausmeister, Putzfirma" },
 			{ name: "Hausbewohner", description: "Aktive" },
+			{ name: "Senior", description: "Senior des Corps (x)" },
+			{ name: "Consenior", description: "Consenior des Corps (xx)" },
+			{ name: "Subsenior", description: "Subsenior des Corps (xxx)" },
+			{ name: "Fuchsmajor", description: "Fuchsmajor des Corps (FM)" },
+			{ name: "CCKasse", description: "CC-Kassenwart" },
+			{ name: "Aktivenkasse", description: "Aktivenkassenwart" },
 		];
 
 		for (const role of defaultRoles) {

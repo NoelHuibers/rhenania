@@ -8,6 +8,7 @@ import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { getAllEvents } from "~/server/actions/events/events";
 import { getAllRecurringEvents } from "~/server/actions/events/recurring";
+import { getSemesterConfig } from "~/server/actions/semesterprogramm/semesterConfig";
 import { getVenues } from "~/server/actions/venues";
 
 export const metadata = {
@@ -15,10 +16,11 @@ export const metadata = {
 };
 
 export default async function AdminSemesterprogrammPage() {
-	const [events, recurringEvents, venues] = await Promise.all([
+	const [events, recurringEvents, venues, semConfig] = await Promise.all([
 		getAllEvents(),
 		getAllRecurringEvents(),
 		getVenues(),
+		getSemesterConfig(),
 	]);
 
 	const host = (await headers()).get("host") ?? "localhost:3000";
@@ -49,7 +51,7 @@ export default async function AdminSemesterprogrammPage() {
 						<VenuesManager initialVenues={venues} />
 					</TabsContent>
 					<TabsContent value="generieren">
-						<SemProGenerieren calendarUrl={semproUrl} />
+						<SemProGenerieren calendarUrl={semproUrl} initialConfig={semConfig} />
 					</TabsContent>
 				</Tabs>
 			</div>
