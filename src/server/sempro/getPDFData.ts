@@ -72,7 +72,7 @@ export async function getPDFData(): Promise<PDFData | null> {
 
 	const leaders: PDFLeader[] = leaderRows
 		.filter((r) => r.name)
-		.map((r) => ({ name: r.name!, role: r.roleName }))
+		.map((r) => ({ name: r.name ?? "", role: r.roleName }))
 		.sort(
 			(a, b) =>
 				LEADERSHIP_ROLES.indexOf(a.role) - LEADERSHIP_ROLES.indexOf(b.role),
@@ -95,10 +95,7 @@ export async function getPDFData(): Promise<PDFData | null> {
 		.select()
 		.from(events)
 		.where(
-			and(
-				gte(events.date, config.startDate),
-				lte(events.date, config.endDate),
-			),
+			and(gte(events.date, config.startDate), lte(events.date, config.endDate)),
 		)
 		.orderBy(asc(events.date));
 
@@ -109,10 +106,10 @@ export async function getPDFData(): Promise<PDFData | null> {
 		leaders,
 		ccKonto: ccKonto ?? null,
 		jourFixeRule: jourFixe
-			? RECURRENCE_LABELS[jourFixe.recurrenceType] ?? null
+			? (RECURRENCE_LABELS[jourFixe.recurrenceType] ?? null)
 			: null,
 		stammtischRule: stammtisch
-			? RECURRENCE_LABELS[stammtisch.recurrenceType] ?? null
+			? (RECURRENCE_LABELS[stammtisch.recurrenceType] ?? null)
 			: null,
 		events: semEvents.map((e) => ({
 			date: e.date,

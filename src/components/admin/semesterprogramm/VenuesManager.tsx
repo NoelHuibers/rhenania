@@ -20,8 +20,8 @@ import { Label } from "~/components/ui/label";
 import {
 	createVenue,
 	deleteVenue,
-	type Venue,
 	updateVenue,
+	type Venue,
 } from "~/server/actions/venues";
 
 function VenueForm({
@@ -139,8 +139,8 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 					<AlertDialogHeader>
 						<AlertDialogTitle>Ort löschen?</AlertDialogTitle>
 						<AlertDialogDescription>
-							Der Kurzname bleibt in bestehenden Veranstaltungen erhalten,
-							wird im Kalender aber nicht mehr aufgelöst.
+							Der Kurzname bleibt in bestehenden Veranstaltungen erhalten, wird
+							im Kalender aber nicht mehr aufgelöst.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -160,7 +160,12 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 					<p className="text-muted-foreground text-sm">
 						{initialVenues.length} Orte gespeichert
 					</p>
-					<Button onClick={() => { setShowCreate(true); setEditingId(null); }}>
+					<Button
+						onClick={() => {
+							setShowCreate(true);
+							setEditingId(null);
+						}}
+					>
 						<Plus className="mr-2 h-4 w-4" />
 						Neuer Ort
 					</Button>
@@ -188,7 +193,10 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 							{editingId === venue.id ? (
 								<div className="p-2">
 									<VenueForm
-										initial={{ shortName: venue.shortName, fullAddress: venue.fullAddress }}
+										initial={{
+											shortName: venue.shortName,
+											fullAddress: venue.fullAddress,
+										}}
 										onSubmit={handleUpdate}
 										onClose={() => setEditingId(null)}
 										loading={loading}
@@ -197,7 +205,7 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 								</div>
 							) : (
 								<div className="flex items-center justify-between gap-4 px-4 py-3">
-									<div className="flex items-center gap-3 min-w-0">
+									<div className="flex min-w-0 items-center gap-3">
 										<MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
 										<div className="min-w-0">
 											<p className="font-medium text-sm">{venue.shortName}</p>
@@ -210,7 +218,11 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 										<Button
 											variant="ghost"
 											size="icon"
-											onClick={() => { setEditingId(venue.id); setShowCreate(false); setError(null); }}
+											onClick={() => {
+												setEditingId(venue.id);
+												setShowCreate(false);
+												setError(null);
+											}}
 										>
 											<Pencil className="h-4 w-4" />
 										</Button>

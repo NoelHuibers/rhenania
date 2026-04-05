@@ -19,7 +19,7 @@ export function SemProQRCode({ url }: { url: string }) {
 
 	return (
 		<div className="flex flex-col items-center gap-6 py-8">
-			<p className="text-sm text-muted-foreground">
+			<p className="text-muted-foreground text-sm">
 				QR-Code für:{" "}
 				<span className="font-mono text-foreground">{webcalUrl}</span>
 			</p>

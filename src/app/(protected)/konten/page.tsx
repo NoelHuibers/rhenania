@@ -1,11 +1,11 @@
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
+import { eq } from "drizzle-orm";
+import { redirect } from "next/navigation";
 import { KontenPage } from "~/components/konten/KontenPage";
+import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { getKontos } from "~/server/actions/kontos/kontos";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { roles, userRoles } from "~/server/db/schema";
-import { eq } from "drizzle-orm";
-import { redirect } from "next/navigation";
 
 async function getUserRoleNames(userId: string): Promise<string[]> {
 	const rows = await db

@@ -242,7 +242,13 @@ function EventFormCard({
 	);
 }
 
-export function EventsManager({ initialEvents, venues }: { initialEvents: Event[]; venues: Venue[] }) {
+export function EventsManager({
+	initialEvents,
+	venues,
+}: {
+	initialEvents: Event[];
+	venues: Venue[];
+}) {
 	const router = useRouter();
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);

@@ -204,7 +204,9 @@ function P1Middle({ data }: { data: PDFData }) {
 			</View>
 
 			{/* Leadership table — space-between gives tab-stop gap between name and rank */}
-			<View style={{ alignSelf: "center", width: 45 * MM, marginBottom: 3 * MM }}>
+			<View
+				style={{ alignSelf: "center", width: 45 * MM, marginBottom: 3 * MM }}
+			>
 				{cbLeaders.map((l) => (
 					<View
 						key={l.role}
@@ -399,7 +401,11 @@ function OCCRow({
 
 	return (
 		<View
-			style={{ flexDirection: "row", marginBottom: 1.5, alignItems: "flex-start" }}
+			style={{
+				flexDirection: "row",
+				marginBottom: 1.5,
+				alignItems: "flex-start",
+			}}
 		>
 			<Text style={{ fontSize: 6, width: DATE_W }}>{fmtDate(event.date)}</Text>
 			<Text style={{ fontSize: 6, width: DAY_W, color: "#555" }}>
@@ -516,7 +522,11 @@ function EventRow({
 
 	return (
 		<View
-			style={{ flexDirection: "row", marginBottom: 1, alignItems: "flex-start" }}
+			style={{
+				flexDirection: "row",
+				marginBottom: 1,
+				alignItems: "flex-start",
+			}}
 		>
 			<Text style={{ fontSize: 6, width: dateW, color: "#333" }}>
 				{fmtDateRange(event.date, event.endDate)}

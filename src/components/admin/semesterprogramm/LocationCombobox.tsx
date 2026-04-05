@@ -76,7 +76,7 @@ export function LocationCombobox({
 							className="h-9"
 						/>
 					</Command>
-					<ChevronsUpDown className="-translate-y-1/2 pointer-events-none absolute right-3 top-1/2 h-4 w-4 text-muted-foreground" />
+					<ChevronsUpDown className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 				</div>
 			</PopoverAnchor>
 

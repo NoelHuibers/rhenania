@@ -228,12 +228,18 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 											<TableHeader>
 												<TableRow>
 													<TableHead>Getränk</TableHead>
-													<TableHead className="hidden text-right sm:table-cell">Gezählt</TableHead>
-													<TableHead className="hidden text-right sm:table-cell">Erwartet</TableHead>
+													<TableHead className="hidden text-right sm:table-cell">
+														Gezählt
+													</TableHead>
+													<TableHead className="hidden text-right sm:table-cell">
+														Erwartet
+													</TableHead>
 													<TableHead className="text-right">
 														Differenz
 													</TableHead>
-													<TableHead className="hidden text-center sm:table-cell">Status</TableHead>
+													<TableHead className="hidden text-center sm:table-cell">
+														Status
+													</TableHead>
 													<TableHead className="text-right">
 														Verlust (€)
 													</TableHead>

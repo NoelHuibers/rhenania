@@ -123,7 +123,9 @@ function KontoForm({
 							<Input
 								id="k-iban"
 								value={form.iban}
-								onChange={(e) => setForm((f) => ({ ...f, iban: e.target.value }))}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, iban: e.target.value }))
+								}
 								placeholder="DE00 0000 0000 0000 0000 00"
 							/>
 						</div>
@@ -132,7 +134,9 @@ function KontoForm({
 							<Input
 								id="k-bic"
 								value={form.bic}
-								onChange={(e) => setForm((f) => ({ ...f, bic: e.target.value }))}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, bic: e.target.value }))
+								}
 								placeholder="VOBADE21XXX"
 							/>
 						</div>
@@ -321,7 +325,10 @@ export function KontenPage({
 
 	return (
 		<>
-			<AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+			<AlertDialog
+				open={!!deleteId}
+				onOpenChange={(open) => !open && setDeleteId(null)}
+			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>Konto löschen?</AlertDialogTitle>

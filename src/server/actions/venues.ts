@@ -27,7 +27,10 @@ export async function updateVenue(
 	fullAddress: string,
 ) {
 	try {
-		await db.update(venues).set({ shortName, fullAddress }).where(eq(venues.id, id));
+		await db
+			.update(venues)
+			.set({ shortName, fullAddress })
+			.where(eq(venues.id, id));
 		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch {

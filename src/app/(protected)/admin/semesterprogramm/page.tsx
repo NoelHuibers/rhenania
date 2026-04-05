@@ -51,7 +51,10 @@ export default async function AdminSemesterprogrammPage() {
 						<VenuesManager initialVenues={venues} />
 					</TabsContent>
 					<TabsContent value="generieren">
-						<SemProGenerieren calendarUrl={semproUrl} initialConfig={semConfig} />
+						<SemProGenerieren
+							calendarUrl={semproUrl}
+							initialConfig={semConfig}
+						/>
 					</TabsContent>
 				</Tabs>
 			</div>

@@ -1,10 +1,10 @@
-import { renderToBuffer } from "@react-pdf/renderer";
 import fs from "node:fs";
 import path from "node:path";
-import { createElement } from "react";
 import type { DocumentProps } from "@react-pdf/renderer";
-import type { ReactElement } from "react";
+import { renderToBuffer } from "@react-pdf/renderer";
 import QRCode from "qrcode";
+import type { ReactElement } from "react";
+import { createElement } from "react";
 import { auth } from "~/server/auth";
 import { getPDFData } from "~/server/sempro/getPDFData";
 import { SemProPDFDocument } from "~/server/sempro/SemProPDF";
@@ -48,7 +48,11 @@ export async function GET(request: Request) {
 	const wappenPath = `data:image/png;base64,${fs.readFileSync(wappenFile).toString("base64")}`;
 
 	const buffer = await renderToBuffer(
-		createElement(SemProPDFDocument, { data, wappenPath, qrDataUrl }) as ReactElement<DocumentProps>,
+		createElement(SemProPDFDocument, {
+			data,
+			wappenPath,
+			qrDataUrl,
+		}) as ReactElement<DocumentProps>,
 	);
 
 	const filename = `Semesterprogramm_${data.semesterName.replace(/\s+/g, "_")}.pdf`;

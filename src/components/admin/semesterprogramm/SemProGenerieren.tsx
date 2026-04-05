@@ -135,7 +135,9 @@ export function SemProGenerieren({
 
 			<Card>
 				<CardHeader>
-					<CardTitle className="text-base">Semesterprogramm generieren</CardTitle>
+					<CardTitle className="text-base">
+						Semesterprogramm generieren
+					</CardTitle>
 				</CardHeader>
 				<CardContent className="space-y-3">
 					<p className="text-muted-foreground text-xs">

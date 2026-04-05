@@ -79,10 +79,10 @@ export default async function SemesterprogrammPage() {
 											>
 												{/* Date block */}
 												<div className="flex w-10 shrink-0 flex-col items-center pt-0.5 text-center">
-													<span className="text-lg font-bold leading-none tabular-nums">
+													<span className="font-bold text-lg tabular-nums leading-none">
 														{event.date.getDate()}
 													</span>
-													<span className="text-[10px] uppercase text-muted-foreground">
+													<span className="text-[10px] text-muted-foreground uppercase">
 														{event.date.toLocaleDateString("de-DE", {
 															weekday: "short",
 														})}

@@ -75,7 +75,12 @@ const navGroups: NavGroup[] = [
 	{
 		label: "Allgemein",
 		items: [
-			{ title: "Semesterprogramm", href: "/semesterprogramm", icon: CalendarDays, roles: [] },
+			{
+				title: "Semesterprogramm",
+				href: "/semesterprogramm",
+				icon: CalendarDays,
+				roles: [],
+			},
 			{ title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
 			{ title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
 		],
