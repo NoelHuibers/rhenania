@@ -1,4 +1,4 @@
-import { and, asc, eq, gte } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { events } from "~/server/db/schema";
@@ -32,7 +32,6 @@ export async function GET() {
 	const rows = await db
 		.select()
 		.from(events)
-		.where(and(gte(events.date, now), eq(events.isPublic, true)))
 		.orderBy(asc(events.date));
 
 	const vevents = rows
