@@ -17,6 +17,7 @@ const PUBLIC_PATHS = [
 	"/api/auth/(.*)", // all Better Auth endpoints
 	"/auth/(.*)", // all auth endpoints
 	"/party",
+	"/api/calendar",
 ];
 
 // All known valid paths (including protected ones). Wildcards use (.*).
