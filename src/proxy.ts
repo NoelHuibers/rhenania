@@ -19,6 +19,42 @@ const PUBLIC_PATHS = [
 	"/party",
 ];
 
+// All known valid paths (including protected ones). Wildcards use (.*).
+const VALID_PATHS = [
+	"/",
+	"/about",
+	"/contact",
+	"/datenschutz",
+	"/impressum",
+	"/party",
+	"/api/(.*)",
+	"/auth/(.*)",
+	"/access-denied",
+	"/profile",
+	"/bestellungen",
+	"/bilder",
+	"/eloranking",
+	"/rechnungen",
+	"/trinken",
+	"/leaderboard",
+	"/admin",
+	"/admin/(.*)",
+	"/versorger",
+	"/inventur",
+	"/getraenkewart",
+	"/semesterprogramm",
+];
+
+function isValidPath(pathname: string) {
+	const lower = pathname.toLowerCase();
+	return VALID_PATHS.some((p) => {
+		const lowerP = p.toLowerCase();
+		return lowerP.includes("(.*)")
+			? new RegExp(`^${lowerP.replace("(.*)", ".*")}`).test(lower)
+			: lower === lowerP;
+	});
+}
+
 function isPublic(pathname: string) {
 	const lowerPathname = pathname.toLowerCase();
 
@@ -90,12 +126,23 @@ export default async function middleware(request: NextRequest) {
 		return NextResponse.redirect(lowercaseUrl, { status: 301 });
 	}
 
-	// 2) Allow public URLs
+	// 2) Redirect unknown paths instead of 404
+	if (!isValidPath(pathname)) {
+		const session = await betterAuthInstance.api.getSession({
+			headers: request.headers,
+		});
+		const fallbackUrl = request.nextUrl.clone();
+		fallbackUrl.pathname = session?.user ? "/profile" : "/";
+		fallbackUrl.search = "";
+		return NextResponse.redirect(fallbackUrl, { status: 302 });
+	}
+
+	// 3) Allow public URLs
 	if (isPublic(pathname)) {
 		return NextResponse.next();
 	}
 
-	// 3) Check session via Better Auth
+	// 4) Check session via Better Auth
 	const session = await betterAuthInstance.api.getSession({
 		headers: request.headers,
 	});
@@ -107,7 +154,7 @@ export default async function middleware(request: NextRequest) {
 		return NextResponse.redirect(signInUrl);
 	}
 
-	// 4) Check role-protected paths
+	// 5) Check role-protected paths
 	const requiredRoles = getRequiredRoles(pathname);
 
 	if (requiredRoles) {
