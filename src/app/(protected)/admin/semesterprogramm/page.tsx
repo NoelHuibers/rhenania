@@ -1,5 +1,5 @@
-import { EventsManager } from "~/components/admin/termine/EventsManager";
-import { RecurringEventsManager } from "~/components/admin/termine/RecurringEventsManager";
+import { EventsManager } from "~/components/admin/semesterprogramm/EventsManager";
+import { RecurringEventsManager } from "~/components/admin/semesterprogramm/RecurringEventsManager";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";

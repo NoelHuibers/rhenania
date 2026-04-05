@@ -110,7 +110,7 @@ const Veranstaltungen = async () => {
 
 				<div className="flex justify-center">
 					<a
-						href="/termine"
+						href="/semesterprogramm"
 						className="rounded-md border border-gray-300 bg-white px-5 py-2 text-gray-700 text-sm shadow-sm transition-colors hover:bg-gray-50"
 					>
 						Alle Termine ansehen

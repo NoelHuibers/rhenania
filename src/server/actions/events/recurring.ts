@@ -222,7 +222,7 @@ export async function createRecurringEvent(input: RecurringEventInput) {
 			endDate: input.endDate,
 			createdBy: input.createdBy,
 		});
-		revalidatePath("/admin/termine");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch (error) {
 		console.error("Error creating recurring event:", error);
@@ -254,7 +254,7 @@ export async function updateRecurringEvent(
 				...(input.endDate !== undefined && { endDate: input.endDate }),
 			})
 			.where(eq(recurringEvents.id, id));
-		revalidatePath("/admin/termine");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch (error) {
 		console.error("Error updating recurring event:", error);
@@ -274,7 +274,7 @@ export async function toggleRecurringEventActive(id: string) {
 			.update(recurringEvents)
 			.set({ isActive: !current.isActive })
 			.where(eq(recurringEvents.id, id));
-		revalidatePath("/admin/termine");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch (error) {
 		console.error("Error toggling recurring event:", error);
@@ -285,7 +285,7 @@ export async function toggleRecurringEventActive(id: string) {
 export async function deleteRecurringEvent(id: string) {
 	try {
 		await db.delete(recurringEvents).where(eq(recurringEvents.id, id));
-		revalidatePath("/admin/termine");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch (error) {
 		console.error("Error deleting recurring event:", error);
@@ -342,8 +342,8 @@ export async function generateInstances(recurringEventId: string) {
 		);
 
 		revalidatePath("/");
-		revalidatePath("/termine");
-		revalidatePath("/admin/termine");
+		revalidatePath("/semesterprogramm");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true, created: newItems.length };
 	} catch (error) {
 		console.error("Error generating instances:", error);
@@ -364,8 +364,8 @@ export async function toggleEventCancelled(eventId: string) {
 			.set({ isCancelled: !current.isCancelled })
 			.where(eq(events.id, eventId));
 		revalidatePath("/");
-		revalidatePath("/termine");
-		revalidatePath("/admin/termine");
+		revalidatePath("/semesterprogramm");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch (error) {
 		console.error("Error toggling cancelled:", error);

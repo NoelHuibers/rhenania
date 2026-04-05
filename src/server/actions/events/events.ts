@@ -100,8 +100,8 @@ export async function createEvent(input: EventInput) {
 		});
 
 		revalidatePath("/");
-		revalidatePath("/termine");
-		revalidatePath("/admin/termine");
+		revalidatePath("/semesterprogramm");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch (error) {
 		console.error("Error creating event:", error);
@@ -130,8 +130,8 @@ export async function updateEvent(id: string, input: Partial<EventInput>) {
 			.where(eq(events.id, id));
 
 		revalidatePath("/");
-		revalidatePath("/termine");
-		revalidatePath("/admin/termine");
+		revalidatePath("/semesterprogramm");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch (error) {
 		console.error("Error updating event:", error);
@@ -147,8 +147,8 @@ export async function deleteEvent(id: string) {
 		await db.delete(events).where(eq(events.id, id));
 
 		revalidatePath("/");
-		revalidatePath("/termine");
-		revalidatePath("/admin/termine");
+		revalidatePath("/semesterprogramm");
+		revalidatePath("/admin/semesterprogramm");
 		return { success: true };
 	} catch (error) {
 		console.error("Error deleting event:", error);
