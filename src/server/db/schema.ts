@@ -952,6 +952,24 @@ export const eventsRelations = relations(events, ({ one }) => ({
 	}),
 }));
 
+export const venues = createTable(
+	"venue",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		shortName: d.text({ length: 255 }).notNull().unique(),
+		fullAddress: d.text({ length: 500 }).notNull(),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+	}),
+	(t) => [uniqueIndex("venue_short_name_idx").on(t.shortName)],
+);
+
 // ─── Getränkewart / Kasse ─────────────────────────────────────────────────────
 
 export const bankEntries = createTable(

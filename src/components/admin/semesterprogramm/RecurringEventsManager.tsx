@@ -34,6 +34,8 @@ import {
 	toggleRecurringEventActive,
 	updateRecurringEvent,
 } from "~/server/actions/events/recurring";
+import type { Venue } from "~/server/actions/venues";
+import { LocationCombobox } from "./LocationCombobox";
 
 type EventType =
 	| "Intern"
@@ -139,8 +141,10 @@ function recurrenceSummary(r: RecurringEvent): string {
 
 export function RecurringEventsManager({
 	initialRecurringEvents,
+	venues,
 }: {
 	initialRecurringEvents: RecurringEvent[];
+	venues: Venue[];
 }) {
 	const router = useRouter();
 	const [showCreateForm, setShowCreateForm] = useState(false);
@@ -301,12 +305,10 @@ export function RecurringEventsManager({
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="r-location">Ort</Label>
-							<Input
-								id="r-location"
+							<LocationCombobox
 								value={form.location}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, location: e.target.value }))
-								}
+								onChange={(v) => setForm((f) => ({ ...f, location: v }))}
+								venues={venues}
 							/>
 						</div>
 						<div className="space-y-2">

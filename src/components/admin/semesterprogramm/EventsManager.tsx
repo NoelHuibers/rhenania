@@ -44,6 +44,8 @@ import {
 	updateEvent,
 } from "~/server/actions/events/events";
 import { toggleEventCancelled } from "~/server/actions/events/recurring";
+import type { Venue } from "~/server/actions/venues";
+import { LocationCombobox } from "./LocationCombobox";
 
 type Event = {
 	id: string;
@@ -126,6 +128,7 @@ function EventFormCard({
 	isEditing,
 	loading,
 	error,
+	venues,
 }: {
 	form: FormState;
 	setForm: React.Dispatch<React.SetStateAction<FormState>>;
@@ -134,6 +137,7 @@ function EventFormCard({
 	isEditing: boolean;
 	loading: boolean;
 	error: string | null;
+	venues: Venue[];
 }) {
 	return (
 		<Card className="border-primary/30">
@@ -161,12 +165,10 @@ function EventFormCard({
 						</div>
 						<div className="space-y-2">
 							<Label htmlFor="ev-location">Ort</Label>
-							<Input
-								id="ev-location"
+							<LocationCombobox
 								value={form.location}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, location: e.target.value }))
-								}
+								onChange={(v) => setForm((f) => ({ ...f, location: v }))}
+								venues={venues}
 							/>
 						</div>
 						<div className="space-y-2">
@@ -240,7 +242,7 @@ function EventFormCard({
 	);
 }
 
-export function EventsManager({ initialEvents }: { initialEvents: Event[] }) {
+export function EventsManager({ initialEvents, venues }: { initialEvents: Event[]; venues: Venue[] }) {
 	const router = useRouter();
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
@@ -333,6 +335,7 @@ export function EventsManager({ initialEvents }: { initialEvents: Event[] }) {
 		isEditing: !!editingId,
 		loading,
 		error,
+		venues,
 	};
 
 	function renderRow(event: Event, past?: boolean) {

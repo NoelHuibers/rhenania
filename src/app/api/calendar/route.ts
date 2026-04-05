@@ -1,10 +1,10 @@
 import { asc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "~/server/db";
-import { events } from "~/server/db/schema";
+import { events, venues } from "~/server/db/schema";
 
 function formatICalDate(date: Date): string {
-	return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+	return `${date.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
 }
 
 function escapeICalText(str: string): string {
@@ -21,7 +21,7 @@ function foldLine(line: string): string {
 	chunks.push(line.slice(0, 75));
 	let i = 75;
 	while (i < line.length) {
-		chunks.push(" " + line.slice(i, i + 74));
+		chunks.push(` ${line.slice(i, i + 74)}`);
 		i += 74;
 	}
 	return chunks.join("\r\n");
@@ -29,10 +29,11 @@ function foldLine(line: string): string {
 
 export async function GET() {
 	const now = new Date();
-	const rows = await db
-		.select()
-		.from(events)
-		.orderBy(asc(events.date));
+	const [rows, venueRows] = await Promise.all([
+		db.select().from(events).orderBy(asc(events.date)),
+		db.select().from(venues),
+	]);
+	const venueMap = new Map(venueRows.map((v) => [v.shortName, v.fullAddress]));
 
 	const vevents = rows
 		.map((event) => {
@@ -51,7 +52,8 @@ export async function GET() {
 			];
 
 			if (event.location) {
-				lines.push(foldLine(`LOCATION:${escapeICalText(event.location)}`));
+				const resolved = venueMap.get(event.location) ?? event.location;
+				lines.push(foldLine(`LOCATION:${escapeICalText(resolved)}`));
 			}
 			if (event.description) {
 				lines.push(
@@ -82,7 +84,6 @@ export async function GET() {
 	return new NextResponse(ical, {
 		headers: {
 			"Content-Type": "text/calendar; charset=utf-8",
-			"Content-Disposition": 'attachment; filename="semesterprogramm.ics"',
 			"Cache-Control": "no-cache",
 		},
 	});
