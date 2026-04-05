@@ -89,6 +89,7 @@ export async function createKonto(
 		.returning({ id: kontos.id });
 
 	revalidatePath("/konten");
+	if (!row) throw new Error("Insert failed");
 	return { success: true, id: row.id };
 }
 
