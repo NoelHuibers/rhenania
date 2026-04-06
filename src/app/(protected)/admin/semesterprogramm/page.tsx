@@ -32,7 +32,7 @@ export default async function AdminSemesterprogrammPage() {
 			<SiteHeader title="Veranstaltungen verwalten" />
 			<div className="mx-auto max-w-4xl p-6">
 				<Tabs defaultValue="events">
-					<TabsList className="mb-6">
+					<TabsList className="mb-6 h-auto flex-wrap">
 						<TabsTrigger value="events">Einzeltermine</TabsTrigger>
 						<TabsTrigger value="recurring">Wiederkehrend</TabsTrigger>
 						<TabsTrigger value="venues">Orte</TabsTrigger>

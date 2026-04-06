@@ -15,6 +15,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { useIsMobile } from "~/hooks/use-mobile";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -24,6 +25,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import {
+	Sheet,
+	SheetContent,
+	SheetHeader,
+	SheetTitle,
+} from "~/components/ui/sheet";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
 import {
@@ -147,6 +154,7 @@ export function RecurringEventsManager({
 	venues: Venue[];
 }) {
 	const router = useRouter();
+	const isMobile = useIsMobile();
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
 	const [form, setForm] = useState<FormState>(emptyForm);
@@ -279,19 +287,9 @@ export function RecurringEventsManager({
 		form.recurrenceType === "monthly_1st_wednesday" ||
 		form.recurrenceType === "monthly_1st_3rd_wednesday";
 
-	const formCard = (
-		<Card className="border-primary/30">
-			<CardHeader className="flex flex-row items-center justify-between pb-2">
-				<CardTitle className="text-sm">
-					{editingId ? "Vorlage bearbeiten" : "Neue Vorlage"}
-				</CardTitle>
-				<Button variant="ghost" size="icon" onClick={closeForm}>
-					<X className="h-4 w-4" />
-				</Button>
-			</CardHeader>
-			<CardContent>
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<div className="grid gap-4 sm:grid-cols-2">
+	const formContent = (twoCol = false) => (
+		<form onSubmit={handleSubmit} className="space-y-4">
+					<div className={`grid gap-4 ${twoCol ? "sm:grid-cols-2" : ""}`}>
 						<div className="space-y-2">
 							<Label htmlFor="r-title">Titel *</Label>
 							<Input
@@ -401,7 +399,7 @@ export function RecurringEventsManager({
 										}
 									/>
 								</div>
-								<div className="col-span-2 rounded-md border border-green-200 bg-green-50 p-3 text-green-800 text-sm">
+								<div className={`${twoCol ? "col-span-2" : ""} rounded-md border border-green-200 bg-green-50 p-3 text-green-800 text-sm`}>
 									System generiert: <strong>AnCC</strong> (So 18:00) →{" "}
 									<strong>2. oCC, 3. oCC …</strong> (Mo 20:00) →{" "}
 									<strong>AbCC</strong> (So 18:00)
@@ -520,21 +518,51 @@ export function RecurringEventsManager({
 						/>
 					</div>
 					{error && <p className="text-destructive text-sm">{error}</p>}
-					<div className="flex gap-2">
-						<Button type="submit" disabled={loading}>
-							{loading ? "Speichern..." : editingId ? "Speichern" : "Erstellen"}
-						</Button>
-						<Button type="button" variant="outline" onClick={closeForm}>
-							Abbrechen
-						</Button>
-					</div>
-				</form>
-			</CardContent>
+				<div className="flex gap-2">
+					<Button type="submit" disabled={loading}>
+						{loading ? "Speichern..." : editingId ? "Speichern" : "Erstellen"}
+					</Button>
+					<Button type="button" variant="outline" onClick={closeForm}>
+						Abbrechen
+					</Button>
+				</div>
+			</form>
+	);
+
+	const formCard = (
+		<Card className="border-primary/30">
+			<CardHeader className="flex flex-row items-center justify-between pb-2">
+				<CardTitle className="text-sm">
+					{editingId ? "Vorlage bearbeiten" : "Neue Vorlage"}
+				</CardTitle>
+				<Button variant="ghost" size="icon" onClick={closeForm}>
+					<X className="h-4 w-4" />
+				</Button>
+			</CardHeader>
+			<CardContent>{formContent(true)}</CardContent>
 		</Card>
 	);
 
 	return (
 		<>
+			{isMobile && (
+				<Sheet
+					open={showCreateForm || editingId !== null}
+					onOpenChange={(open) => { if (!open) closeForm(); }}
+				>
+					<SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
+						<SheetHeader>
+							<SheetTitle>
+								{editingId ? "Vorlage bearbeiten" : "Neue Vorlage"}
+							</SheetTitle>
+						</SheetHeader>
+						<div className="px-4 pb-4">
+							{formContent()}
+						</div>
+					</SheetContent>
+				</Sheet>
+			)}
+
 			<AlertDialog
 				open={!!deleteId}
 				onOpenChange={(open) => !open && setDeleteId(null)}
@@ -574,9 +602,9 @@ export function RecurringEventsManager({
 					</Button>
 				</div>
 
-				{showCreateForm && formCard}
+				{!isMobile && showCreateForm && formCard}
 
-				{initialRecurringEvents.length === 0 && !showCreateForm && (
+				{initialRecurringEvents.length === 0 && (
 					<p className="py-6 text-center text-muted-foreground text-sm">
 						Noch keine Vorlagen angelegt.
 					</p>
@@ -670,7 +698,7 @@ export function RecurringEventsManager({
 								)}
 							</CardContent>
 						</Card>
-						{editingId === r.id && formCard}
+						{!isMobile && editingId === r.id && formCard}
 					</div>
 				))}
 			</div>

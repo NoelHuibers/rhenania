@@ -1,23 +1,12 @@
 "use client";
 
-import { Loader2, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatCurrency } from "~/components/rechnungen/BillingTable";
 import { TabContent } from "~/components/rechnungen/TabContent";
-import { Button } from "~/components/ui/button";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "~/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { getUserRoles } from "~/server/actions/admin/userRoles";
 import {
-	createNewBilling,
 	getAllBillPeriods,
 	getBillsForPeriod,
 	getLatestBillPeriod,
@@ -53,9 +42,7 @@ interface BillPeriod {
 
 export default function BillingDashboard() {
 	const { data: session, isPending } = useSession();
-	const [isCreatingReport, setIsCreatingReport] = useState(false);
 	const [activeTab, setActiveTab] = useState("current-orders");
-	const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
 	const [userRoles, setUserRoles] = useState<string[]>([]);
 
@@ -242,53 +229,6 @@ export default function BillingDashboard() {
 		}
 	}, [activeTab, allBillPeriods, isAuthenticated]);
 
-	const handleCreateReportClick = () => {
-		if (!isAuthenticated) {
-			toast.error("Sie müssen angemeldet sein");
-			return;
-		}
-		if (!hasRequiredRole()) {
-			toast.error("Sie haben keine Berechtigung, neue Rechnungen zu erstellen");
-			return;
-		}
-
-		setShowConfirmDialog(true);
-	};
-
-	const handleCreateReport = async () => {
-		setShowConfirmDialog(false);
-		setIsCreatingReport(true);
-
-		try {
-			const result = await createNewBilling();
-			if (result?.success) {
-				console.log(
-					`${result.billsCreated} bills created for €${result.totalAmount}`,
-				);
-				const orders = await getCurrentOrders();
-				setCurrentOrders(orders);
-
-				// Refresh all bill periods to show the new one
-				const periods = await getAllBillPeriods();
-				const sortedPeriods = periods.sort(
-					(a: BillPeriod, b: BillPeriod) =>
-						new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-				);
-				setAllBillPeriods(sortedPeriods);
-
-				toast.success("Neue Rechnung erfolgreich erstellt");
-			} else {
-				console.error("Billing failed:", result?.message);
-				toast.error("Fehler beim Erstellen der Rechnung");
-			}
-		} catch (error) {
-			console.error("Error during billing:", error);
-			toast.error("Fehler beim Erstellen der Rechnung");
-		} finally {
-			setIsCreatingReport(false);
-		}
-	};
-
 	const handleStatusChange = async (
 		entryId: string,
 		newStatus: BillingEntry["status"],
@@ -376,66 +316,6 @@ export default function BillingDashboard() {
 		<>
 			<SiteHeader title="Getränkerechnungen" />
 			<div className="container mx-auto space-y-2 p-4">
-				{/* Header */}
-				<div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-					<div className="flex flex-col items-center space-y-2 md:items-start">
-						<p className="text-center text-muted-foreground md:text-left">
-							Übersicht über alle Rechnungen und Bestellungen
-						</p>
-					</div>
-					{hasRequiredRole() && (
-						<Button
-							onClick={handleCreateReportClick}
-							disabled={isCreatingReport}
-							className="w-full sm:w-auto"
-						>
-							{isCreatingReport ? (
-								<>
-									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-									Erstelle Bericht...
-								</>
-							) : (
-								<>
-									<Plus className="mr-2 h-4 w-4" />
-									Neue Rechnung
-								</>
-							)}
-						</Button>
-					)}
-				</div>
-
-				{/* Confirmation Dialog */}
-				<Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-					<DialogContent>
-						<DialogHeader>
-							<DialogTitle>Neue Rechnung erstellen</DialogTitle>
-							<DialogDescription>
-								Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sich
-								sicher, dass Sie eine neue Abrechnungsperiode erstellen möchten?
-							</DialogDescription>
-						</DialogHeader>
-						<DialogFooter>
-							<Button
-								variant="outline"
-								onClick={() => setShowConfirmDialog(false)}
-								disabled={isCreatingReport}
-							>
-								Abbrechen
-							</Button>
-							<Button onClick={handleCreateReport} disabled={isCreatingReport}>
-								{isCreatingReport ? (
-									<>
-										<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-										Erstelle...
-									</>
-								) : (
-									"Ja, erstellen"
-								)}
-							</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-
 				{/* Tabs */}
 				<Tabs
 					value={activeTab}
@@ -542,15 +422,7 @@ export default function BillingDashboard() {
 
 					<TabsContent value="older-bills" className="space-y-4">
 						<div className="space-y-6">
-							<div className="text-center">
-								<h2 className="mb-2 font-semibold text-xl">
-									Ältere Rechnungen
-								</h2>
-								<p className="text-muted-foreground">
-									Alle älteren Abrechnungsperioden
-								</p>
-							</div>
-							{olderPeriods.map((period) => {
+{olderPeriods.map((period) => {
 								const periodEntries = billPeriodsData.get(period.id) || [];
 								const isLoadingPeriod = !billPeriodsData.has(period.id);
 

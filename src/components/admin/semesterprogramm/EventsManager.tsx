@@ -108,15 +108,17 @@ function toInputDate(d: Date) {
 	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function formatDate(d: Date) {
-	const datePart = d.toLocaleDateString("de-DE", {
+function formatDatePart(d: Date) {
+	return d.toLocaleDateString("de-DE", {
 		weekday: "short",
 		day: "2-digit",
 		month: "short",
 		year: "numeric",
 	});
-	const timePart = academicTimeLabel(d.getHours(), d.getMinutes());
-	return `${datePart}, ${timePart}`;
+}
+
+function formatTimePart(d: Date) {
+	return academicTimeLabel(d.getHours(), d.getMinutes());
 }
 
 // Shared inline form card used both for create (top) and edit (inline below card)
@@ -470,9 +472,10 @@ function EventRow({
 						)}
 					</div>
 					<div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
-						<span className="flex items-center gap-1">
+						<span className="flex flex-wrap items-center gap-1">
 							<CalendarDays className="h-3.5 w-3.5" />
-							{formatDate(event.date)}
+							<span>{formatDatePart(event.date)},</span>
+							<span className="whitespace-nowrap">{formatTimePart(event.date)}</span>
 						</span>
 						{event.location && (
 							<span className="flex items-center gap-1">

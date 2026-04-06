@@ -9,6 +9,7 @@ import {
 	ChevronUp,
 	Download,
 	Euro,
+	Loader2,
 	Package,
 	Pencil,
 	Plus,
@@ -32,6 +33,7 @@ import {
 import {
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
@@ -48,6 +50,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { createNewBilling } from "~/server/actions/billings/billings";
 import {
 	addBankEntry,
 	addExternalBill,
@@ -875,6 +878,76 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 	);
 }
 
+// ─── Neue Rechnung ────────────────────────────────────────────────────────────
+
+function NeueRechnungCard() {
+	const router = useRouter();
+	const [open, setOpen] = useState(false);
+	const [isPending, startTransition] = useTransition();
+
+	function handleCreate() {
+		startTransition(async () => {
+			setOpen(false);
+			const result = await createNewBilling();
+			if (result?.success) {
+				toast.success("Neue Rechnung erfolgreich erstellt");
+				router.refresh();
+			} else {
+				toast.error("Fehler beim Erstellen der Rechnung");
+			}
+		});
+	}
+
+	return (
+		<Card>
+			<CardContent className="flex items-center justify-between p-5">
+				<div>
+					<p className="font-semibold">Neue Rechnung</p>
+					<p className="text-muted-foreground text-sm">
+						Aktuelle Bestellungen abrechnen
+					</p>
+				</div>
+				<Dialog open={open} onOpenChange={setOpen}>
+					<DialogTrigger asChild>
+						<Button disabled={isPending}>
+							<Plus className="mr-2 size-4" />
+							Erstellen
+						</Button>
+					</DialogTrigger>
+					<DialogContent>
+						<DialogHeader>
+							<DialogTitle>Neue Rechnung erstellen</DialogTitle>
+							<DialogDescription>
+								Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sich
+								sicher, dass Sie eine neue Abrechnungsperiode erstellen möchten?
+							</DialogDescription>
+						</DialogHeader>
+						<DialogFooter>
+							<Button
+								variant="outline"
+								onClick={() => setOpen(false)}
+								disabled={isPending}
+							>
+								Abbrechen
+							</Button>
+							<Button onClick={handleCreate} disabled={isPending}>
+								{isPending ? (
+									<>
+										<Loader2 className="mr-2 size-4 animate-spin" />
+										Erstelle...
+									</>
+								) : (
+									"Ja, erstellen"
+								)}
+							</Button>
+						</DialogFooter>
+					</DialogContent>
+				</Dialog>
+			</CardContent>
+		</Card>
+	);
+}
+
 // ─── KasseTab ─────────────────────────────────────────────────────────────────
 
 export default function KasseTab({
@@ -888,6 +961,7 @@ export default function KasseTab({
 	return (
 		<div className="flex flex-col gap-6">
 			<SummarySection summary={summary} pfandWert={pfandWert} />
+			<NeueRechnungCard />
 			<BankLog entries={bankEntries} />
 			<MemberBillsCard bills={memberBills} />
 			<EntityBillsCard bills={entityBills} />
