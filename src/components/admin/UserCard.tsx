@@ -81,9 +81,46 @@ export function UserCard({
 	onManageRoles,
 	onDelete,
 }: UserCardProps) {
+	const actions = (
+		<div className="flex shrink-0 gap-1">
+			<Button
+				variant="ghost"
+				size="icon"
+				className="h-8 w-8"
+				onClick={() => onEdit(user)}
+				disabled={isPending}
+			>
+				<Pencil className="h-3.5 w-3.5" />
+			</Button>
+			<Button
+				variant="ghost"
+				size="sm"
+				onClick={() => onManageRoles(user)}
+				disabled={isPending}
+				className="h-8 px-2 text-xs"
+			>
+				{isPending ? (
+					<Loader2 className="h-3.5 w-3.5 animate-spin" />
+				) : (
+					"Rollen"
+				)}
+			</Button>
+			<Button
+				variant="ghost"
+				size="icon"
+				className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+				onClick={() => onDelete(user)}
+				disabled={isPending}
+			>
+				<Trash2 className="h-3.5 w-3.5" />
+			</Button>
+		</div>
+	);
+
 	return (
 		<Card className="py-0 transition-shadow hover:shadow-sm">
 			<CardContent className="px-3 py-2">
+				{/* Top row: avatar + name/email (+ actions on sm+) */}
 				<div className="flex items-center gap-3">
 					<Avatar className="h-8 w-8 shrink-0">
 						<AvatarImage src={user.image || undefined} alt={user.name || ""} />
@@ -101,7 +138,7 @@ export function UserCard({
 								{user.name || "Unbekannt"}
 							</p>
 							{!user.emailVerified && (
-								<Badge variant="secondary" className="text-xs">
+								<Badge variant="secondary" className="shrink-0 text-xs">
 									Unverifiziert
 								</Badge>
 							)}
@@ -114,53 +151,24 @@ export function UserCard({
 						</p>
 					</div>
 
-					<div className="flex shrink-0 gap-1">
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-7 w-7"
-							onClick={() => onEdit(user)}
-							disabled={isPending}
-						>
-							<Pencil className="h-3.5 w-3.5" />
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => onManageRoles(user)}
-							disabled={isPending}
-							className="h-7 px-2 text-xs"
-						>
-							{isPending ? (
-								<Loader2 className="h-3.5 w-3.5 animate-spin" />
-							) : (
-								"Rollen"
-							)}
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
-							onClick={() => onDelete(user)}
-							disabled={isPending}
-						>
-							<Trash2 className="h-3.5 w-3.5" />
-						</Button>
-					</div>
+					{/* Actions: desktop only */}
+					<div className="hidden sm:block">{actions}</div>
 				</div>
 
-				{user.roles.length > 0 && (
-					<div className="mt-2 border-t pt-2">
-						<UserRoles userRoles={user.roles} maxVisible={4} />
+				{/* Bottom row: roles + actions on mobile */}
+				<div className="mt-2 flex items-center gap-2 border-t pt-2">
+					<div className="min-w-0 flex-1">
+						{user.roles.length > 0 ? (
+							<UserRoles userRoles={user.roles} maxVisible={3} />
+						) : (
+							<p className="text-muted-foreground text-xs italic">
+								Keine Rollen zugewiesen
+							</p>
+						)}
 					</div>
-				)}
-				{user.roles.length === 0 && (
-					<div className="mt-2 border-t pt-2">
-						<p className="text-muted-foreground text-xs italic">
-							Keine Rollen zugewiesen
-						</p>
-					</div>
-				)}
+					{/* Actions: mobile only */}
+					<div className="shrink-0 sm:hidden">{actions}</div>
+				</div>
 			</CardContent>
 		</Card>
 	);

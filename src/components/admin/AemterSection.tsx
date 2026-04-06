@@ -48,7 +48,7 @@ export function AemterSection({
 			<h2 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
 				Ämter
 			</h2>
-			<div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+			<div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
 				{aemterRoles.map((role) => {
 					const holders = users.filter((u) =>
 						u.roles.some((r) => r.name === role.name),
@@ -61,9 +61,9 @@ export function AemterSection({
 							key={role.id}
 							type="button"
 							onClick={() => onRoleClick(role)}
-							className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted"
+							className="flex cursor-pointer items-center gap-2 rounded-lg border bg-card p-2 text-left transition-colors hover:bg-muted active:bg-muted"
 						>
-							<Avatar className="h-8 w-8 shrink-0">
+							<Avatar className="h-7 w-7 shrink-0">
 								{holder ? (
 									<>
 										<AvatarImage
