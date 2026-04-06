@@ -15,6 +15,23 @@ export interface User {
 const ELO_KEY = "gamification.eloEnabled";
 const FALSE_JSON = JSON.stringify(false);
 
+export async function getAllUsers(): Promise<User[]> {
+	const session = await auth();
+	if (!session) throw new Error("Unauthorized");
+
+	const allUsers = await db
+		.select({
+			id: users.id,
+			name: users.name,
+			email: users.email,
+			image: users.image,
+		})
+		.from(users)
+		.orderBy(users.name, users.email);
+
+	return allUsers;
+}
+
 export async function getAllUsersExcept(): Promise<User[]> {
 	const session = await auth();
 	if (!session) throw new Error("Unauthorized");

@@ -9,6 +9,7 @@ type Props = {
 	inventurTab: React.ReactNode;
 	verlaufTab: React.ReactNode;
 	kasseTab: React.ReactNode;
+	buchungTab: React.ReactNode;
 };
 
 export default function GetraenkewartPage({
@@ -16,6 +17,7 @@ export default function GetraenkewartPage({
 	inventurTab,
 	verlaufTab,
 	kasseTab,
+	buchungTab,
 }: Props) {
 	const searchParams = useSearchParams();
 	const router = useRouter();
@@ -38,6 +40,7 @@ export default function GetraenkewartPage({
 						<TabsTrigger value="inventur">Inventur</TabsTrigger>
 						<TabsTrigger value="verlauf">Verlauf</TabsTrigger>
 						<TabsTrigger value="kasse">Kasse</TabsTrigger>
+						<TabsTrigger value="buchung">Buchung</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="getraenke" className="mt-4">
@@ -54,6 +57,10 @@ export default function GetraenkewartPage({
 
 					<TabsContent value="kasse" className="mt-4">
 						{kasseTab}
+					</TabsContent>
+
+					<TabsContent value="buchung" className="mt-4">
+						{buchungTab}
 					</TabsContent>
 				</Tabs>
 			</div>

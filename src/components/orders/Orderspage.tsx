@@ -39,6 +39,7 @@ interface Transaction {
 	total: number;
 	inBill: boolean;
 	bookingFor: string | null;
+	bookedByAdminName: string | null;
 	createdAt: Date;
 }
 
@@ -390,6 +391,11 @@ const MobileTransactionCard = ({
 						{transaction.bookingFor}
 					</Badge>
 				)}
+				{transaction.bookedByAdminName && (
+					<Badge variant="outline" className="border-purple-300 bg-purple-50 text-purple-700 text-xs">
+						Admin: {transaction.bookedByAdminName}
+					</Badge>
+				)}
 				<span className="ml-auto text-muted-foreground">
 					{formatDate(transaction.createdAt)} •{" "}
 					{formatTime(transaction.createdAt)}
@@ -463,6 +469,7 @@ const DesktopTransactionTable = ({
 							<TableHead>Preis/Einheit</TableHead>
 							<TableHead>Gesamt</TableHead>
 							<TableHead>Zweck</TableHead>
+							<TableHead>Gebucht von</TableHead>
 							<TableHead>Datum</TableHead>
 							<TableHead>Uhrzeit</TableHead>
 							<TableHead>Rechnungsstatus</TableHead>
@@ -490,6 +497,15 @@ const DesktopTransactionTable = ({
 										<Badge variant="secondary">{transaction.bookingFor}</Badge>
 									) : (
 										<span className="text-muted-foreground">Persönlich</span>
+									)}
+								</TableCell>
+								<TableCell>
+									{transaction.bookedByAdminName ? (
+										<Badge variant="outline" className="border-purple-300 bg-purple-50 text-purple-700">
+											{transaction.bookedByAdminName}
+										</Badge>
+									) : (
+										<span className="text-muted-foreground">—</span>
 									)}
 								</TableCell>
 								<TableCell>{formatDate(transaction.createdAt)}</TableCell>

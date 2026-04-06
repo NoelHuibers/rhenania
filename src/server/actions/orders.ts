@@ -6,9 +6,9 @@ import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth"; // Import your NextAuth auth function
 import { db } from "~/server/db";
 import { orders } from "~/server/db/schema";
+import { hasRole } from "./admin/userRoles";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
 import { getUserName } from "./getUserName";
-import { getUserRole } from "./getUserRole";
 
 export interface CreateOrderRequest {
 	drinkId: string;
@@ -17,6 +17,8 @@ export interface CreateOrderRequest {
 	pricePerUnit: number;
 	total: number;
 	bookingFor: string | null;
+	targetUserId?: string;
+	targetUserName?: string;
 }
 
 export interface OrderResult {
@@ -38,20 +40,50 @@ export async function createOrder(
 			};
 		}
 
-		const userId = session.user.id;
-		const userName = await getUserName();
-		const role = await getUserRole(userId);
+		const adminId = session.user.id;
+		const adminName = await getUserName();
 
-		if (role.role?.name === "Faxe") {
+		const [isFaxe, isAdmin] = await Promise.all([
+			hasRole(adminId, "Faxe"),
+			hasRole(adminId, "Admin"),
+		]);
+
+		if (isFaxe) {
 			orderData.bookingFor = "AHV";
 		}
 
-		if (!userName || typeof userName !== "string") {
+		if (!adminName || typeof adminName !== "string") {
 			return {
 				success: false,
 				error: "Failed to retrieve user name",
 			};
 		}
+
+		// Admin booking: validate that the current user is actually an admin
+		if (orderData.targetUserId && orderData.targetUserId !== adminId) {
+			if (!isAdmin) {
+				return {
+					success: false,
+					error: "Only admins can book orders for other users",
+				};
+			}
+			if (!orderData.targetUserName) {
+				return {
+					success: false,
+					error: "Target user name is required when booking for another user",
+				};
+			}
+		}
+
+		const isBookingForOther =
+			!!orderData.targetUserId && orderData.targetUserId !== adminId;
+		const userId = isBookingForOther ? (orderData.targetUserId ?? adminId) : adminId;
+		const userName = isBookingForOther
+			? // targetUserName is validated above when isBookingForOther
+				(orderData.targetUserName ?? adminName)
+			: adminName;
+		const bookedByAdminId = isBookingForOther ? adminId : null;
+		const bookedByAdminName = isBookingForOther ? adminName : null;
 
 		if (orderData.amount <= 0) {
 			return {
@@ -79,6 +111,8 @@ export async function createOrder(
 				pricePerUnit: orderData.pricePerUnit,
 				total: orderData.total,
 				bookingFor: orderData.bookingFor,
+				bookedByAdminId,
+				bookedByAdminName,
 			})
 			.returning();
 

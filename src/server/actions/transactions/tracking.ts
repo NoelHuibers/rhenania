@@ -80,6 +80,7 @@ export async function getTransactions(filters: TransactionFilters = {}) {
 				total: orders.total,
 				inBill: orders.inBill,
 				bookingFor: orders.bookingFor,
+				bookedByAdminName: orders.bookedByAdminName,
 				createdAt: orders.createdAt,
 			})
 			.from(orders)

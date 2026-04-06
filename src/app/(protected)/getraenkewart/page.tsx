@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import BookingTab from "~/components/getraenkewart/BookingTab";
 import GetraenkewartPage from "~/components/getraenkewart/GetraenkewartPage";
 import KasseTab from "~/components/getraenkewart/KasseTab";
 import DashboardTab from "~/components/inventur/DashboardTab";
@@ -54,6 +55,7 @@ async function GetraenkewartData() {
 					pfandWert={pfandWert}
 				/>
 			}
+			buchungTab={<BookingTab />}
 		/>
 	);
 }
