@@ -21,8 +21,8 @@ export default async function AccessDeniedPage({
 	// Await the searchParams promise
 	const params = await searchParams;
 
-	const requiredRoles = params.required?.split(",") || ["admin", "versorger"];
-	const attemptedPath = params.path || "/versorger";
+	const requiredRoles = params.required?.split(",") || ["admin", "getraenkewart"];
+	const attemptedPath = params.path || "/getraenkewart";
 
 	return (
 		<div className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">

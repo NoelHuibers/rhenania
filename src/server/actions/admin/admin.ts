@@ -126,19 +126,6 @@ export async function getRolesWithUserCount(): Promise<Role[]> {
  */
 export async function initializeRoles(): Promise<void> {
 	try {
-		// Rename legacy "Versorger" → "Getränkewart" if it still exists
-		const versorger = await db
-			.select()
-			.from(roles)
-			.where(eq(roles.name, "Versorger"))
-			.limit(1);
-		if (versorger.length > 0) {
-			await db
-				.update(roles)
-				.set({ name: "Getränkewart", description: "Getränkeversorgung" })
-				.where(eq(roles.name, "Versorger"));
-		}
-
 		const defaultRoles = [
 			{ name: "Admin", description: "Systemadministration" },
 			{ name: "Getränkewart", description: "Getränkeversorgung" },

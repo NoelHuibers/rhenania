@@ -4,9 +4,9 @@ import { Plus } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
-import { AddDrinkDialog } from "~/components/trinken/versorger/AddDrinkDialog";
-import { DrinksTableDesktop } from "~/components/trinken/versorger/DesktopCard";
-import { DrinksCardsMobile } from "~/components/trinken/versorger/MobileCard";
+import { AddDrinkDialog } from "~/components/trinken/getraenkewart/AddDrinkDialog";
+import { DrinksTableDesktop } from "~/components/trinken/getraenkewart/DesktopCard";
+import { DrinksCardsMobile } from "~/components/trinken/getraenkewart/MobileCard";
 import { Button } from "~/components/ui/button";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
 import {
@@ -17,7 +17,7 @@ import {
 	updateDrink,
 } from "~/server/actions/drinks";
 
-export default function VersorgerPage() {
+export default function GetraenkePage() {
 	const [drinks, setDrinks] = useState<Drink[]>([]);
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);

@@ -4,7 +4,7 @@ import KasseTab from "~/components/getraenkewart/KasseTab";
 import DashboardTab from "~/components/inventur/DashboardTab";
 import HistoryTab from "~/components/inventur/HistoryTab";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
-import VersorgerPage from "~/components/trinken/versorger/VersorgerPage";
+import GetraenkePage from "~/components/trinken/getraenkewart/GetraenkePage";
 import {
 	getBankEntries,
 	getExternalBills,
@@ -41,7 +41,7 @@ async function GetraenkewartData() {
 
 	return (
 		<GetraenkewartPage
-			getraenkeTab={<VersorgerPage />}
+			getraenkeTab={<GetraenkePage />}
 			inventurTab={<DashboardTab stockItems={stockData} />}
 			verlaufTab={<HistoryTab history={inventoryHistory} />}
 			kasseTab={

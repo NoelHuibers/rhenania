@@ -40,7 +40,6 @@ const VALID_PATHS = [
 	"/leaderboard",
 	"/admin",
 	"/admin/(.*)",
-	"/versorger",
 	"/inventur",
 	"/getraenkewart",
 	"/semesterprogramm",
@@ -70,9 +69,8 @@ function isPublic(pathname: string) {
 
 // Role-protected paths configuration
 const ROLE_PROTECTED_PATHS: Record<string, string[]> = {
-	"/versorger": ["Admin", "Getränkewart"],
+	"/getraenkewart": ["Admin", "Getränkewart"],
 	"/inventur": ["Admin", "Getränkewart"],
-	"/orders": ["Admin", "Getränkewart"],
 	"/bilder": ["Admin", "Fotowart"],
 	"/admin": ["Admin"],
 };

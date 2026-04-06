@@ -251,7 +251,7 @@ export async function getOpenMemberBills() {
 
 // ─── PDF download for entity bills (Getränkewart only) ───────────────────────
 
-async function hasVersorgerRole(userId: string): Promise<boolean> {
+async function hasGetraenkewartRole(userId: string): Promise<boolean> {
 	const [row] = await db
 		.select({ roleId: userRoles.roleId })
 		.from(userRoles)
@@ -272,7 +272,7 @@ export async function downloadEntityBillPDF(billId: string): Promise<{
 	const session = await auth();
 	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
 
-	const allowed = await hasVersorgerRole(session.user.id);
+	const allowed = await hasGetraenkewartRole(session.user.id);
 	if (!allowed) return { success: false, error: "Keine Berechtigung" };
 
 	const result = await generateUserBillPDF(billId);

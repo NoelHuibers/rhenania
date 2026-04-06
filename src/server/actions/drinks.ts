@@ -86,7 +86,7 @@ export async function addDrink(data: {
 			})
 			.returning();
 
-		revalidatePath("/versorger");
+		revalidatePath("/getraenkewart");
 
 		return {
 			success: true,
@@ -172,7 +172,7 @@ export async function updateDrink(id: string, input: UpdateDrinkInput) {
 			};
 		}
 
-		revalidatePath("/versorger");
+		revalidatePath("/getraenkewart");
 
 		return {
 			success: true,
@@ -237,7 +237,7 @@ export async function deleteDrinkImage(id: string) {
 				.where(eq(drinks.id, id));
 		}
 
-		revalidatePath("/versorger");
+		revalidatePath("/getraenkewart");
 
 		return {
 			success: true,
@@ -271,7 +271,7 @@ export async function deleteDrink(id: string) {
 
 		await db.delete(drinks).where(eq(drinks.id, id));
 
-		revalidatePath("/versorger");
+		revalidatePath("/getraenkewart");
 
 		return {
 			success: true,
@@ -310,7 +310,7 @@ export async function toggleDrinkAvailability(id: string) {
 			.where(eq(drinks.id, id))
 			.returning();
 
-		revalidatePath("/versorger");
+		revalidatePath("/getraenkewart");
 
 		return {
 			success: true,

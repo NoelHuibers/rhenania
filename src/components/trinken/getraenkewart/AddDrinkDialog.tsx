@@ -1,4 +1,4 @@
-// components/trinken/versorger/AddDrinkDialog.tsx
+// components/trinken/getraenkewart/AddDrinkDialog.tsx
 "use client";
 
 import { Upload, X } from "lucide-react";

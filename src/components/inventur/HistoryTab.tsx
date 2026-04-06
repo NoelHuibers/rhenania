@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
 import {
 	Collapsible,
 	CollapsibleContent,
@@ -166,18 +165,13 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 										<Badge variant="destructive" className="text-xs">
 											€{record.totalLosses.toFixed(2)}
 										</Badge>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="ml-1 h-6 w-6"
-											tabIndex={-1}
-										>
-											{isExpanded ? (
-												<ChevronUp className="h-4 w-4" />
-											) : (
-												<ChevronDown className="h-4 w-4" />
-											)}
-										</Button>
+										<span className="ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center">
+										{isExpanded ? (
+											<ChevronUp className="h-4 w-4" />
+										) : (
+											<ChevronDown className="h-4 w-4" />
+										)}
+									</span>
 									</div>
 								</button>
 							</CollapsibleTrigger>
