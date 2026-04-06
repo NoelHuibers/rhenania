@@ -1,6 +1,6 @@
 import { Search, UserPlus, Users } from "lucide-react";
 import { Button } from "../ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import type { UserWithRoles } from "./dashboard";
 import { UserCard } from "./UserCard";
@@ -10,6 +10,7 @@ interface UsersTabProps {
 	searchTerm: string;
 	onSearchChange: (term: string) => void;
 	isPending: boolean;
+	onEdit: (user: UserWithRoles) => void;
 	onManageRoles: (user: UserWithRoles) => void;
 	onDelete: (user: UserWithRoles) => void;
 	onAddUser: () => void;
@@ -20,45 +21,27 @@ export function UsersTab({
 	searchTerm,
 	onSearchChange,
 	isPending,
+	onEdit,
 	onManageRoles,
 	onDelete,
 	onAddUser,
 }: UsersTabProps) {
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-col gap-4 sm:flex-row">
-				<Card className="flex-1">
-					<CardHeader>
-						<CardTitle>Benutzer suchen</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="relative">
-							<Search className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />
-							<Input
-								placeholder="Nach Name oder E-Mail suchen..."
-								value={searchTerm}
-								onChange={(e) => onSearchChange(e.target.value)}
-								className="pl-8"
-							/>
-						</div>
-					</CardContent>
-				</Card>
-
-				<Card className="w-full sm:w-auto">
-					<CardHeader>
-						<CardTitle>Aktionen</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<Button
-							onClick={onAddUser}
-							disabled={isPending}
-							className="w-full sm:w-auto"
-						>
-							<UserPlus className="mr-2 h-4 w-4" />
-							Benutzer hinzufügen
-						</Button>
-					</CardContent>
-				</Card>
+			<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+				<div className="relative flex-1">
+					<Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
+					<Input
+						placeholder="Nach Name oder E-Mail suchen..."
+						value={searchTerm}
+						onChange={(e) => onSearchChange(e.target.value)}
+						className="pl-9"
+					/>
+				</div>
+				<Button onClick={onAddUser} disabled={isPending} className="shrink-0">
+					<UserPlus className="mr-2 h-4 w-4" />
+					Benutzer hinzufügen
+				</Button>
 			</div>
 
 			<div className="grid gap-4">
@@ -67,6 +50,7 @@ export function UsersTab({
 						key={user.id}
 						user={user}
 						isPending={isPending}
+						onEdit={onEdit}
 						onManageRoles={onManageRoles}
 						onDelete={onDelete}
 					/>

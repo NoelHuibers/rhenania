@@ -1,3 +1,4 @@
+import { AlertTriangle } from "lucide-react";
 import { Button } from "../ui/button";
 import {
 	Dialog,
@@ -9,11 +10,16 @@ import {
 } from "../ui/dialog";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
-import type { Role, UserWithRoles } from "./dashboard";
+import {
+	type Role,
+	SINGLE_PERSON_ROLES,
+	type UserWithRoles,
+} from "./dashboard";
 
 interface RoleManagementDialogProps {
 	user: UserWithRoles | null;
 	roles: Role[];
+	users: UserWithRoles[];
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onRoleToggle: (userId: string, roleId: string) => void;
@@ -23,6 +29,7 @@ interface RoleManagementDialogProps {
 export function RoleManagementDialog({
 	user,
 	roles,
+	users,
 	open,
 	onOpenChange,
 	onRoleToggle,
@@ -43,21 +50,43 @@ export function RoleManagementDialog({
 				<div className="space-y-4 py-4">
 					{roles.map((role) => {
 						const hasRole = user.roles.some((r) => r.id === role.id);
+						const isSinglePerson = SINGLE_PERSON_ROLES.includes(
+							role.name as (typeof SINGLE_PERSON_ROLES)[number],
+						);
+						const holders = users.filter((u) =>
+							u.roles.some((r) => r.id === role.id),
+						);
+						const alreadyTaken =
+							isSinglePerson && !hasRole && holders.length >= 1;
+
 						return (
 							<div
 								key={role.id}
 								className="flex items-start justify-between space-x-3 py-2"
 							>
 								<div className="min-w-0 flex-1">
-									<Label
-										htmlFor={`role-${role.id}`}
-										className="cursor-pointer font-medium text-sm"
-									>
-										{role.name}
-									</Label>
+									<div className="flex items-center gap-2">
+										<Label
+											htmlFor={`role-${role.id}`}
+											className="cursor-pointer font-medium text-sm"
+										>
+											{role.name}
+										</Label>
+										{isSinglePerson && (
+											<span className="text-muted-foreground text-xs">
+												(1 Person)
+											</span>
+										)}
+									</div>
 									{role.description && (
 										<p className="mt-1 text-muted-foreground text-xs">
 											{role.description}
+										</p>
+									)}
+									{alreadyTaken && (
+										<p className="mt-1 flex items-center gap-1 text-amber-600 text-xs dark:text-amber-400">
+											<AlertTriangle className="h-3 w-3" />
+											Bereits vergeben an {holders[0].name}
 										</p>
 									)}
 								</div>

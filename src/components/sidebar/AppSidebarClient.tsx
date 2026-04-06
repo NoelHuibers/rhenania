@@ -110,7 +110,7 @@ const navGroups: NavGroup[] = [
 				title: "Konten",
 				href: "/konten",
 				icon: Landmark,
-				roles: ["Admin", "Getränkewart", "CCKasse", "Aktivenkasse"],
+				roles: ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"],
 			},
 			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
 		],

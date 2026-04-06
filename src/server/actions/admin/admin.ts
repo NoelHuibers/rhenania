@@ -150,7 +150,7 @@ export async function initializeRoles(): Promise<void> {
 			{ name: "Consenior", description: "Consenior des Corps (xx)" },
 			{ name: "Subsenior", description: "Subsenior des Corps (xxx)" },
 			{ name: "Fuchsmajor", description: "Fuchsmajor des Corps (FM)" },
-			{ name: "CCKasse", description: "CC-Kassenwart" },
+			{ name: "CC-Kasse", description: "CC-Kassenwart" },
 			{ name: "Aktivenkasse", description: "Aktivenkassenwart" },
 		];
 
@@ -243,6 +243,65 @@ export async function toggleUserRole(
 	} catch (error) {
 		console.error("Failed to toggle role:", error);
 		throw new Error("Failed to toggle role");
+	}
+}
+
+/**
+ * Update a user's name and/or email
+ */
+export async function updateUser(
+	userId: string,
+	data: { name?: string; email?: string },
+): Promise<void> {
+	try {
+		await db.update(users).set(data).where(eq(users.id, userId));
+		revalidatePath("/admin");
+	} catch (error) {
+		console.error("Failed to update user:", error);
+		throw new Error("Failed to update user");
+	}
+}
+
+/**
+ * Bulk-set the full user list for a role.
+ * Adds users not yet assigned, removes users no longer selected.
+ */
+export async function bulkSetRoleUsers(
+	roleId: string,
+	userIds: string[],
+): Promise<void> {
+	try {
+		const current = await db
+			.select({ userId: userRoles.userId })
+			.from(userRoles)
+			.where(eq(userRoles.roleId, roleId));
+
+		const currentIds = new Set(current.map((r) => r.userId));
+		const nextIds = new Set(userIds);
+
+		const toAdd = userIds.filter((id) => !currentIds.has(id));
+		const toRemove = [...currentIds].filter((id) => !nextIds.has(id));
+
+		if (toAdd.length > 0) {
+			await db.insert(userRoles).values(
+				toAdd.map((userId) => ({
+					userId,
+					roleId,
+					assignedAt: sql`(unixepoch())`,
+				})),
+			);
+		}
+
+		for (const userId of toRemove) {
+			await db
+				.delete(userRoles)
+				.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
+		}
+
+		revalidatePath("/admin");
+	} catch (error) {
+		console.error("Failed to bulk set role users:", error);
+		throw new Error("Failed to bulk set role users");
 	}
 }
 

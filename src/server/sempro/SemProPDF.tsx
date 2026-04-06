@@ -314,7 +314,7 @@ function P1Middle({ data }: { data: PDFData }) {
 								flex: 1,
 							}}
 						>
-							{`iaCB ${fm.name.split(" ").pop()}`}
+							{`IaCB ${fm.name.split(" ").pop()}`}
 						</Text>
 						<View style={{ width: 10 * MM }}>
 							<Text style={{ fontSize: 10, fontWeight: "bold" }}>FM</Text>

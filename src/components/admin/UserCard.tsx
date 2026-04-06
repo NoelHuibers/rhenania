@@ -1,4 +1,4 @@
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -25,11 +25,6 @@ const getInitials = (name: string | null) => {
 		.substring(0, 2);
 };
 
-const truncateText = (text: string, maxLength: number) => {
-	if (text.length <= maxLength) return text;
-	return `${text.substring(0, maxLength)}...`;
-};
-
 const sortRoles = (
 	roles: Array<{ id: string; name: string; description: string | null }>,
 ) => {
@@ -42,7 +37,7 @@ const sortRoles = (
 
 function UserRoles({
 	userRoles,
-	maxVisible = 3,
+	maxVisible = 4,
 }: {
 	userRoles: UserWithRoles["roles"];
 	maxVisible?: number;
@@ -52,9 +47,13 @@ function UserRoles({
 	const hiddenCount = sortedRoles.length - maxVisible;
 
 	return (
-		<div className="flex flex-wrap gap-2">
+		<div className="flex flex-wrap gap-1">
 			{visibleRoles.map((role) => (
-				<Badge key={role.id} variant={getRoleBadgeVariant(role.name)}>
+				<Badge
+					key={role.id}
+					variant={getRoleBadgeVariant(role.name)}
+					className="text-xs"
+				>
 					{role.name}
 				</Badge>
 			))}
@@ -70,6 +69,7 @@ function UserRoles({
 interface UserCardProps {
 	user: UserWithRoles;
 	isPending: boolean;
+	onEdit: (user: UserWithRoles) => void;
 	onManageRoles: (user: UserWithRoles) => void;
 	onDelete: (user: UserWithRoles) => void;
 }
@@ -77,78 +77,90 @@ interface UserCardProps {
 export function UserCard({
 	user,
 	isPending,
+	onEdit,
 	onManageRoles,
 	onDelete,
 }: UserCardProps) {
 	return (
-		<Card className="transition-shadow hover:shadow-md">
-			<CardContent className="p-4">
-				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-					<div className="flex min-w-0 flex-1 items-center space-x-3">
-						<Avatar className="shrink-0">
-							<AvatarImage
-								src={user.image || undefined}
-								alt={user.name || ""}
-							/>
-							<AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-						</Avatar>
-						<div className="min-w-0 flex-1">
-							<div className="flex items-center gap-2">
-								<h3
-									className="max-w-60 truncate font-medium sm:max-w-none"
-									title={user.name || "Unbekannt"}
-								>
-									{truncateText(user.name || "Unbekannt", 30)}
-								</h3>
-								{!user.emailVerified && (
-									<Badge variant="secondary" className="text-xs">
-										Unverifiziert
-									</Badge>
-								)}
-							</div>
+		<Card className="py-0 transition-shadow hover:shadow-sm">
+			<CardContent className="px-3 py-2">
+				<div className="flex items-center gap-3">
+					<Avatar className="h-8 w-8 shrink-0">
+						<AvatarImage src={user.image || undefined} alt={user.name || ""} />
+						<AvatarFallback className="text-xs">
+							{getInitials(user.name)}
+						</AvatarFallback>
+					</Avatar>
+
+					<div className="min-w-0 flex-1">
+						<div className="flex items-center gap-1.5">
 							<p
-								className="max-w-60 truncate text-muted-foreground text-sm sm:max-w-none"
-								title={user.email || ""}
+								className="truncate font-medium text-sm"
+								title={user.name || "Unbekannt"}
 							>
-								{truncateText(user.email || "", 40)}
+								{user.name || "Unbekannt"}
 							</p>
+							{!user.emailVerified && (
+								<Badge variant="secondary" className="text-xs">
+									Unverifiziert
+								</Badge>
+							)}
 						</div>
+						<p
+							className="truncate text-muted-foreground text-xs"
+							title={user.email || ""}
+						>
+							{user.email}
+						</p>
 					</div>
-					<div className="flex w-full shrink-0 gap-2 sm:w-auto">
+
+					<div className="flex shrink-0 gap-1">
 						<Button
-							variant="outline"
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7"
+							onClick={() => onEdit(user)}
+							disabled={isPending}
+						>
+							<Pencil className="h-3.5 w-3.5" />
+						</Button>
+						<Button
+							variant="ghost"
 							size="sm"
 							onClick={() => onManageRoles(user)}
 							disabled={isPending}
-							className="flex-1 sm:flex-none"
+							className="h-7 px-2 text-xs"
 						>
 							{isPending ? (
-								<Loader2 className="h-4 w-4 animate-spin" />
+								<Loader2 className="h-3.5 w-3.5 animate-spin" />
 							) : (
 								"Rollen"
 							)}
 						</Button>
 						<Button
-							variant="outline"
-							size="sm"
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
 							onClick={() => onDelete(user)}
 							disabled={isPending}
-							className="text-destructive hover:bg-destructive/10 hover:text-destructive"
 						>
-							<Trash2 className="h-4 w-4" />
+							<Trash2 className="h-3.5 w-3.5" />
 						</Button>
 					</div>
 				</div>
 
-				<div className="mt-4">
-					{user.roles.length > 0 ? (
-						<UserRoles userRoles={user.roles} maxVisible={3} />
-					) : (
+				{user.roles.length > 0 && (
+					<div className="mt-2 border-t pt-2">
+						<UserRoles userRoles={user.roles} maxVisible={4} />
+					</div>
+				)}
+				{user.roles.length === 0 && (
+					<div className="mt-2 border-t pt-2">
 						<p className="text-muted-foreground text-xs italic">
 							Keine Rollen zugewiesen
 						</p>
-					)}
-				</div>
+					</div>
+				)}
 			</CardContent>
 		</Card>
 	);

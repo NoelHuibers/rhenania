@@ -1,17 +1,27 @@
 "use client";
 
-import { Shield, Users } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { toggleUserRole } from "../../server/actions/admin/admin";
 import { SiteHeader } from "../trinken/SiteHeader";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { AddUserDialog } from "./AddUserDialog";
+import { AemterSection } from "./AemterSection";
+import { BulkRoleDialog } from "./BulkRoleDialog";
 import { DeleteUserDialog } from "./DeleteUserDialog";
+import { EditUserDialog } from "./EditUserDialog";
+import { GruppenSection } from "./GruppenSection";
 import { RoleManagementDialog } from "./RoleManagementDialog";
-import { RolesTab } from "./RolesTab";
-import { StatsCards } from "./StatsCards";
 import { UsersTab } from "./UsersTab";
+
+export const SINGLE_PERSON_ROLES = [
+	"Senior",
+	"Consenior",
+	"Subsenior",
+	"Fuchsmajor",
+	"CC-Kasse",
+	"Getränkewart",
+	"Aktivenkasse",
+] as const;
 
 export type UserWithRoles = {
 	id: string;
@@ -47,13 +57,19 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 	const [showAddUserModal, setShowAddUserModal] = useState(false);
 	const [userToDelete, setUserToDelete] = useState<UserWithRoles | null>(null);
 	const [showDeleteModal, setShowDeleteModal] = useState(false);
+	const [userToEdit, setUserToEdit] = useState<UserWithRoles | null>(null);
+	const [showEditModal, setShowEditModal] = useState(false);
+	const [bulkRole, setBulkRole] = useState<Role | null>(null);
+	const [showBulkModal, setShowBulkModal] = useState(false);
 	const [isPending, startTransition] = useTransition();
 
-	const filteredUsers = users.filter(
-		(user) =>
-			user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-			user.email?.toLowerCase().includes(searchTerm.toLowerCase()),
-	);
+	const filteredUsers = users
+		.filter(
+			(user) =>
+				user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+				user.email?.toLowerCase().includes(searchTerm.toLowerCase()),
+		)
+		.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
 
 	const handleRoleToggle = (userId: string, roleId: string) => {
 		startTransition(async () => {
@@ -99,55 +115,62 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 	return (
 		<div className="min-h-screen bg-background">
 			<SiteHeader title="Admin" />
-			<div className="container mx-auto max-w-7xl space-y-6 p-4">
-				<div className="flex flex-col items-center md:items-start">
-					<p className="text-muted-foreground">Benutzer und Rollen verwalten</p>
+			<div className="container mx-auto max-w-7xl space-y-8 p-4">
+				<AemterSection roles={roles} users={users} />
+
+				<GruppenSection
+					roles={roles}
+					users={users}
+					onRoleClick={(role) => {
+						setBulkRole(role);
+						setShowBulkModal(true);
+					}}
+				/>
+
+				<div>
+					<h2 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
+						Benutzer ({users.length})
+					</h2>
+					<UsersTab
+						filteredUsers={filteredUsers}
+						searchTerm={searchTerm}
+						onSearchChange={setSearchTerm}
+						isPending={isPending}
+						onEdit={(user) => {
+							setUserToEdit(user);
+							setShowEditModal(true);
+						}}
+						onManageRoles={(user) => {
+							setSelectedUser(user);
+							setShowRoleModal(true);
+						}}
+						onDelete={(user) => {
+							setUserToDelete(user);
+							setShowDeleteModal(true);
+						}}
+						onAddUser={() => setShowAddUserModal(true)}
+					/>
 				</div>
-
-				<StatsCards users={users} roles={roles} />
-
-				<Tabs defaultValue="users" className="space-y-4">
-					<TabsList className="grid w-full grid-cols-2">
-						<TabsTrigger value="users" className="flex items-center gap-2">
-							<Users className="h-4 w-4" />
-							<span className="hidden sm:inline">Benutzer</span>
-							<span className="sm:hidden">Users</span>
-						</TabsTrigger>
-						<TabsTrigger value="roles" className="flex items-center gap-2">
-							<Shield className="h-4 w-4" />
-							<span className="hidden sm:inline">Rollen</span>
-							<span className="sm:hidden">Roles</span>
-						</TabsTrigger>
-					</TabsList>
-
-					<TabsContent value="users">
-						<UsersTab
-							filteredUsers={filteredUsers}
-							searchTerm={searchTerm}
-							onSearchChange={setSearchTerm}
-							isPending={isPending}
-							onManageRoles={(user) => {
-								setSelectedUser(user);
-								setShowRoleModal(true);
-							}}
-							onDelete={(user) => {
-								setUserToDelete(user);
-								setShowDeleteModal(true);
-							}}
-							onAddUser={() => setShowAddUserModal(true)}
-						/>
-					</TabsContent>
-
-					<TabsContent value="roles">
-						<RolesTab roles={roles} users={users} />
-					</TabsContent>
-				</Tabs>
 
 				<AddUserDialog
 					open={showAddUserModal}
 					onOpenChange={setShowAddUserModal}
 					onUserCreated={(user) =>
 						setUsers((prev) => [...prev, { ...user, roles: [] }])
+					}
+				/>
+
+				<EditUserDialog
+					user={userToEdit}
+					open={showEditModal}
+					onOpenChange={(open) => {
+						setShowEditModal(open);
+						if (!open) setUserToEdit(null);
+					}}
+					onUserUpdated={(userId, name, email) =>
+						setUsers((prev) =>
+							prev.map((u) => (u.id === userId ? { ...u, name, email } : u)),
+						)
 					}
 				/>
 
@@ -163,9 +186,38 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 					}
 				/>
 
+				<BulkRoleDialog
+					role={bulkRole}
+					users={users}
+					open={showBulkModal}
+					onOpenChange={(open) => {
+						setShowBulkModal(open);
+						if (!open) setBulkRole(null);
+					}}
+					onSaved={(roleId, userIds) => {
+						setUsers((prev) =>
+							prev.map((u) => {
+								const role = roles.find((r) => r.id === roleId);
+								if (!role) return u;
+								const hasRole = userIds.includes(u.id);
+								const alreadyHas = u.roles.some((r) => r.id === roleId);
+								if (hasRole && !alreadyHas)
+									return { ...u, roles: [...u.roles, role] };
+								if (!hasRole && alreadyHas)
+									return {
+										...u,
+										roles: u.roles.filter((r) => r.id !== roleId),
+									};
+								return u;
+							}),
+						);
+					}}
+				/>
+
 				<RoleManagementDialog
 					user={selectedUser}
 					roles={roles}
+					users={users}
 					open={showRoleModal}
 					onOpenChange={(open) => {
 						if (!open) handleCloseRoleModal();

@@ -16,7 +16,7 @@ async function getUserRoleNames(userId: string): Promise<string[]> {
 	return rows.map((r) => r.name);
 }
 
-const ALLOWED_ROLES = ["Admin", "Getränkewart", "CCKasse", "Aktivenkasse"];
+const ALLOWED_ROLES = ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"];
 
 export default async function KontenRoute() {
 	const session = await auth();

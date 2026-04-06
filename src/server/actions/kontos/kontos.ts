@@ -24,7 +24,7 @@ export type KontoInput = {
 const KASSE_ROLE_MAP: Partial<Record<KasseType, string>> = {
 	Getränkekasse: "Getränkewart",
 	Aktivenkasse: "Aktivenkasse",
-	"CC-Kasse": "CCKasse",
+	"CC-Kasse": "CC-Kasse",
 };
 
 async function getUserRoleNames(userId: string): Promise<string[]> {
