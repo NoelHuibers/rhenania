@@ -42,7 +42,7 @@ export function GruppenSection({
 							key={role.id}
 							type="button"
 							onClick={() => onRoleClick(role)}
-							className="flex items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted"
+							className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted"
 						>
 							<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
 								<Users className="h-4 w-4 text-muted-foreground" />

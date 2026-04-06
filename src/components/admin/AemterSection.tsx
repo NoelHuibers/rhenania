@@ -19,9 +19,14 @@ const getInitials = (name: string | null) => {
 interface AemterSectionProps {
 	roles: Role[];
 	users: UserWithRoles[];
+	onRoleClick: (role: Role) => void;
 }
 
-export function AemterSection({ roles, users }: AemterSectionProps) {
+export function AemterSection({
+	roles,
+	users,
+	onRoleClick,
+}: AemterSectionProps) {
 	const aemterRoles = roles
 		.filter((r) =>
 			SINGLE_PERSON_ROLES.includes(
@@ -52,9 +57,11 @@ export function AemterSection({ roles, users }: AemterSectionProps) {
 					const hasConflict = holders.length > 1;
 
 					return (
-						<div
+						<button
 							key={role.id}
-							className="flex items-center gap-3 rounded-lg border bg-card p-3"
+							type="button"
+							onClick={() => onRoleClick(role)}
+							className="flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted"
 						>
 							<Avatar className="h-8 w-8 shrink-0">
 								{holder ? (
@@ -88,7 +95,7 @@ export function AemterSection({ roles, users }: AemterSectionProps) {
 							{hasConflict && (
 								<AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
 							)}
-						</div>
+						</button>
 					);
 				})}
 			</div>

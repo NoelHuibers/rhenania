@@ -116,7 +116,14 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 		<div className="min-h-screen bg-background">
 			<SiteHeader title="Admin" />
 			<div className="container mx-auto max-w-7xl space-y-8 p-4">
-				<AemterSection roles={roles} users={users} />
+				<AemterSection
+					roles={roles}
+					users={users}
+					onRoleClick={(role) => {
+						setBulkRole(role);
+						setShowBulkModal(true);
+					}}
+				/>
 
 				<GruppenSection
 					roles={roles}

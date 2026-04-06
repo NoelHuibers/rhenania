@@ -15,7 +15,11 @@ import {
 	DialogTitle,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
-import type { Role, UserWithRoles } from "./dashboard";
+import {
+	type Role,
+	SINGLE_PERSON_ROLES,
+	type UserWithRoles,
+} from "./dashboard";
 
 const getInitials = (name: string | null) => {
 	if (!name) return "??";
@@ -105,11 +109,20 @@ export function BulkRoleDialog({
 
 	if (!role) return null;
 
+	const isSinglePerson = SINGLE_PERSON_ROLES.includes(
+		role.name as (typeof SINGLE_PERSON_ROLES)[number],
+	);
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="flex max-h-[80vh] flex-col sm:max-w-md">
 				<DialogHeader>
 					<DialogTitle>{role.name}</DialogTitle>
+					{isSinglePerson && (
+						<p className="text-muted-foreground text-xs">
+							Nur 1 Person sollte diese Rolle haben.
+						</p>
+					)}
 				</DialogHeader>
 
 				<div className="flex flex-1 flex-col space-y-3 overflow-hidden">
