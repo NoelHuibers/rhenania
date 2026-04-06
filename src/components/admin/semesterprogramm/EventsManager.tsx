@@ -475,7 +475,9 @@ function EventRow({
 						<span className="flex flex-wrap items-center gap-1">
 							<CalendarDays className="h-3.5 w-3.5" />
 							<span>{formatDatePart(event.date)},</span>
-							<span className="whitespace-nowrap">{formatTimePart(event.date)}</span>
+							<span className="whitespace-nowrap">
+								{formatTimePart(event.date)}
+							</span>
 						</span>
 						{event.location && (
 							<span className="flex items-center gap-1">

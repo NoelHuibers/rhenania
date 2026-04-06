@@ -1,3 +1,4 @@
+import path from "node:path";
 import {
 	Document,
 	Font,
@@ -7,7 +8,6 @@ import {
 	Text,
 	View,
 } from "@react-pdf/renderer";
-import path from "node:path";
 import type { PDFData, PDFEvent } from "./getPDFData";
 import { RANK_MAP } from "./getPDFData";
 

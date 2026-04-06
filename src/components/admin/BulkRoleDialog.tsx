@@ -125,7 +125,7 @@ export function BulkRoleDialog({
 					)}
 				</DialogHeader>
 
-				<div className="flex flex-1 flex-col space-y-3 min-h-0">
+				<div className="flex min-h-0 flex-1 flex-col space-y-3">
 					<div className="relative">
 						<Search className="absolute top-2.5 left-2.5 h-4 w-4 text-muted-foreground" />
 						<Input

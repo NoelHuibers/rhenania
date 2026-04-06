@@ -422,7 +422,7 @@ export default function BillingDashboard() {
 
 					<TabsContent value="older-bills" className="space-y-4">
 						<div className="space-y-6">
-{olderPeriods.map((period) => {
+							{olderPeriods.map((period) => {
 								const periodEntries = billPeriodsData.get(period.id) || [];
 								const isLoadingPeriod = !billPeriodsData.has(period.id);
 
