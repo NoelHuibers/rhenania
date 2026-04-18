@@ -119,8 +119,9 @@ async function userHasRequiredRoles(
 export default async function middleware(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 
-	// 1) Redirect to lowercase
-	if (pathname !== pathname.toLowerCase()) {
+	// 1) Redirect to lowercase (skip case-sensitive API paths like calendar tokens)
+	const isCaseSensitiveApi = pathname.toLowerCase().startsWith("/api/calendar/");
+	if (!isCaseSensitiveApi && pathname !== pathname.toLowerCase()) {
 		const lowercaseUrl = request.nextUrl.clone();
 		lowercaseUrl.pathname = pathname.toLowerCase();
 		return NextResponse.redirect(lowercaseUrl, { status: 301 });
