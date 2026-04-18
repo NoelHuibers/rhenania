@@ -6,8 +6,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth"; // Import your NextAuth auth function
 import { db } from "~/server/db";
 import { orders } from "~/server/db/schema";
-import { hasRole } from "./admin/userRoles";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
+import { hasRole } from "./admin/userRoles";
 import { getUserName } from "./getUserName";
 
 export interface CreateOrderRequest {
@@ -77,7 +77,9 @@ export async function createOrder(
 
 		const isBookingForOther =
 			!!orderData.targetUserId && orderData.targetUserId !== adminId;
-		const userId = isBookingForOther ? (orderData.targetUserId ?? adminId) : adminId;
+		const userId = isBookingForOther
+			? (orderData.targetUserId ?? adminId)
+			: adminId;
 		const userName = isBookingForOther
 			? // targetUserName is validated above when isBookingForOther
 				(orderData.targetUserName ?? adminName)

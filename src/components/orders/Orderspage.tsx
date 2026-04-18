@@ -392,7 +392,10 @@ const MobileTransactionCard = ({
 					</Badge>
 				)}
 				{transaction.bookedByAdminName && (
-					<Badge variant="outline" className="border-purple-300 bg-purple-50 text-purple-700 text-xs">
+					<Badge
+						variant="outline"
+						className="border-purple-300 bg-purple-50 text-purple-700 text-xs"
+					>
 						Admin: {transaction.bookedByAdminName}
 					</Badge>
 				)}
@@ -501,7 +504,10 @@ const DesktopTransactionTable = ({
 								</TableCell>
 								<TableCell>
 									{transaction.bookedByAdminName ? (
-										<Badge variant="outline" className="border-purple-300 bg-purple-50 text-purple-700">
+										<Badge
+											variant="outline"
+											className="border-purple-300 bg-purple-50 text-purple-700"
+										>
 											{transaction.bookedByAdminName}
 										</Badge>
 									) : (

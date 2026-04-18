@@ -8,6 +8,7 @@ import {
 	Plus,
 	RotateCcw,
 	Trash2,
+	Users,
 	X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -46,6 +47,7 @@ import {
 import { toggleEventCancelled } from "~/server/actions/events/recurring";
 import type { Venue } from "~/server/actions/venues";
 import { LocationCombobox } from "./LocationCombobox";
+import { RsvpResponsesDialog } from "./RsvpResponsesDialog";
 
 type Event = {
 	id: string;
@@ -57,6 +59,8 @@ type Event = {
 	type: EventType;
 	isPublic: boolean;
 	isCancelled: boolean;
+	rsvpDeadline: Date | null;
+	maxAttendees: number | null;
 	recurringEventId: string | null;
 	createdAt: Date;
 };
@@ -69,6 +73,8 @@ type FormState = {
 	location: string;
 	type: EventType;
 	isPublic: boolean;
+	rsvpDeadline: string;
+	maxAttendees: string;
 };
 
 const DEFAULT_LOCATION = "adH Rhenania";
@@ -81,6 +87,8 @@ const emptyForm: FormState = {
 	location: DEFAULT_LOCATION,
 	type: "Intern",
 	isPublic: true,
+	rsvpDeadline: "",
+	maxAttendees: "",
 };
 
 export const TYPE_COLORS: Record<EventType, string> = {
@@ -217,6 +225,29 @@ function EventFormCard({
 							<Label htmlFor="ev-isPublic">Auf Startseite anzeigen</Label>
 						</div>
 					</div>
+					<div className="grid gap-4 sm:grid-cols-2">
+						<div className="space-y-2">
+							<Label>Antwortfrist (optional)</Label>
+							<AcademicDateTimePicker
+								value={form.rsvpDeadline}
+								onChange={(v) => setForm((f) => ({ ...f, rsvpDeadline: v }))}
+								placeholder="Keine Frist"
+							/>
+						</div>
+						<div className="space-y-2">
+							<Label htmlFor="ev-max">Max. Zusagen (optional)</Label>
+							<Input
+								id="ev-max"
+								type="number"
+								min={1}
+								value={form.maxAttendees}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, maxAttendees: e.target.value }))
+								}
+								placeholder="Unbegrenzt"
+							/>
+						</div>
+					</div>
 					<div className="space-y-2">
 						<Label htmlFor="ev-description">Beschreibung</Label>
 						<Textarea
@@ -258,6 +289,7 @@ export function EventsManager({
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [deleteId, setDeleteId] = useState<string | null>(null);
+	const [rsvpEvent, setRsvpEvent] = useState<Event | null>(null);
 
 	const upcoming = initialEvents.filter((e) => e.date >= new Date());
 	const past = initialEvents.filter((e) => e.date < new Date());
@@ -278,6 +310,9 @@ export function EventsManager({
 			location: event.location ?? DEFAULT_LOCATION,
 			type: event.type,
 			isPublic: event.isPublic,
+			rsvpDeadline: event.rsvpDeadline ? toInputDate(event.rsvpDeadline) : "",
+			maxAttendees:
+				event.maxAttendees != null ? String(event.maxAttendees) : "",
 		});
 		setEditingId(event.id);
 		setShowCreateForm(false);
@@ -300,6 +335,9 @@ export function EventsManager({
 		setLoading(true);
 		setError(null);
 
+		const parsedMax = form.maxAttendees
+			? Number.parseInt(form.maxAttendees, 10)
+			: Number.NaN;
 		const input = {
 			title: form.title,
 			description: form.description || undefined,
@@ -308,6 +346,9 @@ export function EventsManager({
 			location: form.location || undefined,
 			type: form.type,
 			isPublic: form.isPublic,
+			rsvpDeadline: form.rsvpDeadline ? new Date(form.rsvpDeadline) : null,
+			maxAttendees:
+				Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : null,
 		};
 
 		const result = editingId
@@ -354,6 +395,7 @@ export function EventsManager({
 					onEdit={openEdit}
 					onDelete={setDeleteId}
 					onToggleCancel={handleToggleCancel}
+					onShowRsvps={setRsvpEvent}
 					past={past}
 				/>
 				{editingId === event.id && <EventFormCard {...formProps} />}
@@ -363,6 +405,13 @@ export function EventsManager({
 
 	return (
 		<>
+			<RsvpResponsesDialog
+				eventId={rsvpEvent?.id ?? null}
+				eventTitle={rsvpEvent?.title ?? ""}
+				open={!!rsvpEvent}
+				onOpenChange={(open) => !open && setRsvpEvent(null)}
+			/>
+
 			<AlertDialog
 				open={!!deleteId}
 				onOpenChange={(open) => !open && setDeleteId(null)}
@@ -432,12 +481,14 @@ function EventRow({
 	onEdit,
 	onDelete,
 	onToggleCancel,
+	onShowRsvps,
 	past,
 }: {
 	event: Event;
 	onEdit: (e: Event) => void;
 	onDelete: (id: string) => void;
 	onToggleCancel: (id: string) => void;
+	onShowRsvps: (e: Event) => void;
 	past?: boolean;
 }) {
 	return (
@@ -493,6 +544,14 @@ function EventRow({
 					)}
 				</div>
 				<div className="flex shrink-0 gap-1">
+					<Button
+						variant="ghost"
+						size="icon"
+						title="Antworten anzeigen"
+						onClick={() => onShowRsvps(event)}
+					>
+						<Users className="h-4 w-4" />
+					</Button>
 					<Button
 						variant="ghost"
 						size="icon"

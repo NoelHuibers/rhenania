@@ -933,6 +933,8 @@ export const events = createTable(
 			.default("Sonstige"),
 		isPublic: d.integer({ mode: "boolean" }).notNull().default(true),
 		isCancelled: d.integer({ mode: "boolean" }).notNull().default(false),
+		rsvpDeadline: d.integer({ mode: "timestamp" }),
+		maxAttendees: d.integer(),
 		recurringEventId: d
 			.text({ length: 255 })
 			.references(() => recurringEvents.id, { onDelete: "set null" }),
@@ -953,7 +955,7 @@ export const events = createTable(
 	],
 );
 
-export const eventsRelations = relations(events, ({ one }) => ({
+export const eventsRelations = relations(events, ({ one, many }) => ({
 	createdBy: one(users, {
 		fields: [events.createdBy],
 		references: [users.id],
@@ -961,6 +963,81 @@ export const eventsRelations = relations(events, ({ one }) => ({
 	recurringEvent: one(recurringEvents, {
 		fields: [events.recurringEventId],
 		references: [recurringEvents.id],
+	}),
+	rsvps: many(eventRsvps),
+}));
+
+export const eventRsvps = createTable(
+	"event_rsvp",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		eventId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => events.id, { onDelete: "cascade" }),
+		userId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		status: d.text({ enum: ["yes", "no", "maybe"] }).notNull(),
+		note: d.text({ length: 500 }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		uniqueIndex("event_rsvp_unique_idx").on(t.eventId, t.userId),
+		index("event_rsvp_event_idx").on(t.eventId),
+		index("event_rsvp_user_idx").on(t.userId),
+	],
+);
+
+export const eventRsvpsRelations = relations(eventRsvps, ({ one }) => ({
+	event: one(events, {
+		fields: [eventRsvps.eventId],
+		references: [events.id],
+	}),
+	user: one(users, {
+		fields: [eventRsvps.userId],
+		references: [users.id],
+	}),
+}));
+
+export const calendarTokens = createTable(
+	"calendar_token",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => users.id, { onDelete: "cascade" }),
+		token: d.text({ length: 255 }).notNull().unique(),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		lastUsedAt: d.integer({ mode: "timestamp" }),
+	}),
+	(t) => [
+		index("calendar_token_user_idx").on(t.userId),
+		index("calendar_token_token_idx").on(t.token),
+	],
+);
+
+export const calendarTokensRelations = relations(calendarTokens, ({ one }) => ({
+	user: one(users, {
+		fields: [calendarTokens.userId],
+		references: [users.id],
 	}),
 }));
 

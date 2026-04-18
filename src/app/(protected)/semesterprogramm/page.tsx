@@ -1,10 +1,16 @@
 import { CalendarDays, MapPin } from "lucide-react";
 import { headers } from "next/headers";
 import { CalendarActions } from "~/components/landingpage/CalendarActions";
+import { RsvpControls } from "~/components/semesterprogramm/RsvpControls";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { academicTimeLabel } from "~/lib/academic-time";
+import { getOrCreateCalendarToken } from "~/server/actions/events/calendarToken";
 import { getUpcomingEvents } from "~/server/actions/events/events";
+import {
+	getRsvpCountsForEvents,
+	getUserRsvpsForEvents,
+} from "~/server/actions/events/rsvp";
 
 export const metadata = {
 	title: "Semesterprogramm - Rhenania",
@@ -33,9 +39,17 @@ function monthLabel(d: Date) {
 
 export default async function SemesterprogrammPage() {
 	const events = await getUpcomingEvents();
+	const eventIds = events.map((e) => e.id);
+	const [countsMap, userRsvpMap] = await Promise.all([
+		getRsvpCountsForEvents(eventIds),
+		getUserRsvpsForEvents(eventIds),
+	]);
 	const host = (await headers()).get("host") ?? "localhost:3000";
 	const protocol = host.startsWith("localhost") ? "http" : "https";
-	const calendarUrl = `${protocol}://${host}/api/calendar`;
+	const calendarToken = await getOrCreateCalendarToken();
+	const calendarUrl = calendarToken
+		? `${protocol}://${host}/api/calendar/${calendarToken}`
+		: `${protocol}://${host}/api/calendar`;
 
 	// Group events by month
 	const grouped = events.reduce<{ label: string; items: typeof events }[]>(
@@ -133,6 +147,23 @@ export default async function SemesterprogrammPage() {
 															{event.description}
 														</p>
 													)}
+
+													<div className="pt-1.5">
+														<RsvpControls
+															eventId={event.id}
+															isCancelled={event.isCancelled}
+															rsvpDeadline={event.rsvpDeadline}
+															maxAttendees={event.maxAttendees}
+															counts={
+																countsMap.get(event.id) ?? {
+																	yes: 0,
+																	no: 0,
+																	maybe: 0,
+																}
+															}
+															currentStatus={userRsvpMap.get(event.id) ?? null}
+														/>
+													</div>
 												</div>
 											</div>
 										);

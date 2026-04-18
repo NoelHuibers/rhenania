@@ -22,6 +22,8 @@ export type EventInput = {
 	location?: string;
 	type: EventType;
 	isPublic: boolean;
+	rsvpDeadline?: Date | null;
+	maxAttendees?: number | null;
 	createdBy?: string;
 };
 
@@ -96,6 +98,8 @@ export async function createEvent(input: EventInput) {
 			location: input.location,
 			type: input.type,
 			isPublic: input.isPublic,
+			rsvpDeadline: input.rsvpDeadline ?? null,
+			maxAttendees: input.maxAttendees ?? null,
 			createdBy: input.createdBy,
 		});
 
@@ -126,6 +130,12 @@ export async function updateEvent(id: string, input: Partial<EventInput>) {
 				...(input.location !== undefined && { location: input.location }),
 				...(input.type !== undefined && { type: input.type }),
 				...(input.isPublic !== undefined && { isPublic: input.isPublic }),
+				...(input.rsvpDeadline !== undefined && {
+					rsvpDeadline: input.rsvpDeadline,
+				}),
+				...(input.maxAttendees !== undefined && {
+					maxAttendees: input.maxAttendees,
+				}),
 			})
 			.where(eq(events.id, id));
 

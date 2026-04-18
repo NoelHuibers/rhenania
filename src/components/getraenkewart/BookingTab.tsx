@@ -3,6 +3,11 @@
 import { ShoppingCart, UserCheck } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { NumericInput } from "~/components/NumericInput";
+import {
+	type BillingOption,
+	BillingSelector,
+} from "~/components/trinken/drinks/Billingselector";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -17,11 +22,6 @@ import {
 import { getAllUsers, type User } from "~/server/actions/game/getUsers";
 import { getAllDrinksForMenu } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
-import {
-	BillingSelector,
-	type BillingOption,
-} from "~/components/trinken/drinks/Billingselector";
-import { NumericInput } from "~/components/NumericInput";
 
 type Drink = {
 	id: string;
@@ -76,8 +76,7 @@ export default function BookingTab() {
 				total,
 				bookingFor: billing,
 				targetUserId: selectedUserId,
-				targetUserName:
-					selectedUser?.name ?? selectedUser?.email ?? undefined,
+				targetUserName: selectedUser?.name ?? selectedUser?.email ?? undefined,
 			});
 
 			if (result.success) {
