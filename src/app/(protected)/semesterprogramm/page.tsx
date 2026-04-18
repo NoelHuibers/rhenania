@@ -82,7 +82,7 @@ export default async function SemesterprogrammPage() {
 			<SiteHeader title="Semesterprogramm" />
 			<div className="mx-auto max-w-2xl p-6 lg:grid lg:max-w-7xl lg:grid-cols-[320px_1fr] lg:gap-10 xl:max-w-[1600px] xl:px-10">
 				<aside className="space-y-2 lg:sticky lg:top-6 lg:self-start">
-					<h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-widest">
+					<h2 className="hidden font-semibold text-muted-foreground text-xs uppercase tracking-widest lg:block">
 						Übersicht
 					</h2>
 					<WeekPreview

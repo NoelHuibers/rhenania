@@ -1,5 +1,8 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
+
 const TYPE_DOT_COLORS: Record<string, string> = {
 	Intern: "bg-blue-500",
 	AHV: "bg-amber-500",
@@ -44,7 +47,11 @@ function sameDay(a: Date, b: Date) {
 
 export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 	const today = startOfDay(new Date());
-	const start = startOfWeek(today);
+	const baseStart = startOfWeek(today);
+	const [weekOffset, setWeekOffset] = useState(0);
+
+	const start = new Date(baseStart);
+	start.setDate(baseStart.getDate() + weekOffset * 7);
 
 	const days: Date[] = [];
 	for (let i = 0; i < WEEKS * 7; i++) {
@@ -52,6 +59,23 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 		d.setDate(start.getDate() + i);
 		days.push(d);
 	}
+
+	const end = days[days.length - 1] ?? start;
+	const rangeLabel = (() => {
+		const sameYear = start.getFullYear() === end.getFullYear();
+		const sameMonth = sameYear && start.getMonth() === end.getMonth();
+		const startLabel = start.toLocaleDateString("de-DE", {
+			day: "numeric",
+			month: "short",
+			...(sameYear ? {} : { year: "numeric" }),
+		});
+		const endLabel = end.toLocaleDateString("de-DE", {
+			day: "numeric",
+			month: sameMonth ? undefined : "short",
+			year: "numeric",
+		});
+		return `${startLabel} – ${endLabel}`;
+	})();
 
 	const eventsByDay = new Map<string, WeekPreviewEvent[]>();
 	for (const e of events) {
@@ -72,7 +96,39 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 	}
 
 	return (
-		<div className="space-y-0.5">
+		<div className="space-y-1.5">
+			<div className="flex items-center justify-between gap-2">
+				<span className="text-muted-foreground text-xs tabular-nums">
+					{rangeLabel}
+				</span>
+				<div className="flex items-center gap-0.5">
+					{weekOffset !== 0 && (
+						<button
+							type="button"
+							onClick={() => setWeekOffset(0)}
+							className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-accent hover:text-foreground"
+						>
+							Heute
+						</button>
+					)}
+					<button
+						type="button"
+						onClick={() => setWeekOffset(weekOffset - WEEKS)}
+						className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+						aria-label="Vorherige Wochen"
+					>
+						<ChevronLeft className="h-3.5 w-3.5" />
+					</button>
+					<button
+						type="button"
+						onClick={() => setWeekOffset(weekOffset + WEEKS)}
+						className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+						aria-label="Nächste Wochen"
+					>
+						<ChevronRight className="h-3.5 w-3.5" />
+					</button>
+				</div>
+			</div>
 			<div className="grid grid-cols-7 gap-0.5">
 				{WEEKDAYS.map((w) => (
 					<div
