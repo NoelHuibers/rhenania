@@ -1,7 +1,10 @@
 import { CalendarDays, MapPin } from "lucide-react";
 import { headers } from "next/headers";
-import { CalendarActions } from "~/components/landingpage/CalendarActions";
+import { CalendarSubscribeButton } from "~/components/semesterprogramm/CalendarSubscribeButton";
+import { EventTypeFilter } from "~/components/semesterprogramm/EventTypeFilter";
+import { RsvpAttendees } from "~/components/semesterprogramm/RsvpAttendees";
 import { RsvpControls } from "~/components/semesterprogramm/RsvpControls";
+import { WeekPreview } from "~/components/semesterprogramm/WeekPreview";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { academicTimeLabel } from "~/lib/academic-time";
@@ -10,7 +13,9 @@ import { getUpcomingEvents } from "~/server/actions/events/events";
 import {
 	getRsvpCountsForEvents,
 	getUserRsvpsForEvents,
+	getYesAttendeePreviewForEvents,
 } from "~/server/actions/events/rsvp";
+import { getHiddenEventTypes } from "~/server/actions/profile/preferences";
 
 export const metadata = {
 	title: "Semesterprogramm - Rhenania",
@@ -38,11 +43,17 @@ function monthLabel(d: Date) {
 }
 
 export default async function SemesterprogrammPage() {
-	const events = await getUpcomingEvents();
+	const [allEvents, hiddenTypes] = await Promise.all([
+		getUpcomingEvents(),
+		getHiddenEventTypes(),
+	]);
+	const hiddenSet = new Set<string>(hiddenTypes);
+	const events = allEvents.filter((e) => !hiddenSet.has(e.type));
 	const eventIds = events.map((e) => e.id);
-	const [countsMap, userRsvpMap] = await Promise.all([
+	const [countsMap, userRsvpMap, previewMap] = await Promise.all([
 		getRsvpCountsForEvents(eventIds),
 		getUserRsvpsForEvents(eventIds),
+		getYesAttendeePreviewForEvents(eventIds),
 	]);
 	const host = (await headers()).get("host") ?? "localhost:3000";
 	const protocol = host.startsWith("localhost") ? "http" : "https";
@@ -69,12 +80,26 @@ export default async function SemesterprogrammPage() {
 	return (
 		<SidebarLayout>
 			<SiteHeader title="Semesterprogramm" />
-			<div className="mx-auto max-w-2xl space-y-8 p-6">
-				<CalendarActions calendarUrl={calendarUrl} />
+			<div className="mx-auto max-w-2xl space-y-6 p-6">
+				<WeekPreview
+					events={events.map((e) => ({
+						id: e.id,
+						date: e.date,
+						type: e.type,
+						isCancelled: e.isCancelled,
+					}))}
+				/>
+
+				<div className="flex items-center justify-between gap-2">
+					<CalendarSubscribeButton calendarUrl={calendarUrl} />
+					<EventTypeFilter initialHidden={hiddenTypes} />
+				</div>
 
 				{events.length === 0 ? (
 					<p className="py-16 text-center text-muted-foreground">
-						Keine kommenden Termine geplant.
+						{allEvents.length === 0
+							? "Keine kommenden Termine geplant."
+							: "Keine Termine entsprechen deinem Filter."}
 					</p>
 				) : (
 					<div className="space-y-8">
@@ -89,7 +114,8 @@ export default async function SemesterprogrammPage() {
 										return (
 											<div
 												key={event.id}
-												className="flex items-start gap-4 px-4 py-3.5"
+												id={`event-${event.id}`}
+												className="flex items-start gap-4 px-4 py-3.5 transition-shadow"
 											>
 												{/* Date block */}
 												<div className="flex w-10 shrink-0 flex-col items-center pt-0.5 text-center">
@@ -148,22 +174,36 @@ export default async function SemesterprogrammPage() {
 														</p>
 													)}
 
-													<div className="pt-1.5">
-														<RsvpControls
-															eventId={event.id}
-															isCancelled={event.isCancelled}
-															rsvpDeadline={event.rsvpDeadline}
-															maxAttendees={event.maxAttendees}
-															counts={
-																countsMap.get(event.id) ?? {
-																	yes: 0,
-																	no: 0,
-																	maybe: 0,
-																}
-															}
-															currentStatus={userRsvpMap.get(event.id) ?? null}
-														/>
-													</div>
+													{(() => {
+														const c = countsMap.get(event.id) ?? {
+															yes: 0,
+															no: 0,
+															maybe: 0,
+														};
+														return (
+															<>
+																<RsvpAttendees
+																	eventId={event.id}
+																	eventTitle={event.title}
+																	preview={previewMap.get(event.id) ?? []}
+																	yesCount={c.yes}
+																	maybeCount={c.maybe}
+																/>
+																<div className="pt-1.5">
+																	<RsvpControls
+																		eventId={event.id}
+																		isCancelled={event.isCancelled}
+																		rsvpDeadline={event.rsvpDeadline}
+																		maxAttendees={event.maxAttendees}
+																		counts={c}
+																		currentStatus={
+																			userRsvpMap.get(event.id) ?? null
+																		}
+																	/>
+																</div>
+															</>
+														);
+													})()}
 												</div>
 											</div>
 										);

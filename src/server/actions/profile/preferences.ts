@@ -117,6 +117,64 @@ export async function setEmailNotificationPreferenceAction(opts: {
 	);
 }
 
+// --- Semesterprogramm filter (hidden event types) sugar ---
+
+const HIDDEN_EVENT_TYPES_KEY = "semesterprogramm.hiddenTypes";
+
+const ALL_EVENT_TYPES = [
+	"Intern",
+	"AHV",
+	"oCC",
+	"SC",
+	"Jour Fix",
+	"Stammtisch",
+	"Sonstige",
+] as const;
+
+export type EventTypeName = (typeof ALL_EVENT_TYPES)[number];
+
+function sanitizeHiddenTypes(value: unknown): EventTypeName[] {
+	if (!Array.isArray(value)) return [];
+	return value.filter((v): v is EventTypeName =>
+		(ALL_EVENT_TYPES as readonly string[]).includes(v),
+	);
+}
+
+export async function getHiddenEventTypes(): Promise<EventTypeName[]> {
+	const raw = await getUserPreference<unknown>(
+		HIDDEN_EVENT_TYPES_KEY,
+		[],
+		"json",
+	);
+	return sanitizeHiddenTypes(raw);
+}
+
+export async function getHiddenEventTypesForUser(
+	userId: string,
+): Promise<EventTypeName[]> {
+	const row = await db.query.userPreferences.findFirst({
+		where: (t, { and, eq }) =>
+			and(eq(t.userId, userId), eq(t.key, HIDDEN_EVENT_TYPES_KEY)),
+		columns: { value: true },
+	});
+	if (!row) return [];
+	try {
+		return sanitizeHiddenTypes(JSON.parse(row.value));
+	} catch {
+		return [];
+	}
+}
+
+export async function setHiddenEventTypes(types: EventTypeName[]) {
+	const sanitized = sanitizeHiddenTypes(types);
+	const result = await setUserPreference(
+		HIDDEN_EVENT_TYPES_KEY,
+		sanitized,
+		"json",
+	);
+	return result;
+}
+
 // --- (Optional) Fetch all preferences to render a generic card ---
 
 export async function getAllPreferences() {

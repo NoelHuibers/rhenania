@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -211,6 +211,7 @@ export async function getEventRsvps(eventId: string) {
 			userId: eventRsvps.userId,
 			userName: users.name,
 			userEmail: users.email,
+			userImage: users.image,
 			status: eventRsvps.status,
 			note: eventRsvps.note,
 			updatedAt: eventRsvps.updatedAt,
@@ -219,5 +220,60 @@ export async function getEventRsvps(eventId: string) {
 		.from(eventRsvps)
 		.innerJoin(users, eq(eventRsvps.userId, users.id))
 		.where(eq(eventRsvps.eventId, eventId))
+		.orderBy(sql`${eventRsvps.status} asc, ${users.name} asc`);
+}
+
+export type AttendeePreview = {
+	userId: string;
+	name: string | null;
+	image: string | null;
+};
+
+const PREVIEW_LIMIT = 4;
+
+export async function getYesAttendeePreviewForEvents(eventIds: string[]) {
+	if (eventIds.length === 0) return new Map<string, AttendeePreview[]>();
+
+	const rows = await db
+		.select({
+			eventId: eventRsvps.eventId,
+			userId: users.id,
+			name: users.name,
+			image: users.image,
+			createdAt: eventRsvps.createdAt,
+		})
+		.from(eventRsvps)
+		.innerJoin(users, eq(eventRsvps.userId, users.id))
+		.where(
+			and(eq(eventRsvps.status, "yes"), inArray(eventRsvps.eventId, eventIds)),
+		)
+		.orderBy(asc(eventRsvps.createdAt));
+
+	const map = new Map<string, AttendeePreview[]>();
+	for (const id of eventIds) map.set(id, []);
+	for (const r of rows) {
+		const list = map.get(r.eventId);
+		if (!list || list.length >= PREVIEW_LIMIT) continue;
+		list.push({ userId: r.userId, name: r.name, image: r.image });
+	}
+	return map;
+}
+
+export async function getEventAttendees(eventId: string) {
+	return db
+		.select({
+			userId: eventRsvps.userId,
+			userName: users.name,
+			userImage: users.image,
+			status: eventRsvps.status,
+		})
+		.from(eventRsvps)
+		.innerJoin(users, eq(eventRsvps.userId, users.id))
+		.where(
+			and(
+				eq(eventRsvps.eventId, eventId),
+				inArray(eventRsvps.status, ["yes", "maybe"]),
+			),
+		)
 		.orderBy(sql`${eventRsvps.status} asc, ${users.name} asc`);
 }

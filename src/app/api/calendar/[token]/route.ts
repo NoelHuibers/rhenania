@@ -1,5 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { getHiddenEventTypesForUser } from "~/server/actions/profile/preferences";
 import { db } from "~/server/db";
 import {
 	calendarTokens,
@@ -66,7 +67,7 @@ export async function GET(
 		.where(eq(calendarTokens.token, token));
 
 	const now = new Date();
-	const [rows, venueRows, rsvpRows] = await Promise.all([
+	const [rows, venueRows, rsvpRows, hiddenTypes] = await Promise.all([
 		db.select().from(events).orderBy(asc(events.date)),
 		db.select().from(venues),
 		db
@@ -76,14 +77,17 @@ export async function GET(
 			})
 			.from(eventRsvps)
 			.where(eq(eventRsvps.userId, tokenRow.userId)),
+		getHiddenEventTypesForUser(tokenRow.userId),
 	]);
 
+	const hiddenSet = new Set<string>(hiddenTypes);
+	const visibleRows = rows.filter((e) => !hiddenSet.has(e.type));
 	const venueMap = new Map(venueRows.map((v) => [v.shortName, v.fullAddress]));
 	const rsvpMap = new Map(rsvpRows.map((r) => [r.eventId, r.status]));
 	const attendeeCn = escapeICalText(tokenRow.userName ?? tokenRow.userEmail);
 	const attendeeMailto = `mailto:${tokenRow.userEmail}`;
 
-	const vevents = rows
+	const vevents = visibleRows
 		.map((event) => {
 			const dtstart = formatICalDate(event.date);
 			const dtend = event.endDate
