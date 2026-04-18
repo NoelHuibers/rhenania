@@ -67,25 +67,33 @@ export async function GET(
 		.where(eq(calendarTokens.token, token));
 
 	const now = new Date();
-	const [rows, venueRows, rsvpRows, hiddenTypes] = await Promise.all([
+	const [rows, venueRows, allRsvpRows, hiddenTypes] = await Promise.all([
 		db.select().from(events).orderBy(asc(events.date)),
 		db.select().from(venues),
 		db
 			.select({
 				eventId: eventRsvps.eventId,
+				userId: eventRsvps.userId,
 				status: eventRsvps.status,
+				userName: users.name,
+				userEmail: users.email,
 			})
 			.from(eventRsvps)
-			.where(eq(eventRsvps.userId, tokenRow.userId)),
+			.innerJoin(users, eq(eventRsvps.userId, users.id)),
 		getHiddenEventTypesForUser(tokenRow.userId),
 	]);
 
 	const hiddenSet = new Set<string>(hiddenTypes);
 	const visibleRows = rows.filter((e) => !hiddenSet.has(e.type));
 	const venueMap = new Map(venueRows.map((v) => [v.shortName, v.fullAddress]));
-	const rsvpMap = new Map(rsvpRows.map((r) => [r.eventId, r.status]));
-	const attendeeCn = escapeICalText(tokenRow.userName ?? tokenRow.userEmail);
-	const attendeeMailto = `mailto:${tokenRow.userEmail}`;
+
+	type Rsvp = (typeof allRsvpRows)[number];
+	const rsvpsByEvent = new Map<string, Rsvp[]>();
+	for (const r of allRsvpRows) {
+		const list = rsvpsByEvent.get(r.eventId) ?? [];
+		list.push(r);
+		rsvpsByEvent.set(r.eventId, list);
+	}
 
 	const vevents = visibleRows
 		.map((event) => {
@@ -104,15 +112,29 @@ export async function GET(
 				"ORGANIZER;CN=Rhenania:mailto:noreply@rhenania.invalid",
 			];
 
-			const userStatus = rsvpMap.get(event.id);
-			const partstat = userStatus
-				? STATUS_TO_PARTSTAT[userStatus]
+			const eventRsvpList = rsvpsByEvent.get(event.id) ?? [];
+			const currentUserRsvp = eventRsvpList.find(
+				(r) => r.userId === tokenRow.userId,
+			);
+			const currentPartstat = currentUserRsvp
+				? (STATUS_TO_PARTSTAT[currentUserRsvp.status] ?? "NEEDS-ACTION")
 				: "NEEDS-ACTION";
 			lines.push(
 				foldLine(
-					`ATTENDEE;CN=${attendeeCn};PARTSTAT=${partstat};RSVP=TRUE:${attendeeMailto}`,
+					`ATTENDEE;CN=${escapeICalText(tokenRow.userName ?? tokenRow.userEmail)};PARTSTAT=${currentPartstat};RSVP=TRUE:mailto:${tokenRow.userEmail}`,
 				),
 			);
+
+			for (const r of eventRsvpList) {
+				if (r.userId === tokenRow.userId) continue;
+				const partstat = STATUS_TO_PARTSTAT[r.status] ?? "NEEDS-ACTION";
+				const cn = escapeICalText(r.userName ?? r.userEmail);
+				lines.push(
+					foldLine(
+						`ATTENDEE;CN=${cn};PARTSTAT=${partstat};ROLE=OPT-PARTICIPANT:mailto:noreply+${r.userId}@rhenania.invalid`,
+					),
+				);
+			}
 
 			if (event.location) {
 				const resolved = venueMap.get(event.location) ?? event.location;
