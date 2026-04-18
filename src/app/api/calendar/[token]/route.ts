@@ -77,6 +77,8 @@ export async function GET(
 				status: eventRsvps.status,
 				userName: users.name,
 				userEmail: users.email,
+				createdAt: eventRsvps.createdAt,
+				updatedAt: eventRsvps.updatedAt,
 			})
 			.from(eventRsvps)
 			.innerJoin(users, eq(eventRsvps.userId, users.id)),
@@ -102,17 +104,31 @@ export async function GET(
 				? formatICalDate(event.endDate)
 				: formatICalDate(new Date(event.date.getTime() + 2 * 60 * 60 * 1000));
 
+			const eventRsvpList = rsvpsByEvent.get(event.id) ?? [];
+
+			let latestMs = (
+				event.updatedAt ??
+				event.createdAt ??
+				event.date
+			).getTime();
+			for (const r of eventRsvpList) {
+				const rMs = (r.updatedAt ?? r.createdAt).getTime();
+				if (rMs > latestMs) latestMs = rMs;
+			}
+			const sequence = Math.floor(latestMs / 1000);
+			const lastModified = formatICalDate(new Date(latestMs));
+
 			const lines = [
 				"BEGIN:VEVENT",
 				`UID:${event.id}@rhenania`,
 				`DTSTAMP:${formatICalDate(now)}`,
 				`DTSTART:${dtstart}`,
 				`DTEND:${dtend}`,
+				`SEQUENCE:${sequence}`,
+				`LAST-MODIFIED:${lastModified}`,
 				foldLine(`SUMMARY:${escapeICalText(event.title)}`),
 				"ORGANIZER;CN=Rhenania:mailto:noreply@rhenania.invalid",
 			];
-
-			const eventRsvpList = rsvpsByEvent.get(event.id) ?? [];
 			const currentUserRsvp = eventRsvpList.find(
 				(r) => r.userId === tokenRow.userId,
 			);
