@@ -874,6 +874,7 @@ export const recurringEvents = createTable(
 		// HH:MM e.g. "18:00"
 		time: d.text({ length: 5 }).notNull().default("20:00"),
 		isPublic: d.integer({ mode: "boolean" }).notNull().default(true),
+		meetingUrl: d.text({ length: 2048 }),
 		// Semester bounds — generation is clamped to this range
 		startDate: d.integer({ mode: "timestamp" }),
 		endDate: d.integer({ mode: "timestamp" }),
@@ -933,6 +934,7 @@ export const events = createTable(
 			.default("Sonstige"),
 		isPublic: d.integer({ mode: "boolean" }).notNull().default(true),
 		isCancelled: d.integer({ mode: "boolean" }).notNull().default(false),
+		meetingUrl: d.text({ length: 2048 }),
 		rsvpDeadline: d.integer({ mode: "timestamp" }),
 		maxAttendees: d.integer(),
 		recurringEventId: d

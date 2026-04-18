@@ -27,6 +27,7 @@ export type RecurringEventInput = {
 	dayOfWeek?: number;
 	time: string;
 	isPublic?: boolean;
+	meetingUrl?: string | null;
 	startDate?: Date;
 	endDate?: Date;
 	createdBy?: string;
@@ -218,6 +219,7 @@ export async function createRecurringEvent(input: RecurringEventInput) {
 			dayOfWeek: input.dayOfWeek,
 			time: input.time,
 			isPublic: input.isPublic ?? true,
+			meetingUrl: input.meetingUrl ?? null,
 			startDate: input.startDate,
 			endDate: input.endDate,
 			createdBy: input.createdBy,
@@ -250,6 +252,9 @@ export async function updateRecurringEvent(
 				...(input.dayOfWeek !== undefined && { dayOfWeek: input.dayOfWeek }),
 				...(input.time !== undefined && { time: input.time }),
 				...(input.isPublic !== undefined && { isPublic: input.isPublic }),
+				...(input.meetingUrl !== undefined && {
+					meetingUrl: input.meetingUrl,
+				}),
 				...(input.startDate !== undefined && { startDate: input.startDate }),
 				...(input.endDate !== undefined && { endDate: input.endDate }),
 			})
@@ -336,6 +341,7 @@ export async function generateInstances(recurringEventId: string) {
 				type: template.type,
 				isPublic: template.isPublic,
 				isCancelled: false,
+				meetingUrl: template.meetingUrl,
 				recurringEventId: template.id,
 				createdBy: template.createdBy,
 			})),

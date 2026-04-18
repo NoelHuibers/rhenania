@@ -24,6 +24,7 @@ export type EventInput = {
 	isPublic: boolean;
 	rsvpDeadline?: Date | null;
 	maxAttendees?: number | null;
+	meetingUrl?: string | null;
 	createdBy?: string;
 };
 
@@ -100,6 +101,7 @@ export async function createEvent(input: EventInput) {
 			isPublic: input.isPublic,
 			rsvpDeadline: input.rsvpDeadline ?? null,
 			maxAttendees: input.maxAttendees ?? null,
+			meetingUrl: input.meetingUrl ?? null,
 			createdBy: input.createdBy,
 		});
 
@@ -135,6 +137,9 @@ export async function updateEvent(id: string, input: Partial<EventInput>) {
 				}),
 				...(input.maxAttendees !== undefined && {
 					maxAttendees: input.maxAttendees,
+				}),
+				...(input.meetingUrl !== undefined && {
+					meetingUrl: input.meetingUrl,
 				}),
 			})
 			.where(eq(events.id, id));

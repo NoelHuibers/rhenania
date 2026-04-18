@@ -61,6 +61,7 @@ type Event = {
 	isCancelled: boolean;
 	rsvpDeadline: Date | null;
 	maxAttendees: number | null;
+	meetingUrl: string | null;
 	recurringEventId: string | null;
 	createdAt: Date;
 };
@@ -75,6 +76,7 @@ type FormState = {
 	isPublic: boolean;
 	rsvpDeadline: string;
 	maxAttendees: string;
+	meetingUrl: string;
 };
 
 const DEFAULT_LOCATION = "adH Rhenania";
@@ -89,6 +91,7 @@ const emptyForm: FormState = {
 	isPublic: true,
 	rsvpDeadline: "",
 	maxAttendees: "",
+	meetingUrl: "",
 };
 
 export const TYPE_COLORS: Record<EventType, string> = {
@@ -249,6 +252,18 @@ function EventFormCard({
 						</div>
 					</div>
 					<div className="space-y-2">
+						<Label htmlFor="ev-meeting">Online-Meeting Link (optional)</Label>
+						<Input
+							id="ev-meeting"
+							type="url"
+							value={form.meetingUrl}
+							onChange={(e) =>
+								setForm((f) => ({ ...f, meetingUrl: e.target.value }))
+							}
+							placeholder="https://teams.microsoft.com/..."
+						/>
+					</div>
+					<div className="space-y-2">
 						<Label htmlFor="ev-description">Beschreibung</Label>
 						<Textarea
 							id="ev-description"
@@ -313,6 +328,7 @@ export function EventsManager({
 			rsvpDeadline: event.rsvpDeadline ? toInputDate(event.rsvpDeadline) : "",
 			maxAttendees:
 				event.maxAttendees != null ? String(event.maxAttendees) : "",
+			meetingUrl: event.meetingUrl ?? "",
 		});
 		setEditingId(event.id);
 		setShowCreateForm(false);
@@ -349,6 +365,7 @@ export function EventsManager({
 			rsvpDeadline: form.rsvpDeadline ? new Date(form.rsvpDeadline) : null,
 			maxAttendees:
 				Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : null,
+			meetingUrl: form.meetingUrl.trim() || null,
 		};
 
 		const result = editingId

@@ -156,9 +156,20 @@ export async function GET(
 				const resolved = venueMap.get(event.location) ?? event.location;
 				lines.push(foldLine(`LOCATION:${escapeICalText(resolved)}`));
 			}
-			if (event.description) {
+			const descParts: string[] = [];
+			if (event.description) descParts.push(event.description);
+			if (event.meetingUrl) {
+				descParts.push(`Online-Meeting: ${event.meetingUrl}`);
+			}
+			if (descParts.length > 0) {
 				lines.push(
-					foldLine(`DESCRIPTION:${escapeICalText(event.description)}`),
+					foldLine(`DESCRIPTION:${escapeICalText(descParts.join("\n\n"))}`),
+				);
+			}
+			if (event.meetingUrl) {
+				lines.push(foldLine(`URL:${event.meetingUrl}`));
+				lines.push(
+					foldLine(`X-MICROSOFT-SKYPETEAMSMEETINGURL:${event.meetingUrl}`),
 				);
 			}
 			if (event.isCancelled) {

@@ -63,6 +63,7 @@ type RecurringEvent = {
 	dayOfWeek: number | null;
 	time: string;
 	isPublic: boolean;
+	meetingUrl: string | null;
 	startDate: Date | null;
 	endDate: Date | null;
 	isActive: boolean;
@@ -77,6 +78,7 @@ type FormState = {
 	dayOfWeek: string;
 	time: string;
 	isPublic: boolean;
+	meetingUrl: string;
 	startDate: string;
 	endDate: string;
 };
@@ -90,6 +92,7 @@ const emptyForm: FormState = {
 	dayOfWeek: "1",
 	time: "20:00",
 	isPublic: true,
+	meetingUrl: "",
 	startDate: "",
 	endDate: "",
 };
@@ -183,6 +186,7 @@ export function RecurringEventsManager({
 			dayOfWeek: String(r.dayOfWeek ?? 1),
 			time: r.time,
 			isPublic: r.isPublic,
+			meetingUrl: r.meetingUrl ?? "",
 			startDate: r.startDate ? r.startDate.toISOString().slice(0, 10) : "",
 			endDate: r.endDate ? r.endDate.toISOString().slice(0, 10) : "",
 		});
@@ -229,6 +233,7 @@ export function RecurringEventsManager({
 				form.recurrenceType === "biweekly" ? Number(form.dayOfWeek) : undefined,
 			time: form.time,
 			isPublic: form.isPublic,
+			meetingUrl: form.meetingUrl.trim() || null,
 			startDate: form.startDate ? new Date(form.startDate) : undefined,
 			endDate: form.endDate ? new Date(form.endDate) : undefined,
 		};
@@ -503,6 +508,21 @@ export function RecurringEventsManager({
 						</div>
 					</>
 				)}
+			</div>
+			<div className="space-y-2">
+				<Label htmlFor="r-meeting">Online-Meeting Link (optional)</Label>
+				<Input
+					id="r-meeting"
+					type="url"
+					value={form.meetingUrl}
+					onChange={(e) =>
+						setForm((f) => ({ ...f, meetingUrl: e.target.value }))
+					}
+					placeholder="https://teams.microsoft.com/..."
+				/>
+				<p className="text-muted-foreground text-xs">
+					Wird auf alle generierten Termine übertragen.
+				</p>
 			</div>
 			<div className="space-y-2">
 				<Label htmlFor="r-description">Beschreibung</Label>
