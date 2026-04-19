@@ -13,7 +13,8 @@
 			"Bash(grep -E \"^.*\\\\.\\(tsx|ts\\).*$\")",
 			"Bash(pnpm check:write)",
 			"Bash(pnpm db:generate)",
-			"Bash(pnpm typecheck *)"
+			"Bash(pnpm typecheck *)",
+			"Bash(pnpm format:write)"
 		]
 	}
 }

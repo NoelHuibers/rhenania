@@ -48,6 +48,7 @@ function InputGroupAddon({
 	...props
 }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
 	return (
+		// biome-ignore lint/a11y/useKeyWithClickEvents: mouse-only convenience; keyboard users tab directly to the input
 		<div
 			role="group"
 			data-slot="input-group-addon"
