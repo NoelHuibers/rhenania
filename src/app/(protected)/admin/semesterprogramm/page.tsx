@@ -31,8 +31,8 @@ export default async function AdminSemesterprogrammPage() {
 		<SidebarLayout>
 			<SiteHeader title="Veranstaltungen" />
 			<div className="mx-auto max-w-4xl p-4 sm:p-6">
-				<Tabs defaultValue="events">
-					<TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:flex sm:w-auto">
+				<Tabs defaultValue="events" className="gap-4 sm:gap-2">
+					<TabsList className="mb-2 grid h-auto w-full grid-cols-2 gap-1 bg-muted p-1 group-data-horizontal/tabs:h-auto sm:mb-0 sm:flex sm:h-9 sm:w-auto sm:p-0.75">
 						<TabsTrigger value="events">Einzeltermine</TabsTrigger>
 						<TabsTrigger value="recurring">Wiederkehrend</TabsTrigger>
 						<TabsTrigger value="venues">Orte</TabsTrigger>
