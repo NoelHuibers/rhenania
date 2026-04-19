@@ -1,5 +1,6 @@
 // layout.tsx
 import { Toaster } from "sonner";
+import { ThemeProvider } from "~/components/theme-provider";
 
 export default function RootLayout({
 	children,
@@ -7,10 +8,17 @@ export default function RootLayout({
 	children: React.ReactNode;
 }) {
 	return (
-		<html lang="de">
+		<html lang="de" suppressHydrationWarning>
 			<body>
-				{children}
-				<Toaster position="bottom-right" richColors closeButton />
+				<ThemeProvider
+					attribute="class"
+					defaultTheme="system"
+					enableSystem
+					disableTransitionOnChange
+				>
+					{children}
+					<Toaster position="bottom-right" richColors closeButton />
+				</ThemeProvider>
 			</body>
 		</html>
 	);
