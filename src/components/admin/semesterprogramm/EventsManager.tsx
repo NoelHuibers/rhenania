@@ -4,6 +4,7 @@ import {
 	Ban,
 	CalendarDays,
 	MapPin,
+	MoreHorizontal,
 	Pencil,
 	Plus,
 	RotateCcw,
@@ -26,6 +27,13 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -64,6 +72,8 @@ type Event = {
 	meetingUrl: string | null;
 	recurringEventId: string | null;
 	createdAt: Date;
+	yesCount: number;
+	maybeCount: number;
 };
 
 type FormState = {
@@ -453,11 +463,8 @@ export function EventsManager({
 			</AlertDialog>
 
 			<div className="space-y-6">
-				<div className="flex items-center justify-between">
-					<p className="text-muted-foreground text-sm">
-						{upcoming.length} kommende · {past.length} vergangene
-					</p>
-					<Button onClick={openCreate}>
+				<div className="flex justify-end">
+					<Button onClick={openCreate} className="w-full sm:w-auto">
 						<Plus className="mr-2 h-4 w-4" />
 						Neue Veranstaltung
 					</Button>
@@ -508,9 +515,10 @@ function EventRow({
 	onShowRsvps: (e: Event) => void;
 	past?: boolean;
 }) {
+	const showNonPublicBadge = !event.isPublic && event.type !== "Intern";
 	return (
-		<Card className={past || event.isCancelled ? "opacity-60" : ""}>
-			<CardContent className="flex items-start justify-between gap-4 p-4">
+		<Card className={`py-0 ${past || event.isCancelled ? "opacity-60" : ""}`}>
+			<CardContent className="flex items-start justify-between gap-3 p-4 sm:gap-4">
 				<div className="min-w-0 flex-1 space-y-1">
 					<div className="flex flex-wrap items-center gap-2">
 						<span
@@ -533,13 +541,13 @@ function EventRow({
 								Wiederkehrend
 							</span>
 						)}
-						{!event.isPublic && (
+						{showNonPublicBadge && (
 							<span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 text-xs">
-								Intern
+								Nicht öffentlich
 							</span>
 						)}
 					</div>
-					<div className="flex flex-wrap gap-4 text-muted-foreground text-sm">
+					<div className="flex flex-col gap-1 text-muted-foreground text-sm sm:flex-row sm:flex-wrap sm:gap-x-4">
 						<span className="flex flex-wrap items-center gap-1">
 							<CalendarDays className="h-3.5 w-3.5" />
 							<span>{formatDatePart(event.date)},</span>
@@ -553,6 +561,18 @@ function EventRow({
 								{event.location}
 							</span>
 						)}
+						<button
+							type="button"
+							onClick={() => onShowRsvps(event)}
+							className="flex items-center gap-1 self-start rounded-md hover:text-foreground"
+						>
+							<Users className="h-3.5 w-3.5" />
+							<span className="whitespace-nowrap">
+								{event.yesCount} Zusagen
+								{event.maybeCount > 0 && ` · ${event.maybeCount} Vielleicht`}
+								{event.maxAttendees != null && ` / ${event.maxAttendees}`}
+							</span>
+						</button>
 					</div>
 					{event.description && (
 						<p className="line-clamp-1 text-muted-foreground text-sm">
@@ -560,15 +580,7 @@ function EventRow({
 						</p>
 					)}
 				</div>
-				<div className="flex shrink-0 gap-1">
-					<Button
-						variant="ghost"
-						size="icon"
-						title="Antworten anzeigen"
-						onClick={() => onShowRsvps(event)}
-					>
-						<Users className="h-4 w-4" />
-					</Button>
+				<div className="hidden shrink-0 gap-1 sm:flex">
 					<Button
 						variant="ghost"
 						size="icon"
@@ -593,6 +605,40 @@ function EventRow({
 						<Trash2 className="h-4 w-4" />
 					</Button>
 				</div>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild className="shrink-0 sm:hidden">
+						<Button variant="ghost" size="icon" className="-mt-1 -mr-2">
+							<MoreHorizontal className="h-4 w-4" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem onClick={() => onToggleCancel(event.id)}>
+							{event.isCancelled ? (
+								<>
+									<RotateCcw className="h-4 w-4" />
+									Absage rückgängig
+								</>
+							) : (
+								<>
+									<Ban className="h-4 w-4" />
+									Absagen
+								</>
+							)}
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={() => onEdit(event)}>
+							<Pencil className="h-4 w-4" />
+							Bearbeiten
+						</DropdownMenuItem>
+						<DropdownMenuSeparator />
+						<DropdownMenuItem
+							onClick={() => onDelete(event.id)}
+							variant="destructive"
+						>
+							<Trash2 className="h-4 w-4" />
+							Löschen
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</CardContent>
 		</Card>
 	);

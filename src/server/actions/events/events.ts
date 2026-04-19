@@ -1,9 +1,9 @@
 "use server";
 
-import { and, asc, desc, eq, gte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
-import { events } from "~/server/db/schema";
+import { eventRsvps, events } from "~/server/db/schema";
 
 export type EventType =
 	| "Intern"
@@ -68,7 +68,22 @@ export async function getPublicUpcomingEvents(limit?: number) {
 
 export async function getAllEvents() {
 	try {
-		return await db.select().from(events).orderBy(desc(events.date));
+		const rows = await db
+			.select({
+				event: events,
+				yesCount: sql<number>`coalesce(sum(case when ${eventRsvps.status} = 'yes' then 1 else 0 end), 0)`,
+				maybeCount: sql<number>`coalesce(sum(case when ${eventRsvps.status} = 'maybe' then 1 else 0 end), 0)`,
+			})
+			.from(events)
+			.leftJoin(eventRsvps, eq(eventRsvps.eventId, events.id))
+			.groupBy(events.id)
+			.orderBy(desc(events.date));
+
+		return rows.map((r) => ({
+			...r.event,
+			yesCount: Number(r.yesCount),
+			maybeCount: Number(r.maybeCount),
+		}));
 	} catch (error) {
 		console.error("Error fetching all events:", error);
 		return [];

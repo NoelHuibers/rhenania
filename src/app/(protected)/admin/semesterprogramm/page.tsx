@@ -12,7 +12,7 @@ import { getSemesterConfig } from "~/server/actions/semesterprogramm/semesterCon
 import { getVenues } from "~/server/actions/venues";
 
 export const metadata = {
-	title: "Veranstaltungen verwalten - Rhenania",
+	title: "Veranstaltungen - Rhenania",
 };
 
 export default async function AdminSemesterprogrammPage() {
@@ -29,10 +29,10 @@ export default async function AdminSemesterprogrammPage() {
 
 	return (
 		<SidebarLayout>
-			<SiteHeader title="Veranstaltungen verwalten" />
-			<div className="mx-auto max-w-4xl p-6">
+			<SiteHeader title="Veranstaltungen" />
+			<div className="mx-auto max-w-4xl p-4 sm:p-6">
 				<Tabs defaultValue="events">
-					<TabsList className="mb-6 h-auto flex-wrap">
+					<TabsList className="mb-6 grid h-auto w-full grid-cols-2 gap-1 sm:flex sm:w-auto">
 						<TabsTrigger value="events">Einzeltermine</TabsTrigger>
 						<TabsTrigger value="recurring">Wiederkehrend</TabsTrigger>
 						<TabsTrigger value="venues">Orte</TabsTrigger>
