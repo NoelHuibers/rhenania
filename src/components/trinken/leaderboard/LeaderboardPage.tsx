@@ -28,13 +28,12 @@ export default async function LeaderboardPage() {
 	const growthRate = await getMonthlyGrowthRate();
 
 	return (
-		<div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-			<SiteHeader title="Literboard" />
+		<div className="min-h-screen bg-background">
+			<SiteHeader
+				title="Literboard"
+				subtitle="Verfolge die steilsten Corpsbrüder"
+			/>
 			<div className="mx-auto max-w-7xl space-y-6 p-4">
-				<p className="text-center text-gray-600">
-					Verfolge die steilsten Corpsbrüder
-				</p>
-
 				{/* Kennzahlen */}
 				<MetricsCards
 					totalConsumption={total}

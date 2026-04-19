@@ -9,14 +9,11 @@ export default function HomePage() {
 	return (
 		<SidebarLayout>
 			<div className="min-h-screen bg-background">
-				<SiteHeader title="Eloranking" />
+				<SiteHeader
+					title="Eloranking"
+					subtitle="Zeig deine Dominanz an der Tasse!"
+				/>
 				<div className="container mx-auto px-4 py-8">
-					<div className="mb-8 text-center">
-						<p className="text-lg text-muted-foreground">
-							Zeig deine Dominanz an der Tasse!
-						</p>
-					</div>
-
 					<Suspense
 						fallback={<div className="text-center">Loading stats...</div>}
 					>

@@ -41,9 +41,9 @@ function getChangeBadgeStyle(change: string) {
 	const isNegative = change.startsWith("-");
 
 	if (isNegative) {
-		return "bg-red-100 text-red-800";
+		return "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300";
 	} else {
-		return "bg-green-100 text-green-800";
+		return "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300";
 	}
 }
 
@@ -51,9 +51,9 @@ function getChangeBadgeStyleOutline(change: string) {
 	const isNegative = change.startsWith("-");
 
 	if (isNegative) {
-		return "text-red-600 border-red-200";
+		return "text-red-600 border-red-200 dark:text-red-400 dark:border-red-900/60";
 	} else {
-		return "text-green-600 border-green-200";
+		return "text-green-600 border-green-200 dark:text-green-400 dark:border-green-900/60";
 	}
 }
 
@@ -75,7 +75,7 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
 				{topConsumers.map((consumer, index) => (
 					<div
 						key={consumer.id}
-						className="flex items-center justify-between rounded-lg border bg-gradient-to-r from-blue-50 to-indigo-50 p-3"
+						className="flex items-center justify-between rounded-lg border bg-muted/50 p-3"
 					>
 						<div className="flex items-center gap-3">
 							<div className="w-12 text-center font-bold text-2xl">
@@ -94,8 +94,8 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
 								</AvatarFallback>
 							</Avatar>
 							<div>
-								<p className="font-semibold text-gray-900">{consumer.name}</p>
-								<p className="text-gray-600 text-sm">
+								<p className="font-semibold text-foreground">{consumer.name}</p>
+								<p className="text-muted-foreground text-sm">
 									{consumer.amount}L getrunken
 								</p>
 							</div>
@@ -132,10 +132,10 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
 						{remainingConsumers.map((consumer, index) => (
 							<div
 								key={consumer.id}
-								className="flex items-center justify-between rounded-lg p-2 hover:bg-gray-50"
+								className="flex items-center justify-between rounded-lg p-2 hover:bg-muted"
 							>
 								<div className="flex items-center gap-3">
-									<div className="w-12 text-center font-semibold text-gray-600 text-lg">
+									<div className="w-12 text-center font-semibold text-lg text-muted-foreground">
 										#{index + 6}
 									</div>
 									<Avatar className="h-8 w-8">
@@ -151,8 +151,12 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
 										</AvatarFallback>
 									</Avatar>
 									<div>
-										<p className="font-medium text-gray-900">{consumer.name}</p>
-										<p className="text-gray-600 text-sm">{consumer.amount}L</p>
+										<p className="font-medium text-foreground">
+											{consumer.name}
+										</p>
+										<p className="text-muted-foreground text-sm">
+											{consumer.amount}L
+										</p>
 									</div>
 								</div>
 								<Badge

@@ -106,7 +106,7 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 						<button
 							type="button"
 							onClick={() => setWeekOffset(0)}
-							className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-accent hover:text-foreground"
+							className="rounded px-1.5 py-0.5 text-[10px] text-muted-foreground uppercase tracking-wider hover:bg-muted hover:text-foreground"
 						>
 							Heute
 						</button>
@@ -114,7 +114,7 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 					<button
 						type="button"
 						onClick={() => setWeekOffset(weekOffset - WEEKS)}
-						className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+						className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
 						aria-label="Vorherige Wochen"
 					>
 						<ChevronLeft className="h-3.5 w-3.5" />
@@ -122,7 +122,7 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 					<button
 						type="button"
 						onClick={() => setWeekOffset(weekOffset + WEEKS)}
-						className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+						className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
 						aria-label="Nächste Wochen"
 					>
 						<ChevronRight className="h-3.5 w-3.5" />
@@ -158,9 +158,9 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 					const baseClass =
 						"relative flex h-9 flex-col items-center justify-center rounded-md text-xs transition-colors sm:h-10";
 					const stateClass = isToday
-						? "bg-primary/15 font-semibold text-primary"
+						? "bg-muted font-semibold text-foreground ring-1 ring-foreground/30"
 						: hasEvents
-							? "bg-muted/50 hover:bg-accent"
+							? "bg-muted/50 hover:bg-muted"
 							: "text-muted-foreground/50";
 					const pastClass = isPast && !isToday ? "opacity-40" : "";
 					const interactiveClass = hasEvents ? "cursor-pointer" : "";

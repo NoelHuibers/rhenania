@@ -299,7 +299,9 @@ export function OrderDrawer({
 							)}
 							<div className="mt-1 flex justify-between border-t pt-1 font-bold text-base">
 								<span>Gesamt</span>
-								<span className="text-primary">€{totalPrice.toFixed(2)}</span>
+								<span className="text-emerald-600 dark:text-emerald-400">
+									€{totalPrice.toFixed(2)}
+								</span>
 							</div>
 						</div>
 					</div>
