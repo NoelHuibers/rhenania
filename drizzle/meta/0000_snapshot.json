@@ -1,394 +1,3551 @@
 {
-	"version": "6",
-	"dialect": "sqlite",
-	"id": "cfa224fe-b3a2-4bb0-b2ac-86e7c7381d55",
-	"prevId": "00000000-0000-0000-0000-000000000000",
-	"tables": {
-		"rhenania2_account": {
-			"name": "rhenania2_account",
-			"columns": {
-				"userId": {
-					"name": "userId",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"type": {
-					"name": "type",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"provider": {
-					"name": "provider",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"providerAccountId": {
-					"name": "providerAccountId",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"refresh_token": {
-					"name": "refresh_token",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"access_token": {
-					"name": "access_token",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"expires_at": {
-					"name": "expires_at",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"token_type": {
-					"name": "token_type",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"scope": {
-					"name": "scope",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"id_token": {
-					"name": "id_token",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"session_state": {
-					"name": "session_state",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				}
-			},
-			"indexes": {
-				"account_user_id_idx": {
-					"name": "account_user_id_idx",
-					"columns": ["userId"],
-					"isUnique": false
-				}
-			},
-			"foreignKeys": {
-				"rhenania2_account_userId_rhenania2_user_id_fk": {
-					"name": "rhenania2_account_userId_rhenania2_user_id_fk",
-					"tableFrom": "rhenania2_account",
-					"tableTo": "rhenania2_user",
-					"columnsFrom": ["userId"],
-					"columnsTo": ["id"],
-					"onDelete": "no action",
-					"onUpdate": "no action"
-				}
-			},
-			"compositePrimaryKeys": {
-				"rhenania2_account_provider_providerAccountId_pk": {
-					"columns": ["provider", "providerAccountId"],
-					"name": "rhenania2_account_provider_providerAccountId_pk"
-				}
-			},
-			"uniqueConstraints": {},
-			"checkConstraints": {}
-		},
-		"rhenania2_drink": {
-			"name": "rhenania2_drink",
-			"columns": {
-				"id": {
-					"name": "id",
-					"type": "text(255)",
-					"primaryKey": true,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"name": {
-					"name": "name",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"price": {
-					"name": "price",
-					"type": "real",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"picture": {
-					"name": "picture",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"isCurrentlyAvailable": {
-					"name": "isCurrentlyAvailable",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false,
-					"default": true
-				},
-				"createdAt": {
-					"name": "createdAt",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false,
-					"default": "(unixepoch())"
-				},
-				"updatedAt": {
-					"name": "updatedAt",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				}
-			},
-			"indexes": {
-				"drink_name_idx": {
-					"name": "drink_name_idx",
-					"columns": ["name"],
-					"isUnique": false
-				},
-				"drink_available_idx": {
-					"name": "drink_available_idx",
-					"columns": ["isCurrentlyAvailable"],
-					"isUnique": false
-				}
-			},
-			"foreignKeys": {},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
-			"checkConstraints": {}
-		},
-		"rhenania2_post": {
-			"name": "rhenania2_post",
-			"columns": {
-				"id": {
-					"name": "id",
-					"type": "integer",
-					"primaryKey": true,
-					"notNull": true,
-					"autoincrement": true
-				},
-				"name": {
-					"name": "name",
-					"type": "text(256)",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"createdById": {
-					"name": "createdById",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"createdAt": {
-					"name": "createdAt",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false,
-					"default": "(unixepoch())"
-				},
-				"updatedAt": {
-					"name": "updatedAt",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				}
-			},
-			"indexes": {
-				"created_by_idx": {
-					"name": "created_by_idx",
-					"columns": ["createdById"],
-					"isUnique": false
-				},
-				"name_idx": {
-					"name": "name_idx",
-					"columns": ["name"],
-					"isUnique": false
-				}
-			},
-			"foreignKeys": {
-				"rhenania2_post_createdById_rhenania2_user_id_fk": {
-					"name": "rhenania2_post_createdById_rhenania2_user_id_fk",
-					"tableFrom": "rhenania2_post",
-					"tableTo": "rhenania2_user",
-					"columnsFrom": ["createdById"],
-					"columnsTo": ["id"],
-					"onDelete": "no action",
-					"onUpdate": "no action"
-				}
-			},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
-			"checkConstraints": {}
-		},
-		"rhenania2_session": {
-			"name": "rhenania2_session",
-			"columns": {
-				"sessionToken": {
-					"name": "sessionToken",
-					"type": "text(255)",
-					"primaryKey": true,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"userId": {
-					"name": "userId",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"expires": {
-					"name": "expires",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				}
-			},
-			"indexes": {
-				"session_userId_idx": {
-					"name": "session_userId_idx",
-					"columns": ["userId"],
-					"isUnique": false
-				}
-			},
-			"foreignKeys": {
-				"rhenania2_session_userId_rhenania2_user_id_fk": {
-					"name": "rhenania2_session_userId_rhenania2_user_id_fk",
-					"tableFrom": "rhenania2_session",
-					"tableTo": "rhenania2_user",
-					"columnsFrom": ["userId"],
-					"columnsTo": ["id"],
-					"onDelete": "no action",
-					"onUpdate": "no action"
-				}
-			},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
-			"checkConstraints": {}
-		},
-		"rhenania2_user": {
-			"name": "rhenania2_user",
-			"columns": {
-				"id": {
-					"name": "id",
-					"type": "text(255)",
-					"primaryKey": true,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"name": {
-					"name": "name",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				},
-				"email": {
-					"name": "email",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"emailVerified": {
-					"name": "emailVerified",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false,
-					"default": "(unixepoch())"
-				},
-				"image": {
-					"name": "image",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": false,
-					"autoincrement": false
-				}
-			},
-			"indexes": {},
-			"foreignKeys": {},
-			"compositePrimaryKeys": {},
-			"uniqueConstraints": {},
-			"checkConstraints": {}
-		},
-		"rhenania2_verification_token": {
-			"name": "rhenania2_verification_token",
-			"columns": {
-				"identifier": {
-					"name": "identifier",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"token": {
-					"name": "token",
-					"type": "text(255)",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				},
-				"expires": {
-					"name": "expires",
-					"type": "integer",
-					"primaryKey": false,
-					"notNull": true,
-					"autoincrement": false
-				}
-			},
-			"indexes": {},
-			"foreignKeys": {},
-			"compositePrimaryKeys": {
-				"rhenania2_verification_token_identifier_token_pk": {
-					"columns": ["identifier", "token"],
-					"name": "rhenania2_verification_token_identifier_token_pk"
-				}
-			},
-			"uniqueConstraints": {},
-			"checkConstraints": {}
-		}
-	},
-	"views": {},
-	"enums": {},
-	"_meta": {
-		"schemas": {},
-		"tables": {},
-		"columns": {}
-	},
-	"internal": {
-		"indexes": {}
-	}
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "74ca8d93-5332-4a2e-85da-39a3d8f484b5",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "rhenania_account": {
+      "name": "rhenania_account",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "accountId": {
+          "name": "accountId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "providerId": {
+          "name": "providerId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "accessToken": {
+          "name": "accessToken",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "refreshToken": {
+          "name": "refreshToken",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "idToken": {
+          "name": "idToken",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "accessTokenExpiresAt": {
+          "name": "accessTokenExpiresAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "refreshTokenExpiresAt": {
+          "name": "refreshTokenExpiresAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "password": {
+          "name": "password",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "account_user_id_idx": {
+          "name": "account_user_id_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_account_userId_rhenania_user_id_fk": {
+          "name": "rhenania_account_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_account",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_achievement_progress": {
+      "name": "rhenania_achievement_progress",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "achievementId": {
+          "name": "achievementId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentValue": {
+          "name": "currentValue",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lastUpdated": {
+          "name": "lastUpdated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "achievement_progress_unique_idx": {
+          "name": "achievement_progress_unique_idx",
+          "columns": [
+            "userId",
+            "achievementId"
+          ],
+          "isUnique": true
+        },
+        "achievement_progress_user_idx": {
+          "name": "achievement_progress_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "achievement_progress_achievement_idx": {
+          "name": "achievement_progress_achievement_idx",
+          "columns": [
+            "achievementId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_achievement_progress_userId_rhenania_user_id_fk": {
+          "name": "rhenania_achievement_progress_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_achievement_progress",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rhenania_achievement_progress_achievementId_rhenania_achievement_id_fk": {
+          "name": "rhenania_achievement_progress_achievementId_rhenania_achievement_id_fk",
+          "tableFrom": "rhenania_achievement_progress",
+          "tableTo": "rhenania_achievement",
+          "columnsFrom": [
+            "achievementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_achievement": {
+      "name": "rhenania_achievement",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text(100)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "targetValue": {
+          "name": "targetValue",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isSecret": {
+          "name": "isSecret",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "points": {
+          "name": "points",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 10
+        },
+        "rarity": {
+          "name": "rarity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'common'"
+        },
+        "isActive": {
+          "name": "isActive",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rhenania_achievement_key_unique": {
+          "name": "rhenania_achievement_key_unique",
+          "columns": [
+            "key"
+          ],
+          "isUnique": true
+        },
+        "achievement_category_idx": {
+          "name": "achievement_category_idx",
+          "columns": [
+            "category"
+          ],
+          "isUnique": false
+        },
+        "achievement_active_idx": {
+          "name": "achievement_active_idx",
+          "columns": [
+            "isActive"
+          ],
+          "isUnique": false
+        },
+        "achievement_rarity_idx": {
+          "name": "achievement_rarity_idx",
+          "columns": [
+            "rarity"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_bank_entry": {
+      "name": "rhenania_bank_entry",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "bank_entry_date_idx": {
+          "name": "bank_entry_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        },
+        "bank_entry_created_idx": {
+          "name": "bank_entry_created_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_bank_entry_createdBy_rhenania_user_id_fk": {
+          "name": "rhenania_bank_entry_createdBy_rhenania_user_id_fk",
+          "tableFrom": "rhenania_bank_entry",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_bill_csv": {
+      "name": "rhenania_bill_csv",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "billPeriodId": {
+          "name": "billPeriodId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "blobUrl": {
+          "name": "blobUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fileName": {
+          "name": "fileName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "delimiter": {
+          "name": "delimiter",
+          "type": "text(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'\t'"
+        },
+        "fileSize": {
+          "name": "fileSize",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "bill_csv_period_idx": {
+          "name": "bill_csv_period_idx",
+          "columns": [
+            "billPeriodId"
+          ],
+          "isUnique": false
+        },
+        "bill_csv_created_idx": {
+          "name": "bill_csv_created_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "bill_csv_period_fk": {
+          "name": "bill_csv_period_fk",
+          "tableFrom": "rhenania_bill_csv",
+          "tableTo": "rhenania_bill_period",
+          "columnsFrom": [
+            "billPeriodId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_bill_item": {
+      "name": "rhenania_bill_item",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "billId": {
+          "name": "billId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drinkName": {
+          "name": "drinkName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pricePerDrink": {
+          "name": "pricePerDrink",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "totalPricePerDrink": {
+          "name": "totalPricePerDrink",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "bill_item_bill_idx": {
+          "name": "bill_item_bill_idx",
+          "columns": [
+            "billId"
+          ],
+          "isUnique": false
+        },
+        "bill_item_drink_idx": {
+          "name": "bill_item_drink_idx",
+          "columns": [
+            "drinkName"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "bill_item_bill_fk": {
+          "name": "bill_item_bill_fk",
+          "tableFrom": "rhenania_bill_item",
+          "tableTo": "rhenania_bill",
+          "columnsFrom": [
+            "billId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_bill_pdf": {
+      "name": "rhenania_bill_pdf",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "billId": {
+          "name": "billId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "blobUrl": {
+          "name": "blobUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fileName": {
+          "name": "fileName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fileSize": {
+          "name": "fileSize",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "bill_pdf_bill_idx": {
+          "name": "bill_pdf_bill_idx",
+          "columns": [
+            "billId"
+          ],
+          "isUnique": false
+        },
+        "bill_pdf_user_idx": {
+          "name": "bill_pdf_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "bill_pdf_unique_idx": {
+          "name": "bill_pdf_unique_idx",
+          "columns": [
+            "billId"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "bill_pdf_bill_fk": {
+          "name": "bill_pdf_bill_fk",
+          "tableFrom": "rhenania_bill_pdf",
+          "tableTo": "rhenania_bill",
+          "columnsFrom": [
+            "billId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_bill_period": {
+      "name": "rhenania_bill_period",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "billNumber": {
+          "name": "billNumber",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "totalAmount": {
+          "name": "totalAmount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "closedAt": {
+          "name": "closedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rhenania_bill_period_billNumber_unique": {
+          "name": "rhenania_bill_period_billNumber_unique",
+          "columns": [
+            "billNumber"
+          ],
+          "isUnique": true
+        },
+        "bill_period_number_idx": {
+          "name": "bill_period_number_idx",
+          "columns": [
+            "billNumber"
+          ],
+          "isUnique": false
+        },
+        "bill_period_dates_idx": {
+          "name": "bill_period_dates_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_bill": {
+      "name": "rhenania_bill",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "billPeriodId": {
+          "name": "billPeriodId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userName": {
+          "name": "userName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Unbezahlt'"
+        },
+        "oldBillingAmount": {
+          "name": "oldBillingAmount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "fees": {
+          "name": "fees",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "umlage": {
+          "name": "umlage",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "drinksTotal": {
+          "name": "drinksTotal",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total": {
+          "name": "total",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "paidAt": {
+          "name": "paidAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "bill_period_idx": {
+          "name": "bill_period_idx",
+          "columns": [
+            "billPeriodId"
+          ],
+          "isUnique": false
+        },
+        "bill_user_idx": {
+          "name": "bill_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "bill_status_idx": {
+          "name": "bill_status_idx",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "bill_created_idx": {
+          "name": "bill_created_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "bill_period_fk": {
+          "name": "bill_period_fk",
+          "tableFrom": "rhenania_bill",
+          "tableTo": "rhenania_bill_period",
+          "columnsFrom": [
+            "billPeriodId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_calendar_token": {
+      "name": "rhenania_calendar_token",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "lastUsedAt": {
+          "name": "lastUsedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rhenania_calendar_token_token_unique": {
+          "name": "rhenania_calendar_token_token_unique",
+          "columns": [
+            "token"
+          ],
+          "isUnique": true
+        },
+        "calendar_token_user_idx": {
+          "name": "calendar_token_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "calendar_token_token_idx": {
+          "name": "calendar_token_token_idx",
+          "columns": [
+            "token"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_calendar_token_userId_rhenania_user_id_fk": {
+          "name": "rhenania_calendar_token_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_calendar_token",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_challenge": {
+      "name": "rhenania_challenge",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "challengerId": {
+          "name": "challengerId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "opponentId": {
+          "name": "opponentId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "payment": {
+          "name": "payment",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'challenger'"
+        },
+        "drinkId": {
+          "name": "drinkId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 2
+        },
+        "proposedWinnerId": {
+          "name": "proposedWinnerId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "proposedById": {
+          "name": "proposedById",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "proposedAt": {
+          "name": "proposedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "acceptedAt": {
+          "name": "acceptedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "declinedAt": {
+          "name": "declinedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "respondDeadline": {
+          "name": "respondDeadline",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "playDeadline": {
+          "name": "playDeadline",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "confirmDeadline": {
+          "name": "confirmDeadline",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gameId": {
+          "name": "gameId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "challenge_challenger_status_idx": {
+          "name": "challenge_challenger_status_idx",
+          "columns": [
+            "challengerId",
+            "status"
+          ],
+          "isUnique": false
+        },
+        "challenge_opponent_status_idx": {
+          "name": "challenge_opponent_status_idx",
+          "columns": [
+            "opponentId",
+            "status"
+          ],
+          "isUnique": false
+        },
+        "challenge_status_idx": {
+          "name": "challenge_status_idx",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "challenge_created_idx": {
+          "name": "challenge_created_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_challenge_challengerId_rhenania_user_id_fk": {
+          "name": "rhenania_challenge_challengerId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_challenge",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "challengerId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rhenania_challenge_opponentId_rhenania_user_id_fk": {
+          "name": "rhenania_challenge_opponentId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_challenge",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "opponentId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rhenania_challenge_drinkId_rhenania_drink_id_fk": {
+          "name": "rhenania_challenge_drinkId_rhenania_drink_id_fk",
+          "tableFrom": "rhenania_challenge",
+          "tableTo": "rhenania_drink",
+          "columnsFrom": [
+            "drinkId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rhenania_challenge_proposedWinnerId_rhenania_user_id_fk": {
+          "name": "rhenania_challenge_proposedWinnerId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_challenge",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "proposedWinnerId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rhenania_challenge_proposedById_rhenania_user_id_fk": {
+          "name": "rhenania_challenge_proposedById_rhenania_user_id_fk",
+          "tableFrom": "rhenania_challenge",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "proposedById"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_drink": {
+      "name": "rhenania_drink",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "price": {
+          "name": "price",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kastengroesse": {
+          "name": "kastengroesse",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "volume": {
+          "name": "volume",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "picture": {
+          "name": "picture",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isCurrentlyAvailable": {
+          "name": "isCurrentlyAvailable",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "drink_name_idx": {
+          "name": "drink_name_idx",
+          "columns": [
+            "name"
+          ],
+          "isUnique": false
+        },
+        "drink_available_idx": {
+          "name": "drink_available_idx",
+          "columns": [
+            "isCurrentlyAvailable"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_event_rsvp": {
+      "name": "rhenania_event_rsvp",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "eventId": {
+          "name": "eventId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "event_rsvp_unique_idx": {
+          "name": "event_rsvp_unique_idx",
+          "columns": [
+            "eventId",
+            "userId"
+          ],
+          "isUnique": true
+        },
+        "event_rsvp_event_idx": {
+          "name": "event_rsvp_event_idx",
+          "columns": [
+            "eventId"
+          ],
+          "isUnique": false
+        },
+        "event_rsvp_user_idx": {
+          "name": "event_rsvp_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_event_rsvp_eventId_rhenania_event_id_fk": {
+          "name": "rhenania_event_rsvp_eventId_rhenania_event_id_fk",
+          "tableFrom": "rhenania_event_rsvp",
+          "tableTo": "rhenania_event",
+          "columnsFrom": [
+            "eventId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rhenania_event_rsvp_userId_rhenania_user_id_fk": {
+          "name": "rhenania_event_rsvp_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_event_rsvp",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_event": {
+      "name": "rhenania_event",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(1000)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "date": {
+          "name": "date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "endDate": {
+          "name": "endDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Sonstige'"
+        },
+        "isPublic": {
+          "name": "isPublic",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "isCancelled": {
+          "name": "isCancelled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "meetingUrl": {
+          "name": "meetingUrl",
+          "type": "text(2048)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "rsvpDeadline": {
+          "name": "rsvpDeadline",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "maxAttendees": {
+          "name": "maxAttendees",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recurringEventId": {
+          "name": "recurringEventId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "event_date_idx": {
+          "name": "event_date_idx",
+          "columns": [
+            "date"
+          ],
+          "isUnique": false
+        },
+        "event_type_idx": {
+          "name": "event_type_idx",
+          "columns": [
+            "type"
+          ],
+          "isUnique": false
+        },
+        "event_public_idx": {
+          "name": "event_public_idx",
+          "columns": [
+            "isPublic"
+          ],
+          "isUnique": false
+        },
+        "event_recurring_idx": {
+          "name": "event_recurring_idx",
+          "columns": [
+            "recurringEventId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_event_recurringEventId_rhenania_recurring_event_id_fk": {
+          "name": "rhenania_event_recurringEventId_rhenania_recurring_event_id_fk",
+          "tableFrom": "rhenania_event",
+          "tableTo": "rhenania_recurring_event",
+          "columnsFrom": [
+            "recurringEventId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "rhenania_event_createdBy_rhenania_user_id_fk": {
+          "name": "rhenania_event_createdBy_rhenania_user_id_fk",
+          "tableFrom": "rhenania_event",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_external_bill": {
+      "name": "rhenania_external_bill",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "creditor": {
+          "name": "creditor",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Offen'"
+        },
+        "paidAt": {
+          "name": "paidAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "external_bill_status_idx": {
+          "name": "external_bill_status_idx",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "external_bill_created_idx": {
+          "name": "external_bill_created_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_external_bill_createdBy_rhenania_user_id_fk": {
+          "name": "rhenania_external_bill_createdBy_rhenania_user_id_fk",
+          "tableFrom": "rhenania_external_bill",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_game": {
+      "name": "rhenania_game",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "player1Id": {
+          "name": "player1Id",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "player2Id": {
+          "name": "player2Id",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "winnerId": {
+          "name": "winnerId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "playedAt": {
+          "name": "playedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "player1EloBefore": {
+          "name": "player1EloBefore",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 1200
+        },
+        "player2EloBefore": {
+          "name": "player2EloBefore",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 1200
+        },
+        "player1EloAfter": {
+          "name": "player1EloAfter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 1200
+        },
+        "player2EloAfter": {
+          "name": "player2EloAfter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 1200
+        },
+        "orderId": {
+          "name": "orderId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "challengeId": {
+          "name": "challengeId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "gameType": {
+          "name": "gameType",
+          "type": "text(50)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'bierjunge'"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "rhenania_game_player1Id_rhenania_user_id_fk": {
+          "name": "rhenania_game_player1Id_rhenania_user_id_fk",
+          "tableFrom": "rhenania_game",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "player1Id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rhenania_game_player2Id_rhenania_user_id_fk": {
+          "name": "rhenania_game_player2Id_rhenania_user_id_fk",
+          "tableFrom": "rhenania_game",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "player2Id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "rhenania_game_winnerId_rhenania_user_id_fk": {
+          "name": "rhenania_game_winnerId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_game",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "winnerId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_homepage_image": {
+      "name": "rhenania_homepage_image",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "section": {
+          "name": "section",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "imageUrl": {
+          "name": "imageUrl",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "imageName": {
+          "name": "imageName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fileSize": {
+          "name": "fileSize",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mimeType": {
+          "name": "mimeType",
+          "type": "text(50)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "displayOrder": {
+          "name": "displayOrder",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "isActive": {
+          "name": "isActive",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "uploadedBy": {
+          "name": "uploadedBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "homepage_image_section_idx": {
+          "name": "homepage_image_section_idx",
+          "columns": [
+            "section"
+          ],
+          "isUnique": false
+        },
+        "homepage_image_active_idx": {
+          "name": "homepage_image_active_idx",
+          "columns": [
+            "isActive"
+          ],
+          "isUnique": false
+        },
+        "homepage_image_order_idx": {
+          "name": "homepage_image_order_idx",
+          "columns": [
+            "displayOrder"
+          ],
+          "isUnique": false
+        },
+        "homepage_image_section_active_idx": {
+          "name": "homepage_image_section_active_idx",
+          "columns": [
+            "section",
+            "isActive"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_homepage_image_uploadedBy_rhenania_user_id_fk": {
+          "name": "rhenania_homepage_image_uploadedBy_rhenania_user_id_fk",
+          "tableFrom": "rhenania_homepage_image",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "uploadedBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_inventory": {
+      "name": "rhenania_inventory",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'active'"
+        },
+        "totalLoss": {
+          "name": "totalLoss",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "performedBy": {
+          "name": "performedBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "closedAt": {
+          "name": "closedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "inventory_status_idx": {
+          "name": "inventory_status_idx",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_inventory_performedBy_rhenania_user_id_fk": {
+          "name": "rhenania_inventory_performedBy_rhenania_user_id_fk",
+          "tableFrom": "rhenania_inventory",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "performedBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_inventory_item": {
+      "name": "rhenania_inventory_item",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "inventoryId": {
+          "name": "inventoryId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drinkId": {
+          "name": "drinkId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "countedStock": {
+          "name": "countedStock",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "previousStock": {
+          "name": "previousStock",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "purchasedSince": {
+          "name": "purchasedSince",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "soldSince": {
+          "name": "soldSince",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "priceAtCount": {
+          "name": "priceAtCount",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lossValue": {
+          "name": "lossValue",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "inventory_item_inventory_idx": {
+          "name": "inventory_item_inventory_idx",
+          "columns": [
+            "inventoryId"
+          ],
+          "isUnique": false
+        },
+        "inventory_item_drink_idx": {
+          "name": "inventory_item_drink_idx",
+          "columns": [
+            "drinkId"
+          ],
+          "isUnique": false
+        },
+        "inventory_item_unique_idx": {
+          "name": "inventory_item_unique_idx",
+          "columns": [
+            "inventoryId",
+            "drinkId"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "rhenania_inventory_item_inventoryId_rhenania_inventory_id_fk": {
+          "name": "rhenania_inventory_item_inventoryId_rhenania_inventory_id_fk",
+          "tableFrom": "rhenania_inventory_item",
+          "tableTo": "rhenania_inventory",
+          "columnsFrom": [
+            "inventoryId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rhenania_inventory_item_drinkId_rhenania_drink_id_fk": {
+          "name": "rhenania_inventory_item_drinkId_rhenania_drink_id_fk",
+          "tableFrom": "rhenania_inventory_item",
+          "tableTo": "rhenania_drink",
+          "columnsFrom": [
+            "drinkId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_kasse_config": {
+      "name": "rhenania_kasse_config",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(50)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'singleton'"
+        },
+        "pfandWert": {
+          "name": "pfandWert",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedBy": {
+          "name": "updatedBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "rhenania_kasse_config_updatedBy_rhenania_user_id_fk": {
+          "name": "rhenania_kasse_config_updatedBy_rhenania_user_id_fk",
+          "tableFrom": "rhenania_kasse_config",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "updatedBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_konto": {
+      "name": "rhenania_konto",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kasseType": {
+          "name": "kasseType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "iban": {
+          "name": "iban",
+          "type": "text(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bic": {
+          "name": "bic",
+          "type": "text(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bankName": {
+          "name": "bankName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isActive": {
+          "name": "isActive",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "konto_type_idx": {
+          "name": "konto_type_idx",
+          "columns": [
+            "kasseType"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_order": {
+      "name": "rhenania_order",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userName": {
+          "name": "userName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drinkId": {
+          "name": "drinkId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "drinkName": {
+          "name": "drinkName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pricePerUnit": {
+          "name": "pricePerUnit",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total": {
+          "name": "total",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "inBill": {
+          "name": "inBill",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "bookingFor": {
+          "name": "bookingFor",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bookedByAdminId": {
+          "name": "bookedByAdminId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "bookedByAdminName": {
+          "name": "bookedByAdminName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "order_user_idx": {
+          "name": "order_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "order_drink_idx": {
+          "name": "order_drink_idx",
+          "columns": [
+            "drinkId"
+          ],
+          "isUnique": false
+        },
+        "order_created_idx": {
+          "name": "order_created_idx",
+          "columns": [
+            "createdAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "order_drink_fk": {
+          "name": "order_drink_fk",
+          "tableFrom": "rhenania_order",
+          "tableTo": "rhenania_drink",
+          "columnsFrom": [
+            "drinkId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_password_reset_token": {
+      "name": "rhenania_password_reset_token",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires": {
+          "name": "expires",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "rhenania_password_reset_token_token_unique": {
+          "name": "rhenania_password_reset_token_token_unique",
+          "columns": [
+            "token"
+          ],
+          "isUnique": true
+        },
+        "password_reset_email_idx": {
+          "name": "password_reset_email_idx",
+          "columns": [
+            "email"
+          ],
+          "isUnique": false
+        },
+        "password_reset_token_idx": {
+          "name": "password_reset_token_idx",
+          "columns": [
+            "token"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_recurring_event": {
+      "name": "rhenania_recurring_event",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(1000)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'adH Rhenania'"
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'Sonstige'"
+        },
+        "recurrenceType": {
+          "name": "recurrenceType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "dayOfWeek": {
+          "name": "dayOfWeek",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "time": {
+          "name": "time",
+          "type": "text(5)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'20:00'"
+        },
+        "isPublic": {
+          "name": "isPublic",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "meetingUrl": {
+          "name": "meetingUrl",
+          "type": "text(2048)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "startDate": {
+          "name": "startDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "endDate": {
+          "name": "endDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isActive": {
+          "name": "isActive",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "createdBy": {
+          "name": "createdBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "recurring_event_type_idx": {
+          "name": "recurring_event_type_idx",
+          "columns": [
+            "type"
+          ],
+          "isUnique": false
+        },
+        "recurring_event_active_idx": {
+          "name": "recurring_event_active_idx",
+          "columns": [
+            "isActive"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_recurring_event_createdBy_rhenania_user_id_fk": {
+          "name": "rhenania_recurring_event_createdBy_rhenania_user_id_fk",
+          "tableFrom": "rhenania_recurring_event",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "createdBy"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_role": {
+      "name": "rhenania_role",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "rhenania_role_name_unique": {
+          "name": "rhenania_role_name_unique",
+          "columns": [
+            "name"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_semester_config": {
+      "name": "rhenania_semester_config",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(50)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'singleton'"
+        },
+        "name": {
+          "name": "name",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "startDate": {
+          "name": "startDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "endDate": {
+          "name": "endDate",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_session": {
+      "name": "rhenania_session",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ipAddress": {
+          "name": "ipAddress",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "userAgent": {
+          "name": "userAgent",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rhenania_session_token_unique": {
+          "name": "rhenania_session_token_unique",
+          "columns": [
+            "token"
+          ],
+          "isUnique": true
+        },
+        "session_userId_idx": {
+          "name": "session_userId_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_session_userId_rhenania_user_id_fk": {
+          "name": "rhenania_session_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_session",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_user_achievement": {
+      "name": "rhenania_user_achievement",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "achievementId": {
+          "name": "achievementId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "unlockedAt": {
+          "name": "unlockedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "progress": {
+          "name": "progress",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "notificationSent": {
+          "name": "notificationSent",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "user_achievement_unique_idx": {
+          "name": "user_achievement_unique_idx",
+          "columns": [
+            "userId",
+            "achievementId"
+          ],
+          "isUnique": true
+        },
+        "user_achievement_user_idx": {
+          "name": "user_achievement_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "user_achievement_achievement_idx": {
+          "name": "user_achievement_achievement_idx",
+          "columns": [
+            "achievementId"
+          ],
+          "isUnique": false
+        },
+        "user_achievement_unlocked_idx": {
+          "name": "user_achievement_unlocked_idx",
+          "columns": [
+            "unlockedAt"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_user_achievement_userId_rhenania_user_id_fk": {
+          "name": "rhenania_user_achievement_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_user_achievement",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rhenania_user_achievement_achievementId_rhenania_achievement_id_fk": {
+          "name": "rhenania_user_achievement_achievementId_rhenania_achievement_id_fk",
+          "tableFrom": "rhenania_user_achievement",
+          "tableTo": "rhenania_achievement",
+          "columnsFrom": [
+            "achievementId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_user_preference": {
+      "name": "rhenania_user_preference",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valueType": {
+          "name": "valueType",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'json'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "user_pref_user_idx": {
+          "name": "user_pref_user_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "user_pref_key_idx": {
+          "name": "user_pref_key_idx",
+          "columns": [
+            "key"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_user_preference_userId_rhenania_user_id_fk": {
+          "name": "rhenania_user_preference_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_user_preference",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "rhenania_user_preference_userId_key_pk": {
+          "columns": [
+            "userId",
+            "key"
+          ],
+          "name": "rhenania_user_preference_userId_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_user_role": {
+      "name": "rhenania_user_role",
+      "columns": {
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "roleId": {
+          "name": "roleId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "assignedAt": {
+          "name": "assignedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        },
+        "assignedBy": {
+          "name": "assignedBy",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "user_roles_user_id_idx": {
+          "name": "user_roles_user_id_idx",
+          "columns": [
+            "userId"
+          ],
+          "isUnique": false
+        },
+        "user_roles_role_id_idx": {
+          "name": "user_roles_role_id_idx",
+          "columns": [
+            "roleId"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "rhenania_user_role_userId_rhenania_user_id_fk": {
+          "name": "rhenania_user_role_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_user_role",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "rhenania_user_role_roleId_rhenania_role_id_fk": {
+          "name": "rhenania_user_role_roleId_rhenania_role_id_fk",
+          "tableFrom": "rhenania_user_role",
+          "tableTo": "rhenania_role",
+          "columnsFrom": [
+            "roleId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "rhenania_user_role_userId_roleId_pk": {
+          "columns": [
+            "userId",
+            "roleId"
+          ],
+          "name": "rhenania_user_role_userId_roleId_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_user_stat": {
+      "name": "rhenania_user_stat",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "userId": {
+          "name": "userId",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "currentElo": {
+          "name": "currentElo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1200
+        },
+        "totalGames": {
+          "name": "totalGames",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "wins": {
+          "name": "wins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "losses": {
+          "name": "losses",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "lastGameAt": {
+          "name": "lastGameAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "peakElo": {
+          "name": "peakElo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1200
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "rhenania_user_stat_userId_rhenania_user_id_fk": {
+          "name": "rhenania_user_stat_userId_rhenania_user_id_fk",
+          "tableFrom": "rhenania_user_stat",
+          "tableTo": "rhenania_user",
+          "columnsFrom": [
+            "userId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_user": {
+      "name": "rhenania_user",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "email": {
+          "name": "email",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "emailVerified": {
+          "name": "emailVerified",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "image": {
+          "name": "image",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "rhenania_user_email_unique": {
+          "name": "rhenania_user_email_unique",
+          "columns": [
+            "email"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_venue": {
+      "name": "rhenania_venue",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "shortName": {
+          "name": "shortName",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fullAddress": {
+          "name": "fullAddress",
+          "type": "text(500)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch())"
+        }
+      },
+      "indexes": {
+        "rhenania_venue_shortName_unique": {
+          "name": "rhenania_venue_shortName_unique",
+          "columns": [
+            "shortName"
+          ],
+          "isUnique": true
+        },
+        "venue_short_name_idx": {
+          "name": "venue_short_name_idx",
+          "columns": [
+            "shortName"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_verification_token": {
+      "name": "rhenania_verification_token",
+      "columns": {
+        "identifier": {
+          "name": "identifier",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token": {
+          "name": "token",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires": {
+          "name": "expires",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "rhenania_verification_token_identifier_token_pk": {
+          "columns": [
+            "identifier",
+            "token"
+          ],
+          "name": "rhenania_verification_token_identifier_token_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "rhenania_verification": {
+      "name": "rhenania_verification",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text(255)",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "identifier": {
+          "name": "identifier",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "text(255)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expiresAt": {
+          "name": "expiresAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updatedAt": {
+          "name": "updatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
 }

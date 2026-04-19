@@ -453,8 +453,76 @@ export const games = createTable("game", (d) => ({
 	player1EloAfter: d.integer().default(1200),
 	player2EloAfter: d.integer().default(1200),
 	orderId: d.text({ length: 255 }),
+	challengeId: d.text({ length: 255 }),
 	gameType: d.text({ length: 50 }).default("bierjunge"),
 }));
+
+export const challenges = createTable(
+	"challenge",
+	(c) => ({
+		id: c
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		challengerId: c
+			.text({ length: 255 })
+			.notNull()
+			.references(() => users.id),
+		opponentId: c
+			.text({ length: 255 })
+			.notNull()
+			.references(() => users.id),
+		status: c
+			.text({
+				enum: [
+					"pending",
+					"accepted",
+					"result_proposed",
+					"confirmed",
+					"settled",
+					"declined",
+					"expired",
+					"cancelled",
+					"disputed",
+				],
+			})
+			.notNull()
+			.default("pending"),
+		payment: c
+			.text({ enum: ["challenger", "loser", "split"] })
+			.notNull()
+			.default("challenger"),
+		drinkId: c
+			.text({ length: 255 })
+			.notNull()
+			.references(() => drinks.id),
+		quantity: c.integer().notNull().default(2),
+		proposedWinnerId: c
+			.text({ length: 255 })
+			.references(() => users.id),
+		proposedById: c
+			.text({ length: 255 })
+			.references(() => users.id),
+		proposedAt: c.integer({ mode: "timestamp" }),
+		createdAt: c
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		acceptedAt: c.integer({ mode: "timestamp" }),
+		declinedAt: c.integer({ mode: "timestamp" }),
+		respondDeadline: c.integer({ mode: "timestamp" }).notNull(),
+		playDeadline: c.integer({ mode: "timestamp" }),
+		confirmDeadline: c.integer({ mode: "timestamp" }),
+		gameId: c.text({ length: 255 }),
+	}),
+	(t) => [
+		index("challenge_challenger_status_idx").on(t.challengerId, t.status),
+		index("challenge_opponent_status_idx").on(t.opponentId, t.status),
+		index("challenge_status_idx").on(t.status),
+		index("challenge_created_idx").on(t.createdAt),
+	],
+);
 
 export const userStats = createTable("user_stat", (d) => ({
 	id: d
