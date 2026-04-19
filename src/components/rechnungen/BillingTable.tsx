@@ -122,7 +122,7 @@ export const BillingTable = ({
 						<div className="flex items-start justify-between">
 							<div className="min-w-0 flex-1">
 								<h3 className="truncate font-medium">{entry.name}</h3>
-								<p className="mt-1 font-bold text-lg text-primary">
+								<p className="mt-1 font-bold text-emerald-600 text-lg dark:text-emerald-400">
 									{formatCurrency(entry.totalDue)}
 								</p>
 							</div>

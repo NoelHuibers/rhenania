@@ -65,7 +65,9 @@ export function DrinkCard({ drink, onOrderClick }: DrinkCardProps) {
 				<div className="flex flex-col gap-2">
 					<div
 						className={`font-bold text-lg sm:text-xl lg:text-2xl ${
-							isAvailable ? "text-foreground" : "text-muted-foreground"
+							isAvailable
+								? "text-emerald-600 dark:text-emerald-400"
+								: "text-muted-foreground"
 						}`}
 					>
 						€{drink.price.toFixed(2)}

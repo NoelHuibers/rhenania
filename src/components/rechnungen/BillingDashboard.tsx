@@ -322,7 +322,7 @@ export default function BillingDashboard() {
 					onValueChange={setActiveTab}
 					className="space-y-4"
 				>
-					<TabsList className="grid h-auto w-full grid-cols-2 lg:grid-cols-4">
+					<TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted p-1 group-data-horizontal/tabs:h-auto lg:flex lg:h-9 lg:w-auto lg:p-0.75">
 						<TabsTrigger value="current-orders" className="text-sm">
 							Aktuelle Bestellungen
 						</TabsTrigger>
