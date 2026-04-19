@@ -459,17 +459,6 @@ export default function BillingDashboard() {
 						</div>
 					</TabsContent>
 				</Tabs>
-
-				{/* Role-based access notification */}
-				{!hasRequiredRole() && (
-					<div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
-						<p className="text-sm text-yellow-800">
-							<strong>Hinweis:</strong> Sie haben eingeschränkte Berechtigungen.
-							Nur der Getränkewart kann Rechnungen erstellen und den
-							Bezahlstatus ändern.
-						</p>
-					</div>
-				)}
 			</div>
 		</>
 	);
