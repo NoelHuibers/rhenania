@@ -120,7 +120,7 @@ export default async function SemesterprogrammPage() {
 												<div
 													key={event.id}
 													id={`event-${event.id}`}
-													className="flex items-start gap-4 px-4 py-3.5 transition-shadow"
+													className="flex items-start gap-4 px-4 py-3.5 transition-shadow first:rounded-t-xl last:rounded-b-xl"
 												>
 													{/* Date block */}
 													<div className="flex w-10 shrink-0 flex-col items-center pt-0.5 text-center">
