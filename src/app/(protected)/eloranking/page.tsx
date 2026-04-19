@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { ChallengeBanner } from "~/components/eloranking/ChallengeBanner";
 import { LeaderboardSection } from "~/components/eloranking/leaderboard-section";
+import { NewChallengeButton } from "~/components/eloranking/NewChallengeButton";
 import { RecentGamesSection } from "~/components/eloranking/RecentGamesSection";
 import { StatsOverview } from "~/components/eloranking/stats-overview";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
@@ -13,7 +15,13 @@ export default function HomePage() {
 					title="Eloranking"
 					subtitle="Zeig deine Dominanz an der Tasse!"
 				/>
-				<div className="container mx-auto px-4 py-8">
+				<div className="container mx-auto space-y-4 px-4 py-8">
+					<ChallengeBanner />
+
+					<div className="flex justify-end">
+						<NewChallengeButton />
+					</div>
+
 					<Suspense
 						fallback={<div className="text-center">Loading stats...</div>}
 					>

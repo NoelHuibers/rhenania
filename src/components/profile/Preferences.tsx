@@ -1,7 +1,7 @@
 // ~/components/profile/GamificationPreferences.tsx
 "use client";
 
-import { Gamepad, Mail, ShieldOff } from "lucide-react";
+import { BellOff, Gamepad, Mail, ShieldOff } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
@@ -9,24 +9,30 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import {
+	getChallengeNotificationPreferenceAction,
 	getEloPreferenceAction,
 	getEmailNotificationPreferenceAction,
+	setChallengeNotificationPreferenceAction,
 	setEloPreferenceAction,
 	setEmailNotificationPreferenceAction,
 } from "~/server/actions/profile/preferences";
 
 export function Preferences() {
 	const [eloEnabled, setEloEnabled] = useState<boolean>(true);
+	const [challengeNotifsEnabled, setChallengeNotifsEnabled] =
+		useState<boolean>(true);
 	const [emailEnabled, setEmailEnabled] = useState<boolean>(true);
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
 		(async () => {
-			const [elo, email] = await Promise.all([
+			const [elo, challengeNotifs, email] = await Promise.all([
 				getEloPreferenceAction(),
+				getChallengeNotificationPreferenceAction(),
 				getEmailNotificationPreferenceAction(),
 			]);
 			setEloEnabled(elo?.enabled ?? true);
+			setChallengeNotifsEnabled(challengeNotifs?.enabled ?? true);
 			setEmailEnabled(email?.enabled ?? true);
 		})();
 	}, []);
@@ -75,6 +81,48 @@ export function Preferences() {
 					{eloEnabled
 						? "Eloranking deaktivieren"
 						: "Eloranking wieder aktivieren"}
+				</Button>
+
+				<Separator />
+
+				<div className="flex items-center justify-between">
+					<div>
+						<p className="font-medium">Herausforderungs-Benachrichtigungen</p>
+						<p className="text-muted-foreground text-sm">
+							Banner & Benachrichtigungen bei neuen Herausforderungen anzeigen
+						</p>
+					</div>
+					<Badge variant={challengeNotifsEnabled ? "default" : "secondary"}>
+						{challengeNotifsEnabled ? "Aktiv" : "Deaktiviert"}
+					</Badge>
+				</div>
+				<Button
+					variant={challengeNotifsEnabled ? "outline" : "default"}
+					disabled={isPending}
+					onClick={() =>
+						startTransition(async () => {
+							const next = !challengeNotifsEnabled;
+							const ok = await setChallengeNotificationPreferenceAction({
+								enabled: next,
+							});
+							if (ok) {
+								setChallengeNotifsEnabled(next);
+								toast.success(
+									next
+										? "Herausforderungs-Benachrichtigungen aktiviert"
+										: "Herausforderungs-Benachrichtigungen deaktiviert",
+								);
+							} else {
+								toast.error("Aktion fehlgeschlagen");
+							}
+						})
+					}
+					className="w-full"
+				>
+					<BellOff className="mr-2 h-4 w-4" />
+					{challengeNotifsEnabled
+						? "Benachrichtigungen deaktivieren"
+						: "Benachrichtigungen aktivieren"}
 				</Button>
 
 				<Separator />

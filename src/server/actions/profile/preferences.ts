@@ -93,6 +93,38 @@ export async function setEloPreferenceAction(opts: { enabled: boolean }) {
 	return res;
 }
 
+export async function isEloEnabledForUser(userId: string): Promise<boolean> {
+	const row = await db.query.userPreferences.findFirst({
+		where: (t, { and, eq }) => and(eq(t.userId, userId), eq(t.key, ELO_KEY)),
+		columns: { value: true },
+	});
+	if (!row) return true;
+	try {
+		return JSON.parse(row.value) !== false;
+	} catch {
+		return true;
+	}
+}
+
+// --- Challenge notification sugar ---
+
+const CHALLENGE_NOTIF_KEY = "gamification.challengeNotificationsEnabled";
+
+export async function getChallengeNotificationPreferenceAction() {
+	const enabled = await getUserPreference<boolean>(
+		CHALLENGE_NOTIF_KEY,
+		true,
+		"boolean",
+	);
+	return { enabled };
+}
+
+export async function setChallengeNotificationPreferenceAction(opts: {
+	enabled: boolean;
+}) {
+	return await setUserPreference(CHALLENGE_NOTIF_KEY, opts.enabled, "boolean");
+}
+
 // --- Email notification sugar ---
 
 const EMAIL_NOTIFICATION_KEY = "notifications.emailEnabled";

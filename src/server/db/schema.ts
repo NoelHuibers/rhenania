@@ -498,12 +498,8 @@ export const challenges = createTable(
 			.notNull()
 			.references(() => drinks.id),
 		quantity: c.integer().notNull().default(2),
-		proposedWinnerId: c
-			.text({ length: 255 })
-			.references(() => users.id),
-		proposedById: c
-			.text({ length: 255 })
-			.references(() => users.id),
+		proposedWinnerId: c.text({ length: 255 }).references(() => users.id),
+		proposedById: c.text({ length: 255 }).references(() => users.id),
 		proposedAt: c.integer({ mode: "timestamp" }),
 		createdAt: c
 			.integer({ mode: "timestamp" })

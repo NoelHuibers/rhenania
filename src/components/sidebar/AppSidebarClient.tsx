@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useMemo } from "react";
+import { useChallengeBadge } from "~/components/eloranking/ChallengeBadgeProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import {
 	DropdownMenu,
@@ -142,6 +143,8 @@ export function AppSidebarClient({
 	userData,
 }: AppSidebarClientProps) {
 	const userRoles = userData?.roles ?? [];
+	const { badgeCount, notificationsEnabled } = useChallengeBadge();
+	const showChallengeBadge = notificationsEnabled && badgeCount > 0;
 
 	const filteredGroups = useMemo(
 		() =>
@@ -189,12 +192,19 @@ export function AppSidebarClient({
 							<SidebarMenu>
 								{group.items.map((item) => {
 									const Icon = item.icon;
+									const showBadge =
+										item.href === "/eloranking" && showChallengeBadge;
 									return (
 										<SidebarMenuItem key={item.href}>
 											<SidebarMenuButton asChild>
 												<Link href={item.href}>
 													<Icon />
 													<span>{item.title}</span>
+													{showBadge ? (
+														<span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 font-medium text-white text-xs">
+															{badgeCount}
+														</span>
+													) : null}
 												</Link>
 											</SidebarMenuButton>
 										</SidebarMenuItem>

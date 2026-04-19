@@ -63,10 +63,7 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 				{/* Mobile Card View */}
 				<div className="space-y-3 sm:hidden">
 					{entry.items.map((item) => (
-						<div
-							key={item.id}
-							className="space-y-2 rounded-lg bg-muted p-3"
-						>
+						<div key={item.id} className="space-y-2 rounded-lg bg-muted p-3">
 							<div className="break-words font-medium text-sm leading-tight">
 								{item.name}
 							</div>
