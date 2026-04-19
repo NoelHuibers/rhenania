@@ -47,7 +47,7 @@ export function BillingSelector({
 	};
 
 	return (
-		<div className="space-y-3 rounded-lg bg-muted/30">
+		<div>
 			<div className="flex flex-nowrap gap-1 sm:gap-2">
 				{/* Quick access buttons for common options */}
 				{commonOptions.map((option) => (

@@ -63,23 +63,30 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 				{/* Mobile Card View */}
 				<div className="space-y-3 sm:hidden">
 					{entry.items.map((item) => (
-						<div key={item.id} className="space-y-2 rounded-lg bg-gray-50 p-3">
+						<div
+							key={item.id}
+							className="space-y-2 rounded-lg bg-muted p-3"
+						>
 							<div className="break-words font-medium text-sm leading-tight">
 								{item.name}
 							</div>
 							<div className="space-y-1.5 text-sm">
 								<div className="flex items-center justify-between">
-									<span className="text-gray-600 text-xs">Anzahl:</span>
+									<span className="text-muted-foreground text-xs">Anzahl:</span>
 									<span className="font-medium">{item.quantity}</span>
 								</div>
 								<div className="flex items-center justify-between">
-									<span className="text-gray-600 text-xs">Einzelpreis:</span>
+									<span className="text-muted-foreground text-xs">
+										Einzelpreis:
+									</span>
 									<span className="font-medium">
 										{formatCurrency(item.unitPrice)}
 									</span>
 								</div>
-								<div className="flex items-center justify-between border-gray-200 border-t pt-1.5">
-									<span className="text-gray-600 text-xs">Zwischensumme:</span>
+								<div className="flex items-center justify-between border-border border-t pt-1.5">
+									<span className="text-muted-foreground text-xs">
+										Zwischensumme:
+									</span>
 									<span className="font-semibold text-sm">
 										{formatCurrency(item.subtotal)}
 									</span>
@@ -89,9 +96,9 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 					))}
 				</div>
 
-				<div className="flex items-center justify-between border-gray-300 border-t pt-4">
+				<div className="flex items-center justify-between border-border border-t pt-4">
 					<span className="font-semibold text-base sm:text-lg">Gesamt:</span>
-					<span className="font-bold text-green-600 text-lg sm:text-xl">
+					<span className="font-bold text-green-600 text-lg sm:text-xl dark:text-green-400">
 						{formatCurrency(entry.totalDue)}
 					</span>
 				</div>
