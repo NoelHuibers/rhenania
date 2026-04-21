@@ -2,6 +2,12 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import {
+	addDaysInTZ,
+	dayKeyInTZ,
+	formatEventDay,
+	startOfWeekInTZ,
+} from "~/lib/time";
 
 const TYPE_DOT_COLORS: Record<string, string> = {
 	Intern: "bg-blue-500",
@@ -23,53 +29,40 @@ export type WeekPreviewEvent = {
 	isCancelled: boolean;
 };
 
-function startOfDay(d: Date) {
-	const c = new Date(d);
-	c.setHours(0, 0, 0, 0);
-	return c;
-}
-
-function startOfWeek(d: Date) {
-	const c = startOfDay(d);
-	const day = c.getDay(); // 0 = Sun
-	const diff = (day + 6) % 7; // back to Monday
-	c.setDate(c.getDate() - diff);
-	return c;
-}
-
-function sameDay(a: Date, b: Date) {
-	return (
-		a.getFullYear() === b.getFullYear() &&
-		a.getMonth() === b.getMonth() &&
-		a.getDate() === b.getDate()
-	);
+function fmtRange(d: Date, opts: Intl.DateTimeFormatOptions) {
+	return new Intl.DateTimeFormat("de-DE", {
+		timeZone: "Europe/Berlin",
+		...opts,
+	}).format(d);
 }
 
 export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
-	const today = startOfDay(new Date());
-	const baseStart = startOfWeek(today);
+	const now = new Date();
+	const today = dayKeyInTZ(now);
+	const baseStart = startOfWeekInTZ(now);
 	const [weekOffset, setWeekOffset] = useState(0);
 
-	const start = new Date(baseStart);
-	start.setDate(baseStart.getDate() + weekOffset * 7);
+	const start = addDaysInTZ(baseStart, weekOffset * 7);
 
 	const days: Date[] = [];
 	for (let i = 0; i < WEEKS * 7; i++) {
-		const d = new Date(start);
-		d.setDate(start.getDate() + i);
-		days.push(d);
+		days.push(addDaysInTZ(start, i));
 	}
 
 	const end = days[days.length - 1] ?? start;
 	const rangeLabel = (() => {
-		const sameYear = start.getFullYear() === end.getFullYear();
-		const sameMonth = sameYear && start.getMonth() === end.getMonth();
-		const startLabel = start.toLocaleDateString("de-DE", {
+		const startYear = fmtRange(start, { year: "numeric" });
+		const endYear = fmtRange(end, { year: "numeric" });
+		const startMonth = fmtRange(start, { month: "short" });
+		const endMonth = fmtRange(end, { month: "short" });
+		const sameYear = startYear === endYear;
+		const sameMonth = sameYear && startMonth === endMonth;
+		const startLabel = fmtRange(start, {
 			day: "numeric",
 			month: "short",
 			...(sameYear ? {} : { year: "numeric" }),
 		});
-		const endLabel = end.toLocaleDateString("de-DE", {
+		const endLabel = fmtRange(end, {
 			day: "numeric",
 			month: sameMonth ? undefined : "short",
 			year: "numeric",
@@ -79,7 +72,7 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 
 	const eventsByDay = new Map<string, WeekPreviewEvent[]>();
 	for (const e of events) {
-		const key = startOfDay(e.date).toISOString();
+		const key = dayKeyInTZ(e.date);
 		const list = eventsByDay.get(key) ?? [];
 		list.push(e);
 		eventsByDay.set(key, list);
@@ -141,10 +134,10 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 			</div>
 			<div className="grid grid-cols-7 gap-0.5">
 				{days.map((day) => {
-					const key = startOfDay(day).toISOString();
+					const key = dayKeyInTZ(day);
 					const dayEvents = eventsByDay.get(key) ?? [];
-					const isPast = day < today;
-					const isToday = sameDay(day, today);
+					const isPast = key < today;
+					const isToday = key === today;
 					const hasEvents = dayEvents.length > 0;
 					const firstEvent = dayEvents[0];
 
@@ -167,7 +160,9 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 
 					const content = (
 						<>
-							<span className="tabular-nums leading-none">{day.getDate()}</span>
+							<span className="tabular-nums leading-none">
+								{formatEventDay(day)}
+							</span>
 							{hasEvents && (
 								<div className="mt-0.5 flex items-center gap-px">
 									{dots.map((c, i) => (

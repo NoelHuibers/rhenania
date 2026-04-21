@@ -8,6 +8,13 @@ import {
 	Text,
 	View,
 } from "@react-pdf/renderer";
+import {
+	formatEventDay2,
+	formatEventMonth2,
+	formatEventMonthName,
+	formatEventWeekdayShort,
+	getZonedParts,
+} from "~/lib/time";
 import type { PDFData, PDFEvent } from "./getPDFData";
 import { RANK_MAP } from "./getPDFData";
 
@@ -51,53 +58,22 @@ const P2W = F2 - F1;
 const P3W = PW - F2;
 const PAD = 3 * MM; // ~8.5pt — matches Scribus frame offset
 
-// ─── FIX: Timezone offset ────────────────────────────────────────────────────
-// Events are stored in UTC but represent Europe/Berlin (CEST = UTC+2, CET = UTC+1).
-// We extract hours in UTC and add the appropriate offset.
-function toLocalDate(d: Date): Date {
-	// Determine if the date falls in CEST (last Sunday of March to last Sunday of October)
-	const year = d.getUTCFullYear();
-
-	// Last Sunday of March
-	const marchLast = new Date(Date.UTC(year, 2, 31));
-	marchLast.setUTCDate(31 - marchLast.getUTCDay());
-	marchLast.setUTCHours(1, 0, 0, 0); // transition at 01:00 UTC
-
-	// Last Sunday of October
-	const octLast = new Date(Date.UTC(year, 9, 31));
-	octLast.setUTCDate(31 - octLast.getUTCDay());
-	octLast.setUTCHours(1, 0, 0, 0); // transition at 01:00 UTC
-
-	const isCEST =
-		d.getTime() >= marchLast.getTime() && d.getTime() < octLast.getTime();
-	const offsetMs = (isCEST ? 2 : 1) * 60 * 60 * 1000;
-
-	return new Date(d.getTime() + offsetMs);
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtTime(d: Date): string {
-	const local = toLocalDate(d);
-	const h = local.getUTCHours();
-	const m = local.getUTCMinutes();
-	if (m === 0) return `${h} h.s.t.`;
-	if (m === 15) return `${h} h.c.t.`;
-	if (m === 30) return `${h} h.m.c.t.`;
-	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} Uhr`;
+	const { hour, minute } = getZonedParts(d);
+	if (minute === 0) return `${hour} h.s.t.`;
+	if (minute === 15) return `${hour} h.c.t.`;
+	if (minute === 30) return `${hour} h.m.c.t.`;
+	return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")} Uhr`;
 }
 
 function fmtDay(d: Date): string {
-	const local = toLocalDate(d);
-	return local.toLocaleDateString("de-DE", {
-		weekday: "short",
-		timeZone: "UTC",
-	});
+	return formatEventWeekdayShort(d);
 }
 
 function fmtDate(d: Date): string {
-	const local = toLocalDate(d);
-	return `${String(local.getUTCDate()).padStart(2, "0")}.${String(local.getUTCMonth() + 1).padStart(2, "0")}.`;
+	return `${formatEventDay2(d)}.${formatEventMonth2(d)}.`;
 }
 
 function fmtDateRange(d: Date, end: Date | null): string {
@@ -106,8 +82,7 @@ function fmtDateRange(d: Date, end: Date | null): string {
 }
 
 function monthLabel(d: Date): string {
-	const local = toLocalDate(d);
-	return local.toLocaleDateString("de-DE", { month: "long", timeZone: "UTC" });
+	return formatEventMonthName(d);
 }
 
 function formatIBAN(iban: string): string {

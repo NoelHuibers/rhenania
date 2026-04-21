@@ -45,7 +45,12 @@ import {
 } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
-import { academicTimeLabel } from "~/lib/academic-time";
+import {
+	formatAcademicTimeAlways,
+	formatEventShortDate,
+	utcToWallClockInput,
+	wallClockToUTC,
+} from "~/lib/time";
 import {
 	createEvent,
 	deleteEvent,
@@ -123,24 +128,6 @@ const EVENT_TYPES: EventType[] = [
 	"Stammtisch",
 	"Sonstige",
 ];
-
-function toInputDate(d: Date) {
-	const pad = (n: number) => String(n).padStart(2, "0");
-	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function formatDatePart(d: Date) {
-	return d.toLocaleDateString("de-DE", {
-		weekday: "short",
-		day: "2-digit",
-		month: "short",
-		year: "numeric",
-	});
-}
-
-function formatTimePart(d: Date) {
-	return academicTimeLabel(d.getHours(), d.getMinutes());
-}
 
 // Shared inline form card used both for create (top) and edit (inline below card)
 function EventFormCard({
@@ -330,12 +317,14 @@ export function EventsManager({
 		setForm({
 			title: event.title,
 			description: event.description ?? "",
-			date: toInputDate(event.date),
-			endDate: event.endDate ? toInputDate(event.endDate) : "",
+			date: utcToWallClockInput(event.date),
+			endDate: event.endDate ? utcToWallClockInput(event.endDate) : "",
 			location: event.location ?? DEFAULT_LOCATION,
 			type: event.type,
 			isPublic: event.isPublic,
-			rsvpDeadline: event.rsvpDeadline ? toInputDate(event.rsvpDeadline) : "",
+			rsvpDeadline: event.rsvpDeadline
+				? utcToWallClockInput(event.rsvpDeadline)
+				: "",
 			maxAttendees:
 				event.maxAttendees != null ? String(event.maxAttendees) : "",
 			meetingUrl: event.meetingUrl ?? "",
@@ -367,12 +356,14 @@ export function EventsManager({
 		const input = {
 			title: form.title,
 			description: form.description || undefined,
-			date: new Date(form.date),
-			endDate: form.endDate ? new Date(form.endDate) : undefined,
+			date: wallClockToUTC(form.date),
+			endDate: form.endDate ? wallClockToUTC(form.endDate) : undefined,
 			location: form.location || undefined,
 			type: form.type,
 			isPublic: form.isPublic,
-			rsvpDeadline: form.rsvpDeadline ? new Date(form.rsvpDeadline) : null,
+			rsvpDeadline: form.rsvpDeadline
+				? wallClockToUTC(form.rsvpDeadline)
+				: null,
 			maxAttendees:
 				Number.isFinite(parsedMax) && parsedMax > 0 ? parsedMax : null,
 			meetingUrl: form.meetingUrl.trim() || null,
@@ -550,9 +541,9 @@ function EventRow({
 					<div className="flex flex-col gap-1 text-muted-foreground text-sm sm:flex-row sm:flex-wrap sm:gap-x-4">
 						<span className="flex flex-wrap items-center gap-1">
 							<CalendarDays className="h-3.5 w-3.5" />
-							<span>{formatDatePart(event.date)},</span>
+							<span>{formatEventShortDate(event.date)},</span>
 							<span className="whitespace-nowrap">
-								{formatTimePart(event.date)}
+								{formatAcademicTimeAlways(event.date)}
 							</span>
 						</span>
 						{event.location && (

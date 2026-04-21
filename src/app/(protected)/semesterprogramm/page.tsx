@@ -7,7 +7,12 @@ import { RsvpControls } from "~/components/semesterprogramm/RsvpControls";
 import { WeekPreview } from "~/components/semesterprogramm/WeekPreview";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
-import { academicTimeLabel } from "~/lib/academic-time";
+import {
+	formatAcademicTime,
+	formatEventDay,
+	formatEventMonthLong,
+	formatEventWeekdayShort,
+} from "~/lib/time";
 import { getOrCreateCalendarToken } from "~/server/actions/events/calendarToken";
 import { getUpcomingEvents } from "~/server/actions/events/events";
 import {
@@ -30,17 +35,6 @@ const TYPE_COLORS: Record<string, string> = {
 	Stammtisch: "bg-orange-100 text-orange-700",
 	Sonstige: "bg-gray-100 text-gray-600",
 };
-
-function formatTime(d: Date) {
-	const h = d.getHours();
-	const m = d.getMinutes();
-	if (h === 0 && m === 0) return null;
-	return academicTimeLabel(h, m);
-}
-
-function monthLabel(d: Date) {
-	return d.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
-}
 
 export default async function SemesterprogrammPage() {
 	const [allEvents, hiddenTypes] = await Promise.all([
@@ -65,7 +59,7 @@ export default async function SemesterprogrammPage() {
 	// Group events by month
 	const grouped = events.reduce<{ label: string; items: typeof events }[]>(
 		(acc, event) => {
-			const label = monthLabel(event.date);
+			const label = formatEventMonthLong(event.date);
 			const last = acc[acc.length - 1];
 			if (last?.label === label) {
 				last.items.push(event);
@@ -115,7 +109,7 @@ export default async function SemesterprogrammPage() {
 									</h2>
 									<div className="divide-y rounded-xl border bg-card">
 										{items.map((event) => {
-											const time = formatTime(event.date);
+											const time = formatAcademicTime(event.date);
 											return (
 												<div
 													key={event.id}
@@ -125,12 +119,10 @@ export default async function SemesterprogrammPage() {
 													{/* Date block */}
 													<div className="flex w-10 shrink-0 flex-col items-center pt-0.5 text-center">
 														<span className="font-bold text-lg tabular-nums leading-none">
-															{event.date.getDate()}
+															{formatEventDay(event.date)}
 														</span>
 														<span className="text-[10px] text-muted-foreground uppercase">
-															{event.date.toLocaleDateString("de-DE", {
-																weekday: "short",
-															})}
+															{formatEventWeekdayShort(event.date)}
 														</span>
 													</div>
 

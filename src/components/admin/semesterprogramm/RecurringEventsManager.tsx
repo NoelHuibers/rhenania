@@ -34,6 +34,11 @@ import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
 import { useIsMobile } from "~/hooks/use-mobile";
 import {
+	formatEventShortDate,
+	utcToDateInput,
+	wallClockToUTC,
+} from "~/lib/time";
+import {
 	createRecurringEvent,
 	deleteRecurringEvent,
 	generateInstances,
@@ -126,14 +131,6 @@ const TYPE_COLORS: Record<EventType, string> = {
 	Sonstige: "bg-gray-100 text-gray-800",
 };
 
-function formatShortDate(d: Date) {
-	return d.toLocaleDateString("de-DE", {
-		day: "2-digit",
-		month: "short",
-		year: "numeric",
-	});
-}
-
 function recurrenceSummary(r: RecurringEvent): string {
 	switch (r.recurrenceType) {
 		case "occ_semester":
@@ -187,8 +184,8 @@ export function RecurringEventsManager({
 			time: r.time,
 			isPublic: r.isPublic,
 			meetingUrl: r.meetingUrl ?? "",
-			startDate: r.startDate ? r.startDate.toISOString().slice(0, 10) : "",
-			endDate: r.endDate ? r.endDate.toISOString().slice(0, 10) : "",
+			startDate: r.startDate ? utcToDateInput(r.startDate) : "",
+			endDate: r.endDate ? utcToDateInput(r.endDate) : "",
 		});
 		setEditingId(r.id);
 		setShowCreateForm(false);
@@ -234,8 +231,8 @@ export function RecurringEventsManager({
 			time: form.time,
 			isPublic: form.isPublic,
 			meetingUrl: form.meetingUrl.trim() || null,
-			startDate: form.startDate ? new Date(form.startDate) : undefined,
-			endDate: form.endDate ? new Date(form.endDate) : undefined,
+			startDate: form.startDate ? wallClockToUTC(form.startDate) : undefined,
+			endDate: form.endDate ? wallClockToUTC(form.endDate) : undefined,
 		};
 
 		const result = editingId
@@ -662,9 +659,9 @@ export function RecurringEventsManager({
 										</p>
 										{(r.startDate || r.endDate) && (
 											<p className="text-muted-foreground text-xs">
-												{r.startDate && formatShortDate(r.startDate)}
+												{r.startDate && formatEventShortDate(r.startDate)}
 												{r.startDate && r.endDate && " – "}
-												{r.endDate && formatShortDate(r.endDate)}
+												{r.endDate && formatEventShortDate(r.endDate)}
 											</p>
 										)}
 									</div>

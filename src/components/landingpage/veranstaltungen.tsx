@@ -1,5 +1,9 @@
 import { CalendarDays, MapPin } from "lucide-react";
-import { academicTimeLabel } from "~/lib/academic-time";
+import {
+	formatAcademicTime,
+	formatEventFullDate,
+	startOfDayInTZ,
+} from "~/lib/time";
 import { getPublicUpcomingEvents } from "~/server/actions/events/events";
 
 const TYPE_COLORS: Record<string, string> = {
@@ -12,25 +16,10 @@ const TYPE_COLORS: Record<string, string> = {
 	Sonstige: "bg-gray-100 text-gray-800",
 };
 
-function formatDate(d: Date) {
-	return d.toLocaleDateString("de-DE", {
-		day: "numeric",
-		month: "long",
-		year: "numeric",
-	});
-}
-
-function formatTime(d: Date) {
-	const h = d.getHours();
-	const m = d.getMinutes();
-	if (h === 0 && m === 0) return null;
-	return academicTimeLabel(h, m);
-}
-
 function relativeLabel(d: Date) {
-	const now = new Date();
 	const diffDays = Math.round(
-		(d.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) / 86_400_000,
+		(startOfDayInTZ(d).getTime() - startOfDayInTZ(new Date()).getTime()) /
+			86_400_000,
 	);
 	if (diffDays === 0) return "Heute";
 	if (diffDays === 1) return "Morgen";
@@ -58,8 +47,8 @@ const Veranstaltungen = async () => {
 				<div className="flex w-full justify-center">
 					<div className="grid w-full max-w-5xl grid-cols-1 gap-6 sm:grid-cols-2 md:gap-8 lg:grid-cols-3">
 						{events.map((event) => {
-							const time = formatTime(event.date);
-							const label = relativeLabel(new Date(event.date));
+							const time = formatAcademicTime(event.date);
+							const label = relativeLabel(event.date);
 							return (
 								<div
 									key={event.id}
@@ -87,7 +76,7 @@ const Veranstaltungen = async () => {
 									<div className="mt-auto space-y-1.5 border-t pt-3">
 										<div className="flex items-center gap-1.5 text-gray-600 text-sm">
 											<CalendarDays className="h-3.5 w-3.5 shrink-0" />
-											<span>{formatDate(event.date)}</span>
+											<span>{formatEventFullDate(event.date)}</span>
 											{time && <span className="text-gray-400">· {time}</span>}
 											{label && (
 												<span className="ml-auto rounded-full bg-[#003366]/10 px-2 py-0.5 font-medium text-[#003366] text-xs">
