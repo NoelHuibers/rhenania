@@ -1,0 +1,316 @@
+{
+	"version": "6",
+	"dialect": "sqlite",
+	"id": "fc5078eb-241b-4cfd-bd7e-c7fe6b85c07e",
+	"prevId": "00000000-0000-0000-0000-000000000000",
+	"tables": {
+		"control_tenant_auth_config": {
+			"name": "control_tenant_auth_config",
+			"columns": {
+				"tenantId": {
+					"name": "tenantId",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"emailPasswordEnabled": {
+					"name": "emailPasswordEnabled",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"microsoftEnabled": {
+					"name": "microsoftEnabled",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"azureClientId": {
+					"name": "azureClientId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"azureClientSecret": {
+					"name": "azureClientSecret",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"azureTenantId": {
+					"name": "azureTenantId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"control_tenant_auth_config_tenantId_control_tenant_id_fk": {
+					"name": "control_tenant_auth_config_tenantId_control_tenant_id_fk",
+					"tableFrom": "control_tenant_auth_config",
+					"tableTo": "control_tenant",
+					"columnsFrom": ["tenantId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"control_tenant_domain": {
+			"name": "control_tenant_domain",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"tenantId": {
+					"name": "tenantId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"hostname": {
+					"name": "hostname",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"isPrimary": {
+					"name": "isPrimary",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"isCustom": {
+					"name": "isCustom",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"verifiedAt": {
+					"name": "verifiedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"control_tenant_domain_hostname_unique": {
+					"name": "control_tenant_domain_hostname_unique",
+					"columns": ["hostname"],
+					"isUnique": true
+				},
+				"tenant_domain_tenant_idx": {
+					"name": "tenant_domain_tenant_idx",
+					"columns": ["tenantId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"control_tenant_domain_tenantId_control_tenant_id_fk": {
+					"name": "control_tenant_domain_tenantId_control_tenant_id_fk",
+					"tableFrom": "control_tenant_domain",
+					"tableTo": "control_tenant",
+					"columnsFrom": ["tenantId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"control_tenant_membership": {
+			"name": "control_tenant_membership",
+			"columns": {
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"tenantId": {
+					"name": "tenantId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'active'"
+				},
+				"joinedAt": {
+					"name": "joinedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"tenant_membership_user_idx": {
+					"name": "tenant_membership_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"tenant_membership_tenant_idx": {
+					"name": "tenant_membership_tenant_idx",
+					"columns": ["tenantId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"control_tenant_membership_tenantId_control_tenant_id_fk": {
+					"name": "control_tenant_membership_tenantId_control_tenant_id_fk",
+					"tableFrom": "control_tenant_membership",
+					"tableTo": "control_tenant",
+					"columnsFrom": ["tenantId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"control_tenant_membership_userId_tenantId_pk": {
+					"columns": ["userId", "tenantId"],
+					"name": "control_tenant_membership_userId_tenantId_pk"
+				}
+			},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"control_tenant": {
+			"name": "control_tenant",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"slug": {
+					"name": "slug",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"displayName": {
+					"name": "displayName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'active'"
+				},
+				"dbUrl": {
+					"name": "dbUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"dbAuthToken": {
+					"name": "dbAuthToken",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"control_tenant_slug_unique": {
+					"name": "control_tenant_slug_unique",
+					"columns": ["slug"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		}
+	},
+	"views": {},
+	"enums": {},
+	"_meta": {
+		"schemas": {},
+		"tables": {},
+		"columns": {}
+	},
+	"internal": {
+		"indexes": {}
+	}
+}

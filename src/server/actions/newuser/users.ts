@@ -4,10 +4,17 @@ import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
-import { db } from "~/server/db";
-import { userRoles, users, verificationTokens } from "~/server/db/schema";
+import { controlDb } from "~/server/db/control";
+import {
+	users as controlUsers,
+	tenantMemberships,
+} from "~/server/db/control-schema";
+import { userRoles, verificationTokens } from "~/server/db/schema";
+import { getTenantDb } from "~/server/db/tenants";
+import { requireTenantId } from "~/server/lib/tenant-context";
+import { mirrorUserToTenant } from "~/server/lib/user-mirror";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
-import { sendVerificationEmail } from "./email"; // You'll need to implement this
+import { sendVerificationEmail } from "./email";
 
 // Check if user has admin role
 async function checkAdminPermission() {
@@ -28,23 +35,22 @@ async function checkAdminPermission() {
 
 export async function toggleUserRole(userId: string, roleId: string) {
 	await checkAdminPermission();
+	const tenantId = await requireTenantId();
+	const tdb = await getTenantDb(tenantId);
 
 	try {
-		// Check if user already has this role
-		const existingRole = await db
+		const existingRole = await tdb
 			.select()
 			.from(userRoles)
 			.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
 			.limit(1);
 
 		if (existingRole.length > 0) {
-			// Remove role
-			await db
+			await tdb
 				.delete(userRoles)
 				.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
 		} else {
-			// Add role
-			await db.insert(userRoles).values({
+			await tdb.insert(userRoles).values({
 				userId,
 				roleId,
 				assignedAt: new Date(),
@@ -80,59 +86,123 @@ export async function createUser(
 	data: CreateUserData,
 ): Promise<CreateUserResult> {
 	await checkAdminPermission();
+	const tenantId = await requireTenantId();
+	const tdb = await getTenantDb(tenantId);
+	const email = data.email.toLowerCase();
 
 	try {
-		// Check if user with this email already exists
-		const existingUser = await db
+		// Look up the user in the control DB (global identity).
+		const existingUser = await controlDb
 			.select()
-			.from(users)
-			.where(eq(users.email, data.email.toLowerCase()))
+			.from(controlUsers)
+			.where(eq(controlUsers.email, email))
 			.limit(1);
 
-		if (existingUser.length > 0) {
-			return {
-				success: false,
-				error: "Ein Benutzer mit dieser E-Mail-Adresse existiert bereits.",
+		let userRow:
+			| {
+					id: string;
+					email: string;
+					name: string | null;
+					image: string | null;
+					emailVerified: boolean;
+					createdAt: Date;
+					updatedAt: Date;
+			  }
+			| undefined;
+		let isNew = false;
+
+		const found = existingUser[0];
+		if (found) {
+			userRow = found;
+			// If they already belong to this tenant, that's a conflict.
+			const [existingMembership] = await controlDb
+				.select({ userId: tenantMemberships.userId })
+				.from(tenantMemberships)
+				.where(
+					and(
+						eq(tenantMemberships.userId, found.id),
+						eq(tenantMemberships.tenantId, tenantId),
+					),
+				)
+				.limit(1);
+			if (existingMembership) {
+				return {
+					success: false,
+					error: "Ein Benutzer mit dieser E-Mail-Adresse ist bereits Mitglied.",
+				};
+			}
+		} else {
+			isNew = true;
+			const now = new Date();
+			const newUser = {
+				id: crypto.randomUUID(),
+				email,
+				name: data.name ?? null,
+				image: null,
+				emailVerified: false,
+				createdAt: now,
+				updatedAt: now,
 			};
+			await controlDb.insert(controlUsers).values(newUser);
+			userRow = newUser;
 		}
 
-		// Create the user
-		const newUser = {
-			id: crypto.randomUUID(),
-			email: data.email.toLowerCase(),
-			name: data.name || null,
-			image: null,
-			emailVerified: false, // Will be set when they verify their email
-		};
+		if (!userRow) {
+			return { success: false, error: "Fehler beim Erstellen des Benutzers." };
+		}
 
-		await db.insert(users).values(newUser);
+		// Add membership for this tenant.
+		await controlDb.insert(tenantMemberships).values({
+			userId: userRow.id,
+			tenantId,
+			status: "active",
+		});
 
-		void checkAndUnlockAchievements(newUser.id, "account_created");
+		// Mirror to tenant DB so existing joins work.
+		await mirrorUserToTenant(
+			{
+				id: userRow.id,
+				name: userRow.name,
+				email: userRow.email,
+				emailVerified: userRow.emailVerified,
+				image: userRow.image,
+				createdAt: userRow.createdAt,
+				updatedAt: userRow.updatedAt,
+			},
+			tenantId,
+		);
 
-		// Generate verification token
+		if (isNew) {
+			void checkAndUnlockAchievements(userRow.id, "account_created");
+		}
+
+		// Generate invitation token (tenant-scoped).
 		const token = crypto.randomBytes(32).toString("hex");
-		const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+		const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-		await db.insert(verificationTokens).values({
-			identifier: data.email.toLowerCase(),
+		await tdb.insert(verificationTokens).values({
+			identifier: email,
 			token,
 			expires,
 		});
 
-		// Send verification email (you'll need to implement this)
 		try {
 			await sendVerificationEmail(data.email, token);
 		} catch (emailError) {
 			console.error("Error sending verification email:", emailError);
-			// Don't fail the user creation if email fails
-			// You might want to handle this differently
 		}
 
 		revalidatePath("/admin");
 
 		return {
 			success: true,
-			user: newUser,
+			user: {
+				id: userRow.id,
+				email: userRow.email,
+				name: userRow.name,
+				image: userRow.image,
+				emailVerified: userRow.emailVerified,
+			},
 		};
 	} catch (error) {
 		console.error("Error creating user:", error);
@@ -145,13 +215,15 @@ export async function createUser(
 
 export async function resendVerificationEmail(email: string) {
 	await checkAdminPermission();
+	const tenantId = await requireTenantId();
+	const tdb = await getTenantDb(tenantId);
+	const lowerEmail = email.toLowerCase();
 
 	try {
-		// Check if user exists and is not verified
-		const user = await db
+		const user = await controlDb
 			.select()
-			.from(users)
-			.where(eq(users.email, email.toLowerCase()))
+			.from(controlUsers)
+			.where(eq(controlUsers.email, lowerEmail))
 			.limit(1);
 
 		if (user.length === 0) {
@@ -168,22 +240,19 @@ export async function resendVerificationEmail(email: string) {
 			};
 		}
 
-		// Delete existing verification tokens for this email
-		await db
+		await tdb
 			.delete(verificationTokens)
-			.where(eq(verificationTokens.identifier, email.toLowerCase()));
+			.where(eq(verificationTokens.identifier, lowerEmail));
 
-		// Generate new verification token
 		const token = crypto.randomBytes(32).toString("hex");
-		const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours from now
+		const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-		await db.insert(verificationTokens).values({
-			identifier: email.toLowerCase(),
+		await tdb.insert(verificationTokens).values({
+			identifier: lowerEmail,
 			token,
 			expires,
 		});
 
-		// Send verification email
 		await sendVerificationEmail(email, token);
 
 		return { success: true };

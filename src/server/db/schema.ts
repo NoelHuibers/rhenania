@@ -21,6 +21,9 @@ const KASSE_TYPES = [
 
 export const createTable = sqliteTableCreator((name) => `rhenania_${name}`);
 
+// MIRROR of control-DB `users` (source of truth lives in control DB).
+// Kept here so tenant-DB joins on user keep working. Sync is driven by
+// Better Auth databaseHooks in `~/server/auth/index.ts`.
 export const users = createTable("user", (d) => ({
 	id: d
 		.text({ length: 255 })
@@ -76,8 +79,6 @@ export const userRoles = createTable(
 );
 
 export const usersRelations = relations(users, ({ many }) => ({
-	accounts: many(accounts),
-	sessions: many(sessions),
 	userRoles: many(userRoles),
 }));
 
@@ -123,95 +124,12 @@ export const userPreferencesRelations = relations(
 	}),
 );
 
-export const accounts = createTable(
-	"account",
-	(d) => ({
-		id: d
-			.text({ length: 255 })
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => crypto.randomUUID()),
-		accountId: d.text({ length: 255 }).notNull(),
-		providerId: d.text({ length: 255 }).notNull(),
-		userId: d
-			.text({ length: 255 })
-			.notNull()
-			.references(() => users.id),
-		accessToken: d.text(),
-		refreshToken: d.text(),
-		idToken: d.text(),
-		accessTokenExpiresAt: d.integer({ mode: "timestamp" }),
-		refreshTokenExpiresAt: d.integer({ mode: "timestamp" }),
-		scope: d.text({ length: 255 }),
-		password: d.text({ length: 255 }),
-		createdAt: d
-			.integer({ mode: "timestamp" })
-			.notNull()
-			.$defaultFn(() => new Date()),
-		updatedAt: d
-			.integer({ mode: "timestamp" })
-			.notNull()
-			.$defaultFn(() => new Date())
-			.$onUpdate(() => new Date()),
-	}),
-	(t) => [index("account_user_id_idx").on(t.userId)],
-);
+// `accounts`, `sessions`, `verifications`, `passwordResetTokens` were moved
+// to the control DB (see `~/server/db/control-schema.ts`). Better Auth and
+// password-reset / OAuth-token logic now go through `controlDb`.
 
-export const accountsRelations = relations(accounts, ({ one }) => ({
-	user: one(users, { fields: [accounts.userId], references: [users.id] }),
-}));
-
-export const sessions = createTable(
-	"session",
-	(d) => ({
-		id: d
-			.text({ length: 255 })
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => crypto.randomUUID()),
-		expiresAt: d.integer({ mode: "timestamp" }).notNull(),
-		token: d.text({ length: 255 }).notNull().unique(),
-		createdAt: d
-			.integer({ mode: "timestamp" })
-			.notNull()
-			.$defaultFn(() => new Date()),
-		updatedAt: d
-			.integer({ mode: "timestamp" })
-			.notNull()
-			.$defaultFn(() => new Date())
-			.$onUpdate(() => new Date()),
-		ipAddress: d.text({ length: 255 }),
-		userAgent: d.text({ length: 255 }),
-		userId: d
-			.text({ length: 255 })
-			.notNull()
-			.references(() => users.id),
-	}),
-	(t) => [index("session_userId_idx").on(t.userId)],
-);
-
-export const sessionsRelations = relations(sessions, ({ one }) => ({
-	user: one(users, { fields: [sessions.userId], references: [users.id] }),
-}));
-
-// Better Auth internal verification table (for OAuth state, email verification tokens, etc.)
-export const verifications = createTable("verification", (d) => ({
-	id: d
-		.text({ length: 255 })
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	identifier: d.text({ length: 255 }).notNull(),
-	value: d.text({ length: 255 }).notNull(),
-	expiresAt: d.integer({ mode: "timestamp" }).notNull(),
-	createdAt: d.integer({ mode: "timestamp" }).$defaultFn(() => new Date()),
-	updatedAt: d
-		.integer({ mode: "timestamp" })
-		.$defaultFn(() => new Date())
-		.$onUpdate(() => new Date()),
-}));
-
-// Custom invitation tokens table (admin creates user → sends email → user activates)
+// Custom invitation tokens (admin creates user → sends email → user activates).
+// Stays in tenant DB because invitations are tenant-scoped.
 export const verificationTokens = createTable(
 	"verification_token",
 	(d) => ({
@@ -220,25 +138,6 @@ export const verificationTokens = createTable(
 		expires: d.integer({ mode: "timestamp" }).notNull(),
 	}),
 	(t) => [primaryKey({ columns: [t.identifier, t.token] })],
-);
-
-export const passwordResetTokens = createTable(
-	"password_reset_token",
-	(d) => ({
-		id: d
-			.text({ length: 255 })
-			.notNull()
-			.primaryKey()
-			.$defaultFn(() => crypto.randomUUID()),
-		email: d.text({ length: 255 }).notNull(),
-		token: d.text({ length: 255 }).notNull().unique(),
-		expires: d.integer({ mode: "timestamp" }).notNull(),
-		createdAt: d.integer({ mode: "timestamp" }).default(sql`(unixepoch())`),
-	}),
-	(t) => [
-		index("password_reset_email_idx").on(t.email),
-		index("password_reset_token_idx").on(t.token),
-	],
 );
 
 export const drinks = createTable(

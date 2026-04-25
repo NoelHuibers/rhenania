@@ -5,8 +5,20 @@ import bcrypt from "bcryptjs";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
-import { db } from "~/server/db";
-import { accounts } from "~/server/db/schema";
+import { controlDb } from "~/server/db/control";
+import { accounts } from "~/server/db/control-schema";
+import { getCurrentTenantAzureConfig } from "~/server/lib/tenant-azure-config";
+
+// Map a UI-facing provider name (e.g. "microsoft") to the per-tenant
+// providerId stored in `accounts.providerId` (e.g. "microsoft-rhenania").
+// Returns null if the current tenant doesn't have that provider configured.
+async function resolveProviderId(uiName: string): Promise<string | null> {
+	if (uiName === "microsoft") {
+		const azure = await getCurrentTenantAzureConfig();
+		return azure?.microsoftProviderId ?? null;
+	}
+	return uiName;
+}
 
 type ActionResult<T = void> = {
 	success: boolean;
@@ -27,7 +39,7 @@ export async function getConnectedAccountsAction(): Promise<
 			return { success: false, error: "Unauthorized" };
 		}
 
-		const userAccounts = await db
+		const userAccounts = await controlDb
 			.select({ provider: accounts.providerId })
 			.from(accounts)
 			.where(eq(accounts.userId, session.user.id));
@@ -37,10 +49,29 @@ export async function getConnectedAccountsAction(): Promise<
 		);
 		const hasPassword = credentialAccount !== undefined;
 
+		// Normalize per-tenant providerIds (microsoft-<slug>) back to the UI
+		// name "microsoft" for the current tenant; hide accounts belonging to
+		// other tenants' Microsoft providers (the user may be a member of
+		// multiple Corps with separate Microsoft links).
+		const currentMicrosoftProviderId =
+			(await resolveProviderId("microsoft")) ?? null;
+
+		const visible = userAccounts
+			.filter((a) => a.provider !== "credential")
+			.filter(
+				(a) =>
+					a.provider === currentMicrosoftProviderId ||
+					!a.provider.startsWith("microsoft-"),
+			)
+			.map((a) => ({
+				provider:
+					a.provider === currentMicrosoftProviderId ? "microsoft" : a.provider,
+			}));
+
 		return {
 			success: true,
 			data: {
-				accounts: userAccounts.filter((a) => a.provider !== "credential"),
+				accounts: visible,
 				hasPassword,
 			},
 		};
@@ -64,13 +95,19 @@ export async function disconnectProviderAction(
 			return { success: false, error: "Provider is required" };
 		}
 
-		const userAccounts = await db
+		const userAccounts = await controlDb
 			.select({ provider: accounts.providerId, id: accounts.id })
 			.from(accounts)
 			.where(eq(accounts.userId, session.user.id));
 
 		const hasPassword = userAccounts.some((a) => a.provider === "credential");
-		const providerName = provider === "microsoft" ? "microsoft" : provider;
+		const providerId = await resolveProviderId(provider);
+		if (!providerId) {
+			return {
+				success: false,
+				error: "Provider not configured for this tenant",
+			};
+		}
 
 		if (!hasPassword && userAccounts.length <= 1) {
 			return {
@@ -80,12 +117,12 @@ export async function disconnectProviderAction(
 			};
 		}
 
-		await db
+		await controlDb
 			.delete(accounts)
 			.where(
 				and(
 					eq(accounts.userId, session.user.id),
-					eq(accounts.providerId, providerName),
+					eq(accounts.providerId, providerId),
 				),
 			);
 
@@ -118,7 +155,7 @@ export async function changePasswordAction({
 			};
 		}
 
-		const credentialAccount = await db
+		const credentialAccount = await controlDb
 			.select()
 			.from(accounts)
 			.where(
@@ -144,7 +181,7 @@ export async function changePasswordAction({
 		const hashedPassword = await bcrypt.hash(newPassword, 12);
 
 		if (credentialAccount[0]) {
-			await db
+			await controlDb
 				.update(accounts)
 				.set({ password: hashedPassword, updatedAt: new Date() })
 				.where(
@@ -155,7 +192,7 @@ export async function changePasswordAction({
 				);
 		} else {
 			// No credential account yet — create one
-			await db.insert(accounts).values({
+			await controlDb.insert(accounts).values({
 				accountId: session.user.email ?? session.user.id,
 				providerId: "credential",
 				userId: session.user.id,
@@ -175,28 +212,26 @@ export async function changePasswordAction({
 
 export async function connectProviderAction(
 	provider: string,
-): Promise<ActionResult<{ redirectUrl: string }>> {
+): Promise<ActionResult<{ providerId: string }>> {
 	try {
 		const session = await auth();
-
 		if (!session?.user?.id) {
 			return { success: false, error: "Unauthorized" };
 		}
 
-		const baseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
-		const callbackURL = encodeURIComponent(`${baseUrl}/account/security`);
-
-		let redirectUrl: string;
-
-		switch (provider.toLowerCase()) {
-			case "microsoft":
-				redirectUrl = `/api/auth/sign-in/microsoft-entra-id?callbackURL=${callbackURL}`;
-				break;
-			default:
-				return { success: false, error: "Unsupported provider" };
+		const providerId = await resolveProviderId(provider.toLowerCase());
+		if (!providerId) {
+			return {
+				success: false,
+				error: "Provider not configured for this tenant",
+			};
 		}
 
-		return { success: true, data: { redirectUrl } };
+		// The client takes this providerId and calls
+		// `authClient.signIn.oauth2({ providerId, callbackURL })` — a redirect
+		// URL won't work because Better Auth's generic OAuth sign-in is a
+		// POST endpoint.
+		return { success: true, data: { providerId } };
 	} catch (error) {
 		console.error("Error connecting provider:", error);
 		return { success: false, error: "Failed to connect provider" };

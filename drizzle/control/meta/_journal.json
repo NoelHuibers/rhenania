@@ -1,0 +1,27 @@
+{
+	"version": "7",
+	"dialect": "sqlite",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "6",
+			"when": 1777128385422,
+			"tag": "0000_closed_tarantula",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "6",
+			"when": 1777129486296,
+			"tag": "0001_complex_ezekiel_stane",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1777156284185,
+			"tag": "0002_public_doomsday",
+			"breakpoints": true
+		}
+	]
+}

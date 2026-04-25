@@ -1,10 +1,13 @@
 // ~/server/auth/microsoft-tokens.ts
-import { and, eq } from "drizzle-orm";
-import { env } from "~/env";
-import { db } from "~/server/db";
-import { accounts } from "~/server/db/schema";
+//
+// Refreshes Microsoft Graph access tokens. Per-tenant: looks up the current
+// tenant's Azure config (clientId, clientSecret, tenantId) and the matching
+// `accounts` row keyed on `microsoft-<tenant-slug>` providerId.
 
-const tokenEndpoint = `https://login.microsoftonline.com/${env.AZURE_AD_TENANT_ID}/oauth2/v2.0/token`;
+import { and, eq } from "drizzle-orm";
+import { controlDb } from "~/server/db/control";
+import { accounts } from "~/server/db/control-schema";
+import { getCurrentTenantAzureConfig } from "~/server/lib/tenant-azure-config";
 
 type MsAccountRow = {
 	accessToken: string | null;
@@ -13,7 +16,12 @@ type MsAccountRow = {
 };
 
 export async function getGraphAccessToken(userId: string): Promise<string> {
-	const [acc] = (await db
+	const azure = await getCurrentTenantAzureConfig();
+	if (!azure) {
+		throw new Error("Microsoft is not configured for the current tenant.");
+	}
+
+	const [acc] = (await controlDb
 		.select({
 			accessToken: accounts.accessToken,
 			refreshToken: accounts.refreshToken,
@@ -21,12 +29,17 @@ export async function getGraphAccessToken(userId: string): Promise<string> {
 		})
 		.from(accounts)
 		.where(
-			and(eq(accounts.userId, userId), eq(accounts.providerId, "microsoft")),
+			and(
+				eq(accounts.userId, userId),
+				eq(accounts.providerId, azure.microsoftProviderId),
+			),
 		)
 		.limit(1)) as [MsAccountRow?];
 
 	if (!acc) {
-		throw new Error("Microsoft account not linked for this user.");
+		throw new Error(
+			`Microsoft account not linked for this user in tenant '${azure.tenantSlug}'.`,
+		);
 	}
 
 	const now = Math.floor(Date.now() / 1000);
@@ -34,22 +47,19 @@ export async function getGraphAccessToken(userId: string): Promise<string> {
 		? Math.floor(acc.accessTokenExpiresAt.getTime() / 1000)
 		: 0;
 
-	// If token valid for at least 60 more seconds, use it
 	if (acc.accessToken && expiresAt - 60 > now) {
 		return acc.accessToken;
 	}
 
-	// Otherwise refresh
 	if (!acc.refreshToken) {
 		throw new Error(
 			"No refresh token available; user must re-consent Microsoft.",
 		);
 	}
 
-	const refreshed = await refreshMicrosoftToken(acc.refreshToken);
+	const refreshed = await refreshMicrosoftToken(acc.refreshToken, azure);
 
-	// Persist new tokens
-	await db
+	await controlDb
 		.update(accounts)
 		.set({
 			accessToken: refreshed.accessToken,
@@ -57,32 +67,40 @@ export async function getGraphAccessToken(userId: string): Promise<string> {
 			accessTokenExpiresAt: new Date(refreshed.expiresAt * 1000),
 		})
 		.where(
-			and(eq(accounts.userId, userId), eq(accounts.providerId, "microsoft")),
+			and(
+				eq(accounts.userId, userId),
+				eq(accounts.providerId, azure.microsoftProviderId),
+			),
 		);
 
 	return refreshed.accessToken;
 }
 
-async function refreshMicrosoftToken(refreshToken: string) {
+async function refreshMicrosoftToken(
+	refreshToken: string,
+	azure: {
+		azureClientId: string;
+		azureClientSecret: string;
+		azureTenantId: string;
+	},
+) {
+	const tokenEndpoint = `https://login.microsoftonline.com/${azure.azureTenantId}/oauth2/v2.0/token`;
+
+	// `redirect_uri` is intentionally omitted — Microsoft's refresh_token grant
+	// does not require it, and including a mismatched URI (we have multiple
+	// per-tenant) would fail.
 	const body = new URLSearchParams({
-		// biome-ignore lint/style/noNonNullAssertion: env vars are validated at startup
-		client_id: env.AZURE_AD_CLIENT_ID!,
-		// biome-ignore lint/style/noNonNullAssertion: env vars are validated at startup
-		client_secret: env.AZURE_AD_CLIENT_SECRET!,
+		client_id: azure.azureClientId,
+		client_secret: azure.azureClientSecret,
 		grant_type: "refresh_token",
 		refresh_token: refreshToken,
-		// Keep scopes consistent with your provider config
 		scope: "openid profile email offline_access User.Read",
-		// Many Azure tenants require the original redirect_uri for refresh:
-		redirect_uri: `${env.BETTER_AUTH_URL}/api/auth/callback/microsoft`,
 	});
 
 	const res = await fetch(tokenEndpoint, {
 		method: "POST",
 		headers: { "Content-Type": "application/x-www-form-urlencoded" },
 		body,
-		// If you're on Next.js App Router, make sure this runs on Node, not Edge,
-		// or move this into a server action/route with `export const runtime = "nodejs"`.
 	});
 
 	if (!res.ok) {
@@ -95,13 +113,13 @@ async function refreshMicrosoftToken(refreshToken: string) {
 	const json = (await res.json()) as {
 		access_token: string;
 		refresh_token?: string;
-		expires_in: number; // seconds
+		expires_in: number;
 		token_type?: string;
 	};
 
 	return {
 		accessToken: json.access_token,
-		refreshToken: json.refresh_token ?? refreshToken, // MS may rotate it
+		refreshToken: json.refresh_token ?? refreshToken,
 		expiresAt: Math.floor(Date.now() / 1000) + Number(json.expires_in),
 	};
 }

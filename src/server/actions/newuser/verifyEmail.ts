@@ -3,13 +3,16 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { and, eq } from "drizzle-orm";
-import { db } from "~/server/db";
+import { controlDb } from "~/server/db/control";
 import {
 	accounts,
+	users as controlUsers,
 	passwordResetTokens,
-	users,
-	verificationTokens,
-} from "~/server/db/schema";
+} from "~/server/db/control-schema";
+import { verificationTokens } from "~/server/db/schema";
+import { getTenantDb } from "~/server/db/tenants";
+import { requireTenantId } from "~/server/lib/tenant-context";
+import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
 interface VerifyEmailResult {
 	success: boolean;
@@ -42,14 +45,18 @@ export async function verifyEmailAndSetPassword(
 			};
 		}
 
-		// Find and verify the invitation token
-		const verificationToken = await db
+		const tenantId = await requireTenantId();
+		const tdb = await getTenantDb(tenantId);
+		const lowerEmail = email.toLowerCase();
+
+		// Find and verify the invitation token (tenant-scoped).
+		const verificationToken = await tdb
 			.select()
 			.from(verificationTokens)
 			.where(
 				and(
 					eq(verificationTokens.token, token),
-					eq(verificationTokens.identifier, email.toLowerCase()),
+					eq(verificationTokens.identifier, lowerEmail),
 				),
 			)
 			.limit(1);
@@ -64,7 +71,7 @@ export async function verifyEmailAndSetPassword(
 		const tokenData = verificationToken[0];
 
 		if (!tokenData?.expires || new Date() > tokenData.expires) {
-			await db
+			await tdb
 				.delete(verificationTokens)
 				.where(eq(verificationTokens.token, token));
 
@@ -75,20 +82,19 @@ export async function verifyEmailAndSetPassword(
 			};
 		}
 
-		// Find the user
-		const user = await db
+		// Find the user in control DB.
+		const user = await controlDb
 			.select()
-			.from(users)
-			.where(eq(users.email, email.toLowerCase()))
+			.from(controlUsers)
+			.where(eq(controlUsers.email, lowerEmail))
 			.limit(1);
 
-		if (user.length === 0) {
+		const userData = user[0];
+		if (!userData) {
 			return { success: false, error: "Benutzer nicht gefunden." };
 		}
 
-		const userData = user[0];
-
-		if (userData?.emailVerified) {
+		if (userData.emailVerified) {
 			return {
 				success: false,
 				error: "Diese E-Mail-Adresse wurde bereits verifiziert.",
@@ -98,47 +104,59 @@ export async function verifyEmailAndSetPassword(
 		const saltRounds = 12;
 		const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-		// Mark user as verified (boolean in Better Auth schema)
-		await db
-			.update(users)
-			.set({ emailVerified: true, updatedAt: new Date() })
-			.where(eq(users.id, userData?.id ?? ""));
+		// Mark user as verified.
+		const updatedAt = new Date();
+		await controlDb
+			.update(controlUsers)
+			.set({ emailVerified: true, updatedAt })
+			.where(eq(controlUsers.id, userData.id));
 
-		// Create or update the credential account with the password
-		const existingCredentialAccount = await db
+		// Propagate the verification flag to all tenant mirrors.
+		await mirrorUserToAllMemberTenants({
+			id: userData.id,
+			name: userData.name ?? null,
+			email: userData.email,
+			emailVerified: true,
+			image: userData.image ?? null,
+			createdAt: userData.createdAt,
+			updatedAt,
+		});
+
+		// Create or update the credential account (control DB).
+		const existingCredentialAccount = await controlDb
 			.select()
 			.from(accounts)
 			.where(
 				and(
-					eq(accounts.userId, userData?.id ?? ""),
+					eq(accounts.userId, userData.id),
 					eq(accounts.providerId, "credential"),
 				),
 			)
 			.limit(1);
 
 		if (existingCredentialAccount.length > 0) {
-			await db
+			await controlDb
 				.update(accounts)
 				.set({ password: hashedPassword, updatedAt: new Date() })
 				.where(
 					and(
-						eq(accounts.userId, userData?.id ?? ""),
+						eq(accounts.userId, userData.id),
 						eq(accounts.providerId, "credential"),
 					),
 				);
 		} else {
-			await db.insert(accounts).values({
-				accountId: email.toLowerCase(),
+			await controlDb.insert(accounts).values({
+				accountId: lowerEmail,
 				providerId: "credential",
-				userId: userData?.id ?? "",
+				userId: userData.id,
 				password: hashedPassword,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 			});
 		}
 
-		// Delete the invitation token
-		await db
+		// Delete the invitation token (tenant DB).
+		await tdb
 			.delete(verificationTokens)
 			.where(eq(verificationTokens.token, token));
 
@@ -156,10 +174,11 @@ export async function requestPasswordReset(
 	email: string,
 ): Promise<VerifyEmailResult> {
 	try {
-		const user = await db
+		const lowerEmail = email.toLowerCase();
+		const user = await controlDb
 			.select()
-			.from(users)
-			.where(eq(users.email, email.toLowerCase()))
+			.from(controlUsers)
+			.where(eq(controlUsers.email, lowerEmail))
 			.limit(1);
 
 		if (user.length === 0) {
@@ -179,12 +198,12 @@ export async function requestPasswordReset(
 		const token = crypto.randomBytes(32).toString("hex");
 		const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-		await db
+		await controlDb
 			.delete(passwordResetTokens)
-			.where(eq(passwordResetTokens.email, email.toLowerCase()));
+			.where(eq(passwordResetTokens.email, lowerEmail));
 
-		await db.insert(passwordResetTokens).values({
-			email: email.toLowerCase(),
+		await controlDb.insert(passwordResetTokens).values({
+			email: lowerEmail,
 			token,
 			expires,
 		});
@@ -220,7 +239,7 @@ export async function resetPassword(
 			};
 		}
 
-		const resetToken = await db
+		const resetToken = await controlDb
 			.select()
 			.from(passwordResetTokens)
 			.where(eq(passwordResetTokens.token, token))
@@ -236,60 +255,60 @@ export async function resetPassword(
 		const tokenData = resetToken[0];
 
 		if (!tokenData?.expires || new Date() > tokenData.expires) {
-			await db
+			await controlDb
 				.delete(passwordResetTokens)
 				.where(eq(passwordResetTokens.token, token));
 
 			return { success: false, error: "Der Reset-Link ist abgelaufen." };
 		}
 
-		const user = await db
+		const user = await controlDb
 			.select()
-			.from(users)
-			.where(eq(users.email, tokenData?.email ?? ""))
+			.from(controlUsers)
+			.where(eq(controlUsers.email, tokenData.email))
 			.limit(1);
 
-		if (user.length === 0) {
+		const userData = user[0];
+		if (!userData) {
 			return { success: false, error: "Benutzer nicht gefunden." };
 		}
 
 		const saltRounds = 12;
 		const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
 
-		// Update the credential account password (create if it doesn't exist)
-		const existingCredentialAccount = await db
+		const existingCredentialAccount = await controlDb
 			.select()
 			.from(accounts)
 			.where(
 				and(
-					eq(accounts.userId, user[0]?.id ?? ""),
+					eq(accounts.userId, userData.id),
 					eq(accounts.providerId, "credential"),
 				),
 			)
 			.limit(1);
 
 		if (existingCredentialAccount.length > 0) {
-			await db
+			await controlDb
 				.update(accounts)
 				.set({ password: hashedPassword, updatedAt: new Date() })
 				.where(
 					and(
-						eq(accounts.userId, user[0]?.id ?? ""),
+						eq(accounts.userId, userData.id),
 						eq(accounts.providerId, "credential"),
 					),
 				);
 		} else {
-			await db.insert(accounts).values({
-				accountId: tokenData?.email ?? "",
+			await controlDb.insert(accounts).values({
+				accountId: tokenData.email,
 				providerId: "credential",
-				userId: user[0]?.id ?? "",
+				userId: userData.id,
 				password: hashedPassword,
 				createdAt: new Date(),
 				updatedAt: new Date(),
 			});
 		}
 
-		await db
+		await controlDb
 			.delete(passwordResetTokens)
 			.where(eq(passwordResetTokens.token, token));
 

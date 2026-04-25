@@ -11,10 +11,11 @@ import { Label } from "~/components/ui/label";
 import { Separator } from "~/components/ui/separator";
 import {
 	changePasswordAction,
+	connectProviderAction,
 	disconnectProviderAction,
 	getConnectedAccountsAction,
 } from "~/server/actions/profile/auth";
-import { signIn, useSession } from "~/server/auth/client";
+import { authClient, useSession } from "~/server/auth/client";
 
 interface ConnectedAccount {
 	provider: string;
@@ -103,9 +104,21 @@ export function AccountSecurity() {
 						});
 					}
 				} else {
-					// Zu Anbieter-Login weiterleiten
-					await signIn.social({
-						provider: "microsoft",
+					// Resolve the per-tenant providerId server-side, then start
+					// the OAuth flow via Better Auth's generic OAuth endpoint.
+					const connectResult = await connectProviderAction(
+						providerName.toLowerCase(),
+					);
+					if (!connectResult.success || !connectResult.data) {
+						toast.error("Verknüpfen fehlgeschlagen", {
+							description:
+								connectResult.error ||
+								"Anbieter ist für diese Verbindung nicht verfügbar.",
+						});
+						return;
+					}
+					await authClient.signIn.oauth2({
+						providerId: connectResult.data.providerId,
 						callbackURL: window.location.pathname,
 					});
 				}

@@ -3,9 +3,15 @@
 
 import { and, eq, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { db } from "~/server/db/index";
+import { controlDb } from "~/server/db/control";
 import {
 	accounts,
+	users as controlUsers,
+	sessions,
+	tenantMemberships,
+} from "~/server/db/control-schema";
+import { db } from "~/server/db/index";
+import {
 	billPDFs,
 	bills,
 	games,
@@ -13,11 +19,11 @@ import {
 	inventories,
 	orders,
 	roles,
-	sessions,
 	userRoles,
 	userStats,
 	users,
 } from "~/server/db/schema";
+import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
 // Types for our data
 export type UserWithRoles = {
@@ -234,14 +240,37 @@ export async function toggleUserRole(
 }
 
 /**
- * Update a user's name and/or email
+ * Update a user's name and/or email. Writes the control-DB source of truth,
+ * then mirrors to all tenant DBs the user belongs to.
  */
 export async function updateUser(
 	userId: string,
 	data: { name?: string; email?: string },
 ): Promise<void> {
 	try {
-		await db.update(users).set(data).where(eq(users.id, userId));
+		const updatedAt = new Date();
+		await controlDb
+			.update(controlUsers)
+			.set({ ...data, updatedAt })
+			.where(eq(controlUsers.id, userId));
+
+		const [refreshed] = await controlDb
+			.select()
+			.from(controlUsers)
+			.where(eq(controlUsers.id, userId))
+			.limit(1);
+		if (refreshed) {
+			await mirrorUserToAllMemberTenants({
+				id: refreshed.id,
+				name: refreshed.name,
+				email: refreshed.email,
+				emailVerified: refreshed.emailVerified,
+				image: refreshed.image,
+				createdAt: refreshed.createdAt,
+				updatedAt: refreshed.updatedAt,
+			});
+		}
+
 		revalidatePath("/admin");
 	} catch (error) {
 		console.error("Failed to update user:", error);
@@ -331,12 +360,20 @@ export async function deleteUser(userId: string): Promise<void> {
 		// Delete user stats
 		await db.delete(userStats).where(eq(userStats.userId, userId));
 
-		// Delete auth data
-		await db.delete(sessions).where(eq(sessions.userId, userId));
-		await db.delete(accounts).where(eq(accounts.userId, userId));
-
-		// Delete the user — cascades: userRoles, userPreferences, userAchievements, achievementProgress
+		// Delete the tenant `users` mirror — cascades: userRoles,
+		// userPreferences, userAchievements, achievementProgress
 		await db.delete(users).where(eq(users.id, userId));
+
+		// Delete auth data + memberships + identity in the control DB.
+		// NOTE single-tenant for now: removing the user globally. When more than
+		// one tenant exists this should switch to "remove from this tenant only"
+		// (delete the membership row + tenant data, keep control identity).
+		await controlDb.delete(sessions).where(eq(sessions.userId, userId));
+		await controlDb.delete(accounts).where(eq(accounts.userId, userId));
+		await controlDb
+			.delete(tenantMemberships)
+			.where(eq(tenantMemberships.userId, userId));
+		await controlDb.delete(controlUsers).where(eq(controlUsers.id, userId));
 
 		revalidatePath("/admin");
 	} catch (error) {

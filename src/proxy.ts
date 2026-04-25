@@ -4,8 +4,12 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { betterAuthInstance } from "~/server/auth";
-import { db } from "~/server/db";
 import { roles, userRoles } from "~/server/db/schema";
+import { getTenantDb } from "~/server/db/tenants";
+import {
+	resolveTenantByHost,
+	TENANT_HEADER,
+} from "~/server/lib/tenant-context";
 
 // A simple list of the paths you want to remain public:
 const PUBLIC_PATHS = [
@@ -100,9 +104,11 @@ function getRequiredRoles(pathname: string): string[] | null {
 async function userHasRequiredRoles(
 	userId: string,
 	requiredRoles: string[],
+	tenantId: string,
 ): Promise<boolean> {
 	try {
-		const userRolesList = await db
+		const tdb = await getTenantDb(tenantId);
+		const userRolesList = await tdb
 			.select({ roleName: roles.name })
 			.from(userRoles)
 			.innerJoin(roles, eq(userRoles.roleId, roles.id))
@@ -116,8 +122,32 @@ async function userHasRequiredRoles(
 	}
 }
 
+function withTenantHeader(
+	response: NextResponse,
+	request: NextRequest,
+	tenantId: string,
+): NextResponse {
+	// Stamp on both: response so framework caches see it, request headers so
+	// downstream RSCs read it via next/headers in the same render pass.
+	response.headers.set(TENANT_HEADER, tenantId);
+	request.headers.set(TENANT_HEADER, tenantId);
+	return response;
+}
+
 export default async function middleware(request: NextRequest) {
 	const { pathname } = request.nextUrl;
+
+	// 0) Resolve tenant by host. Unknown host => render the not-found page.
+	//    Known host => stamp x-tenant-id header for downstream code.
+	const host = request.headers.get("host");
+	const tenantId = await resolveTenantByHost(host);
+	if (!tenantId) {
+		const notFoundUrl = request.nextUrl.clone();
+		notFoundUrl.pathname = "/tenant-not-found";
+		notFoundUrl.search = "";
+		return NextResponse.rewrite(notFoundUrl);
+	}
+	request.headers.set(TENANT_HEADER, tenantId);
 
 	// 1) Redirect to lowercase (skip case-sensitive API paths like calendar tokens)
 	const isCaseSensitiveApi = pathname
@@ -126,7 +156,11 @@ export default async function middleware(request: NextRequest) {
 	if (!isCaseSensitiveApi && pathname !== pathname.toLowerCase()) {
 		const lowercaseUrl = request.nextUrl.clone();
 		lowercaseUrl.pathname = pathname.toLowerCase();
-		return NextResponse.redirect(lowercaseUrl, { status: 301 });
+		return withTenantHeader(
+			NextResponse.redirect(lowercaseUrl, { status: 301 }),
+			request,
+			tenantId,
+		);
 	}
 
 	// 2) Redirect unknown paths instead of 404
@@ -137,12 +171,20 @@ export default async function middleware(request: NextRequest) {
 		const fallbackUrl = request.nextUrl.clone();
 		fallbackUrl.pathname = session?.user ? "/profile" : "/";
 		fallbackUrl.search = "";
-		return NextResponse.redirect(fallbackUrl, { status: 302 });
+		return withTenantHeader(
+			NextResponse.redirect(fallbackUrl, { status: 302 }),
+			request,
+			tenantId,
+		);
 	}
 
 	// 3) Allow public URLs
 	if (isPublic(pathname)) {
-		return NextResponse.next();
+		return withTenantHeader(
+			NextResponse.next({ request: { headers: request.headers } }),
+			request,
+			tenantId,
+		);
 	}
 
 	// 4) Check session via Better Auth
@@ -154,7 +196,11 @@ export default async function middleware(request: NextRequest) {
 		const signInUrl = request.nextUrl.clone();
 		signInUrl.pathname = "/auth/signin";
 		signInUrl.searchParams.set("callbackUrl", request.nextUrl.href);
-		return NextResponse.redirect(signInUrl);
+		return withTenantHeader(
+			NextResponse.redirect(signInUrl),
+			request,
+			tenantId,
+		);
 	}
 
 	// 5) Check role-protected paths
@@ -164,6 +210,7 @@ export default async function middleware(request: NextRequest) {
 		const hasRequiredRole = await userHasRequiredRoles(
 			session.user.id,
 			requiredRoles,
+			tenantId,
 		);
 
 		if (!hasRequiredRole) {
@@ -171,11 +218,19 @@ export default async function middleware(request: NextRequest) {
 			accessDeniedUrl.pathname = "/access-denied";
 			accessDeniedUrl.searchParams.set("required", requiredRoles.join(","));
 			accessDeniedUrl.searchParams.set("path", pathname);
-			return NextResponse.redirect(accessDeniedUrl);
+			return withTenantHeader(
+				NextResponse.redirect(accessDeniedUrl),
+				request,
+				tenantId,
+			);
 		}
 	}
 
-	return NextResponse.next();
+	return withTenantHeader(
+		NextResponse.next({ request: { headers: request.headers } }),
+		request,
+		tenantId,
+	);
 }
 
 export const config = {

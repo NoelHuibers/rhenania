@@ -21,9 +21,13 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { signIn } from "~/server/auth/client";
+import { authClient, signIn } from "~/server/auth/client";
 
-export default function SignInPage() {
+type SignInPageProps = {
+	microsoftProviderId: string | null;
+};
+
+export default function SignInPage({ microsoftProviderId }: SignInPageProps) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 
@@ -61,14 +65,13 @@ export default function SignInPage() {
 		router.push(callbackUrl);
 	};
 
-	const handleProviderSignIn = async (providerId: string) => {
+	const handleMicrosoftSignIn = async () => {
+		if (!microsoftProviderId) return;
 		setIsLoading(true);
-		if (providerId === "microsoft") {
-			await signIn.social({
-				provider: "microsoft",
-				callbackURL: callbackUrl,
-			});
-		}
+		await authClient.signIn.oauth2({
+			providerId: microsoftProviderId,
+			callbackURL: callbackUrl,
+		});
 		setIsLoading(false);
 	};
 
@@ -116,34 +119,41 @@ export default function SignInPage() {
 						</Alert>
 					)}
 
-					{/* Microsoft OAuth button */}
-					<Button
-						variant="outline"
-						onClick={() => handleProviderSignIn("microsoft")}
-						disabled={isLoading}
-						className="w-full"
-					>
-						<svg
-							className="mr-2 h-4 w-4"
-							viewBox="0 0 23 23"
-							aria-hidden="true"
-						>
-							<path fill="#f35325" d="M1 1h10v10H1z" />
-							<path fill="#81bc06" d="M12 1h10v10H12z" />
-							<path fill="#05a6f0" d="M1 12h10v10H1z" />
-							<path fill="#ffba08" d="M12 12h10v10H12z" />
-						</svg>
-						Mit Microsoft anmelden
-					</Button>
+					{/* Microsoft OAuth button — shown only if the current tenant has
+					    Microsoft enabled in tenantAuthConfig. */}
+					{microsoftProviderId && (
+						<>
+							<Button
+								variant="outline"
+								onClick={handleMicrosoftSignIn}
+								disabled={isLoading}
+								className="w-full"
+							>
+								<svg
+									className="mr-2 h-4 w-4"
+									viewBox="0 0 23 23"
+									aria-hidden="true"
+								>
+									<path fill="#f35325" d="M1 1h10v10H1z" />
+									<path fill="#81bc06" d="M12 1h10v10H12z" />
+									<path fill="#05a6f0" d="M1 12h10v10H1z" />
+									<path fill="#ffba08" d="M12 12h10v10H12z" />
+								</svg>
+								Mit Microsoft anmelden
+							</Button>
 
-					<div className="relative">
-						<div className="absolute inset-0 flex items-center">
-							<span className="w-full border-t" />
-						</div>
-						<div className="relative flex justify-center text-xs uppercase">
-							<span className="bg-white px-2 text-muted-foreground">oder</span>
-						</div>
-					</div>
+							<div className="relative">
+								<div className="absolute inset-0 flex items-center">
+									<span className="w-full border-t" />
+								</div>
+								<div className="relative flex justify-center text-xs uppercase">
+									<span className="bg-white px-2 text-muted-foreground">
+										oder
+									</span>
+								</div>
+							</div>
+						</>
+					)}
 
 					<form onSubmit={handleEmailSignIn} className="space-y-4">
 						<div className="space-y-2">
