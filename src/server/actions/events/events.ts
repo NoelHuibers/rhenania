@@ -5,14 +5,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { eventRsvps, events } from "~/server/db/schema";
 
-export type EventType =
-	| "Intern"
-	| "AHV"
-	| "oCC"
-	| "SC"
-	| "Jour Fix"
-	| "Stammtisch"
-	| "Sonstige";
+// Per-tenant configurable; valid values come from the tenant's
+// `event_type` table. Kept as `string` for type-level openness.
+export type EventType = string;
 
 export type EventInput = {
 	title: string;

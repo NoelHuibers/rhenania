@@ -11,7 +11,12 @@ import { LoadingSpinner } from "~/components/bilder/LoadingSpinner";
 import { UploadProgress } from "~/components/bilder/UploadProgress";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { useImageManager } from "~/hooks/useImageManager";
-import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
+
+// Local stricter type — this page hardcodes the four Rhenania sections.
+// The schema-level type is `string` for cross-tenant flexibility; this page
+// will be refactored to dynamic rendering in a later step.
+type HomepageSection = "header" | "aktive" | "haus" | "footer";
+
 import { ActionButtons } from "./ActionButtons";
 
 // Fallback component for suspense boundaries

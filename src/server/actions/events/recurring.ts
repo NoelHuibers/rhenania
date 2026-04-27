@@ -15,14 +15,8 @@ export type RecurringEventInput = {
 	title: string;
 	description?: string;
 	location?: string;
-	type:
-		| "Intern"
-		| "AHV"
-		| "oCC"
-		| "SC"
-		| "Jour Fix"
-		| "Stammtisch"
-		| "Sonstige";
+	// Per-tenant configurable; valid values come from the `event_type` table.
+	type: string;
 	recurrenceType: RecurrenceType;
 	dayOfWeek?: number;
 	time: string;

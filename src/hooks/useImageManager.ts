@@ -8,11 +8,15 @@ import { uploadHomepageImage, validateImageFile } from "~/lib/image-upload";
 import {
 	deleteHomepageImage,
 	getAllHomepageImages,
-	type HomepageSection,
 	saveHomepageImage,
 	toggleImageActive,
 	updateImageOrder,
 } from "~/server/actions/bilder/homepageImages";
+
+// Local stricter type — this hook hardcodes the four Rhenania sections.
+// The schema-level `HomepageSection` is `string` for cross-tenant flexibility;
+// this hook will be refactored to dynamic rendering in a later step.
+type HomepageSection = "header" | "aktive" | "haus" | "footer";
 
 export interface ImageManagerState {
 	images: Record<HomepageSection, ImageItem[]>;
@@ -82,8 +86,11 @@ export const useImageManager = () => {
 	}, []);
 
 	const handleFileSelect = useCallback(
-		async (files: FileList | null, section: HomepageSection) => {
+		async (files: FileList | null, sectionInput: string) => {
 			if (!files || files.length === 0) return;
+			// Hardcoded for Rhenania today; runtime sections always match the
+			// local literal type.
+			const section = sectionInput as HomepageSection;
 
 			setState((prev) => ({
 				...prev,

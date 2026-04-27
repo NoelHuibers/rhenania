@@ -9,16 +9,6 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
-// Inlined so drizzle-kit can parse the schema without resolving path aliases
-const KASSE_TYPES = [
-	"Getränkekasse",
-	"Aktivenkasse",
-	"CC-Kasse",
-	"Fuchsenkasse",
-	"AHV Kasse",
-	"Hausverein Kasse",
-] as const;
-
 export const createTable = sqliteTableCreator((name) => `rhenania_${name}`);
 
 // MIRROR of control-DB `users` (source of truth lives in control DB).
@@ -536,11 +526,10 @@ export const homepageImages = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
-		section: h
-			.text({
-				enum: ["header", "aktive", "haus", "footer"],
-			})
-			.notNull(),
+		// Logical reference to homepageSections.key — validation lives in the
+		// admin UI, not as a SQLite CHECK / FK (kept as plain text so per-tenant
+		// configurable section keys work without DDL changes).
+		section: h.text({ length: 100 }).notNull(),
 		imageUrl: h.text().notNull(),
 		imageName: h.text({ length: 255 }).notNull(),
 		fileSize: h.integer(),
@@ -807,20 +796,8 @@ export const recurringEvents = createTable(
 		title: d.text({ length: 255 }).notNull(),
 		description: d.text({ length: 1000 }),
 		location: d.text({ length: 255 }).default("adH Rhenania"),
-		type: d
-			.text({
-				enum: [
-					"Intern",
-					"AHV",
-					"oCC",
-					"SC",
-					"Jour Fix",
-					"Stammtisch",
-					"Sonstige",
-				],
-			})
-			.notNull()
-			.default("Sonstige"),
+		// Logical reference to eventTypes.key — see homepageSections comment.
+		type: d.text({ length: 100 }).notNull().default("Sonstige"),
 		// biweekly | monthly_1st_wednesday | monthly_1st_3rd_wednesday | occ_semester
 		recurrenceType: d
 			.text({
@@ -881,20 +858,8 @@ export const events = createTable(
 		date: d.integer({ mode: "timestamp" }).notNull(),
 		endDate: d.integer({ mode: "timestamp" }),
 		location: d.text({ length: 255 }),
-		type: d
-			.text({
-				enum: [
-					"Intern",
-					"AHV",
-					"oCC",
-					"SC",
-					"Jour Fix",
-					"Stammtisch",
-					"Sonstige",
-				],
-			})
-			.notNull()
-			.default("Sonstige"),
+		// Logical reference to eventTypes.key — see homepageSections comment.
+		type: d.text({ length: 100 }).notNull().default("Sonstige"),
 		isPublic: d.integer({ mode: "boolean" }).notNull().default(true),
 		isCancelled: d.integer({ mode: "boolean" }).notNull().default(false),
 		meetingUrl: d.text({ length: 2048 }),
@@ -1113,7 +1078,8 @@ export const kontos = createTable(
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => crypto.randomUUID()),
-		kasseType: d.text({ enum: KASSE_TYPES }).notNull(),
+		// Logical reference to kasseTypes.key — see homepageSections comment.
+		kasseType: d.text({ length: 100 }).notNull(),
 		iban: d.text({ length: 50 }).notNull(),
 		bic: d.text({ length: 20 }).notNull(),
 		bankName: d.text({ length: 255 }).notNull(),
@@ -1126,4 +1092,72 @@ export const kontos = createTable(
 		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
 	}),
 	(t) => [index("konto_type_idx").on(t.kasseType)],
+);
+
+// ─── Per-tenant configurable enums ────────────────────────────────────────────
+//
+// These tables replace the hard-coded SQLite text-enum constraints that were
+// previously baked into kontos.kasseType, events.type, recurringEvents.type,
+// and homepageImages.section. Each tenant now defines its own valid keys so
+// non-Rhenania Corps can rename, add, or remove categories without code
+// changes. `key` is the value stored in the referencing column.
+
+export const kasseTypes = createTable(
+	"kasse_type",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		key: d.text({ length: 100 }).notNull().unique(),
+		label: d.text({ length: 255 }).notNull(),
+		displayOrder: d.integer().notNull().default(0),
+		isActive: d.integer({ mode: "boolean" }).notNull().default(true),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	}),
+	(t) => [index("kasse_type_active_idx").on(t.isActive)],
+);
+
+export const eventTypes = createTable(
+	"event_type",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		key: d.text({ length: 100 }).notNull().unique(),
+		label: d.text({ length: 255 }).notNull(),
+		displayOrder: d.integer().notNull().default(0),
+		isActive: d.integer({ mode: "boolean" }).notNull().default(true),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	}),
+	(t) => [index("event_type_active_idx").on(t.isActive)],
+);
+
+export const homepageSections = createTable(
+	"homepage_section",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		key: d.text({ length: 100 }).notNull().unique(),
+		label: d.text({ length: 255 }).notNull(),
+		displayOrder: d.integer().notNull().default(0),
+		isActive: d.integer({ mode: "boolean" }).notNull().default(true),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	}),
+	(t) => [index("homepage_section_active_idx").on(t.isActive)],
 );

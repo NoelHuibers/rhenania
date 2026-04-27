@@ -28,7 +28,13 @@ import {
 const apply = process.argv.includes("--apply");
 
 type Plan =
-	| { kind: "rename"; accountId: string; userId: string; from: string; to: string }
+	| {
+			kind: "rename";
+			accountId: string;
+			userId: string;
+			from: string;
+			to: string;
+	  }
 	| { kind: "skip"; accountId: string; userId: string; reason: string };
 
 async function buildPlan(): Promise<Plan[]> {
@@ -108,23 +114,23 @@ async function main() {
 	const plan = await buildPlan();
 
 	if (plan.length === 0) {
-		console.log(
-			"No legacy 'microsoft' accounts found — nothing to do.",
-		);
+		console.log("No legacy 'microsoft' accounts found — nothing to do.");
 		process.exit(0);
 	}
 
 	const renames = plan.filter((p) => p.kind === "rename");
 	const skips = plan.filter((p) => p.kind === "skip");
 
-	console.log(
-		`Plan: ${renames.length} rename(s), ${skips.length} skip(s).`,
-	);
+	console.log(`Plan: ${renames.length} rename(s), ${skips.length} skip(s).`);
 	for (const r of renames) {
-		console.log(`  → rename account ${r.accountId} (user ${r.userId}): ${r.from} → ${r.to}`);
+		console.log(
+			`  → rename account ${r.accountId} (user ${r.userId}): ${r.from} → ${r.to}`,
+		);
 	}
 	for (const s of skips) {
-		console.log(`  ⚠ skip account ${s.accountId} (user ${s.userId}): ${s.reason}`);
+		console.log(
+			`  ⚠ skip account ${s.accountId} (user ${s.userId}): ${s.reason}`,
+		);
 	}
 
 	if (!apply) {
@@ -141,9 +147,7 @@ async function main() {
 
 	console.log(`\n✅ Applied ${renames.length} rename(s).`);
 	if (skips.length > 0) {
-		console.log(
-			`${skips.length} row(s) require manual review (see above).`,
-		);
+		console.log(`${skips.length} row(s) require manual review (see above).`);
 	}
 	process.exit(0);
 }

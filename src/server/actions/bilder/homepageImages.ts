@@ -8,7 +8,9 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { homepageImages } from "~/server/db/schema";
 
-export type HomepageSection = "header" | "aktive" | "haus" | "footer";
+// Per-tenant configurable; valid values come from the tenant's
+// `homepage_section` table. Kept as `string` for type-level openness.
+export type HomepageSection = string;
 
 interface SaveHomepageImageData {
 	section: HomepageSection;
@@ -143,10 +145,9 @@ export async function getAllHomepageImages() {
 
 		const grouped = images.reduce(
 			(acc, img) => {
-				if (!acc[img.section]) {
-					acc[img.section] = [];
-				}
-				acc[img.section].push(img);
+				const list = acc[img.section] ?? [];
+				list.push(img);
+				acc[img.section] = list;
 				return acc;
 			},
 			{} as Record<HomepageSection, typeof images>,

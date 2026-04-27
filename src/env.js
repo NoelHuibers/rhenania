@@ -24,6 +24,9 @@ export const env = createEnv({
 		DATABASE_AUTH_TOKEN: z.string().optional(),
 		CONTROL_DATABASE_URL: z.string().url(),
 		CONTROL_DATABASE_AUTH_TOKEN: z.string().optional(),
+		TURSO_PLATFORM_TOKEN: z.string().optional(),
+		TURSO_ORG_SLUG: z.string().optional(),
+		TURSO_GROUP: z.string().default("corps"),
 		VERCEL_BLOB_STORAGE_URL: z.string().url().optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
@@ -54,6 +57,9 @@ export const env = createEnv({
 		DATABASE_AUTH_TOKEN: process.env.DATABASE_AUTH_TOKEN,
 		CONTROL_DATABASE_URL: process.env.CONTROL_DATABASE_URL,
 		CONTROL_DATABASE_AUTH_TOKEN: process.env.CONTROL_DATABASE_AUTH_TOKEN,
+		TURSO_PLATFORM_TOKEN: process.env.TURSO_PLATFORM_TOKEN,
+		TURSO_ORG_SLUG: process.env.TURSO_ORG_SLUG,
+		TURSO_GROUP: process.env.TURSO_GROUP,
 		VERCEL_BLOB_STORAGE_URL: process.env.VERCEL_BLOB_STORAGE_URL,
 		NODE_ENV: process.env.NODE_ENV,
 	},

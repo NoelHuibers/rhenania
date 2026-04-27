@@ -15,6 +15,13 @@
 			"when": 1777129495174,
 			"tag": "0001_clean_kabuki",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1777212750626,
+			"tag": "0002_aromatic_mister_sinister",
+			"breakpoints": true
 		}
 	]
 }

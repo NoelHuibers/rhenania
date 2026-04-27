@@ -48,6 +48,8 @@ const VALID_PATHS = [
 	"/getraenkewart",
 	"/semesterprogramm",
 	"/konten",
+	"/superadmin",
+	"/superadmin/(.*)",
 ];
 
 function isValidPath(pathname: string) {

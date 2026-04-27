@@ -49,14 +49,8 @@ import {
 import type { Venue } from "~/server/actions/venues";
 import { LocationCombobox } from "./LocationCombobox";
 
-type EventType =
-	| "Intern"
-	| "AHV"
-	| "oCC"
-	| "SC"
-	| "Jour Fix"
-	| "Stammtisch"
-	| "Sonstige";
+// Per-tenant configurable; valid values come from the `event_type` table.
+type EventType = string;
 
 type RecurringEvent = {
 	id: string;
