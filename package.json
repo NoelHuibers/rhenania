@@ -23,6 +23,7 @@
 		"db:control:seed": "tsx scripts/seed-control.ts",
 		"db:migrate-identity": "tsx scripts/migrate-identity.ts",
 		"db:apply-tenant-drop": "tsx scripts/apply-tenant-drop.ts",
+		"db:apply-prefix-rename": "tsx scripts/apply-prefix-rename.ts",
 		"grant-superadmin": "tsx scripts/grant-superadmin.ts",
 		"db:rename-microsoft-accounts": "tsx scripts/rename-microsoft-accounts.ts",
 		"db:backfill-tenant-config": "tsx scripts/backfill-tenant-config.ts",

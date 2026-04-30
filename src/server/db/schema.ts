@@ -9,7 +9,10 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
-export const createTable = sqliteTableCreator((name) => `rhenania_${name}`);
+// No prefix — each tenant has its own DB so per-tenant namespacing is
+// implicit. The legacy `rhenania_` prefix on the existing tenant DB is
+// stripped by `scripts/apply-prefix-rename.ts`.
+export const createTable = sqliteTableCreator((name) => name);
 
 // MIRROR of control-DB `users` (source of truth lives in control DB).
 // Kept here so tenant-DB joins on user keep working. Sync is driven by
