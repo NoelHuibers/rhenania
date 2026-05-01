@@ -1,4 +1,5 @@
 import { getUserProfile } from "~/server/actions/profile/profile";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 import { AppSidebarClient } from "./AppSidebarClient";
 
 export interface AppSidebarProps {
@@ -6,7 +7,10 @@ export interface AppSidebarProps {
 }
 
 export async function AppSidebar({ className }: AppSidebarProps) {
-	const userData = await getUserProfile();
+	const [userData, tenant] = await Promise.all([
+		getUserProfile(),
+		getCurrentTenant(),
+	]);
 
 	const safeUserData = {
 		name: userData?.name ?? null,
@@ -15,5 +19,11 @@ export async function AppSidebar({ className }: AppSidebarProps) {
 		roles: Array.isArray(userData?.roles) ? userData?.roles : [],
 	};
 
-	return <AppSidebarClient className={className} userData={safeUserData} />;
+	return (
+		<AppSidebarClient
+			className={className}
+			userData={safeUserData}
+			tenantName={tenant?.displayName ?? "Corps"}
+		/>
+	);
 }

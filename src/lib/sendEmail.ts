@@ -1,8 +1,12 @@
 "use server";
 import nodemailer from "nodemailer";
 import { env } from "~/env";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 export async function sendEmail(name: string, email: string, message: string) {
+	const tenant = await getCurrentTenant();
+	const tenantLabel = tenant?.displayName ?? "Corps";
+
 	const transporter = nodemailer.createTransport({
 		service: "gmail",
 		auth: {
@@ -14,7 +18,7 @@ export async function sendEmail(name: string, email: string, message: string) {
 	const mailOptions = {
 		from: env.GMAIL,
 		to: env.TOMAIL,
-		subject: "Email von Rhenania-stuttgart.de",
+		subject: `Email von ${tenantLabel}`,
 		text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
 	};
 

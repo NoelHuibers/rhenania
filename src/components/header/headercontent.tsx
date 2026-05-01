@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { FaWikipediaW } from "react-icons/fa6";
 import { IoLogoInstagram, IoMailOutline } from "react-icons/io5";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 
-const HeaderContent = () => {
+// Social links and email below are still Rhenania-hardcoded — they need a
+// per-tenant `branding` config (instagram URL, wikipedia URL, contact email)
+// before non-Rhenania tenants ship a public site. Tracked as MVP follow-up.
+const HeaderContent = async () => {
+	const tenant = await getCurrentTenant();
+	const name = tenant?.displayName ?? "Corps";
+
 	return (
 		<>
 			<Link className="items-cente flex" href="/">
-				{/* <Image
-          src="/zirkel.svg"
-          alt="Corps Rhenania Stuttgart Zirkel"
-          width={25}
-          height={25}
-        /> */}
-				Rhenania Stuttgart
+				{name}
 			</Link>
 			<div className="flex items-center space-x-4">
 				<Link

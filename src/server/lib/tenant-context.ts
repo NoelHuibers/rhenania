@@ -12,7 +12,11 @@ import { eq } from "drizzle-orm";
 import { headers } from "next/headers";
 
 import { controlDb } from "~/server/db/control";
-import { tenantDomains, tenants } from "~/server/db/control-schema";
+import {
+	type TenantBranding,
+	tenantDomains,
+	tenants,
+} from "~/server/db/control-schema";
 
 export const TENANT_HEADER = "x-tenant-id";
 
@@ -65,4 +69,62 @@ export async function requireTenantId(): Promise<string> {
 		);
 	}
 	return tenantId;
+}
+
+export type TenantContext = {
+	id: string;
+	slug: string;
+	displayName: string;
+	branding: TenantBranding | null;
+};
+
+const tenantByIdCache = new Map<
+	string,
+	{ value: TenantContext; expiresAt: number }
+>();
+const TENANT_CACHE_TTL_MS = 60_000;
+
+export async function getTenantById(id: string): Promise<TenantContext | null> {
+	const cached = tenantByIdCache.get(id);
+	if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+	const [row] = await controlDb
+		.select({
+			id: tenants.id,
+			slug: tenants.slug,
+			displayName: tenants.displayName,
+			branding: tenants.branding,
+		})
+		.from(tenants)
+		.where(eq(tenants.id, id))
+		.limit(1);
+
+	if (!row) return null;
+	const value: TenantContext = {
+		id: row.id,
+		slug: row.slug,
+		displayName: row.displayName,
+		branding: row.branding ?? null,
+	};
+	tenantByIdCache.set(id, {
+		value,
+		expiresAt: Date.now() + TENANT_CACHE_TTL_MS,
+	});
+	return value;
+}
+
+export async function getCurrentTenant(): Promise<TenantContext | null> {
+	const id = await getTenantId();
+	if (!id) return null;
+	return getTenantById(id);
+}
+
+export async function requireCurrentTenant(): Promise<TenantContext> {
+	const tenant = await getCurrentTenant();
+	if (!tenant) {
+		throw new Error(
+			"No tenant in request context. Did the request bypass middleware?",
+		);
+	}
+	return tenant;
 }

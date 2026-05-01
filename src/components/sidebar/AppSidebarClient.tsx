@@ -120,6 +120,7 @@ const navGroups: NavGroup[] = [
 
 export type AppSidebarClientProps = {
 	className?: string;
+	tenantName: string;
 	userData: {
 		name: string | null;
 		email: string | null;
@@ -141,6 +142,7 @@ function initials(name?: string | null) {
 export function AppSidebarClient({
 	className,
 	userData,
+	tenantName,
 }: AppSidebarClientProps) {
 	const userRoles = userData?.roles ?? [];
 	const { badgeCount, notificationsEnabled } = useChallengeBadge();
@@ -178,7 +180,7 @@ export function AppSidebarClient({
 						<House className="size-4" />
 					</div>
 					<div className="grid flex-1 text-left text-sm leading-tight">
-						<span className="truncate font-semibold">Rhenania</span>
+						<span className="truncate font-semibold">{tenantName}</span>
 						<span className="truncate text-xs">Intranet</span>
 					</div>
 				</div>

@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills } from "~/server/db/schema";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 interface UserBillData {
 	bill: {
@@ -38,8 +39,26 @@ interface PDFGenerationResult {
 	error?: string;
 }
 
-// Configuration constants
-const SENDER_INFO = {
+type SenderInfo = {
+	name: string;
+	street: string;
+	city: string;
+	location: string;
+	iban: string;
+	accountHolder: string;
+	paypalBaseUrl: string;
+	website: string;
+	paymentDueDays: number;
+	lateFeePercent: number;
+	lateFeeMinAmount: number;
+};
+
+// Default sender configuration. The tenant-configurable fields (paypalBaseUrl,
+// website) are overridden per-tenant from `tenants.branding`. The treasurer-
+// specific fields (name/street/city/iban/accountHolder) are not yet tenant-
+// configurable — they need their own per-tenant treasurer-config table before
+// non-Rhenania tenants can ship bills. Tracked as MVP follow-up.
+const DEFAULT_SENDER_INFO: SenderInfo = {
 	name: "Noel Huibers",
 	street: "Unterbibergerstraße 72",
 	city: "81737 München",
@@ -110,8 +129,17 @@ export async function generateUserBillPDF(
 			umlage,
 		};
 
-		// 6. Generate PDF content
-		const pdfBuffer = await generatePDFContent(billData);
+		// 6. Resolve tenant-specific overrides (paypal URL, website).
+		const tenant = await getCurrentTenant();
+		const senderInfo: SenderInfo = {
+			...DEFAULT_SENDER_INFO,
+			paypalBaseUrl:
+				tenant?.branding?.paypalUrl ?? DEFAULT_SENDER_INFO.paypalBaseUrl,
+			website: tenant?.branding?.billingWebsite ?? DEFAULT_SENDER_INFO.website,
+		};
+
+		// 7. Generate PDF content
+		const pdfBuffer = await generatePDFContent(billData, senderInfo);
 
 		// 7. Create filename
 		const fileName = `Rechnung_${
@@ -136,7 +164,10 @@ export async function generateUserBillPDF(
 /**
  * Generates the actual PDF content
  */
-async function generatePDFContent(data: UserBillData): Promise<Buffer> {
+async function generatePDFContent(
+	data: UserBillData,
+	senderInfo: SenderInfo,
+): Promise<Buffer> {
 	const doc = new jsPDF({
 		orientation: "portrait",
 		unit: "mm",
@@ -150,12 +181,12 @@ async function generatePDFContent(data: UserBillData): Promise<Buffer> {
 	doc.setFontSize(12);
 
 	// Sender address (top left)
-	doc.text(SENDER_INFO.name, 20, 20);
-	doc.text(SENDER_INFO.street, 20, 27);
-	doc.text(SENDER_INFO.city, 20, 34);
+	doc.text(senderInfo.name, 20, 20);
+	doc.text(senderInfo.street, 20, 27);
+	doc.text(senderInfo.city, 20, 34);
 
 	// Date and location (right aligned)
-	const dateStr = `${SENDER_INFO.location} den ${formatDate(
+	const dateStr = `${senderInfo.location} den ${formatDate(
 		data.billPeriod.createdAt,
 	)}`;
 	doc.text(dateStr, 20, 50);
@@ -179,8 +210,8 @@ async function generatePDFContent(data: UserBillData): Promise<Buffer> {
 
 	// Payment instructions
 	const paymentText = [
-		`Bitte überweise mir den Betrag mit dem Paypal-Link oder auf das genannte Konto innerhalb von ${SENDER_INFO.paymentDueDays}`,
-		`Tagen. Ansonsten gibt es, ab ${SENDER_INFO.lateFeeMinAmount}€ Rechnungsbetrag, eine Mahnung in Höhe von ${SENDER_INFO.lateFeePercent}% auf die nächste`,
+		`Bitte überweise mir den Betrag mit dem Paypal-Link oder auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`,
+		`Tagen. Ansonsten gibt es, ab ${senderInfo.lateFeeMinAmount}€ Rechnungsbetrag, eine Mahnung in Höhe von ${senderInfo.lateFeePercent}% auf die nächste`,
 		"Rechnung.",
 	];
 
@@ -193,19 +224,19 @@ async function generatePDFContent(data: UserBillData): Promise<Buffer> {
 	yPos += 10;
 	doc.text("Mit freundlichen Grüßen,", 20, yPos);
 	yPos += 10;
-	doc.text(SENDER_INFO.accountHolder, 20, yPos);
+	doc.text(senderInfo.accountHolder, 20, yPos);
 
 	// Payment details at bottom of first page
 	yPos = 250;
-	const paypalLink = `${SENDER_INFO.paypalBaseUrl}${formatPayPalAmount(
+	const paypalLink = `${senderInfo.paypalBaseUrl}${formatPayPalAmount(
 		data.bill.total,
 	)}`;
 	doc.setFontSize(11);
 	doc.text(paypalLink, 20, yPos);
 	yPos += 7;
-	doc.text(SENDER_INFO.iban, 20, yPos);
+	doc.text(senderInfo.iban, 20, yPos);
 	yPos += 7;
-	doc.text(SENDER_INFO.accountHolder, 20, yPos);
+	doc.text(senderInfo.accountHolder, 20, yPos);
 
 	// ========== PAGE 2: Invoice Details ==========
 	doc.addPage();
@@ -301,12 +332,12 @@ async function generatePDFContent(data: UserBillData): Promise<Buffer> {
 	doc.setFontSize(11);
 	doc.setFont("helvetica", "normal");
 
-	const paypalLinkFooter = `${SENDER_INFO.paypalBaseUrl}${formatPayPalAmount(
+	const paypalLinkFooter = `${senderInfo.paypalBaseUrl}${formatPayPalAmount(
 		data.bill.total,
 	)}`;
 	doc.text(paypalLinkFooter, 105, footerY, { align: "center" });
-	doc.text(SENDER_INFO.iban, 105, footerY + 7, { align: "center" });
-	doc.text(SENDER_INFO.accountHolder, 105, footerY + 14, { align: "center" });
+	doc.text(senderInfo.iban, 105, footerY + 7, { align: "center" });
+	doc.text(senderInfo.accountHolder, 105, footerY + 14, { align: "center" });
 
 	// Convert to buffer
 	const pdfBuffer = Buffer.from(doc.output("arraybuffer"));

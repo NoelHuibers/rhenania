@@ -2,6 +2,7 @@
 "use server";
 import nodemailer from "nodemailer";
 import { env } from "~/env";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 // Configure your email transporter using your existing Gmail setup
 const transporter = nodemailer.createTransport({
@@ -119,6 +120,8 @@ export async function sendBillNotificationEmail(
 ): Promise<void> {
 	try {
 		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
+		const tenant = await getCurrentTenant();
+		const tenantLabel = tenant?.displayName ?? "Corps";
 
 		const mailOptions = {
 			from: env.GMAIL,
@@ -135,7 +138,7 @@ Gesamtbetrag: ${formattedTotal}
 Bitte überweise den Betrag innerhalb von 14 Tagen.
 
 Mit freundlichen Grüßen,
-Corps Rhenania Stuttgart
+${tenantLabel}
       `,
 			html: `
         <!DOCTYPE html>
@@ -157,7 +160,7 @@ Corps Rhenania Stuttgart
           <body>
             <div class="container">
               <div class="header">
-                <h1>Corps Rhenania Stuttgart</h1>
+                <h1>${tenantLabel}</h1>
               </div>
               <div class="content">
                 <h2>Hallo ${userName},</h2>
@@ -171,7 +174,7 @@ Corps Rhenania Stuttgart
                 </div>
                 <p>Bitte überweise den Betrag innerhalb von <strong>14 Tagen</strong>.</p>
                 <p>Falls du Fragen zu deiner Rechnung hast, wende dich an den Getränkewart.</p>
-                <p>Mit freundlichen Grüßen <br><strong>Corps Rhenania Stuttgart</strong></p>
+                <p>Mit freundlichen Grüßen <br><strong>${tenantLabel}</strong></p>
               </div>
               <div class="footer">
                 <p>Diese E-Mail wurde automatisch generiert. Bitte antworte nicht auf diese E-Mail.</p>

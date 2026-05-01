@@ -17,6 +17,13 @@ export const createControlTable = sqliteTableCreator(
 	(name) => `control_${name}`,
 );
 
+export type TenantBranding = {
+	// Used in bill PDFs / payment instructions.
+	paypalUrl?: string;
+	billingWebsite?: string;
+	// Future: logo URL, primary color, contact email, social links.
+};
+
 export const tenants = createControlTable("tenant", (d) => ({
 	id: d
 		.text({ length: 255 })
@@ -31,6 +38,7 @@ export const tenants = createControlTable("tenant", (d) => ({
 		.default("active"),
 	dbUrl: d.text().notNull(),
 	dbAuthToken: d.text(),
+	branding: d.text({ mode: "json" }).$type<TenantBranding>(),
 	createdAt: d
 		.integer({ mode: "timestamp" })
 		.notNull()
