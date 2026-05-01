@@ -11,6 +11,7 @@ import {
 	ReceiptEuro,
 	ReceiptText,
 	Settings,
+	Swords,
 	Trophy,
 	Truck,
 	User as UserIcon,
@@ -84,6 +85,12 @@ const navGroups: NavGroup[] = [
 			},
 			{ title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
 			{ title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
+			{
+				title: "Herausforderungen",
+				href: "/eloranking/challenges",
+				icon: Swords,
+				roles: [],
+			},
 		],
 	},
 	{
@@ -195,7 +202,8 @@ export function AppSidebarClient({
 								{group.items.map((item) => {
 									const Icon = item.icon;
 									const showBadge =
-										item.href === "/eloranking" && showChallengeBadge;
+										item.href === "/eloranking/challenges" &&
+										showChallengeBadge;
 									return (
 										<SidebarMenuItem key={item.href}>
 											<SidebarMenuButton asChild>
