@@ -39,6 +39,7 @@ const VALID_PATHS = [
 	"/bestellungen",
 	"/bilder",
 	"/eloranking",
+	"/eloranking/(.*)",
 	"/rechnungen",
 	"/trinken",
 	"/leaderboard",

@@ -1,21 +1,22 @@
 {
-	"permissions": {
-		"allow": [
-			"Bash(pnpm add:*)",
-			"Bash(pnpm biome:*)",
-			"Bash(pnpm lint:*)",
-			"Bash(pnpm remove:*)",
-			"Bash(pnpm tsx:*)",
-			"Bash(pnpm db:push)",
-			"Bash(pnpm drizzle-kit:*)",
-			"Bash(pnpm check:*)",
-			"Bash(pnpm dlx:*)",
-			"Bash(grep -E \"^.*\\\\.\\(tsx|ts\\).*$\")",
-			"Bash(pnpm check:write)",
-			"Bash(pnpm db:generate)",
-			"Bash(pnpm typecheck *)",
-			"Bash(pnpm format:write)",
-			"Bash(pnpm db:control:generate)"
-		]
-	}
+  "permissions": {
+    "allow": [
+      "Bash(pnpm add:*)",
+      "Bash(pnpm biome:*)",
+      "Bash(pnpm lint:*)",
+      "Bash(pnpm remove:*)",
+      "Bash(pnpm tsx:*)",
+      "Bash(pnpm db:push)",
+      "Bash(pnpm drizzle-kit:*)",
+      "Bash(pnpm check:*)",
+      "Bash(pnpm dlx:*)",
+      "Bash(grep -E \"^.*\\\\.\\(tsx|ts\\).*$\")",
+      "Bash(pnpm check:write)",
+      "Bash(pnpm db:generate)",
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm format:write)",
+      "Bash(pnpm db:control:generate)",
+      "Bash(pnpm tsc *)"
+    ]
+  }
 }
