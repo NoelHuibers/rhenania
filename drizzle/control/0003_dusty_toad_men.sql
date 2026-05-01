@@ -1,0 +1,1 @@
+ALTER TABLE `control_tenant` ADD `branding` text;
