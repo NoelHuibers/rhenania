@@ -1,6 +1,4 @@
 import { Suspense } from "react";
-import { ExternLeaderboard } from "~/components/eloranking/ExternLeaderboard";
-import { LeaderboardTabs } from "~/components/eloranking/LeaderboardTabs";
 import { LeaderboardSection } from "~/components/eloranking/leaderboard-section";
 import { NewChallengeButton } from "~/components/eloranking/NewChallengeButton";
 import { RecentGamesSection } from "~/components/eloranking/RecentGamesSection";
@@ -25,30 +23,15 @@ export default function HomePage() {
 						<StatsOverview />
 					</Suspense>
 
-					<LeaderboardTabs
-						global={
-							<Suspense
-								fallback={
-									<div className="rounded-md border p-6 text-center text-muted-foreground text-sm">
-										Lade globale Rangliste…
-									</div>
-								}
-							>
-								<ExternLeaderboard />
-							</Suspense>
+					<Suspense
+						fallback={
+							<div className="rounded-md border p-6 text-center text-muted-foreground text-sm">
+								Lade Rangliste…
+							</div>
 						}
-						internal={
-							<Suspense
-								fallback={
-									<div className="rounded-md border p-6 text-center text-muted-foreground text-sm">
-										Lade interne Rangliste…
-									</div>
-								}
-							>
-								<LeaderboardSection />
-							</Suspense>
-						}
-					/>
+					>
+						<LeaderboardSection />
+					</Suspense>
 
 					<Suspense fallback={null}>
 						<RecentGamesSection />
