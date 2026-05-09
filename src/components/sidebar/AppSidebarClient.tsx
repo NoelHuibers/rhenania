@@ -87,7 +87,7 @@ const navGroups: NavGroup[] = [
 			{ title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
 			{
 				title: "Herausforderungen",
-				href: "/eloranking/challenges",
+				href: "/challenges",
 				icon: Swords,
 				roles: [],
 			},
@@ -202,8 +202,7 @@ export function AppSidebarClient({
 								{group.items.map((item) => {
 									const Icon = item.icon;
 									const showBadge =
-										item.href === "/eloranking/challenges" &&
-										showChallengeBadge;
+										item.href === "/challenges" && showChallengeBadge;
 									return (
 										<SidebarMenuItem key={item.href}>
 											<SidebarMenuButton asChild>

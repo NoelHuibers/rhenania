@@ -13,6 +13,7 @@ import {
 	userStats,
 	users,
 } from "~/server/db/control-schema";
+import { getTenantId } from "~/server/lib/tenant-context";
 
 export type ChallengeableTenant = {
 	id: string;
@@ -92,27 +93,18 @@ export async function getGlobalPeakEloHolder(): Promise<GlobalPeakHolder | null>
 }
 
 /**
- * Active tenants the current user can challenge — i.e. every active tenant
- * other than their own.
+ * Active tenants the current user can challenge — every active tenant
+ * other than the one whose subdomain the user is currently logged into.
+ * Multi-corps users (e.g. superadmins who belong to several Corps) can
+ * still pick any of their other Corps as a target.
  */
 export async function listChallengeableTenants(): Promise<
 	ChallengeableTenant[]
 > {
 	const session = await auth();
 	if (!session?.user?.id) return [];
-	const userId = session.user.id;
 
-	// Tenants the user already belongs to (excluded from "other Corps").
-	const myMemberships = await controlDb
-		.select({ tenantId: tenantMemberships.tenantId })
-		.from(tenantMemberships)
-		.where(
-			and(
-				eq(tenantMemberships.userId, userId),
-				eq(tenantMemberships.status, "active"),
-			),
-		);
-	const myTenantIds = new Set(myMemberships.map((m) => m.tenantId));
+	const currentTenantId = await getTenantId();
 
 	const allActive = await controlDb
 		.select({
@@ -123,7 +115,9 @@ export async function listChallengeableTenants(): Promise<
 		.from(tenants)
 		.where(eq(tenants.status, "active"));
 
-	const others = allActive.filter((t) => !myTenantIds.has(t.id));
+	const others = currentTenantId
+		? allActive.filter((t) => t.id !== currentTenantId)
+		: allActive;
 	if (others.length === 0) return [];
 
 	const counts = await controlDb

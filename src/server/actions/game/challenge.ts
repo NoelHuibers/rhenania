@@ -168,7 +168,7 @@ export async function createChallenge(input: {
 		.returning({ id: challenges.id });
 
 	revalidatePath("/eloranking");
-	revalidatePath("/eloranking/challenges");
+	revalidatePath("/challenges");
 
 	return { success: true, challengeId: row?.id };
 }
@@ -224,7 +224,7 @@ export async function respondToChallenge(input: {
 	}
 
 	revalidatePath("/eloranking");
-	revalidatePath("/eloranking/challenges");
+	revalidatePath("/challenges");
 	return { success: true };
 }
 
@@ -262,7 +262,7 @@ export async function cancelChallenge(
 		.where(eq(challenges.id, challengeId));
 
 	revalidatePath("/eloranking");
-	revalidatePath("/eloranking/challenges");
+	revalidatePath("/challenges");
 	return { success: true };
 }
 
@@ -310,7 +310,7 @@ export async function proposeResult(input: {
 		.where(eq(challenges.id, row.id));
 
 	revalidatePath("/eloranking");
-	revalidatePath("/eloranking/challenges");
+	revalidatePath("/challenges");
 	return { success: true };
 }
 
@@ -387,7 +387,7 @@ export async function disputeResult(
 		.where(eq(challenges.id, challengeId));
 
 	revalidatePath("/eloranking");
-	revalidatePath("/eloranking/challenges");
+	revalidatePath("/challenges");
 	return { success: true };
 }
 
@@ -540,7 +540,7 @@ async function settleChallenge(
 	]);
 
 	revalidatePath("/eloranking");
-	revalidatePath("/eloranking/challenges");
+	revalidatePath("/challenges");
 	revalidatePath("/rechnung");
 
 	return { success: true, gameId: newGame.id };
