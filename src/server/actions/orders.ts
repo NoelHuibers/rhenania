@@ -4,7 +4,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth"; // Import your NextAuth auth function
-import { db } from "~/server/db";
+import { getCurrentTenantDb } from "~/server/db/tenants";
 import { orders } from "~/server/db/schema";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
 import { hasRole } from "./admin/userRoles";
@@ -31,6 +31,7 @@ export async function createOrder(
 	orderData: CreateOrderRequest,
 ): Promise<OrderResult> {
 	try {
+		const db = await getCurrentTenantDb();
 		const session = await auth();
 
 		if (!session?.user?.id) {
@@ -144,6 +145,7 @@ export async function createOrder(
 
 export async function getUserOrders() {
 	try {
+		const db = await getCurrentTenantDb();
 		const session = await auth();
 
 		if (!session?.user?.id) {
@@ -165,6 +167,7 @@ export async function getUserOrders() {
 
 export async function updateOrderStatus(orderId: string) {
 	try {
+		const db = await getCurrentTenantDb();
 		const session = await auth();
 
 		if (!session?.user?.id) {

@@ -10,7 +10,6 @@ import {
 	sessions,
 	tenantMemberships,
 } from "~/server/db/control-schema";
-import { db } from "~/server/db/index";
 import {
 	billPDFs,
 	bills,
@@ -23,6 +22,7 @@ import {
 	userStats,
 	users,
 } from "~/server/db/schema";
+import { getCurrentTenantDb } from "~/server/db/tenants";
 import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
 // Types for our data
@@ -50,6 +50,7 @@ export type Role = {
  * Get all users with their assigned roles
  */
 export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
+	const db = await getCurrentTenantDb();
 	try {
 		const usersWithRoles = await db
 			.select({
@@ -103,6 +104,7 @@ export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
  * Get all roles with user count (Admin always first)
  */
 export async function getRolesWithUserCount(): Promise<Role[]> {
+	const db = await getCurrentTenantDb();
 	try {
 		const rolesWithCount = await db
 			.select({
@@ -131,6 +133,7 @@ export async function getRolesWithUserCount(): Promise<Role[]> {
  * Initialize default roles if they don't exist
  */
 export async function initializeRoles(): Promise<void> {
+	const db = await getCurrentTenantDb();
 	try {
 		const defaultRoles = [
 			{ name: "Admin", description: "Systemadministration" },
@@ -172,6 +175,7 @@ export async function assignUserRole(
 	userId: string,
 	roleId: string,
 ): Promise<void> {
+	const db = await getCurrentTenantDb();
 	try {
 		// Check if assignment already exists
 		const existingAssignment = await db
@@ -202,6 +206,7 @@ export async function removeUserRole(
 	userId: string,
 	roleId: string,
 ): Promise<void> {
+	const db = await getCurrentTenantDb();
 	try {
 		await db
 			.delete(userRoles)
@@ -221,6 +226,7 @@ export async function toggleUserRole(
 	userId: string,
 	roleId: string,
 ): Promise<void> {
+	const db = await getCurrentTenantDb();
 	try {
 		const existingAssignment = await db
 			.select()
@@ -286,6 +292,7 @@ export async function bulkSetRoleUsers(
 	roleId: string,
 	userIds: string[],
 ): Promise<void> {
+	const db = await getCurrentTenantDb();
 	try {
 		const current = await db
 			.select({ userId: userRoles.userId })
@@ -325,6 +332,7 @@ export async function bulkSetRoleUsers(
  * Delete a user and all their associated data
  */
 export async function deleteUser(userId: string): Promise<void> {
+	const db = await getCurrentTenantDb();
 	try {
 		// Nullify nullable FK columns that reference this user
 		await db

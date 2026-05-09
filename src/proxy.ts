@@ -142,7 +142,11 @@ export default async function middleware(request: NextRequest) {
 
 	// 0) Resolve tenant by host. Unknown host => render the not-found page.
 	//    Known host => stamp x-tenant-id header for downstream code.
-	const host = request.headers.get("host");
+	//    `x-forwarded-host` is preferred so we get the public-facing hostname
+	//    behind a proxy (e.g. on Vercel where `host` may be the internal
+	//    deployment URL while the user's browser hits `<alias>.vercel.app`).
+	const host =
+		request.headers.get("x-forwarded-host") ?? request.headers.get("host");
 	const tenantId = await resolveTenantByHost(host);
 	if (!tenantId) {
 		const notFoundUrl = request.nextUrl.clone();

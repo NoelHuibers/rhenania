@@ -70,6 +70,57 @@ export async function getTenantDb(tenantId: string): Promise<TenantDb> {
 	return db;
 }
 
+// `requireTenantId` is imported lazily in `getCurrentTenantDb` to avoid
+// circular module loading — tenant-context.ts imports from this module
+// transitively via the type definition.
+async function _requireTenantId(): Promise<string> {
+	const { requireTenantId } = await import("~/server/lib/tenant-context");
+	return requireTenantId();
+}
+
+/**
+ * Convenience wrapper for request-scoped code: resolves the current request's
+ * tenant from the middleware-set `x-tenant-id` header and returns that
+ * tenant's drizzle instance. Throws if called outside a request context (use
+ * `getTenantDb(id)` directly in scripts).
+ */
+export async function getCurrentTenantDb(): Promise<TenantDb> {
+	const tenantId = await _requireTenantId();
+	return getTenantDb(tenantId);
+}
+
+/**
+ * Returns the raw libSQL `Client` for a tenant. Used by the `client` proxy
+ * exported from `./index.ts` to dispatch network calls to the right tenant.
+ */
+export async function resolveTenantClient(tenantId: string): Promise<Client> {
+	const cached = tenantDbCache.get(tenantId);
+	if (cached) return cached.client;
+
+	const [tenant] = await controlDb
+		.select({
+			dbUrl: tenants.dbUrl,
+			dbAuthToken: tenants.dbAuthToken,
+			status: tenants.status,
+		})
+		.from(tenants)
+		.where(eq(tenants.id, tenantId))
+		.limit(1);
+
+	if (!tenant) throw new TenantNotFoundError(tenantId);
+	if (tenant.status === "suspended") {
+		throw new Error(`Tenant suspended: ${tenantId}`);
+	}
+
+	const client = createClient({
+		url: tenant.dbUrl,
+		authToken: tenant.dbAuthToken ?? undefined,
+	});
+	const db = drizzle(client, { schema });
+	tenantDbCache.set(tenantId, { client, db, dbUrl: tenant.dbUrl });
+	return client;
+}
+
 export function clearTenantDbCache(tenantId?: string) {
 	if (tenantId) {
 		const entry = tenantDbCache.get(tenantId);

@@ -11,6 +11,7 @@ import {
 	userStats,
 	users,
 } from "~/server/db/schema";
+import { getCurrentTenantDb } from "~/server/db/tenants";
 import { calculateEloChange, DEFAULT_ELO } from "~/server/lib/elo";
 import { auth } from "../../auth";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
@@ -78,6 +79,7 @@ export async function createChallenge(input: {
 	drinkId: string;
 	payment: PaymentRule;
 }): Promise<{ success: boolean; challengeId?: string; error?: string }> {
+	const db = await getCurrentTenantDb();
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht authentifiziert" };
@@ -184,6 +186,7 @@ export async function respondToChallenge(input: {
 	challengeId: string;
 	response: "accept" | "decline";
 }): Promise<{ success: boolean; error?: string }> {
+	const db = await getCurrentTenantDb();
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht authentifiziert" };

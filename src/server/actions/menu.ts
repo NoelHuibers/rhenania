@@ -1,7 +1,7 @@
 "use server";
 
 import { desc, eq, sql } from "drizzle-orm";
-import { db } from "~/server/db";
+import { getCurrentTenantDb } from "~/server/db/tenants";
 import { drinks, orders } from "~/server/db/schema";
 
 export type MenuItem = typeof drinks.$inferSelect;
@@ -9,6 +9,7 @@ export type MenuItem = typeof drinks.$inferSelect;
 // Get all available drinks for customers
 export async function getAvailableDrinks() {
 	try {
+		const db = await getCurrentTenantDb();
 		const availableDrinks = await db
 			.select()
 			.from(drinks)
@@ -25,6 +26,7 @@ export async function getAvailableDrinks() {
 // Get all drinks (including unavailable ones) for display
 export async function getAllDrinksForMenu() {
 	try {
+		const db = await getCurrentTenantDb();
 		// Get all drinks with their total consumption amount
 		const allDrinks = await db
 			.select({
@@ -66,6 +68,7 @@ export async function getAllDrinksForMenu() {
 // Get drink by ID
 export async function getDrinkById(id: string) {
 	try {
+		const db = await getCurrentTenantDb();
 		const [drink] = await db
 			.select()
 			.from(drinks)

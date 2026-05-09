@@ -5,8 +5,8 @@ import { del } from "@vercel/blob";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
-import { db } from "~/server/db";
 import { homepageImages } from "~/server/db/schema";
+import { getCurrentTenantDb } from "~/server/db/tenants";
 
 // Per-tenant configurable; valid values come from the tenant's
 // `homepage_section` table. Kept as `string` for type-level openness.
@@ -32,6 +32,7 @@ interface HomepageImageResponse {
 
 // Save a new homepage image
 export async function saveHomepageImage(data: SaveHomepageImageData) {
+	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {
@@ -102,6 +103,7 @@ export async function saveHomepageImage(data: SaveHomepageImageData) {
 
 // Get all active images for a section
 export async function getActiveHomepageImages(section?: HomepageSection) {
+	const db = await getCurrentTenantDb();
 	try {
 		const whereConditions = section
 			? and(
@@ -132,6 +134,7 @@ export async function getActiveHomepageImages(section?: HomepageSection) {
 
 // Get all images (including inactive) for admin panel
 export async function getAllHomepageImages() {
+	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {
@@ -170,6 +173,7 @@ export async function getAllHomepageImages() {
 
 // Toggle image active status
 export async function toggleImageActive(imageId: string) {
+	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {
@@ -248,6 +252,7 @@ export async function toggleImageActive(imageId: string) {
 
 // Delete image
 export async function deleteHomepageImage(imageId: string) {
+	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {
@@ -293,6 +298,7 @@ export async function deleteHomepageImage(imageId: string) {
 
 // Update display order for multiple images at once
 export async function updateImageOrder(imageIds: string[]) {
+	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {

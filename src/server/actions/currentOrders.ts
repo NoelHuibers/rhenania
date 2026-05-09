@@ -2,7 +2,7 @@
 "use server";
 
 import { and, eq, sql } from "drizzle-orm";
-import { db } from "~/server/db";
+import { getCurrentTenantDb } from "~/server/db/tenants";
 import { orders } from "~/server/db/schema";
 
 interface DrinkItem {
@@ -22,6 +22,7 @@ interface BillingEntry {
 
 export async function getCurrentOrders(): Promise<BillingEntry[]> {
 	try {
+		const db = await getCurrentTenantDb();
 		// Fetch all orders where inBill is false (both personal and event orders)
 		const allCurrentOrders = await db
 			.select()
@@ -139,6 +140,7 @@ export async function getCurrentEventOrders(): Promise<
 	}[]
 > {
 	try {
+		const db = await getCurrentTenantDb();
 		// Fetch all orders where inBill is false AND bookingFor is NOT null (event orders)
 		const eventOrders = await db
 			.select()
