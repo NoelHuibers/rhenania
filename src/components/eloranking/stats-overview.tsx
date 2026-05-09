@@ -1,8 +1,12 @@
 import { GamepadIcon, TrendingUp, Trophy, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { getLeaderboard, getRecentGames } from "~/server/actions/game/game";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 export async function StatsOverview() {
+	const tenant = await getCurrentTenant();
+	const corpsName = tenant?.displayName ?? "Corps";
+
 	let leaderboard: Awaited<ReturnType<typeof getLeaderboard>> | undefined,
 		_recentGames: Awaited<ReturnType<typeof getRecentGames>> | undefined;
 	try {
@@ -113,12 +117,14 @@ export async function StatsOverview() {
 
 			<Card>
 				<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-					<CardTitle className="font-medium text-sm">Average ELO</CardTitle>
+					<CardTitle className="font-medium text-sm">Corps ELO</CardTitle>
 					<TrendingUp className="h-4 w-4 text-muted-foreground" />
 				</CardHeader>
 				<CardContent>
 					<div className="font-bold text-2xl">{averageElo}</div>
-					<p className="text-muted-foreground text-xs">Community skill level</p>
+					<p className="text-muted-foreground text-xs">
+						Durchschnitt {corpsName}
+					</p>
 				</CardContent>
 			</Card>
 

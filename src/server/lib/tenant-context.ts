@@ -130,8 +130,7 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 export async function getCurrentRequestOrigin(): Promise<string> {
 	try {
 		const h = await headers();
-		const host =
-			h.get("x-forwarded-host") ?? h.get("host");
+		const host = h.get("x-forwarded-host") ?? h.get("host");
 		if (host) {
 			const proto =
 				h.get("x-forwarded-proto") ??
