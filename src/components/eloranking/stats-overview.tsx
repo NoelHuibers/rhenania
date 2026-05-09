@@ -41,23 +41,23 @@ function StatCard({
 }) {
 	const styles = toneStyles[tone];
 	return (
-		<Card className="transition-colors hover:bg-muted/30">
-			<CardContent className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
+		<Card className="gap-0 py-3 transition-colors hover:bg-muted/30 sm:py-3.5">
+			<CardContent className="flex items-center gap-3 px-3 sm:px-4">
 				<div
-					className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md sm:h-9 sm:w-9 ${styles.chip}`}
+					className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10 ${styles.chip}`}
 				>
-					<Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+					<Icon className="h-4 w-4 sm:h-5 sm:w-5" />
 				</div>
 				<div className="min-w-0 flex-1">
-					<p className="truncate font-medium text-[10px] text-muted-foreground sm:text-xs">
+					<p className="truncate font-medium text-[11px] text-muted-foreground sm:text-xs">
 						{label}
 					</p>
 					<p
-						className={`font-bold text-base leading-tight sm:text-xl ${styles.value}`}
+						className={`font-bold text-lg leading-tight sm:text-2xl ${styles.value}`}
 					>
 						{value}
 					</p>
-					<p className="hidden truncate text-[10px] text-muted-foreground sm:block">
+					<p className="hidden truncate text-[11px] text-muted-foreground sm:block">
 						{caption}
 					</p>
 				</div>
@@ -68,13 +68,13 @@ function StatCard({
 
 function StatCardSkeleton() {
 	return (
-		<Card>
-			<CardContent className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
-				<Skeleton className="h-7 w-7 shrink-0 rounded-md sm:h-9 sm:w-9" />
-				<div className="min-w-0 flex-1 space-y-1">
-					<Skeleton className="h-2.5 w-12 sm:h-3 sm:w-16" />
-					<Skeleton className="h-4 w-10 sm:h-5 sm:w-14" />
-					<Skeleton className="hidden h-2.5 w-20 sm:block" />
+		<Card className="gap-0 py-3 sm:py-3.5">
+			<CardContent className="flex items-center gap-3 px-3 sm:px-4">
+				<Skeleton className="h-9 w-9 shrink-0 rounded-lg sm:h-10 sm:w-10" />
+				<div className="min-w-0 flex-1 space-y-1.5">
+					<Skeleton className="h-3 w-16" />
+					<Skeleton className="h-5 w-14 sm:h-6 sm:w-16" />
+					<Skeleton className="hidden h-3 w-24 sm:block" />
 				</div>
 			</CardContent>
 		</Card>
@@ -124,14 +124,14 @@ export async function StatsOverview() {
 					icon={TrendingUp}
 					label="Corps ELO"
 					value="–"
-					caption="Daten nicht verfügbar"
+					caption={`Durchschnitt ${corpsName}`}
 					tone="emerald"
 				/>
 				<StatCard
 					icon={Trophy}
-					label="Top ELO"
+					label="Rekord ELO"
 					value="–"
-					caption="Daten nicht verfügbar"
+					caption="Höchster je erreicht"
 					tone="amber"
 				/>
 			</div>
@@ -149,8 +149,10 @@ export async function StatsOverview() {
 					players.reduce((sum, p) => sum + p.currentElo, 0) / totalPlayers,
 				)
 			: 1200;
-	const highestElo =
-		totalPlayers > 0 ? Math.max(...players.map((p) => p.currentElo)) : 1200;
+	const recordElo =
+		totalPlayers > 0
+			? Math.max(...players.map((p) => p.peakElo ?? p.currentElo))
+			: 1200;
 
 	return (
 		<div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
@@ -177,9 +179,9 @@ export async function StatsOverview() {
 			/>
 			<StatCard
 				icon={Trophy}
-				label="Top ELO"
-				value={highestElo}
-				caption="Aktueller Champion"
+				label="Rekord ELO"
+				value={recordElo}
+				caption="Höchster je erreicht"
 				tone="amber"
 			/>
 		</div>
