@@ -1,28 +1,49 @@
 // app/api/upload/route.ts
 import { type HandleUploadBody, handleUpload } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
+import { requireCurrentTenant } from "~/server/lib/tenant-context";
+
+const ALLOWED_SUBPATHS = ["profile/", "drinks/", "homepage/"] as const;
 
 export async function POST(request: Request) {
 	const body = (await request.json()) as HandleUploadBody;
+
+	let tenantSlug: string;
+	try {
+		const tenant = await requireCurrentTenant();
+		tenantSlug = tenant.slug;
+	} catch {
+		return NextResponse.json(
+			{ error: "Tenant not resolved for upload request" },
+			{ status: 400 },
+		);
+	}
+
+	const expectedPrefix = `tenants/${tenantSlug}/`;
 
 	try {
 		const jsonResponse = await handleUpload({
 			body,
 			request,
 			onBeforeGenerateToken: async (pathname) => {
-				const isProfilePath =
-					pathname.startsWith("profile/") || pathname.startsWith("/profile/");
-				const isDrinksPath =
-					pathname.startsWith("drinks/") || pathname.startsWith("/drinks/");
-				const isPicturesPath =
-					pathname.startsWith("homepage/") || pathname.startsWith("/homepage/");
+				const normalized = pathname.startsWith("/")
+					? pathname.slice(1)
+					: pathname;
 
-				if (!isDrinksPath && !isPicturesPath && !isProfilePath) {
+				// Must live under the resolved tenant's blob namespace.
+				if (!normalized.startsWith(expectedPrefix)) {
+					throw new Error(
+						`Upload path must start with '${expectedPrefix}' (got: ${pathname})`,
+					);
+				}
+
+				const subpath = normalized.slice(expectedPrefix.length);
+				const matched = ALLOWED_SUBPATHS.find((p) => subpath.startsWith(p));
+				if (!matched) {
 					throw new Error("Unauthorized upload path");
 				}
 
-				// Settings for profile pictures
-				if (isProfilePath) {
+				if (matched === "profile/") {
 					return {
 						allowedContentTypes: [
 							"image/jpeg",
@@ -30,13 +51,12 @@ export async function POST(request: Request) {
 							"image/png",
 							"image/webp",
 						],
-						maximumSizeInBytes: 5 * 1024 * 1024, // 5MB for profile pictures
+						maximumSizeInBytes: 5 * 1024 * 1024,
 						addRandomSuffix: true,
 					};
 				}
 
-				// Settings for homepage pictures
-				if (isPicturesPath) {
+				if (matched === "homepage/") {
 					return {
 						allowedContentTypes: [
 							"image/jpeg",
@@ -45,12 +65,12 @@ export async function POST(request: Request) {
 							"image/webp",
 							"image/svg+xml",
 						],
-						maximumSizeInBytes: 10 * 1024 * 1024, // 10MB for homepage images
+						maximumSizeInBytes: 10 * 1024 * 1024,
 						addRandomSuffix: true,
 					};
 				}
 
-				// Default settings for drinks
+				// drinks/
 				return {
 					allowedContentTypes: [
 						"image/jpeg",
@@ -58,7 +78,7 @@ export async function POST(request: Request) {
 						"image/png",
 						"image/webp",
 					],
-					maximumSizeInBytes: 5 * 1024 * 1024, // 5MB for drink images
+					maximumSizeInBytes: 5 * 1024 * 1024,
 					addRandomSuffix: true,
 				};
 			},

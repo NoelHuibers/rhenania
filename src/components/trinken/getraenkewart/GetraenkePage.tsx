@@ -3,7 +3,7 @@
 import { Plus } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-
+import { useTenantSlug } from "~/components/TenantProvider";
 import { AddDrinkDialog } from "~/components/trinken/getraenkewart/AddDrinkDialog";
 import { DrinksTableDesktop } from "~/components/trinken/getraenkewart/DesktopCard";
 import { DrinksCardsMobile } from "~/components/trinken/getraenkewart/MobileCard";
@@ -18,6 +18,7 @@ import {
 } from "~/server/actions/drinks";
 
 export default function GetraenkePage() {
+	const tenantSlug = useTenantSlug();
 	const [drinks, setDrinks] = useState<Drink[]>([]);
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
@@ -101,6 +102,7 @@ export default function GetraenkePage() {
 			setUploadProgress(0);
 
 			const pictureUrl = await uploadDrinkImage(file, {
+				tenantSlug,
 				onProgress: (progress) => {
 					setUploadProgress(progress);
 				},

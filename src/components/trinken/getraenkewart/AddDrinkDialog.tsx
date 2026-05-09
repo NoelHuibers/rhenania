@@ -5,6 +5,7 @@ import { Upload, X } from "lucide-react";
 import Image from "next/image";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useTenantSlug } from "~/components/TenantProvider";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -38,6 +39,7 @@ export function AddDrinkDialog({
 	onOpenChange,
 	onDrinkAdded,
 }: AddDrinkDialogProps) {
+	const tenantSlug = useTenantSlug();
 	const [isPending, startTransition] = useTransition();
 	const [isUploading, setIsUploading] = useState(false);
 	const [uploadProgress, setUploadProgress] = useState(0);
@@ -148,6 +150,7 @@ export function AddDrinkDialog({
 
 				try {
 					pictureUrl = await uploadDrinkImage(selectedFile, {
+						tenantSlug,
 						onProgress: (progress) => {
 							setUploadProgress(progress);
 						},

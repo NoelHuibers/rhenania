@@ -2,13 +2,14 @@
 import { upload } from "@vercel/blob/client";
 
 interface UploadCSVOptions {
+	tenantSlug: string;
 	onProgress?: (progress: number) => void;
 }
 
 export async function uploadCSVToBlob(
 	csvContent: string,
 	fileName: string,
-	options?: UploadCSVOptions,
+	options: UploadCSVOptions,
 ): Promise<string> {
 	try {
 		// Convert CSV string to Blob/File
@@ -17,7 +18,7 @@ export async function uploadCSVToBlob(
 
 		// Upload to Vercel Blob
 		const uploadedBlob = await upload(
-			`bills/csv/${Date.now()}-${fileName}`,
+			`tenants/${options.tenantSlug}/bills/csv/${Date.now()}-${fileName}`,
 			file,
 			{
 				access: "public",

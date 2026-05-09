@@ -4,6 +4,7 @@
 import { upload } from "@vercel/blob/client";
 
 interface UploadImageOptions {
+	tenantSlug: string;
 	onProgress?: (progress: number) => void;
 	section: "header" | "aktive" | "haus" | "footer";
 }
@@ -30,7 +31,7 @@ export async function uploadHomepageImage(
 
 	try {
 		const blob = await upload(
-			`homepage/${options.section}/${Date.now()}-${file.name}`,
+			`tenants/${options.tenantSlug}/homepage/${options.section}/${Date.now()}-${file.name}`,
 			file,
 			{
 				access: "public",

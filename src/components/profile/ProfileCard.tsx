@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { useTenantSlug } from "~/components/TenantProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -46,6 +47,7 @@ interface User {
 }
 
 export function ProfileIdentity() {
+	const tenantSlug = useTenantSlug();
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [newName, setNewName] = useState("");
@@ -151,11 +153,15 @@ export function ProfileIdentity() {
 		setUploadingFile(true);
 		try {
 			// Upload file to Vercel Blob
-			const blob = await upload(`profile/${selectedFile.name}`, selectedFile, {
-				access: "public",
-				handleUploadUrl: "/api/upload",
-				clientPayload: `profile/${user?.id}/${selectedFile.name}`,
-			});
+			const blob = await upload(
+				`tenants/${tenantSlug}/profile/${selectedFile.name}`,
+				selectedFile,
+				{
+					access: "public",
+					handleUploadUrl: "/api/upload",
+					clientPayload: `profile/${user?.id}/${selectedFile.name}`,
+				},
+			);
 
 			// Update user avatar URL in database
 			const formData = new FormData();

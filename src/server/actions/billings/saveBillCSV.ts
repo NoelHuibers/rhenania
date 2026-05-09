@@ -5,6 +5,7 @@ import { head, put } from "@vercel/blob";
 import { eq } from "drizzle-orm";
 import { db } from "~/server/db";
 import { billCSVs, billPeriods } from "~/server/db/schema";
+import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import { generateBillPeriodCSV } from "./createCSV";
 
 export async function saveBillPeriodCSV(
@@ -22,6 +23,7 @@ export async function saveBillPeriodCSV(
 	wasExisting?: boolean;
 }> {
 	try {
+		const tenant = await requireCurrentTenant();
 		const delimiter = options?.delimiter || ";";
 
 		// Check if CSV already exists for this bill period
@@ -88,9 +90,9 @@ export async function saveBillPeriodCSV(
 			];
 			const month = monthNames[date.getMonth()];
 			const year = date.getFullYear();
-			fileName = `bills/Rechnung_${day}_${month}_${year}.csv`;
+			fileName = `tenants/${tenant.slug}/bills/Rechnung_${day}_${month}_${year}.csv`;
 		} else {
-			fileName = `bills/Rechnung_${billPeriodId}.csv`;
+			fileName = `tenants/${tenant.slug}/bills/Rechnung_${billPeriodId}.csv`;
 		}
 
 		const fileSize = new Blob([csvContent]).size;

@@ -3,12 +3,13 @@
 import { upload } from "@vercel/blob/client";
 
 interface UploadImageOptions {
+	tenantSlug: string;
 	onProgress?: (progress: number) => void;
 }
 
 export async function uploadDrinkImage(
 	file: File,
-	options?: UploadImageOptions,
+	options: UploadImageOptions,
 ): Promise<string> {
 	const maxSize = 5 * 1024 * 1024;
 	if (file.size > maxSize)
@@ -19,13 +20,18 @@ export async function uploadDrinkImage(
 		throw new Error("Ungültiger Dateityp. Erlaubt: JPG, PNG, WebP");
 
 	try {
-		const blob = await upload(`drinks/${Date.now()}-${file.name}`, file, {
-			access: "public",
-			handleUploadUrl: "/api/upload",
-			onUploadProgress: (p) => {
-				if (options?.onProgress) options.onProgress((p.loaded / p.total) * 100);
+		const blob = await upload(
+			`tenants/${options.tenantSlug}/drinks/${Date.now()}-${file.name}`,
+			file,
+			{
+				access: "public",
+				handleUploadUrl: "/api/upload",
+				onUploadProgress: (p) => {
+					if (options.onProgress)
+						options.onProgress((p.loaded / p.total) * 100);
+				},
 			},
-		});
+		);
 		return blob.url;
 	} catch (error) {
 		console.error("Error uploading image:", error);

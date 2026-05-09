@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { billPDFs, bills } from "~/server/db/schema";
+import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import { generateUserBillPDF } from "./createUserPDF";
 
 /**
@@ -88,7 +89,8 @@ export async function saveUserBillPDF(billId: string): Promise<{
 		}
 
 		// Upload to blob storage
-		const fileName = `bills/${userName}/${result.fileName}`;
+		const tenant = await requireCurrentTenant();
+		const fileName = `tenants/${tenant.slug}/bills/${userName}/${result.fileName}`;
 		const fileSize = result.pdfContent.length;
 
 		const blob = await put(fileName, result.pdfContent, {

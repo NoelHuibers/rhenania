@@ -1,7 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getHiddenEventTypesForUser } from "~/server/actions/profile/preferences";
-import { db } from "~/server/db";
 import {
 	calendarTokens,
 	eventRsvps,
@@ -9,6 +8,8 @@ import {
 	users,
 	venues,
 } from "~/server/db/schema";
+import { getTenantDb } from "~/server/db/tenants";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 function formatICalDate(date: Date): string {
 	return `${date.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
@@ -45,6 +46,15 @@ export async function GET(
 	{ params }: { params: Promise<{ token: string }> },
 ) {
 	const { token } = await params;
+
+	// Tenant resolved from request host by middleware. Token must belong to
+	// the same tenant — a token from rhenania-stuttgart.de used at hassia.de
+	// won't be found and returns 404.
+	const tenant = await getCurrentTenant();
+	if (!tenant) {
+		return new NextResponse("Not Found", { status: 404 });
+	}
+	const db = await getTenantDb(tenant.id);
 
 	const [tokenRow] = await db
 		.select({
@@ -120,14 +130,14 @@ export async function GET(
 
 			const lines = [
 				"BEGIN:VEVENT",
-				`UID:${event.id}@rhenania`,
+				`UID:${event.id}@${tenant.slug}`,
 				`DTSTAMP:${formatICalDate(now)}`,
 				`DTSTART:${dtstart}`,
 				`DTEND:${dtend}`,
 				`SEQUENCE:${sequence}`,
 				`LAST-MODIFIED:${lastModified}`,
 				foldLine(`SUMMARY:${escapeICalText(event.title)}`),
-				"ORGANIZER;CN=Rhenania:mailto:noreply@rhenania.invalid",
+				`ORGANIZER;CN=${escapeICalText(tenant.displayName)}:mailto:noreply@${tenant.slug}.invalid`,
 			];
 			const currentUserRsvp = eventRsvpList.find(
 				(r) => r.userId === tokenRow.userId,
@@ -147,7 +157,7 @@ export async function GET(
 				const cn = escapeICalText(r.userName ?? r.userEmail);
 				lines.push(
 					foldLine(
-						`ATTENDEE;CN=${cn};PARTSTAT=${partstat};ROLE=OPT-PARTICIPANT:mailto:noreply+${r.userId}@rhenania.invalid`,
+						`ATTENDEE;CN=${cn};PARTSTAT=${partstat};ROLE=OPT-PARTICIPANT:mailto:noreply+${r.userId}@${tenant.slug}.invalid`,
 					),
 				);
 			}
@@ -184,10 +194,10 @@ export async function GET(
 	const ical = [
 		"BEGIN:VCALENDAR",
 		"VERSION:2.0",
-		"PRODID:-//Rhenania//Semesterprogramm//DE",
+		`PRODID:-//${tenant.displayName}//Semesterprogramm//DE`,
 		"CALSCALE:GREGORIAN",
 		"METHOD:PUBLISH",
-		foldLine("X-WR-CALNAME:Rhenania Semesterprogramm"),
+		foldLine(`X-WR-CALNAME:${tenant.displayName} Semesterprogramm`),
 		"X-WR-TIMEZONE:Europe/Berlin",
 		vevents,
 		"END:VCALENDAR",

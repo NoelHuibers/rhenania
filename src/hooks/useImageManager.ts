@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { ImageItem } from "~/components/bilder/OptimizedImagePreview";
+import { useTenantSlug } from "~/components/TenantProvider";
 import { uploadHomepageImage, validateImageFile } from "~/lib/image-upload";
 import {
 	deleteHomepageImage,
@@ -27,6 +28,7 @@ export interface ImageManagerState {
 }
 
 export const useImageManager = () => {
+	const tenantSlug = useTenantSlug();
 	const [state, setState] = useState<ImageManagerState>({
 		images: {
 			header: [],
@@ -127,6 +129,7 @@ export const useImageManager = () => {
 
 					try {
 						const imageUrl = await uploadHomepageImage(file, {
+							tenantSlug,
 							section,
 							onProgress: (fileProgress) => {
 								const totalProgress =
@@ -190,7 +193,7 @@ export const useImageManager = () => {
 				}));
 			}
 		},
-		[],
+		[tenantSlug],
 	);
 
 	const handleToggleActive = useCallback(
