@@ -73,7 +73,7 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 			{/* Top CTAs — stack on mobile, side-by-side on tablet+ */}
 			<div className="flex flex-col gap-2 sm:flex-row">
 				<Button
-					className="flex-1 bg-orange-500 hover:bg-orange-600"
+					className="h-11 flex-1 bg-orange-500 hover:bg-orange-600 sm:h-9"
 					onClick={() => setInternOpen(true)}
 				>
 					<Swords className="mr-2 h-4 w-4" />
@@ -83,7 +83,7 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 			</div>
 
 			<Dialog open={internOpen} onOpenChange={setInternOpen}>
-				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-140">
+				<DialogContent className="max-h-[90vh] gap-4 overflow-y-auto p-4 sm:max-w-140 sm:gap-6 sm:p-6">
 					<DialogHeader>
 						<DialogTitle>Neue Herausforderung</DialogTitle>
 					</DialogHeader>

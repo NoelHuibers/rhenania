@@ -1,6 +1,6 @@
 "use client";
 
-import { Beer, Search, Swords, Users, Wallet } from "lucide-react";
+import { Beer, Search, Users, Wallet } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -120,12 +120,7 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 	};
 
 	return (
-		<div className="space-y-5 rounded-lg border bg-card p-4">
-			<div className="flex items-center gap-2 font-medium text-sm">
-				<Swords className="h-4 w-4 text-orange-500" />
-				<span>Neue Herausforderung</span>
-			</div>
-
+		<div className="space-y-4">
 			<section className="space-y-2">
 				<Label className="flex items-center gap-2 font-medium text-sm">
 					<Beer className="h-4 w-4" />
@@ -140,38 +135,40 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 						Keine Getränke verfügbar
 					</div>
 				) : (
-					<div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-						{drinks.map((d) => {
-							const selected = d.id === selectedDrinkId;
-							return (
-								<button
-									key={d.id}
-									type="button"
-									onClick={() => setSelectedDrinkId(d.id)}
-									className={`flex w-24 flex-shrink-0 flex-col items-center gap-1 rounded-lg border-2 p-2 transition-colors ${
-										selected
-											? "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
-											: "border-border hover:border-orange-300"
-									}`}
-								>
-									<div className="relative h-14 w-14">
-										<Image
-											src={d.picture || "/placeholder.svg"}
-											alt={d.name}
-											fill
-											className="rounded object-cover"
-											sizes="56px"
-										/>
-									</div>
-									<div className="w-full truncate text-center font-medium text-xs">
-										{d.name}
-									</div>
-									<div className="text-[10px] text-muted-foreground">
-										€{d.price.toFixed(2)}
-									</div>
-								</button>
-							);
-						})}
+					<div className="max-h-32 overflow-y-auto rounded-md">
+						<div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+							{drinks.map((d) => {
+								const selected = d.id === selectedDrinkId;
+								return (
+									<button
+										key={d.id}
+										type="button"
+										onClick={() => setSelectedDrinkId(d.id)}
+										className={`flex min-w-0 flex-col items-center gap-1 rounded-lg border-2 p-2 transition-colors ${
+											selected
+												? "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
+												: "border-border hover:border-orange-300"
+										}`}
+									>
+										<div className="relative h-12 w-12 sm:h-14 sm:w-14">
+											<Image
+												src={d.picture || "/placeholder.svg"}
+												alt={d.name}
+												fill
+												className="rounded object-cover"
+												sizes="56px"
+											/>
+										</div>
+										<div className="w-full truncate text-center font-medium text-[11px] sm:text-xs">
+											{d.name}
+										</div>
+										<div className="text-[10px] text-muted-foreground">
+											€{d.price.toFixed(2)}
+										</div>
+									</button>
+								);
+							})}
+						</div>
 					</div>
 				)}
 			</section>
@@ -217,7 +214,7 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 										id={`opp-${u.id}`}
 										className="h-4 w-4"
 									/>
-									<Avatar className="h-7 w-7 flex-shrink-0">
+									<Avatar className="h-7 w-7 shrink-0">
 										<AvatarImage src={u.image || undefined} />
 										<AvatarFallback className="text-[10px]">
 											{(u.name || u.email || "")
@@ -254,7 +251,7 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 					{PAYMENT_OPTIONS.map((opt) => (
 						<div
 							key={opt.value}
-							className={`flex items-start gap-2 rounded-lg border-2 p-2.5 transition-colors ${
+							className={`flex items-start gap-2 rounded-lg border-2 p-2 transition-colors sm:p-2.5 ${
 								payment === opt.value
 									? "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
 									: "border-border hover:border-orange-300"
@@ -263,14 +260,16 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 							<RadioGroupItem
 								value={opt.value}
 								id={`pay-${opt.value}`}
-								className="mt-0.5 h-4 w-4 flex-shrink-0"
+								className="mt-0.5 h-4 w-4 shrink-0"
 							/>
 							<Label
 								htmlFor={`pay-${opt.value}`}
 								className="flex-1 cursor-pointer"
 							>
-								<div className="font-medium text-sm">{opt.title}</div>
-								<div className="text-muted-foreground text-xs">
+								<div className="font-medium text-sm leading-tight">
+									{opt.title}
+								</div>
+								<div className="text-[10px] text-muted-foreground leading-tight sm:text-xs">
 									{opt.description}
 								</div>
 							</Label>
