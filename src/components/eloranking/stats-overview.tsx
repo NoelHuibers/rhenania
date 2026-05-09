@@ -42,20 +42,22 @@ function StatCard({
 	const styles = toneStyles[tone];
 	return (
 		<Card className="transition-colors hover:bg-muted/30">
-			<CardContent className="flex items-center gap-3 p-4">
+			<CardContent className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
 				<div
-					className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${styles.chip}`}
+					className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md sm:h-9 sm:w-9 ${styles.chip}`}
 				>
-					<Icon className="h-5 w-5" />
+					<Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
 				</div>
 				<div className="min-w-0 flex-1">
-					<p className="truncate font-medium text-muted-foreground text-xs">
+					<p className="truncate font-medium text-[10px] text-muted-foreground sm:text-xs">
 						{label}
 					</p>
-					<p className={`font-bold text-2xl leading-tight ${styles.value}`}>
+					<p
+						className={`font-bold text-base leading-tight sm:text-xl ${styles.value}`}
+					>
 						{value}
 					</p>
-					<p className="truncate text-[11px] text-muted-foreground">
+					<p className="hidden truncate text-[10px] text-muted-foreground sm:block">
 						{caption}
 					</p>
 				</div>
@@ -67,12 +69,12 @@ function StatCard({
 function StatCardSkeleton() {
 	return (
 		<Card>
-			<CardContent className="flex items-center gap-3 p-4">
-				<Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
-				<div className="min-w-0 flex-1 space-y-1.5">
-					<Skeleton className="h-3 w-20" />
-					<Skeleton className="h-7 w-16" />
-					<Skeleton className="h-3 w-28" />
+			<CardContent className="flex items-center gap-2 p-2.5 sm:gap-3 sm:p-3">
+				<Skeleton className="h-7 w-7 shrink-0 rounded-md sm:h-9 sm:w-9" />
+				<div className="min-w-0 flex-1 space-y-1">
+					<Skeleton className="h-2.5 w-12 sm:h-3 sm:w-16" />
+					<Skeleton className="h-4 w-10 sm:h-5 sm:w-14" />
+					<Skeleton className="hidden h-2.5 w-20 sm:block" />
 				</div>
 			</CardContent>
 		</Card>
@@ -81,7 +83,7 @@ function StatCardSkeleton() {
 
 export function StatsOverviewSkeleton() {
 	return (
-		<div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+		<div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
 			<StatCardSkeleton />
 			<StatCardSkeleton />
 			<StatCardSkeleton />
@@ -103,7 +105,7 @@ export async function StatsOverview() {
 	} catch (error) {
 		console.error("Failed to load stats:", error);
 		return (
-			<div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+			<div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
 				<StatCard
 					icon={Users}
 					label="Spieler"
@@ -151,7 +153,7 @@ export async function StatsOverview() {
 		totalPlayers > 0 ? Math.max(...players.map((p) => p.currentElo)) : 1200;
 
 	return (
-		<div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+		<div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
 			<StatCard
 				icon={Users}
 				label="Spieler"
