@@ -1,9 +1,6 @@
 import { Card, CardContent } from "~/components/ui/card";
 import { getGlobalLeaderboard } from "~/server/actions/game/cross-tenant-discovery";
-import {
-	LeaderboardClient,
-	type LeaderboardEntry,
-} from "./leaderboard-client";
+import { LeaderboardClient, type LeaderboardEntry } from "./leaderboard-client";
 
 export async function LeaderboardSection() {
 	let initial: LeaderboardEntry[] = [];
