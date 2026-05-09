@@ -73,7 +73,8 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 			{/* Top CTAs — stack on mobile, side-by-side on tablet+ */}
 			<div className="flex flex-col gap-2 sm:flex-row">
 				<Button
-					className="h-11 flex-1 bg-orange-500 hover:bg-orange-600 sm:h-9"
+					size="lg"
+					className="flex-1 bg-orange-500 px-4 hover:bg-orange-600"
 					onClick={() => setInternOpen(true)}
 				>
 					<Swords className="mr-2 h-4 w-4" />

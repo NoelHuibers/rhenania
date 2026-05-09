@@ -115,7 +115,7 @@ export function CrossChallengeDialog() {
 			}}
 		>
 			<DialogTrigger asChild>
-				<Button variant="outline" className="h-11 flex-1 sm:h-9">
+				<Button variant="outline" size="lg" className="flex-1 px-4">
 					<Swords className="mr-2 h-4 w-4" />
 					Anderes Corps fordern
 				</Button>
