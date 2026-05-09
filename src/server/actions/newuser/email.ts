@@ -2,7 +2,10 @@
 "use server";
 import nodemailer from "nodemailer";
 import { env } from "~/env";
-import { getCurrentTenant } from "~/server/lib/tenant-context";
+import {
+	getCurrentRequestOrigin,
+	getCurrentTenant,
+} from "~/server/lib/tenant-context";
 
 // Configure your email transporter using your existing Gmail setup
 const transporter = nodemailer.createTransport({
@@ -89,9 +92,12 @@ export async function sendVerificationEmail(
 	token: string,
 ): Promise<void> {
 	try {
-		const verificationUrl = `${
-			env.BETTER_AUTH_URL
-		}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+		// Use the current request's origin so the link lands on the SAME tenant
+		// that issued the token. Using env.BETTER_AUTH_URL would always send the
+		// user to Rhenania, where the token doesn't exist for non-Rhenania
+		// tenants.
+		const origin = await getCurrentRequestOrigin();
+		const verificationUrl = `${origin}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 		const template = getVerificationEmailTemplate(verificationUrl);
 
 		const mailOptions = {
@@ -209,7 +215,8 @@ export async function sendPasswordResetEmail(
 	token: string,
 ): Promise<void> {
 	try {
-		const resetUrl = `${env.BETTER_AUTH_URL}/auth/reset-password?token=${token}`;
+		const origin = await getCurrentRequestOrigin();
+		const resetUrl = `${origin}/auth/reset-password?token=${token}`;
 
 		const mailOptions = {
 			from: env.GMAIL,

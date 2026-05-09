@@ -21,9 +21,9 @@ import { and, eq } from "drizzle-orm";
 
 import { controlDb } from "~/server/db/control";
 import {
+	users as controlUsers,
 	tenantMemberships,
 	tenants,
-	users as controlUsers,
 } from "~/server/db/control-schema";
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
@@ -86,7 +86,9 @@ async function main() {
 		)
 		.limit(1);
 	if (existingMembership) {
-		console.log(`  membership: already exists (status=${existingMembership.status})`);
+		console.log(
+			`  membership: already exists (status=${existingMembership.status})`,
+		);
 	} else {
 		await controlDb.insert(tenantMemberships).values({
 			userId: user.id,

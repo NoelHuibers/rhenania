@@ -119,6 +119,34 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
 	return getTenantById(id);
 }
 
+/**
+ * Returns the canonical origin (e.g. `https://hassia.vercel.app`) that the
+ * CURRENT request is being served from. Use this when building outbound
+ * URLs that the recipient will click — invitation/verification emails,
+ * password resets, OAuth redirects — so the link lands on the same tenant
+ * the request originated from. Falls back to BETTER_AUTH_URL if no request
+ * context (scripts, cron, etc.).
+ */
+export async function getCurrentRequestOrigin(): Promise<string> {
+	try {
+		const h = await headers();
+		const host =
+			h.get("x-forwarded-host") ?? h.get("host");
+		if (host) {
+			const proto =
+				h.get("x-forwarded-proto") ??
+				(host.startsWith("localhost") || host.startsWith("127.")
+					? "http"
+					: "https");
+			return `${proto}://${host}`;
+		}
+	} catch {
+		// fall through
+	}
+	const fallback = process.env.BETTER_AUTH_URL ?? "";
+	return fallback;
+}
+
 export async function requireCurrentTenant(): Promise<TenantContext> {
 	const tenant = await getCurrentTenant();
 	if (!tenant) {

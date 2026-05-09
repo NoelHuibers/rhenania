@@ -267,6 +267,137 @@ export const tenantMemberships = createControlTable(
 	],
 );
 
+// ─── Unified ELO (one stats row per user across all Corps) ──────────────────
+//
+// Single source of truth for every user's ELO + games/wins/losses. Updated by:
+//   - intra-Corps games (settleChallenge in tenant DB writes here, not tenant userStats)
+//   - cross-Corps games (settleCrossTenantChallenge below)
+//
+// Internal leaderboard = filter to current tenant's members.
+// External leaderboard = no filter.
+export const userStats = createControlTable(
+	"user_stat",
+	(d) => ({
+		userId: d.text({ length: 255 }).notNull().primaryKey(),
+		currentElo: d.integer().notNull().default(1200),
+		totalGames: d.integer().notNull().default(0),
+		wins: d.integer().notNull().default(0),
+		losses: d.integer().notNull().default(0),
+		peakElo: d.integer().notNull().default(1200),
+		lastGameAt: d.integer({ mode: "timestamp" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdate(() => new Date()),
+	}),
+	(t) => [index("user_stat_elo_idx").on(t.currentElo)],
+);
+
+export const crossTenantChallenges = createControlTable(
+	"cross_tenant_challenge",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		challengerId: d.text({ length: 255 }).notNull(),
+		challengerTenantId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		opponentId: d.text({ length: 255 }).notNull(),
+		opponentTenantId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		status: d
+			.text({
+				enum: [
+					"pending",
+					"accepted",
+					"result_proposed",
+					"confirmed",
+					"settled",
+					"declined",
+					"expired",
+					"cancelled",
+					"disputed",
+				],
+			})
+			.notNull()
+			.default("pending"),
+		// `none` = no auto-order, settled offline. Cross-Corps default.
+		payment: d
+			.text({ enum: ["none", "challenger", "loser", "split"] })
+			.notNull()
+			.default("none"),
+		drinkName: d.text({ length: 255 }),
+		quantity: d.integer().notNull().default(2),
+		proposedWinnerId: d.text({ length: 255 }),
+		proposedById: d.text({ length: 255 }),
+		proposedAt: d.integer({ mode: "timestamp" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		acceptedAt: d.integer({ mode: "timestamp" }),
+		declinedAt: d.integer({ mode: "timestamp" }),
+		respondDeadline: d.integer({ mode: "timestamp" }).notNull(),
+		playDeadline: d.integer({ mode: "timestamp" }),
+		confirmDeadline: d.integer({ mode: "timestamp" }),
+		gameId: d.text({ length: 255 }),
+	}),
+	(t) => [
+		index("cross_challenge_challenger_idx").on(t.challengerId, t.status),
+		index("cross_challenge_opponent_idx").on(t.opponentId, t.status),
+		index("cross_challenge_status_idx").on(t.status),
+		index("cross_challenge_created_idx").on(t.createdAt),
+	],
+);
+
+export const crossTenantGames = createControlTable(
+	"cross_tenant_game",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		player1Id: d.text({ length: 255 }).notNull(),
+		player1TenantId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		player2Id: d.text({ length: 255 }).notNull(),
+		player2TenantId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		winnerId: d.text({ length: 255 }).notNull(),
+		playedAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		player1EloBefore: d.integer().notNull().default(1200),
+		player2EloBefore: d.integer().notNull().default(1200),
+		player1EloAfter: d.integer().notNull().default(1200),
+		player2EloAfter: d.integer().notNull().default(1200),
+		challengeId: d.text({ length: 255 }),
+		gameType: d.text({ length: 50 }).default("bierjunge"),
+	}),
+	(t) => [
+		index("cross_game_player1_idx").on(t.player1Id),
+		index("cross_game_player2_idx").on(t.player2Id),
+		index("cross_game_played_idx").on(t.playedAt),
+	],
+);
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ many }) => ({

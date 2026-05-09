@@ -29,6 +29,20 @@
 			"when": 1777670214760,
 			"tag": "0003_dusty_toad_men",
 			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1778346178083,
+			"tag": "0004_far_franklin_richards",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "6",
+			"when": 1778347062597,
+			"tag": "0005_cold_matthew_murdock",
+			"breakpoints": true
 		}
 	]
 }

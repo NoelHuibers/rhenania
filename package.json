@@ -22,6 +22,7 @@
 		"db:control:push": "drizzle-kit push --config=drizzle.control.config.ts",
 		"db:control:seed": "tsx scripts/seed-control.ts",
 		"db:migrate-identity": "tsx scripts/migrate-identity.ts",
+		"db:migrate-userstats": "tsx scripts/migrate-userstats-to-control.ts",
 		"db:apply-tenant-drop": "tsx scripts/apply-tenant-drop.ts",
 		"db:apply-prefix-rename": "tsx scripts/apply-prefix-rename.ts",
 		"grant-superadmin": "tsx scripts/grant-superadmin.ts",

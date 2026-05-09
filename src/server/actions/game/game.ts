@@ -1,9 +1,12 @@
 "use server";
 
-import { and, desc, eq, gt, isNull, ne, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
-import { games, userPreferences, userStats, users } from "~/server/db/schema";
+import { controlDb } from "~/server/db/control";
+import { userStats } from "~/server/db/control-schema";
+import { games, userPreferences, users } from "~/server/db/schema";
+import { applyEloOutcome, getOrCreateUserStats } from "~/server/lib/user-stats";
 import { auth } from "../../auth";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
 
@@ -142,35 +145,35 @@ export async function createGame(gameData: GameResult): Promise<{
 			};
 		}
 
-		// Get current stats for both players
-		const player1Stats = await getUserStats(userId);
-		const player2Stats = await getUserStats(gameData.player2Id);
+		const winnerId = gameData.won ? userId : gameData.player2Id;
+		const loserId = gameData.won ? gameData.player2Id : userId;
 
-		if (!player1Stats || !player2Stats) {
-			return { success: false, error: "Failed to retrieve player statistics" };
-		}
+		// Apply ELO outcome against the unified userStats (control DB).
+		const eloResult = await applyEloOutcome(winnerId, loserId);
+		const player1EloBefore = gameData.won
+			? eloResult.winnerEloBefore
+			: eloResult.loserEloBefore;
+		const player2EloBefore = gameData.won
+			? eloResult.loserEloBefore
+			: eloResult.winnerEloBefore;
+		const player1EloAfter = gameData.won
+			? eloResult.winnerEloAfter
+			: eloResult.loserEloAfter;
+		const player2EloAfter = gameData.won
+			? eloResult.loserEloAfter
+			: eloResult.winnerEloAfter;
 
-		// Calculate new ELO ratings
-		const eloCalculation = calculateEloChange(
-			player1Stats.currentElo,
-			player2Stats.currentElo,
-			player1Stats.totalGames,
-			player2Stats.totalGames,
-			gameData.won,
-		);
-
-		// Start transaction to ensure data consistency
 		const [newGame] = await db
 			.insert(games)
 			.values({
 				player1Id: userId,
 				player2Id: gameData.player2Id,
-				winnerId: gameData.won ? userId : gameData.player2Id,
+				winnerId,
 				orderId: gameData.orderId,
-				player1EloBefore: player1Stats.currentElo,
-				player2EloBefore: player2Stats.currentElo,
-				player1EloAfter: eloCalculation.player1NewElo,
-				player2EloAfter: eloCalculation.player2NewElo,
+				player1EloBefore,
+				player2EloBefore,
+				player1EloAfter,
+				player2EloAfter,
 			})
 			.returning({ id: games.id });
 
@@ -178,23 +181,7 @@ export async function createGame(gameData: GameResult): Promise<{
 			return { success: false, error: "Failed to create game record" };
 		}
 
-		await updateUserStats(
-			userId,
-			gameData.won,
-			eloCalculation.player1NewElo,
-			player1Stats.currentElo,
-		);
-		await updateUserStats(
-			gameData.player2Id,
-			!gameData.won,
-			eloCalculation.player2NewElo,
-			player2Stats.currentElo,
-		);
-
 		revalidatePath(`/eloranking`);
-
-		const winnerId = gameData.won ? userId : gameData.player2Id;
-		const loserId = gameData.won ? gameData.player2Id : userId;
 
 		void Promise.all([
 			checkAndUnlockAchievements(userId, "game_played"),
@@ -206,7 +193,7 @@ export async function createGame(gameData: GameResult): Promise<{
 		return {
 			success: true,
 			gameId: newGame.id,
-			eloChange: eloCalculation.eloChange,
+			eloChange: Math.abs(eloResult.winnerEloAfter - eloResult.winnerEloBefore),
 		};
 	} catch (error) {
 		console.error("Error creating game:", error);
@@ -214,70 +201,32 @@ export async function createGame(gameData: GameResult): Promise<{
 	}
 }
 
-// Get or create user stats
+// Get or create user stats. ELO/W-L numbers come from the unified control-DB
+// userStats; name/email come from the tenant `users` mirror.
 export async function getUserStats(
 	userId: string,
 ): Promise<UserGameStats | null> {
 	try {
-		const existingStats = await db
-			.select({
-				userId: userStats.userId,
-				userName: users.name,
-				userEmail: users.email,
-				currentElo: userStats.currentElo,
-				totalGames: userStats.totalGames,
-				wins: userStats.wins,
-				losses: userStats.losses,
-				peakElo: userStats.peakElo,
-			})
-			.from(userStats)
-			.leftJoin(users, eq(userStats.userId, users.id))
-			.where(eq(userStats.userId, userId))
-			.limit(1);
-
-		if (existingStats.length > 0) {
-			// biome-ignore lint/style/noNonNullAssertion: guarded by length check above
-			const stats = existingStats[0]!;
-			return {
-				userId: stats.userId,
-				userName: stats.userName,
-				userEmail: stats.userEmail,
-				currentElo: stats.currentElo,
-				totalGames: stats.totalGames,
-				wins: stats.wins,
-				losses: stats.losses,
-				winRate:
-					stats.totalGames > 0 ? (stats.wins / stats.totalGames) * 100 : 0,
-				peakElo: stats.peakElo || stats.currentElo,
-			};
-		}
-
-		// Create new stats record
-		await db.insert(userStats).values({
-			userId,
-			currentElo: DEFAULT_ELO,
-			totalGames: 0,
-			wins: 0,
-			losses: 0,
-			peakElo: DEFAULT_ELO,
-		});
-
-		const user = await db
-			.select()
-			.from(users)
-			.where(eq(users.id, userId))
-			.limit(1);
+		const [stats, user] = await Promise.all([
+			getOrCreateUserStats(userId),
+			db
+				.select({ name: users.name, email: users.email })
+				.from(users)
+				.where(eq(users.id, userId))
+				.limit(1)
+				.then((rows) => rows[0] ?? null),
+		]);
 
 		return {
 			userId,
-			userName: user[0]?.name || null,
-			userEmail: user[0]?.email || null,
-			currentElo: DEFAULT_ELO,
-			totalGames: 0,
-			wins: 0,
-			losses: 0,
-			winRate: 0,
-			peakElo: DEFAULT_ELO,
+			userName: user?.name ?? null,
+			userEmail: user?.email ?? null,
+			currentElo: stats.currentElo,
+			totalGames: stats.totalGames,
+			wins: stats.wins,
+			losses: stats.losses,
+			winRate: stats.totalGames > 0 ? (stats.wins / stats.totalGames) * 100 : 0,
+			peakElo: stats.peakElo || stats.currentElo,
 		};
 	} catch (error) {
 		console.error("Error getting user stats:", error);
@@ -285,36 +234,8 @@ export async function getUserStats(
 	}
 }
 
-// Update user stats after a game
-async function updateUserStats(
-	userId: string,
-	won: boolean,
-	newElo: number,
-	_previousElo: number,
-): Promise<void> {
-	try {
-		const currentStats = await getUserStats(userId);
-
-		if (currentStats) {
-			const newPeakElo = Math.max(currentStats.peakElo || 0, newElo);
-
-			await db
-				.update(userStats)
-				.set({
-					currentElo: newElo,
-					totalGames: currentStats.totalGames + 1,
-					wins: won ? currentStats.wins + 1 : currentStats.wins,
-					losses: won ? currentStats.losses : currentStats.losses + 1,
-					peakElo: newPeakElo,
-					lastGameAt: new Date(),
-					updatedAt: new Date(),
-				})
-				.where(eq(userStats.userId, userId));
-		}
-	} catch (error) {
-		console.error("Error updating user stats:", error);
-	}
-}
+// `updateUserStats` removed — `applyEloOutcome` from `~/server/lib/user-stats`
+// handles updating both players atomically.
 
 // Get recent games with ELO information
 export async function getRecentGames(
@@ -484,53 +405,66 @@ export async function getLeaderboard(
 	offset: number = 0,
 ): Promise<UserGameStats[]> {
 	try {
-		const topPlayers = await db
+		// Internal leaderboard: members of the current tenant, ranked by their
+		// unified ELO from the control DB. Two-step query because tenant `users`
+		// (mirror) and `userPreferences` live in the tenant DB while `userStats`
+		// lives in the control DB.
+
+		// 1. Tenant-side: members + their ELO opt-out preference.
+		const tenantMembers = await db
 			.select({
-				userId: userStats.userId,
+				userId: users.id,
 				userName: users.name,
 				userEmail: users.email,
-				currentElo: userStats.currentElo,
-				totalGames: userStats.totalGames,
-				wins: userStats.wins,
-				losses: userStats.losses,
-				peakElo: userStats.peakElo,
 				avatar: users.image,
 				prefValue: userPreferences.value,
 			})
-			.from(userStats)
-			.leftJoin(users, eq(userStats.userId, users.id))
+			.from(users)
 			.leftJoin(
 				userPreferences,
 				and(
-					eq(userPreferences.userId, userStats.userId),
+					eq(userPreferences.userId, users.id),
 					eq(userPreferences.key, ELO_KEY),
 				),
 			)
 			.where(
-				and(
-					gt(userStats.totalGames, 0),
-					or(
-						isNull(userPreferences.value),
-						ne(userPreferences.value, FALSE_JSON),
-					),
+				or(
+					isNull(userPreferences.value),
+					ne(userPreferences.value, FALSE_JSON),
 				),
+			);
+
+		const memberIds = tenantMembers.map((m) => m.userId);
+		if (memberIds.length === 0) return [];
+
+		// 2. Control-side: stats for those members, ordered by ELO.
+		const stats = await controlDb
+			.select()
+			.from(userStats)
+			.where(
+				and(inArray(userStats.userId, memberIds), gt(userStats.totalGames, 0)),
 			)
 			.orderBy(desc(userStats.currentElo))
-			.limit(limit)
-			.offset(offset);
+			.limit(limit + offset);
 
-		return topPlayers.map((stats) => ({
-			userId: stats.userId,
-			userName: stats.userName,
-			userEmail: stats.userEmail,
-			avatar: stats.avatar,
-			currentElo: stats.currentElo,
-			totalGames: stats.totalGames,
-			wins: stats.wins,
-			losses: stats.losses,
-			winRate: stats.totalGames > 0 ? (stats.wins / stats.totalGames) * 100 : 0,
-			peakElo: stats.peakElo || stats.currentElo,
-		}));
+		const memberById = new Map(tenantMembers.map((m) => [m.userId, m]));
+		const ranked = stats.slice(offset, offset + limit);
+
+		return ranked.map((s) => {
+			const m = memberById.get(s.userId);
+			return {
+				userId: s.userId,
+				userName: m?.userName ?? null,
+				userEmail: m?.userEmail ?? null,
+				avatar: m?.avatar ?? null,
+				currentElo: s.currentElo,
+				totalGames: s.totalGames,
+				wins: s.wins,
+				losses: s.losses,
+				winRate: s.totalGames > 0 ? (s.wins / s.totalGames) * 100 : 0,
+				peakElo: s.peakElo || s.currentElo,
+			};
+		});
 	} catch (error) {
 		console.error("Error getting leaderboard:", error);
 		return [];

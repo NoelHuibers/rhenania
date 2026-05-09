@@ -1,20 +1,28 @@
 "use client";
 
-import { AlertTriangle, Check, Clock, Swords, Trophy, X } from "lucide-react";
+import {
+	AlertTriangle,
+	Check,
+	Clock,
+	Globe,
+	Swords,
+	Trophy,
+	X,
+} from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+
+import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
-	type ChallengeView,
-	cancelChallenge,
-	confirmResult,
-	disputeResult,
-	proposeResult,
-	respondToChallenge,
-} from "~/server/actions/game/challenge";
-import { useChallengeBadge } from "./ChallengeBadgeProvider";
+	type CrossChallengeView,
+	cancelCrossTenantChallenge,
+	confirmCrossTenantResult,
+	disputeCrossTenantResult,
+	proposeCrossTenantResult,
+	respondToCrossTenantChallenge,
+} from "~/server/actions/game/cross-tenant-challenge";
 
 type Variant =
 	| "incoming-pending"
@@ -25,23 +33,19 @@ type Variant =
 	| "disputed"
 	| "history";
 
-interface ChallengeCardProps {
-	challenge: ChallengeView;
+interface CrossChallengeCardProps {
+	challenge: CrossChallengeView;
 	currentUserId: string;
 	variant: Variant;
+	onChanged: () => void;
 }
 
-function paymentLabel(
-	payment: ChallengeView["payment"],
-	challengerName: string | null,
-	currentUserId: string,
-	challengerId: string,
-): string {
-	const iAmChallenger = currentUserId === challengerId;
-	const youOrName = (name: string | null) => name || "Gegner";
+function paymentLabel(payment: CrossChallengeView["payment"]): string {
 	switch (payment) {
+		case "none":
+			return "Offline geklärt";
 		case "challenger":
-			return iAmChallenger ? "Du zahlst" : `${youOrName(challengerName)} zahlt`;
+			return "Herausforderer zahlt";
 		case "loser":
 			return "Verlierer zahlt";
 		case "split":
@@ -72,26 +76,34 @@ function useCountdown(target: Date | null) {
 	return formatDelta(target, now);
 }
 
-export function ChallengeCard({
+function initials(name: string | null): string {
+	if (!name) return "?";
+	return name
+		.split(/[\s.@]/)
+		.filter(Boolean)
+		.map((p) => p[0])
+		.join("")
+		.toUpperCase()
+		.slice(0, 2);
+}
+
+export function CrossChallengeCard({
 	challenge: c,
 	currentUserId,
 	variant,
-}: ChallengeCardProps) {
-	const { refresh } = useChallengeBadge();
+	onChanged,
+}: CrossChallengeCardProps) {
 	const [isPending, startTransition] = useTransition();
 
 	const iAmChallenger = currentUserId === c.challengerId;
-	const other = iAmChallenger
-		? {
-				id: c.opponentId,
-				name: c.opponentName,
-				avatar: c.opponentAvatar,
-			}
-		: {
-				id: c.challengerId,
-				name: c.challengerName,
-				avatar: c.challengerAvatar,
-			};
+	const otherName = iAmChallenger ? c.opponentName : c.challengerName;
+	const otherCorps = iAmChallenger
+		? c.opponentTenantName
+		: c.challengerTenantName;
+	const otherCorpsSlug = iAmChallenger
+		? c.opponentTenantSlug
+		: c.challengerTenantSlug;
+	const otherId = iAmChallenger ? c.opponentId : c.challengerId;
 
 	const deadline =
 		variant === "incoming-pending" || variant === "outgoing-pending"
@@ -102,24 +114,13 @@ export function ChallengeCard({
 						variant === "awaiting-their-confirm"
 					? c.confirmDeadline
 					: null;
-
 	const countdown = useCountdown(deadline);
-
-	const paymentText = paymentLabel(
-		c.payment,
-		c.challengerName,
-		currentUserId,
-		c.challengerId,
-	);
 
 	const run = (fn: () => Promise<{ success: boolean; error?: string }>) => {
 		startTransition(async () => {
 			const res = await fn();
-			if (res.success) {
-				await refresh();
-			} else {
-				toast.error(res.error || "Fehler");
-			}
+			if (res.success) onChanged();
+			else toast.error(res.error || "Fehler");
 		});
 	};
 
@@ -143,22 +144,24 @@ export function ChallengeCard({
 			case "incoming-pending":
 				return (
 					<>
-						<Swords className="h-4 w-4 text-orange-500" />
-						<span>Du wurdest herausgefordert</span>
+						<Swords className="h-4 w-4 shrink-0 text-orange-500" />
+						<span className="truncate">Du wurdest herausgefordert</span>
 					</>
 				);
 			case "outgoing-pending":
 				return (
 					<>
-						<Clock className="h-4 w-4" />
-						<span>Warten auf {other.name || "Gegner"}</span>
+						<Clock className="h-4 w-4 shrink-0" />
+						<span className="truncate">Warten auf {otherName ?? "Gegner"}</span>
 					</>
 				);
 			case "awaiting-my-result":
 				return (
 					<>
-						<Trophy className="h-4 w-4 text-green-600" />
-						<span>Spiel läuft — {other.name || "Gegner"}</span>
+						<Trophy className="h-4 w-4 shrink-0 text-green-600" />
+						<span className="truncate">
+							Spiel läuft — {otherName ?? "Gegner"}
+						</span>
 					</>
 				);
 			case "awaiting-my-confirm": {
@@ -169,11 +172,11 @@ export function ChallengeCard({
 				const theyWon = c.proposedWinnerId !== currentUserId;
 				return (
 					<>
-						<AlertTriangle className="h-4 w-4 text-yellow-600" />
-						<span>
+						<AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
+						<span className="truncate">
 							{theyWon
-								? `${proposedWinnerName || "Gegner"} behauptet zu gewinnen`
-								: `${other.name || "Gegner"} bestätigt deinen Sieg?`}
+								? `${proposedWinnerName ?? "Gegner"} behauptet zu gewinnen`
+								: `${otherName ?? "Gegner"} bestätigt deinen Sieg?`}
 						</span>
 					</>
 				);
@@ -181,22 +184,22 @@ export function ChallengeCard({
 			case "awaiting-their-confirm":
 				return (
 					<>
-						<Clock className="h-4 w-4" />
-						<span>Warten auf Bestätigung</span>
+						<Clock className="h-4 w-4 shrink-0" />
+						<span className="truncate">Warten auf Bestätigung</span>
 					</>
 				);
 			case "disputed":
 				return (
 					<>
-						<AlertTriangle className="h-4 w-4 text-red-600" />
-						<span>Anfechtung</span>
+						<AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+						<span className="truncate">Anfechtung</span>
 					</>
 				);
 			case "history":
 				return (
 					<>
-						<Clock className="h-4 w-4" />
-						<span className="capitalize">{c.status}</span>
+						<Clock className="h-4 w-4 shrink-0" />
+						<span className="truncate capitalize">{c.status}</span>
 					</>
 				);
 		}
@@ -215,40 +218,42 @@ export function ChallengeCard({
 
 			<div className="mb-3 flex items-center gap-3">
 				<Avatar className="h-9 w-9 sm:h-10 sm:w-10">
-					<AvatarImage src={other.avatar || undefined} alt={other.name || ""} />
 					<AvatarFallback className="text-xs">
-						{(other.name || "?")
-							.split(" ")
-							.map((n) => n[0])
-							.join("")
-							.toUpperCase()
-							.slice(0, 2)}
+						{initials(otherName)}
 					</AvatarFallback>
 				</Avatar>
 				<div className="min-w-0 flex-1">
-					<div className="truncate font-medium text-sm">
-						{other.name || "Unbekannt"}
+					<div className="flex flex-wrap items-center gap-1.5 text-sm">
+						<span className="truncate font-medium">
+							{otherName ?? "Unbekannt"}
+						</span>
+						<Badge
+							variant="outline"
+							className="shrink-0 gap-1 font-mono text-[10px]"
+						>
+							<Globe className="h-2.5 w-2.5" />
+							{otherCorpsSlug || otherCorps}
+						</Badge>
 					</div>
-					<div className="truncate text-muted-foreground text-xs">
-						🍺 {c.drinkName} ({c.quantity}×) · 💰 {paymentText}
+					<div className="text-muted-foreground text-xs">
+						{c.drinkName ? `🍺 ${c.drinkName} (${c.quantity}×) · ` : ""}💰{" "}
+						{paymentLabel(c.payment)}
 					</div>
 				</div>
 			</div>
 
 			{variant === "awaiting-my-confirm" ? (
 				<div className="mb-3 rounded bg-muted/50 p-2 text-muted-foreground text-xs">
-					Wenn du nichts tust, wird das Ergebnis nach Ablauf automatisch
-					bestätigt.
+					Wenn du nichts tust, läuft die Bestätigungsfrist ab.
 				</div>
 			) : null}
 
 			{variant === "disputed" ? (
 				<div className="rounded bg-red-50 p-2 text-red-700 text-xs dark:bg-red-950/20 dark:text-red-300">
-					Anfechtung — bitte persönlich klären.
+					Anfechtung — bitte mit dem Gegner persönlich klären.
 				</div>
 			) : null}
 
-			{/* Actions */}
 			{variant === "incoming-pending" ? (
 				<div className="flex gap-2">
 					<Button
@@ -257,7 +262,7 @@ export function ChallengeCard({
 						disabled={isPending}
 						onClick={() =>
 							run(() =>
-								respondToChallenge({
+								respondToCrossTenantChallenge({
 									challengeId: c.id,
 									response: "decline",
 								}),
@@ -271,7 +276,7 @@ export function ChallengeCard({
 						disabled={isPending}
 						onClick={() =>
 							run(() =>
-								respondToChallenge({
+								respondToCrossTenantChallenge({
 									challengeId: c.id,
 									response: "accept",
 								}),
@@ -288,7 +293,7 @@ export function ChallengeCard({
 					variant="outline"
 					className="w-full"
 					disabled={isPending}
-					onClick={() => run(() => cancelChallenge(c.id))}
+					onClick={() => run(() => cancelCrossTenantChallenge(c.id))}
 				>
 					Zurückziehen
 				</Button>
@@ -302,7 +307,7 @@ export function ChallengeCard({
 							disabled={isPending}
 							onClick={() =>
 								run(() =>
-									proposeResult({
+									proposeCrossTenantResult({
 										challengeId: c.id,
 										winnerId: currentUserId,
 									}),
@@ -317,9 +322,9 @@ export function ChallengeCard({
 							disabled={isPending}
 							onClick={() =>
 								run(() =>
-									proposeResult({
+									proposeCrossTenantResult({
 										challengeId: c.id,
-										winnerId: other.id,
+										winnerId: otherId,
 									}),
 								)
 							}
@@ -332,7 +337,7 @@ export function ChallengeCard({
 						size="sm"
 						className="w-full text-muted-foreground text-xs"
 						disabled={isPending}
-						onClick={() => run(() => cancelChallenge(c.id))}
+						onClick={() => run(() => cancelCrossTenantChallenge(c.id))}
 					>
 						Abbrechen
 					</Button>
@@ -345,14 +350,14 @@ export function ChallengeCard({
 						variant="outline"
 						className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
 						disabled={isPending}
-						onClick={() => run(() => disputeResult(c.id))}
+						onClick={() => run(() => disputeCrossTenantResult(c.id))}
 					>
 						Anfechten
 					</Button>
 					<Button
 						className="flex-1 bg-green-500 hover:bg-green-600"
 						disabled={isPending}
-						onClick={() => run(() => confirmResult(c.id))}
+						onClick={() => run(() => confirmCrossTenantResult(c.id))}
 					>
 						<Check className="mr-1 h-4 w-4" /> Bestätigen
 					</Button>
@@ -365,7 +370,7 @@ export function ChallengeCard({
 					size="sm"
 					className="w-full text-muted-foreground text-xs"
 					disabled={isPending}
-					onClick={() => run(() => cancelChallenge(c.id))}
+					onClick={() => run(() => cancelCrossTenantChallenge(c.id))}
 				>
 					Abbrechen
 				</Button>

@@ -9,6 +9,7 @@ import {
 	users as controlUsers,
 	sessions,
 	tenantMemberships,
+	userStats,
 } from "~/server/db/control-schema";
 import {
 	billPDFs,
@@ -19,7 +20,6 @@ import {
 	orders,
 	roles,
 	userRoles,
-	userStats,
 	users,
 } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
@@ -365,8 +365,8 @@ export async function deleteUser(userId: string): Promise<void> {
 				),
 			);
 
-		// Delete user stats
-		await db.delete(userStats).where(eq(userStats.userId, userId));
+		// Delete user stats (lives in the control DB — unified across Corps).
+		await controlDb.delete(userStats).where(eq(userStats.userId, userId));
 
 		// Delete the tenant `users` mirror — cascades: userRoles,
 		// userPreferences, userAchievements, achievementProgress

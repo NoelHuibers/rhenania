@@ -12,8 +12,9 @@ import {
 
 type NullableDate = Date | string | null;
 
+// Mirrors the unified `userStats` row shape (control DB). The legacy `id`
+// column doesn't exist there — the row is keyed on `userId`.
 export interface UserStats {
-	id: string;
 	userId: string;
 	currentElo: number;
 	totalGames: number;

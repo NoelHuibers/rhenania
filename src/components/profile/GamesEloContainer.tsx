@@ -1,8 +1,10 @@
 // GamesEloContainerDetailed.tsx
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import { auth } from "~/server/auth";
+import { controlDb } from "~/server/db/control";
+import { userStats } from "~/server/db/control-schema";
 import { db } from "~/server/db/index";
-import { games, userPreferences, userStats } from "~/server/db/schema";
+import { games, userPreferences } from "~/server/db/schema";
 import EloDisabledCard from "./EloDisabledCard";
 import { GamesElo } from "./GamesElo";
 
@@ -32,7 +34,7 @@ export default async function GamesEloContainerDetailed() {
 		return <EloDisabledCard />;
 	}
 
-	const userStatsData = await db
+	const userStatsData = await controlDb
 		.select()
 		.from(userStats)
 		.where(eq(userStats.userId, userId))
@@ -88,7 +90,6 @@ export default async function GamesEloContainerDetailed() {
 		}, 1200);
 
 		stats = {
-			id: "",
 			userId,
 			currentElo,
 			totalGames: gameStats?.totalGames || 0,
@@ -124,6 +125,12 @@ export default async function GamesEloContainerDetailed() {
 					: (game.player2EloAfter ?? 1200),
 		}))
 		.reverse();
+
+	if (!stats) {
+		// Unreachable in practice — the if-block above always assigns it — but
+		// TypeScript can't narrow through `let` reassignment.
+		return null;
+	}
 
 	return <GamesElo userStats={stats} eloHistory={eloHistory} />;
 }

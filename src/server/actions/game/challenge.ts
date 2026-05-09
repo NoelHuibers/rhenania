@@ -3,16 +3,9 @@
 import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
-import {
-	challenges,
-	drinks,
-	games,
-	orders,
-	userStats,
-	users,
-} from "~/server/db/schema";
+import { challenges, drinks, games, orders, users } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
-import { calculateEloChange, DEFAULT_ELO } from "~/server/lib/elo";
+import { applyEloOutcome } from "~/server/lib/user-stats";
 import { auth } from "../../auth";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
 import { isEloEnabledForUser } from "../profile/preferences";
@@ -415,8 +408,9 @@ async function settleChallenge(
 	const loserId =
 		winnerId === row.challengerId ? row.opponentId : row.challengerId;
 
-	// Fetch drink + both users in parallel
-	const [drink, winner, loser, winnerStats, loserStats] = await Promise.all([
+	// Fetch drink + both users in parallel. ELO/stats are read inside
+	// `applyEloOutcome` against the unified control-DB userStats.
+	const [drink, winner, loser] = await Promise.all([
 		db.query.drinks.findFirst({
 			where: (t, { eq }) => eq(t.id, row.drinkId),
 		}),
@@ -428,8 +422,6 @@ async function settleChallenge(
 			where: (t, { eq }) => eq(t.id, loserId),
 			columns: { id: true, name: true, email: true },
 		}),
-		getOrCreateUserStats(winnerId),
-		getOrCreateUserStats(loserId),
 	]);
 
 	if (!drink) return { success: false, error: "Getränk nicht gefunden" };
@@ -497,29 +489,34 @@ async function settleChallenge(
 		});
 	}
 
-	// ELO calc: use challenger as player1 for consistency
-	const p1Won = challengerIsWinner;
-	const p1Stats = challengerIsWinner ? winnerStats : loserStats;
-	const p2Stats = challengerIsWinner ? loserStats : winnerStats;
-	const elo = calculateEloChange(
-		p1Stats.currentElo,
-		p2Stats.currentElo,
-		p1Stats.totalGames,
-		p2Stats.totalGames,
-		p1Won,
-	);
+	// Apply ELO outcome against the unified userStats (control DB).
+	// `applyEloOutcome` updates both players atomically and returns the
+	// before/after numbers so we can persist them on the game row.
+	const eloResult = await applyEloOutcome(winnerId, loserId);
+	const challengerEloBefore = challengerIsWinner
+		? eloResult.winnerEloBefore
+		: eloResult.loserEloBefore;
+	const opponentEloBefore = challengerIsWinner
+		? eloResult.loserEloBefore
+		: eloResult.winnerEloBefore;
+	const challengerEloAfter = challengerIsWinner
+		? eloResult.winnerEloAfter
+		: eloResult.loserEloAfter;
+	const opponentEloAfter = challengerIsWinner
+		? eloResult.loserEloAfter
+		: eloResult.winnerEloAfter;
 
-	// Insert game
+	// Insert game record (tenant DB)
 	const [newGame] = await db
 		.insert(games)
 		.values({
 			player1Id: row.challengerId,
 			player2Id: row.opponentId,
 			winnerId,
-			player1EloBefore: p1Stats.currentElo,
-			player2EloBefore: p2Stats.currentElo,
-			player1EloAfter: elo.player1NewElo,
-			player2EloAfter: elo.player2NewElo,
+			player1EloBefore: challengerEloBefore,
+			player2EloBefore: opponentEloBefore,
+			player1EloAfter: challengerEloAfter,
+			player2EloAfter: opponentEloAfter,
 			challengeId: row.id,
 		})
 		.returning({ id: games.id });
@@ -527,22 +524,6 @@ async function settleChallenge(
 	if (!newGame) {
 		return { success: false, error: "Spiel konnte nicht erstellt werden" };
 	}
-
-	// Update user stats
-	await Promise.all([
-		updateUserStats(
-			row.challengerId,
-			p1Won,
-			elo.player1NewElo,
-			p1Stats.currentElo,
-		),
-		updateUserStats(
-			row.opponentId,
-			!p1Won,
-			elo.player2NewElo,
-			p2Stats.currentElo,
-		),
-	]);
 
 	// Mark challenge settled
 	await db
@@ -565,57 +546,8 @@ async function settleChallenge(
 	return { success: true, gameId: newGame.id };
 }
 
-async function getOrCreateUserStats(userId: string) {
-	const existing = await db.query.userStats.findFirst({
-		where: (t, { eq }) => eq(t.userId, userId),
-		columns: { currentElo: true, totalGames: true, peakElo: true },
-	});
-	if (existing) {
-		return {
-			currentElo: existing.currentElo ?? DEFAULT_ELO,
-			totalGames: existing.totalGames ?? 0,
-			peakElo: existing.peakElo ?? DEFAULT_ELO,
-		};
-	}
-	await db.insert(userStats).values({
-		userId,
-		currentElo: DEFAULT_ELO,
-		totalGames: 0,
-		wins: 0,
-		losses: 0,
-		peakElo: DEFAULT_ELO,
-	});
-	return {
-		currentElo: DEFAULT_ELO,
-		totalGames: 0,
-		peakElo: DEFAULT_ELO,
-	};
-}
-
-async function updateUserStats(
-	userId: string,
-	won: boolean,
-	newElo: number,
-	_previousElo: number,
-) {
-	const existing = await db.query.userStats.findFirst({
-		where: (t, { eq }) => eq(t.userId, userId),
-	});
-	if (!existing) return;
-	const newPeak = Math.max(existing.peakElo ?? DEFAULT_ELO, newElo);
-	await db
-		.update(userStats)
-		.set({
-			currentElo: newElo,
-			totalGames: (existing.totalGames ?? 0) + 1,
-			wins: won ? (existing.wins ?? 0) + 1 : (existing.wins ?? 0),
-			losses: won ? (existing.losses ?? 0) : (existing.losses ?? 0) + 1,
-			peakElo: newPeak,
-			lastGameAt: new Date(),
-			updatedAt: new Date(),
-		})
-		.where(eq(userStats.userId, userId));
-}
+// Local `getOrCreateUserStats` / `updateUserStats` helpers were removed —
+// see `~/server/lib/user-stats.ts` for the unified control-DB versions.
 
 // ---------- Feed ----------
 

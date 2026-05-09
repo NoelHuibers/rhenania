@@ -412,31 +412,9 @@ export const challenges = createTable(
 	],
 );
 
-export const userStats = createTable("user_stat", (d) => ({
-	id: d
-		.text({ length: 255 })
-		.notNull()
-		.primaryKey()
-		.$defaultFn(() => crypto.randomUUID()),
-	userId: d
-		.text({ length: 255 })
-		.notNull()
-		.references(() => users.id),
-	currentElo: d.integer().notNull().default(1200),
-	totalGames: d.integer().notNull().default(0),
-	wins: d.integer().notNull().default(0),
-	losses: d.integer().notNull().default(0),
-	lastGameAt: d.integer({ mode: "timestamp" }),
-	peakElo: d.integer().notNull().default(1200),
-	createdAt: d
-		.integer({ mode: "timestamp" })
-		.notNull()
-		.$defaultFn(() => new Date()),
-	updatedAt: d
-		.integer({ mode: "timestamp" })
-		.notNull()
-		.$defaultFn(() => new Date()),
-}));
+// `userStats` was moved to the control DB so that a user with memberships in
+// multiple Corps has a single ELO across all of them. Imports of `userStats`
+// must come from `~/server/db/control-schema` now.
 
 export const billCSVs = createTable(
 	"bill_csv",

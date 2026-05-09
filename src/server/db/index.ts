@@ -30,8 +30,7 @@ const globalForDb = globalThis as unknown as {
 export const fallbackClient =
 	globalForDb.fallbackClient ??
 	createClient({ url: env.DATABASE_URL, authToken: env.DATABASE_AUTH_TOKEN });
-if (env.NODE_ENV !== "production")
-	globalForDb.fallbackClient = fallbackClient;
+if (env.NODE_ENV !== "production") globalForDb.fallbackClient = fallbackClient;
 
 // Methods on the libSQL `Client` that touch the network. The proxy intercepts
 // these and dispatches to the right tenant's client per call.
