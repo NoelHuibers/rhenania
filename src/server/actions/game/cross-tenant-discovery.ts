@@ -43,6 +43,54 @@ export type GlobalLeaderboardEntry = {
 	tenantName: string;
 };
 
+export type GlobalPeakHolder = {
+	name: string | null;
+	peakElo: number;
+	tenantSlug: string;
+	tenantName: string;
+};
+
+/**
+ * Player who has held the highest peak ELO across all Corps.
+ * One indexed lookup + two small joins. Used by the stats overview.
+ */
+export async function getGlobalPeakEloHolder(): Promise<GlobalPeakHolder | null> {
+	const [top] = await controlDb
+		.select()
+		.from(userStats)
+		.where(gt(userStats.totalGames, 0))
+		.orderBy(desc(userStats.peakElo))
+		.limit(1);
+
+	if (!top) return null;
+
+	const [userRow] = await controlDb
+		.select({ name: users.name })
+		.from(users)
+		.where(eq(users.id, top.userId))
+		.limit(1);
+
+	const [tenantRow] = await controlDb
+		.select({ slug: tenants.slug, displayName: tenants.displayName })
+		.from(tenantMemberships)
+		.innerJoin(tenants, eq(tenants.id, tenantMemberships.tenantId))
+		.where(
+			and(
+				eq(tenantMemberships.userId, top.userId),
+				eq(tenantMemberships.status, "active"),
+				eq(tenants.status, "active"),
+			),
+		)
+		.limit(1);
+
+	return {
+		name: userRow?.name ?? null,
+		peakElo: top.peakElo || top.currentElo,
+		tenantSlug: tenantRow?.slug ?? "",
+		tenantName: tenantRow?.displayName ?? "",
+	};
+}
+
 /**
  * Active tenants the current user can challenge — i.e. every active tenant
  * other than their own.

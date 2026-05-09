@@ -1,9 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 import { GamepadIcon, TrendingUp, Trophy, Users } from "lucide-react";
+import type { ReactNode } from "react";
+import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
+import { getGlobalPeakEloHolder } from "~/server/actions/game/cross-tenant-discovery";
 import { getLeaderboard, getRecentGames } from "~/server/actions/game/game";
-import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 type StatTone = "blue" | "violet" | "emerald" | "amber";
 
@@ -30,13 +32,13 @@ function StatCard({
 	icon: Icon,
 	label,
 	value,
-	caption,
+	meta,
 	tone,
 }: {
 	icon: LucideIcon;
-	label: string;
+	label: ReactNode;
 	value: string | number;
-	caption: string;
+	meta?: ReactNode;
 	tone: StatTone;
 }) {
 	const styles = toneStyles[tone];
@@ -49,17 +51,21 @@ function StatCard({
 					<Icon className="h-4 w-4 sm:h-5 sm:w-5" />
 				</div>
 				<div className="min-w-0 flex-1">
-					<p className="truncate font-medium text-[11px] text-muted-foreground sm:text-xs">
+					<div className="flex min-w-0 items-center gap-1.5 truncate font-medium text-[11px] text-muted-foreground sm:text-xs">
 						{label}
-					</p>
-					<p
-						className={`font-bold text-lg leading-tight sm:text-2xl ${styles.value}`}
-					>
-						{value}
-					</p>
-					<p className="hidden truncate text-[11px] text-muted-foreground sm:block">
-						{caption}
-					</p>
+					</div>
+					<div className="flex min-w-0 items-baseline gap-2">
+						<p
+							className={`font-bold text-lg leading-tight ${styles.value} sm:text-2xl`}
+						>
+							{value}
+						</p>
+						{meta ? (
+							<div className="flex min-w-0 items-baseline gap-1 truncate text-[11px] text-muted-foreground">
+								{meta}
+							</div>
+						) : null}
+					</div>
 				</div>
 			</CardContent>
 		</Card>
@@ -74,7 +80,6 @@ function StatCardSkeleton() {
 				<div className="min-w-0 flex-1 space-y-1.5">
 					<Skeleton className="h-3 w-16" />
 					<Skeleton className="h-5 w-14 sm:h-6 sm:w-16" />
-					<Skeleton className="hidden h-3 w-24 sm:block" />
 				</div>
 			</CardContent>
 		</Card>
@@ -92,48 +97,36 @@ export function StatsOverviewSkeleton() {
 	);
 }
 
-export async function StatsOverview() {
-	const tenant = await getCurrentTenant();
-	const corpsName = tenant?.displayName ?? "Corps";
+function lastNameOf(fullName: string | null): string {
+	if (!fullName) return "Unbekannt";
+	const parts = fullName.trim().split(/\s+/);
+	const last = parts[parts.length - 1];
+	if (!last) return "Unbekannt";
+	return last.charAt(0).toUpperCase() + last.slice(1);
+}
 
+export async function StatsOverview() {
 	let leaderboard: Awaited<ReturnType<typeof getLeaderboard>> | undefined;
+	let peakHolder: Awaited<ReturnType<typeof getGlobalPeakEloHolder>> = null;
 	try {
-		[leaderboard] = await Promise.all([
+		[leaderboard, , peakHolder] = await Promise.all([
 			getLeaderboard(100),
 			getRecentGames(50),
+			getGlobalPeakEloHolder(),
 		]);
 	} catch (error) {
 		console.error("Failed to load stats:", error);
 		return (
 			<div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-				<StatCard
-					icon={Users}
-					label="Spieler"
-					value="–"
-					caption="Daten nicht verfügbar"
-					tone="blue"
-				/>
-				<StatCard
-					icon={GamepadIcon}
-					label="Spiele"
-					value="–"
-					caption="Daten nicht verfügbar"
-					tone="violet"
-				/>
+				<StatCard icon={Users} label="Spieler" value="–" tone="blue" />
+				<StatCard icon={GamepadIcon} label="Spiele" value="–" tone="violet" />
 				<StatCard
 					icon={TrendingUp}
 					label="Corps ELO"
 					value="–"
-					caption={`Durchschnitt ${corpsName}`}
 					tone="emerald"
 				/>
-				<StatCard
-					icon={Trophy}
-					label="Rekord ELO"
-					value="–"
-					caption="Höchster je erreicht"
-					tone="amber"
-				/>
+				<StatCard icon={Trophy} label="Rekord ELO" value="–" tone="amber" />
 			</div>
 		);
 	}
@@ -149,39 +142,44 @@ export async function StatsOverview() {
 					players.reduce((sum, p) => sum + p.currentElo, 0) / totalPlayers,
 				)
 			: 1200;
-	const recordElo =
-		totalPlayers > 0
-			? Math.max(...players.map((p) => p.peakElo ?? p.currentElo))
-			: 1200;
+
+	const recordElo = peakHolder?.peakElo ?? 1200;
+	const recordMeta = peakHolder ? (
+		<>
+			<span className="truncate font-medium text-foreground">
+				{lastNameOf(peakHolder.name)}
+			</span>
+			{peakHolder.tenantSlug ? (
+				<Badge
+					variant="secondary"
+					className="shrink-0 px-1.5 py-0 font-mono text-[10px] uppercase"
+				>
+					{peakHolder.tenantSlug}
+				</Badge>
+			) : null}
+		</>
+	) : undefined;
 
 	return (
 		<div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
-			<StatCard
-				icon={Users}
-				label="Spieler"
-				value={totalPlayers}
-				caption="Ranked Bierjungen"
-				tone="blue"
-			/>
+			<StatCard icon={Users} label="Spieler" value={totalPlayers} tone="blue" />
 			<StatCard
 				icon={GamepadIcon}
 				label="Spiele"
 				value={totalGames}
-				caption="Insgesamt gespielt"
 				tone="violet"
 			/>
 			<StatCard
 				icon={TrendingUp}
 				label="Corps ELO"
 				value={averageElo}
-				caption={`Durchschnitt ${corpsName}`}
 				tone="emerald"
 			/>
 			<StatCard
 				icon={Trophy}
 				label="Rekord ELO"
 				value={recordElo}
-				caption="Höchster je erreicht"
+				meta={recordMeta}
 				tone="amber"
 			/>
 		</div>
