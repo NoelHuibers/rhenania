@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { getGlobalLeaderboard } from "~/server/actions/game/cross-tenant-discovery";
 import { getLeaderboard } from "~/server/actions/game/game";
 
@@ -123,48 +124,57 @@ export function LeaderboardClient({
 		}
 	}
 
-	return (
-		<div className="space-y-3">
-			{/* Scope toggle inside the card */}
-			<div className="flex justify-end">
-				<div
-					className="inline-flex rounded-md border bg-muted/40 p-0.5"
-					role="tablist"
-				>
-					<button
-						type="button"
-						role="tab"
-						aria-selected={scope === "global"}
-						onClick={() => setScope("global")}
-						disabled={isSwitching}
-						className={`rounded px-3 py-1 font-medium text-xs transition-colors ${
-							scope === "global"
-								? "bg-background text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-					>
-						Global
-					</button>
-					<button
-						type="button"
-						role="tab"
-						aria-selected={scope === "internal"}
-						onClick={() => setScope("internal")}
-						disabled={isSwitching}
-						className={`rounded px-3 py-1 font-medium text-xs transition-colors ${
-							scope === "internal"
-								? "bg-background text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-					>
-						Intern
-					</button>
-				</div>
-			</div>
-
-			<div
-				className={`space-y-2 sm:space-y-3 ${isSwitching ? "opacity-60" : ""}`}
+	const toggle = (
+		<div
+			className="inline-flex rounded-md border bg-muted/40 p-0.5"
+			role="tablist"
+		>
+			<button
+				type="button"
+				role="tab"
+				aria-selected={scope === "global"}
+				onClick={() => setScope("global")}
+				disabled={isSwitching}
+				className={`rounded px-3 py-1 font-medium text-xs transition-colors ${
+					scope === "global"
+						? "bg-background text-foreground shadow-sm"
+						: "text-muted-foreground hover:text-foreground"
+				}`}
 			>
+				Global
+			</button>
+			<button
+				type="button"
+				role="tab"
+				aria-selected={scope === "internal"}
+				onClick={() => setScope("internal")}
+				disabled={isSwitching}
+				className={`rounded px-3 py-1 font-medium text-xs transition-colors ${
+					scope === "internal"
+						? "bg-background text-foreground shadow-sm"
+						: "text-muted-foreground hover:text-foreground"
+				}`}
+			>
+				Intern
+			</button>
+		</div>
+	);
+
+	return (
+		<Card>
+			<CardHeader className="pb-3 sm:pb-6">
+				<div className="flex items-center justify-between gap-2">
+					<CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+						<Trophy className="h-4 w-4 sm:h-5 sm:w-5" />
+						ELO Leaderboard
+					</CardTitle>
+					{toggle}
+				</div>
+			</CardHeader>
+			<CardContent className="space-y-3 px-2 sm:px-6">
+				<div
+					className={`space-y-2 sm:space-y-3 ${isSwitching ? "opacity-60" : ""}`}
+				>
 				{players.length === 0 ? (
 					<div className="py-8 text-center text-muted-foreground text-sm">
 						{scope === "global"
@@ -253,18 +263,19 @@ export function LeaderboardClient({
 				)}
 			</div>
 
-			{hasMore && (
-				<div className="pt-1 text-center">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={loadMore}
-						disabled={loading || isSwitching}
-					>
-						{loading ? "Loading..." : "Show more"}
-					</Button>
-				</div>
-			)}
-		</div>
+				{hasMore && (
+					<div className="pt-1 text-center">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={loadMore}
+							disabled={loading || isSwitching}
+						>
+							{loading ? "Loading..." : "Show more"}
+						</Button>
+					</div>
+				)}
+			</CardContent>
+		</Card>
 	);
 }
