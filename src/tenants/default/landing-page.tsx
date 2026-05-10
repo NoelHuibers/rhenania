@@ -3,7 +3,6 @@ import {
 	Beer,
 	CalendarDays,
 	LogIn,
-	Sparkles,
 	Trophy,
 	UserCircle2,
 	Users,
@@ -58,10 +57,6 @@ export default async function DefaultLandingPage() {
 
 			<main className="mx-auto flex w-full max-w-6xl flex-col gap-24 px-6 pt-16 pb-24">
 				<section className="flex flex-col items-center text-center">
-					<span className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-3 py-1 text-muted-foreground text-xs shadow-xs backdrop-blur">
-						<Sparkles className="h-3.5 w-3.5" />
-						Frisch eingerichtet
-					</span>
 					<h1 className="max-w-3xl font-heading font-semibold text-4xl tracking-tight sm:text-6xl">
 						Willkommen bei{" "}
 						<span className="bg-gradient-to-br from-primary via-primary to-fuchsia-500 bg-clip-text text-transparent">
