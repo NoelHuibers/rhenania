@@ -8,6 +8,12 @@ export const metadata = {
 	title: "Superadmin",
 };
 
+// The whole /superadmin subtree depends on the request (auth/session via
+// `headers()`), so it can never be statically prerendered. Marking it dynamic
+// stops Next from attempting a build-time prerender — which otherwise calls the
+// server actions, throws DYNAMIC_SERVER_USAGE, and logs misleading errors.
+export const dynamic = "force-dynamic";
+
 export default async function SuperadminLayout({
 	children,
 }: {
