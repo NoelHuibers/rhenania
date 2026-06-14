@@ -1,8 +1,9 @@
-import { type Client, createClient } from "@libsql/client";
+import type { Client } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 
 import { env } from "~/env";
 import * as controlSchema from "./control-schema";
+import { createClient } from "./libsql";
 
 const globalForControlDb = globalThis as unknown as {
 	controlClient: Client | undefined;

@@ -7,12 +7,13 @@
 // (which is the Rhenania DB). New code paths should call `getTenantDb()`
 // instead so the cutover is incremental.
 
-import { type Client, createClient } from "@libsql/client";
+import type { Client } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 
 import { controlDb } from "./control";
 import { tenants } from "./control-schema";
+import { createClient } from "./libsql";
 import * as schema from "./schema";
 
 type TenantDb = LibSQLDatabase<typeof schema>;

@@ -15,10 +15,11 @@
 // `getCurrentTenantDb()` from `./tenants` for explicitness, which costs the
 // same.
 
-import { type Client, createClient } from "@libsql/client";
+import type { Client } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 
 import { env } from "~/env";
+import { createClient } from "./libsql";
 import * as schema from "./schema";
 
 const globalForDb = globalThis as unknown as {
