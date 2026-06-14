@@ -37,7 +37,7 @@
 			"a11y": {
 				"useSemanticElements": "off"
 			},
-			"recommended": true
+			"preset": "recommended"
 		}
 	}
 }
