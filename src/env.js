@@ -14,9 +14,6 @@ export const env = createEnv({
 				? z.string()
 				: z.string().optional(),
 		BETTER_AUTH_URL: z.string().url(),
-		AZURE_AD_CLIENT_ID: z.string().optional(),
-		AZURE_AD_CLIENT_SECRET: z.string().optional(),
-		AZURE_AD_TENANT_ID: z.string().optional(),
 		GMAIL: z.string().email().optional(),
 		GMAIL_PASSWORD: z.string().optional(),
 		TOMAIL: z.string().email().optional(),
@@ -27,7 +24,6 @@ export const env = createEnv({
 		TURSO_PLATFORM_TOKEN: z.string().optional(),
 		TURSO_ORG_SLUG: z.string().optional(),
 		TURSO_GROUP: z.string().default("corps"),
-		VERCEL_BLOB_STORAGE_URL: z.string().url().optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -47,9 +43,6 @@ export const env = createEnv({
 	runtimeEnv: {
 		AUTH_SECRET: process.env.AUTH_SECRET,
 		BETTER_AUTH_URL: process.env.BETTER_AUTH_URL,
-		AZURE_AD_CLIENT_ID: process.env.AZURE_AD_CLIENT_ID,
-		AZURE_AD_CLIENT_SECRET: process.env.AZURE_AD_CLIENT_SECRET,
-		AZURE_AD_TENANT_ID: process.env.AZURE_AD_TENANT_ID,
 		GMAIL: process.env.GMAIL,
 		GMAIL_PASSWORD: process.env.GMAIL_PASSWORD,
 		TOMAIL: process.env.TOMAIL,
@@ -60,7 +53,6 @@ export const env = createEnv({
 		TURSO_PLATFORM_TOKEN: process.env.TURSO_PLATFORM_TOKEN,
 		TURSO_ORG_SLUG: process.env.TURSO_ORG_SLUG,
 		TURSO_GROUP: process.env.TURSO_GROUP,
-		VERCEL_BLOB_STORAGE_URL: process.env.VERCEL_BLOB_STORAGE_URL,
 		NODE_ENV: process.env.NODE_ENV,
 	},
 	/**

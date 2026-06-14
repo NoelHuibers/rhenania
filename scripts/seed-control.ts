@@ -107,10 +107,16 @@ async function upsertDomains(tenantId: string) {
 }
 
 async function upsertAuthConfig(tenantId: string) {
+	// Azure creds are read directly from process.env here (not from `~/env`):
+	// the running app stores them per-tenant in the control DB's
+	// `tenantAuthConfig`, so they're no longer part of the validated env schema.
+	// This seed is the one place that bootstraps tenant #1's auth config.
+	const azureClientId = process.env.AZURE_AD_CLIENT_ID;
+	const azureClientSecret = process.env.AZURE_AD_CLIENT_SECRET;
+	const azureTenantId = process.env.AZURE_AD_TENANT_ID;
+
 	const microsoftEnabled = Boolean(
-		env.AZURE_AD_CLIENT_ID &&
-			env.AZURE_AD_CLIENT_SECRET &&
-			env.AZURE_AD_TENANT_ID,
+		azureClientId && azureClientSecret && azureTenantId,
 	);
 
 	const [existing] = await controlDb
@@ -122,9 +128,9 @@ async function upsertAuthConfig(tenantId: string) {
 	const values = {
 		emailPasswordEnabled: true,
 		microsoftEnabled,
-		azureClientId: env.AZURE_AD_CLIENT_ID ?? null,
-		azureClientSecret: env.AZURE_AD_CLIENT_SECRET ?? null,
-		azureTenantId: env.AZURE_AD_TENANT_ID ?? null,
+		azureClientId: azureClientId ?? null,
+		azureClientSecret: azureClientSecret ?? null,
+		azureTenantId: azureTenantId ?? null,
 	};
 
 	if (existing) {
