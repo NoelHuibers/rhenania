@@ -96,7 +96,7 @@ export function AcademicDateTimePicker({
 					mode="single"
 					selected={date}
 					onSelect={handleDaySelect}
-					initialFocus
+					autoFocus
 				/>
 				<div className="space-y-3 border-t p-3">
 					{/* Hour picker */}
