@@ -1123,6 +1123,94 @@ export const eventTypes = createTable(
 	(t) => [index("event_type_active_idx").on(t.isActive)],
 );
 
+// ─── Fuchsenladen ─────────────────────────────────────────────────────────────
+//
+// Parallel to the drinks shop (drinks/orders) but for Fuchsen-specific items
+// (sweets, snacks, etc.). Bill tracking is per-order: each order carries a
+// "Offen" / "Bezahlt" status the Fuchsenwart can flip.
+
+export const fuchsenItems = createTable(
+	"fuchsen_item",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: d.text({ length: 255 }).notNull(),
+		price: d.real().notNull(),
+		description: d.text({ length: 500 }),
+		picture: d.text(),
+		isCurrentlyAvailable: d
+			.integer({ mode: "boolean" })
+			.notNull()
+			.default(true),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("fuchsen_item_name_idx").on(t.name),
+		index("fuchsen_item_available_idx").on(t.isCurrentlyAvailable),
+	],
+);
+
+export const fuchsenOrders = createTable(
+	"fuchsen_order",
+	(o) => ({
+		id: o
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: o.text({ length: 255 }).notNull(),
+		userName: o.text({ length: 255 }).notNull(),
+		itemId: o.text({ length: 255 }).notNull(),
+		itemName: o.text({ length: 255 }).notNull(),
+		amount: o.integer().notNull(),
+		pricePerUnit: o.real().notNull(),
+		total: o.real().notNull(),
+		status: o
+			.text({ enum: ["Offen", "Bezahlt"] })
+			.notNull()
+			.default("Offen"),
+		paidAt: o.integer({ mode: "timestamp" }),
+		createdAt: o
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: o.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("fuchsen_order_user_idx").on(t.userId),
+		index("fuchsen_order_item_idx").on(t.itemId),
+		index("fuchsen_order_status_idx").on(t.status),
+		index("fuchsen_order_created_idx").on(t.createdAt),
+		foreignKey({
+			columns: [t.itemId],
+			foreignColumns: [fuchsenItems.id],
+			name: "fuchsen_order_item_fk",
+		}),
+	],
+);
+
+export const fuchsenItemsRelations = relations(fuchsenItems, ({ many }) => ({
+	orders: many(fuchsenOrders),
+}));
+
+export const fuchsenOrdersRelations = relations(fuchsenOrders, ({ one }) => ({
+	item: one(fuchsenItems, {
+		fields: [fuchsenOrders.itemId],
+		references: [fuchsenItems.id],
+	}),
+	user: one(users, {
+		fields: [fuchsenOrders.userId],
+		references: [users.id],
+	}),
+}));
+
 export const homepageSections = createTable(
 	"homepage_section",
 	(d) => ({
