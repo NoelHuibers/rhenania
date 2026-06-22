@@ -1142,3 +1142,280 @@ export const homepageSections = createTable(
 	}),
 	(t) => [index("homepage_section_active_idx").on(t.isActive)],
 );
+
+// ─── CC-Kasse (Treasury): Etaplan, Kostenpunkte, Reimbursements ───────────────
+//
+// Per-semester budget plan ("Etatplan") with category-grouped cost items
+// ("Kostenpunkte"), each holding line-item "Positionen", plus member
+// reimbursements ("Kostenrückerstattungen") booked against a Kostenpunkt.
+
+export const etaplans = createTable(
+	"etaplan",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: d.text({ length: 255 }).notNull(), // e.g. "SS 2026"
+		semesterType: d.text({ enum: ["SS", "WS"] }).notNull(),
+		year: d.integer().notNull(),
+		// Nullable → backfill of older semesters with custom dates.
+		startDate: d.integer({ mode: "timestamp" }),
+		endDate: d.integer({ mode: "timestamp" }),
+		status: d
+			.text({ enum: ["Aktiv", "Abgeschlossen"] })
+			.notNull()
+			.default("Aktiv"),
+		notes: d.text({ length: 1000 }),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("etaplan_status_idx").on(t.status),
+		index("etaplan_year_idx").on(t.year),
+	],
+);
+
+export const kostenpunkte = createTable(
+	"kostenpunkt",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		etaplanId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => etaplans.id, { onDelete: "cascade" }),
+		category: d.text({ length: 255 }).notNull(), // Gruppe
+		categoryOrder: d.integer().notNull().default(0),
+		name: d.text({ length: 255 }).notNull(),
+		description: d.text({ length: 1000 }),
+		// Cached aggregates of the child positions (kept in sync by the actions).
+		budget: d.real().notNull().default(0),
+		income: d.real().notNull().default(0),
+		eventId: d
+			.text({ length: 255 })
+			.references(() => events.id, { onDelete: "set null" }),
+		displayOrder: d.integer().notNull().default(0),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("kostenpunkt_etaplan_idx").on(t.etaplanId),
+		index("kostenpunkt_event_idx").on(t.eventId),
+		index("kostenpunkt_category_idx").on(t.etaplanId, t.categoryOrder),
+	],
+);
+
+export const kostenpunktPositionen = createTable(
+	"kostenpunkt_position",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		kostenpunktId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => kostenpunkte.id, { onDelete: "cascade" }),
+		bemerkung: d.text({ length: 500 }),
+		ausgaben: d.real().notNull().default(0),
+		einnahmen: d.real().notNull().default(0),
+		displayOrder: d.integer().notNull().default(0),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [index("position_kostenpunkt_idx").on(t.kostenpunktId)],
+);
+
+export type ReceiptFile = { url: string; name: string };
+
+export const kostenerstattungen = createTable(
+	"kostenerstattung",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		// FK declared in the index array below with onDelete "restrict".
+		kostenpunktId: d.text({ length: 255 }).notNull(),
+		etaplanId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => etaplans.id, { onDelete: "cascade" }),
+		source: d
+			.text({ enum: ["Antrag", "Direktbuchung"] })
+			.notNull()
+			.default("Antrag"),
+		status: d
+			.text({ enum: ["Eingereicht", "Genehmigt", "Ausgezahlt", "Abgelehnt"] })
+			.notNull()
+			.default("Eingereicht"),
+		description: d.text({ length: 500 }).notNull(),
+		amount: d.real().notNull(),
+		submittedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		recipientName: d.text({ length: 255 }).notNull(),
+		iban: d.text({ length: 50 }),
+		// Legacy single-receipt fields — kept nullable for back-compat. New
+		// submissions populate `receipts` (multiple). Safe to drop later via a
+		// TTY-run migration once no old rows rely on them.
+		receiptUrl: d.text(),
+		receiptName: d.text({ length: 255 }),
+		receipts: d.text({ mode: "json" }).$type<ReceiptFile[]>(),
+		// When the money was spent (custom past date for backfill).
+		expenseDate: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		approvedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		approvedAt: d.integer({ mode: "timestamp" }),
+		paidBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		paidAt: d.integer({ mode: "timestamp" }),
+		rejectedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		rejectedAt: d.integer({ mode: "timestamp" }),
+		rejectionReason: d.text({ length: 500 }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("erstattung_kostenpunkt_idx").on(t.kostenpunktId),
+		index("erstattung_etaplan_idx").on(t.etaplanId),
+		index("erstattung_status_idx").on(t.status),
+		index("erstattung_submitter_idx").on(t.submittedBy),
+		index("erstattung_etaplan_status_idx").on(t.etaplanId, t.status),
+		foreignKey({
+			columns: [t.kostenpunktId],
+			foreignColumns: [kostenpunkte.id],
+			name: "erstattung_kostenpunkt_fk",
+		}).onDelete("restrict"),
+	],
+);
+
+export const userPaymentInfo = createTable("user_payment_info", (d) => ({
+	userId: d
+		.text({ length: 255 })
+		.notNull()
+		.primaryKey()
+		.references(() => users.id, { onDelete: "cascade" }),
+	accountHolder: d.text({ length: 255 }).notNull(),
+	iban: d.text({ length: 50 }).notNull(),
+	createdAt: d
+		.integer({ mode: "timestamp" })
+		.default(sql`(unixepoch())`)
+		.notNull(),
+	updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+}));
+
+export const etaplansRelations = relations(etaplans, ({ one, many }) => ({
+	createdBy: one(users, {
+		fields: [etaplans.createdBy],
+		references: [users.id],
+	}),
+	kostenpunkte: many(kostenpunkte),
+	erstattungen: many(kostenerstattungen),
+}));
+
+export const kostenpunkteRelations = relations(
+	kostenpunkte,
+	({ one, many }) => ({
+		etaplan: one(etaplans, {
+			fields: [kostenpunkte.etaplanId],
+			references: [etaplans.id],
+		}),
+		event: one(events, {
+			fields: [kostenpunkte.eventId],
+			references: [events.id],
+		}),
+		positionen: many(kostenpunktPositionen),
+		erstattungen: many(kostenerstattungen),
+	}),
+);
+
+export const kostenpunktPositionenRelations = relations(
+	kostenpunktPositionen,
+	({ one }) => ({
+		kostenpunkt: one(kostenpunkte, {
+			fields: [kostenpunktPositionen.kostenpunktId],
+			references: [kostenpunkte.id],
+		}),
+	}),
+);
+
+export const kostenerstattungenRelations = relations(
+	kostenerstattungen,
+	({ one }) => ({
+		kostenpunkt: one(kostenpunkte, {
+			fields: [kostenerstattungen.kostenpunktId],
+			references: [kostenpunkte.id],
+		}),
+		etaplan: one(etaplans, {
+			fields: [kostenerstattungen.etaplanId],
+			references: [etaplans.id],
+		}),
+		submitter: one(users, {
+			fields: [kostenerstattungen.submittedBy],
+			references: [users.id],
+			relationName: "erstattung_submitter",
+		}),
+		approver: one(users, {
+			fields: [kostenerstattungen.approvedBy],
+			references: [users.id],
+			relationName: "erstattung_approver",
+		}),
+		payer: one(users, {
+			fields: [kostenerstattungen.paidBy],
+			references: [users.id],
+			relationName: "erstattung_payer",
+		}),
+		rejecter: one(users, {
+			fields: [kostenerstattungen.rejectedBy],
+			references: [users.id],
+			relationName: "erstattung_rejecter",
+		}),
+	}),
+);
+
+export const userPaymentInfoRelations = relations(
+	userPaymentInfo,
+	({ one }) => ({
+		user: one(users, {
+			fields: [userPaymentInfo.userId],
+			references: [users.id],
+		}),
+	}),
+);
+
+export type Etaplan = typeof etaplans.$inferSelect;
+export type NewEtaplan = typeof etaplans.$inferInsert;
+export type Kostenpunkt = typeof kostenpunkte.$inferSelect;
+export type KostenpunktPosition = typeof kostenpunktPositionen.$inferSelect;
+export type Kostenerstattung = typeof kostenerstattungen.$inferSelect;
+export type UserPaymentInfo = typeof userPaymentInfo.$inferSelect;

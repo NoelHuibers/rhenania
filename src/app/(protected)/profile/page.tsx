@@ -2,6 +2,7 @@ import { AccountSecurity } from "~/components/profile/AccountSecurity";
 import { Achievements } from "~/components/profile/Achievements";
 import { BillingOverview } from "~/components/profile/BillingOverview";
 import GamesEloContainerDetailed from "~/components/profile/GamesEloContainer";
+import { PaymentInfo } from "~/components/profile/PaymentInfo";
 import { Preferences } from "~/components/profile/Preferences";
 import { ProfileIdentity } from "~/components/profile/ProfileCard";
 import { RecentOrders } from "~/components/profile/RecentOrders";
@@ -19,6 +20,7 @@ export default function ProfilePage() {
 							<ProfileIdentity />
 							<AccountSecurity />
 							<Preferences />
+							<PaymentInfo />
 						</div>
 						<div className="space-y-6 lg:col-span-2">
 							<BillingOverview />

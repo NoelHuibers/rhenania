@@ -3,7 +3,12 @@ import { type HandleUploadBody, handleUpload } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
 
-const ALLOWED_SUBPATHS = ["profile/", "drinks/", "homepage/"] as const;
+const ALLOWED_SUBPATHS = [
+	"profile/",
+	"drinks/",
+	"homepage/",
+	"receipts/",
+] as const;
 
 export async function POST(request: Request) {
 	const body = (await request.json()) as HandleUploadBody;
@@ -64,6 +69,20 @@ export async function POST(request: Request) {
 							"image/png",
 							"image/webp",
 							"image/svg+xml",
+						],
+						maximumSizeInBytes: 10 * 1024 * 1024,
+						addRandomSuffix: true,
+					};
+				}
+
+				if (matched === "receipts/") {
+					return {
+						allowedContentTypes: [
+							"image/jpeg",
+							"image/jpg",
+							"image/png",
+							"image/webp",
+							"application/pdf",
 						],
 						maximumSizeInBytes: 10 * 1024 * 1024,
 						addRandomSuffix: true,
