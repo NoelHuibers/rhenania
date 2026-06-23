@@ -22,8 +22,10 @@ import { ReimbursementStatusBadge } from "./ReimbursementStatusBadge";
 
 export function MyReimbursementsTable({
 	reimbursements,
+	onEdit,
 }: {
 	reimbursements: MyReimbursement[];
+	onEdit: (r: MyReimbursement) => void;
 }) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
@@ -97,14 +99,24 @@ export function MyReimbursementsTable({
 						</TableCell>
 						<TableCell className="text-right">
 							{r.status === "Eingereicht" && (
-								<Button
-									variant="ghost"
-									size="sm"
-									disabled={isPending}
-									onClick={() => cancel(r.id)}
-								>
-									Stornieren
-								</Button>
+								<div className="flex justify-end gap-1">
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={isPending}
+										onClick={() => onEdit(r)}
+									>
+										Bearbeiten
+									</Button>
+									<Button
+										variant="ghost"
+										size="sm"
+										disabled={isPending}
+										onClick={() => cancel(r.id)}
+									>
+										Stornieren
+									</Button>
+								</div>
 							)}
 						</TableCell>
 					</TableRow>

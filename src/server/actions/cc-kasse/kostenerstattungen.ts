@@ -150,6 +150,72 @@ export async function cancelMyReimbursement(id: string) {
 	return { success: true as const };
 }
 
+// Member edits their own request — only while still "Eingereicht".
+export async function updateMyReimbursement(
+	id: string,
+	input: {
+		kostenpunktId: string;
+		description: string;
+		amount: number;
+		recipientName: string;
+		iban: string;
+		receipts?: { url: string; name: string }[];
+	},
+) {
+	const guard = await requireAuth();
+	if (!guard.ok) return { success: false as const, error: guard.error };
+
+	try {
+		const parsed = submitSchema.parse(input);
+		const row = await db.query.kostenerstattungen.findFirst({
+			where: (t, { eq }) => eq(t.id, id),
+			columns: { id: true, submittedBy: true, status: true },
+		});
+		if (!row || row.submittedBy !== guard.userId) {
+			return { success: false as const, error: "Antrag nicht gefunden" };
+		}
+		if (row.status !== "Eingereicht") {
+			return {
+				success: false as const,
+				error: "Nur eingereichte Anträge können bearbeitet werden",
+			};
+		}
+		const kp = await db.query.kostenpunkte.findFirst({
+			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
+			columns: { id: true, etaplanId: true },
+		});
+		if (!kp) {
+			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
+		}
+
+		await db
+			.update(kostenerstattungen)
+			.set({
+				kostenpunktId: kp.id,
+				etaplanId: kp.etaplanId,
+				description: parsed.description,
+				amount: round2(parsed.amount),
+				recipientName: parsed.recipientName,
+				iban: parsed.iban,
+				receipts: parsed.receipts ?? null,
+			})
+			.where(eq(kostenerstattungen.id, id));
+
+		revalidatePath("/kostenerstattung");
+		revalidatePath("/cc-kasse");
+		return { success: true as const };
+	} catch (error) {
+		if (error instanceof z.ZodError) {
+			return {
+				success: false as const,
+				error: error.issues[0]?.message ?? "Validierungsfehler",
+			};
+		}
+		console.error("Error updating own reimbursement:", error);
+		return { success: false as const, error: "Fehler beim Speichern" };
+	}
+}
+
 // ─── Treasury: approve / reject / pay / direct booking / queue ────────────────
 
 async function loadForTransition(id: string) {
@@ -304,23 +370,37 @@ export async function createDirectBooking(input: {
 export async function updateReimbursement(
 	id: string,
 	input: {
+		kostenpunktId?: string;
 		description?: string;
 		amount?: number;
 		recipientName?: string;
 		iban?: string | null;
 		expenseDate?: Date;
+		receipts?: { url: string; name: string }[];
 	},
 ) {
 	const guard = await requireRoles(TREASURY_ROLES);
 	if (!guard.ok) return { success: false as const, error: guard.error };
 
 	const patch: Record<string, unknown> = {};
+	if (input.kostenpunktId !== undefined) {
+		const kp = await db.query.kostenpunkte.findFirst({
+			where: (t, { eq }) => eq(t.id, input.kostenpunktId as string),
+			columns: { id: true, etaplanId: true },
+		});
+		if (!kp) {
+			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
+		}
+		patch.kostenpunktId = kp.id;
+		patch.etaplanId = kp.etaplanId;
+	}
 	if (input.description !== undefined) patch.description = input.description;
 	if (input.amount !== undefined) patch.amount = round2(input.amount);
 	if (input.recipientName !== undefined)
 		patch.recipientName = input.recipientName;
 	if (input.iban !== undefined) patch.iban = input.iban;
 	if (input.expenseDate !== undefined) patch.expenseDate = input.expenseDate;
+	if (input.receipts !== undefined) patch.receipts = input.receipts;
 	if (Object.keys(patch).length === 0) {
 		return { success: false as const, error: "Keine Änderungen" };
 	}
@@ -330,6 +410,7 @@ export async function updateReimbursement(
 		.set(patch)
 		.where(eq(kostenerstattungen.id, id));
 	revalidatePath("/cc-kasse");
+	revalidatePath("/kostenerstattung");
 	return { success: true as const };
 }
 

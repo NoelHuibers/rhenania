@@ -9,8 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import type { MyReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
 import { MyReimbursementsTable } from "./MyReimbursementsTable";
 import {
+	type EditingReimbursement,
 	type KostenpunktOption,
 	ReimbursementDialog,
+	toEditing,
 } from "./ReimbursementDialog";
 
 type Props = {
@@ -26,6 +28,16 @@ export function KostenerstattungPage({
 }: Props) {
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
+	const [editing, setEditing] = useState<EditingReimbursement | null>(null);
+
+	const openNew = () => {
+		setEditing(null);
+		setOpen(true);
+	};
+	const openEdit = (r: MyReimbursement) => {
+		setEditing(toEditing(r));
+		setOpen(true);
+	};
 
 	return (
 		<div className="flex flex-col">
@@ -35,10 +47,7 @@ export function KostenerstattungPage({
 					<p className="text-muted-foreground text-sm">
 						Belege einreichen und deine Erstattungen verfolgen.
 					</p>
-					<Button
-						onClick={() => setOpen(true)}
-						disabled={kostenpunkte.length === 0}
-					>
+					<Button onClick={openNew} disabled={kostenpunkte.length === 0}>
 						<Plus className="mr-2 h-4 w-4" /> Neue Kostenerstattung
 					</Button>
 				</div>
@@ -54,7 +63,10 @@ export function KostenerstattungPage({
 						<CardTitle>Meine Anträge</CardTitle>
 					</CardHeader>
 					<CardContent>
-						<MyReimbursementsTable reimbursements={reimbursements} />
+						<MyReimbursementsTable
+							reimbursements={reimbursements}
+							onEdit={openEdit}
+						/>
 					</CardContent>
 				</Card>
 			</div>
@@ -65,6 +77,7 @@ export function KostenerstattungPage({
 				kostenpunkte={kostenpunkte}
 				mode="member"
 				defaultPaymentInfo={paymentInfo}
+				editing={editing}
 				onSaved={() => router.refresh()}
 			/>
 		</div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Wallet, X } from "lucide-react";
+import { Check, Pencil, Wallet, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -38,6 +38,12 @@ import {
 	rejectReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
 import { ReceiptLinks } from "./ReceiptLinks";
+import {
+	type EditingReimbursement,
+	type KostenpunktOption,
+	ReimbursementDialog,
+	toEditing,
+} from "./ReimbursementDialog";
 import { ReimbursementStatusBadge } from "./ReimbursementStatusBadge";
 
 type Filter =
@@ -51,15 +57,18 @@ type Filter =
 export function ReimbursementQueueTab({
 	queue,
 	isTreasury,
+	kostenpunkte,
 }: {
 	queue: QueueReimbursement[];
 	isTreasury: boolean;
+	kostenpunkte: KostenpunktOption[];
 }) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [filter, setFilter] = useState<Filter>("offen");
 	const [rejectId, setRejectId] = useState<string | null>(null);
 	const [rejectReason, setRejectReason] = useState("");
+	const [editing, setEditing] = useState<EditingReimbursement | null>(null);
 
 	const filtered = queue.filter((r) => {
 		if (filter === "alle") return true;
@@ -175,6 +184,14 @@ export function ReimbursementQueueTab({
 								{isTreasury && (
 									<TableCell>
 										<div className="flex justify-end gap-1">
+											<Button
+												variant="ghost"
+												size="sm"
+												disabled={isPending}
+												onClick={() => setEditing(toEditing(r))}
+											>
+												<Pencil className="h-4 w-4" />
+											</Button>
 											{r.status === "Eingereicht" && (
 												<Button
 													variant="outline"
@@ -252,6 +269,20 @@ export function ReimbursementQueueTab({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			<ReimbursementDialog
+				open={editing !== null}
+				onOpenChange={(o) => {
+					if (!o) setEditing(null);
+				}}
+				kostenpunkte={kostenpunkte}
+				mode="direct"
+				editing={editing}
+				onSaved={() => {
+					setEditing(null);
+					router.refresh();
+				}}
+			/>
 		</div>
 	);
 }

@@ -49,6 +49,12 @@ export function CcKassePage({
 	const tab = sp.get("tab") ?? "etaplan";
 	const [createOpen, setCreateOpen] = useState(false);
 
+	const kostenpunktOptions = kostenpunkte.map((k) => ({
+		id: k.id,
+		name: k.name,
+		category: k.category,
+	}));
+
 	const navigate = (next: { tab?: string; etaplan?: string }) => {
 		const params = new URLSearchParams(sp.toString());
 		if (next.tab) params.set("tab", next.tab);
@@ -106,7 +112,11 @@ export function CcKassePage({
 							/>
 						</TabsContent>
 						<TabsContent value="antraege" className="mt-4">
-							<ReimbursementQueueTab queue={queue} isTreasury={isTreasury} />
+							<ReimbursementQueueTab
+								queue={queue}
+								isTreasury={isTreasury}
+								kostenpunkte={kostenpunktOptions}
+							/>
 						</TabsContent>
 						<TabsContent value="uebersicht" className="mt-4">
 							<OverviewTab overview={overview} />

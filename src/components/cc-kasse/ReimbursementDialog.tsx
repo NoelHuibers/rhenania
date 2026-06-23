@@ -1,6 +1,6 @@
 "use client";
 
-import { Upload, X } from "lucide-react";
+import { FileText, Upload, X } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useTenantSlug } from "~/components/TenantProvider";
@@ -29,6 +29,8 @@ import { uploadReceipt, validateReceiptFile } from "~/lib/receipt-upload";
 import {
 	createDirectBooking,
 	submitReimbursement,
+	updateMyReimbursement,
+	updateReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
 import { setMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
 
@@ -38,12 +40,60 @@ export type KostenpunktOption = {
 	category: string;
 };
 
+type ReceiptFile = { url: string; name: string };
+
+export type EditingReimbursement = {
+	id: string;
+	kostenpunktId: string;
+	kostenpunktName: string;
+	kostenpunktCategory: string;
+	amount: number;
+	description: string;
+	recipientName: string;
+	iban: string | null;
+	expenseDate: Date | number;
+	receipts: ReceiptFile[];
+};
+
+// Build an EditingReimbursement from a (member or queue) reimbursement row.
+export function toEditing(r: {
+	id: string;
+	kostenpunktId: string;
+	amount: number;
+	description: string;
+	recipientName: string;
+	iban: string | null;
+	expenseDate: Date | number;
+	receipts: ReceiptFile[] | null;
+	receiptUrl?: string | null;
+	receiptName?: string | null;
+	kostenpunkt?: { name: string; category: string } | null;
+}): EditingReimbursement {
+	return {
+		id: r.id,
+		kostenpunktId: r.kostenpunktId,
+		kostenpunktName: r.kostenpunkt?.name ?? "",
+		kostenpunktCategory: r.kostenpunkt?.category ?? "",
+		amount: r.amount,
+		description: r.description,
+		recipientName: r.recipientName,
+		iban: r.iban,
+		expenseDate: r.expenseDate,
+		receipts: r.receipts?.length
+			? r.receipts
+			: r.receiptUrl
+				? [{ url: r.receiptUrl, name: r.receiptName ?? "Beleg" }]
+				: [],
+	};
+}
+
 type Props = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	kostenpunkte: KostenpunktOption[];
 	mode: "member" | "direct";
 	defaultPaymentInfo?: { accountHolder: string; iban: string } | null;
+	editing?: EditingReimbursement | null;
 	onSaved: () => void;
 };
 
@@ -53,9 +103,11 @@ export function ReimbursementDialog({
 	kostenpunkte,
 	mode,
 	defaultPaymentInfo,
+	editing,
 	onSaved,
 }: Props) {
 	const tenantSlug = useTenantSlug();
+	const isEdit = !!editing;
 	const [kostenpunktId, setKostenpunktId] = useState("");
 	const [amount, setAmount] = useState("");
 	const [description, setDescription] = useState("");
@@ -63,6 +115,7 @@ export function ReimbursementDialog({
 	const [iban, setIban] = useState("");
 	const [expenseDate, setExpenseDate] = useState<Date | undefined>();
 	const [saveDefault, setSaveDefault] = useState(false);
+	const [existingReceipts, setExistingReceipts] = useState<ReceiptFile[]>([]);
 	const [files, setFiles] = useState<File[]>([]);
 	const [uploadIndex, setUploadIndex] = useState(0);
 	const [progress, setProgress] = useState(0);
@@ -71,19 +124,44 @@ export function ReimbursementDialog({
 
 	useEffect(() => {
 		if (!open) return;
-		setKostenpunktId("");
-		setAmount("");
-		setDescription("");
-		setRecipientName(
-			mode === "member" ? (defaultPaymentInfo?.accountHolder ?? "") : "",
-		);
-		setIban(mode === "member" ? (defaultPaymentInfo?.iban ?? "") : "");
-		setExpenseDate(mode === "direct" ? new Date() : undefined);
+		if (editing) {
+			setKostenpunktId(editing.kostenpunktId);
+			setAmount(String(editing.amount));
+			setDescription(editing.description);
+			setRecipientName(editing.recipientName);
+			setIban(editing.iban ?? "");
+			setExpenseDate(new Date(editing.expenseDate));
+			setExistingReceipts(editing.receipts);
+		} else {
+			setKostenpunktId("");
+			setAmount("");
+			setDescription("");
+			setRecipientName(
+				mode === "member" ? (defaultPaymentInfo?.accountHolder ?? "") : "",
+			);
+			setIban(mode === "member" ? (defaultPaymentInfo?.iban ?? "") : "");
+			setExpenseDate(mode === "direct" ? new Date() : undefined);
+			setExistingReceipts([]);
+		}
 		setSaveDefault(false);
 		setFiles([]);
 		setProgress(0);
 		setUploadIndex(0);
-	}, [open, mode, defaultPaymentInfo]);
+	}, [open, mode, defaultPaymentInfo, editing]);
+
+	// Make sure the edited row's Kostenpunkt is selectable even if it belongs to
+	// a plan that is no longer in the bookable list.
+	const options =
+		editing && !kostenpunkte.some((k) => k.id === editing.kostenpunktId)
+			? [
+					{
+						id: editing.kostenpunktId,
+						name: editing.kostenpunktName,
+						category: editing.kostenpunktCategory,
+					},
+					...kostenpunkte,
+				]
+			: kostenpunkte;
 
 	const num = (s: string) => {
 		const v = Number.parseFloat(s.replace(",", "."));
@@ -109,6 +187,8 @@ export function ReimbursementDialog({
 
 	const removeFile = (idx: number) =>
 		setFiles((prev) => prev.filter((_, i) => i !== idx));
+	const removeExisting = (idx: number) =>
+		setExistingReceipts((prev) => prev.filter((_, i) => i !== idx));
 
 	const isSubmitting = isUploading || isPending;
 
@@ -144,7 +224,7 @@ export function ReimbursementDialog({
 		}
 
 		void (async () => {
-			const receipts: { url: string; name: string }[] = [];
+			const receipts: ReceiptFile[] = [...existingReceipts];
 			if (files.length) {
 				setIsUploading(true);
 				try {
@@ -170,26 +250,48 @@ export function ReimbursementDialog({
 			}
 
 			startTransition(async () => {
-				const res =
-					mode === "direct"
-						? await createDirectBooking({
-								kostenpunktId,
-								description: description.trim(),
-								amount: amt,
-								recipientName: recipientName.trim(),
-								iban: iban.trim() || null,
-								receipts,
-								// biome-ignore lint/style/noNonNullAssertion: guarded above
-								expenseDate: expenseDate!,
-							})
-						: await submitReimbursement({
-								kostenpunktId,
-								description: description.trim(),
-								amount: amt,
-								recipientName: recipientName.trim(),
-								iban: iban.trim(),
-								receipts,
-							});
+				let res: { success: boolean; error?: string };
+				if (editing) {
+					res =
+						mode === "direct"
+							? await updateReimbursement(editing.id, {
+									kostenpunktId,
+									description: description.trim(),
+									amount: amt,
+									recipientName: recipientName.trim(),
+									iban: iban.trim() || null,
+									expenseDate,
+									receipts,
+								})
+							: await updateMyReimbursement(editing.id, {
+									kostenpunktId,
+									description: description.trim(),
+									amount: amt,
+									recipientName: recipientName.trim(),
+									iban: iban.trim(),
+									receipts,
+								});
+				} else if (mode === "direct") {
+					res = await createDirectBooking({
+						kostenpunktId,
+						description: description.trim(),
+						amount: amt,
+						recipientName: recipientName.trim(),
+						iban: iban.trim() || null,
+						receipts,
+						// biome-ignore lint/style/noNonNullAssertion: guarded above
+						expenseDate: expenseDate!,
+					});
+				} else {
+					res = await submitReimbursement({
+						kostenpunktId,
+						description: description.trim(),
+						amount: amt,
+						recipientName: recipientName.trim(),
+						iban: iban.trim(),
+						receipts,
+					});
+				}
 
 				if (res.success) {
 					if (mode === "member" && saveDefault) {
@@ -199,7 +301,11 @@ export function ReimbursementDialog({
 						});
 					}
 					toast.success(
-						mode === "direct" ? "Buchung erstellt" : "Antrag eingereicht",
+						isEdit
+							? "Gespeichert"
+							: mode === "direct"
+								? "Buchung erstellt"
+								: "Antrag eingereicht",
 					);
 					onSaved();
 					onOpenChange(false);
@@ -210,15 +316,17 @@ export function ReimbursementDialog({
 		})();
 	};
 
+	const title = isEdit
+		? "Kostenerstattung bearbeiten"
+		: mode === "direct"
+			? "Direktbuchung / Backfill"
+			: "Neue Kostenerstattung";
+
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="flex max-h-[90vh] flex-col sm:max-w-[520px]">
 				<DialogHeader>
-					<DialogTitle>
-						{mode === "direct"
-							? "Direktbuchung / Backfill"
-							: "Neue Kostenerstattung"}
-					</DialogTitle>
+					<DialogTitle>{title}</DialogTitle>
 				</DialogHeader>
 
 				<div className="flex-1 space-y-4 overflow-y-auto px-1 py-2">
@@ -229,7 +337,7 @@ export function ReimbursementDialog({
 								<SelectValue placeholder="Kostenpunkt wählen" />
 							</SelectTrigger>
 							<SelectContent>
-								{kostenpunkte.map((kp) => (
+								{options.map((kp) => (
 									<SelectItem key={kp.id} value={kp.id}>
 										{kp.category} – {kp.name}
 									</SelectItem>
@@ -313,6 +421,37 @@ export function ReimbursementDialog({
 						<Label>
 							Belege (PDF/Bild{mode === "direct" ? ", optional" : ""})
 						</Label>
+
+						{existingReceipts.length > 0 && (
+							<div className="space-y-1">
+								{existingReceipts.map((r, i) => (
+									<div
+										key={r.url}
+										className="flex items-center gap-2 rounded-md border p-2"
+									>
+										<FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+										<a
+											href={r.url}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="min-w-0 flex-1 truncate text-primary text-sm hover:underline"
+										>
+											{r.name}
+										</a>
+										<Button
+											type="button"
+											variant="ghost"
+											size="icon"
+											disabled={isSubmitting}
+											onClick={() => removeExisting(i)}
+										>
+											<X className="h-4 w-4" />
+										</Button>
+									</div>
+								))}
+							</div>
+						)}
+
 						{files.length > 0 && (
 							<div className="space-y-1">
 								{files.map((f, i) => (
@@ -340,6 +479,7 @@ export function ReimbursementDialog({
 								))}
 							</div>
 						)}
+
 						<Input
 							id="re-file"
 							type="file"
@@ -356,7 +496,9 @@ export function ReimbursementDialog({
 							className="w-full"
 						>
 							<Upload className="mr-2 h-4 w-4" />
-							{files.length ? "Weitere Belege hinzufügen" : "Belege auswählen"}
+							{existingReceipts.length || files.length
+								? "Weitere Belege hinzufügen"
+								: "Belege auswählen"}
 						</Button>
 						{isUploading && (
 							<div className="space-y-1">
@@ -381,9 +523,11 @@ export function ReimbursementDialog({
 					<Button onClick={submit} disabled={isSubmitting}>
 						{isSubmitting
 							? "Wird gespeichert…"
-							: mode === "direct"
-								? "Buchen"
-								: "Einreichen"}
+							: isEdit
+								? "Speichern"
+								: mode === "direct"
+									? "Buchen"
+									: "Einreichen"}
 					</Button>
 				</DialogFooter>
 			</DialogContent>
