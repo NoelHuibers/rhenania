@@ -100,6 +100,12 @@ export function OverviewTab({
 						</span>
 					</span>
 					<span>
+						Ist-Einnahmen:{" "}
+						<span className="font-semibold">
+							{formatEur(total.istEinnahmen)}
+						</span>
+					</span>
+					<span>
 						Zuschuss AHV (geplant):{" "}
 						<span className="font-semibold">
 							{formatEur(overview.geplanterZuschuss)}

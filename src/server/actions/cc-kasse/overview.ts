@@ -1,8 +1,13 @@
 "use server";
 
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "~/server/db";
-import { kostenerstattungen, kostenpunkte } from "~/server/db/schema";
+import {
+	kostenerstattungen,
+	kostenpunkte,
+	semesterbeitragCharges,
+	semesterbeitragRuns,
+} from "~/server/db/schema";
 import { EDIT_ROLES, requireRoles } from "./_guards";
 
 export type BudgetStatus = "on-track" | "warning" | "over-budget";
@@ -15,6 +20,7 @@ export type KostenpunktOverview = {
 	eventId: string | null;
 	budget: number;
 	income: number;
+	istEinnahmen: number;
 	ausgegeben: number;
 	genehmigt: number;
 	verbleibend: number;
@@ -27,6 +33,7 @@ export type CategoryOverview = {
 	categoryOrder: number;
 	budget: number;
 	income: number;
+	istEinnahmen: number;
 	ausgegeben: number;
 	genehmigt: number;
 	verbleibend: number;
@@ -40,6 +47,7 @@ export type EtaplanOverview = {
 	total: {
 		budget: number;
 		income: number;
+		istEinnahmen: number;
 		ausgegeben: number;
 		genehmigt: number;
 		verbleibend: number;
@@ -109,6 +117,29 @@ export async function getEtaplanOverview(
 			}
 		}
 
+		// Actual income from paid Semesterbeiträge, grouped by the linked KP.
+		const beitragSums = await db
+			.select({
+				kostenpunktId: semesterbeitragRuns.kostenpunktId,
+				total: sql<number>`COALESCE(SUM(${semesterbeitragCharges.baseAmount} + ${semesterbeitragCharges.mahnungAmount}), 0)`,
+			})
+			.from(semesterbeitragCharges)
+			.innerJoin(
+				semesterbeitragRuns,
+				eq(semesterbeitragCharges.runId, semesterbeitragRuns.id),
+			)
+			.where(
+				and(
+					eq(semesterbeitragRuns.etaplanId, etaplanId),
+					eq(semesterbeitragCharges.status, "Bezahlt"),
+				),
+			)
+			.groupBy(semesterbeitragRuns.kostenpunktId);
+		const incomeMap = new Map<string, number>();
+		for (const s of beitragSums) {
+			incomeMap.set(s.kostenpunktId, Number(s.total ?? 0));
+		}
+
 		const kpOverviews: KostenpunktOverview[] = kps.map((kp) => {
 			const ausgegeben = round2(ausMap.get(kp.id) ?? 0);
 			const genehmigt = round2(genMap.get(kp.id) ?? 0);
@@ -121,6 +152,7 @@ export async function getEtaplanOverview(
 				eventId: kp.eventId,
 				budget,
 				income: round2(kp.income),
+				istEinnahmen: round2(incomeMap.get(kp.id) ?? 0),
 				ausgegeben,
 				genehmigt,
 				verbleibend: round2(budget - ausgegeben),
@@ -136,6 +168,7 @@ export async function getEtaplanOverview(
 			if (existing) {
 				existing.budget = round2(existing.budget + kp.budget);
 				existing.income = round2(existing.income + kp.income);
+				existing.istEinnahmen = round2(existing.istEinnahmen + kp.istEinnahmen);
 				existing.ausgegeben = round2(existing.ausgegeben + kp.ausgegeben);
 				existing.genehmigt = round2(existing.genehmigt + kp.genehmigt);
 			} else {
@@ -144,6 +177,7 @@ export async function getEtaplanOverview(
 					categoryOrder: kp.categoryOrder,
 					budget: kp.budget,
 					income: kp.income,
+					istEinnahmen: kp.istEinnahmen,
 					ausgegeben: kp.ausgegeben,
 					genehmigt: kp.genehmigt,
 					verbleibend: 0,
@@ -163,6 +197,9 @@ export async function getEtaplanOverview(
 
 		const totalBudget = round2(kpOverviews.reduce((s, k) => s + k.budget, 0));
 		const totalIncome = round2(kpOverviews.reduce((s, k) => s + k.income, 0));
+		const totalIst = round2(
+			kpOverviews.reduce((s, k) => s + k.istEinnahmen, 0),
+		);
 		const totalAus = round2(kpOverviews.reduce((s, k) => s + k.ausgegeben, 0));
 		const totalGen = round2(kpOverviews.reduce((s, k) => s + k.genehmigt, 0));
 
@@ -172,6 +209,7 @@ export async function getEtaplanOverview(
 			total: {
 				budget: totalBudget,
 				income: totalIncome,
+				istEinnahmen: totalIst,
 				ausgegeben: totalAus,
 				genehmigt: totalGen,
 				verbleibend: round2(totalBudget - totalAus),

@@ -13,6 +13,10 @@ import {
 	listKostenpunkteForEtaplan,
 } from "~/server/actions/cc-kasse/kostenpunkte";
 import { getEtaplanOverview } from "~/server/actions/cc-kasse/overview";
+import {
+	listBeitragRuns,
+	listChargesForRun,
+} from "~/server/actions/members/semesterbeitrag";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { roles, userRoles } from "~/server/db/schema";
@@ -31,7 +35,7 @@ const ALLOWED_ROLES = ["CC-Kasse", "Senior", "Admin"];
 export default async function CcKasseRoute({
 	searchParams,
 }: {
-	searchParams: Promise<{ etaplan?: string; tab?: string }>;
+	searchParams: Promise<{ etaplan?: string; tab?: string; run?: string }>;
 }) {
 	const session = await auth();
 	if (!session?.user?.id) redirect("/auth/signin");
@@ -63,6 +67,17 @@ export default async function CcKasseRoute({
 			linkableEvents(),
 		]);
 
+	let beitragRuns: Awaited<ReturnType<typeof listBeitragRuns>> = [];
+	let selectedBeitrag: Awaited<ReturnType<typeof listChargesForRun>> = null;
+	if (isTreasury) {
+		beitragRuns = await listBeitragRuns();
+		const runId =
+			sp.run && beitragRuns.some((r) => r.id === sp.run)
+				? sp.run
+				: beitragRuns[0]?.id;
+		selectedBeitrag = runId ? await listChargesForRun(runId) : null;
+	}
+
 	return (
 		<SidebarLayout>
 			<CcKassePage
@@ -73,6 +88,8 @@ export default async function CcKasseRoute({
 				queue={queue}
 				events={events}
 				isTreasury={isTreasury}
+				beitragRuns={beitragRuns}
+				selectedBeitrag={selectedBeitrag}
 			/>
 		</SidebarLayout>
 	);

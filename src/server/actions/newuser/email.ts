@@ -267,3 +267,118 @@ Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignoriere
 		throw new Error("Failed to send password reset email");
 	}
 }
+
+function beitragHtml(
+	tenantLabel: string,
+	memberName: string,
+	runName: string,
+	formattedTotal: string,
+	body: string,
+): string {
+	return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${runName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #1a1a2e; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .header h1 { color: #ffffff; margin: 0; font-size: 22px; }
+          .content { background-color: #ffffff; padding: 30px; border: 1px solid #dee2e6; }
+          .total-box { background-color: #f8f9fa; border-left: 4px solid #1a1a2e; padding: 15px 20px; margin: 20px 0; border-radius: 0 6px 6px 0; }
+          .total-box .amount { font-size: 24px; font-weight: bold; color: #1a1a2e; }
+          .footer { background-color: #f8f9fa; padding: 20px; text-align: center; border-radius: 0 0 8px 8px; font-size: 13px; color: #6c757d; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header"><h1>${tenantLabel}</h1></div>
+          <div class="content">
+            <h2>Lieber ${memberName},</h2>
+            <p>${body}</p>
+            <div class="total-box">
+              <p style="margin: 0 0 4px 0; font-size: 13px; color: #6c757d;">Betrag</p>
+              <div class="amount">${formattedTotal}</div>
+            </div>
+            <p>Die Bankverbindung findest du im angehängten PDF.</p>
+            <p>Mit corpsbrüderlichem Gruß <br><strong>${tenantLabel}</strong></p>
+          </div>
+          <div class="footer">
+            <p>Diese E-Mail wurde automatisch generiert. Bitte antworte nicht auf diese E-Mail.</p>
+          </div>
+        </div>
+      </body>
+    </html>`;
+}
+
+export async function sendBeitragEmail(
+	email: string,
+	memberName: string,
+	runName: string,
+	total: number,
+	pdfBuffer: Buffer,
+	fileName: string,
+): Promise<void> {
+	try {
+		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
+		const tenant = await getCurrentTenant();
+		const tenantLabel = tenant?.displayName ?? "Corps";
+		const body = `für <strong>${runName}</strong> bitten wir um deinen Semesterbeitrag in Höhe von <strong>${formattedTotal}</strong>. Im Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.`;
+
+		const result = await transporter.sendMail({
+			from: env.GMAIL,
+			to: email,
+			subject: `Dein Semesterbeitrag — ${runName}`,
+			text: `Lieber ${memberName},\n\nfür ${runName} bitten wir um deinen Semesterbeitrag in Höhe von ${formattedTotal}.\nIm Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.\n\nMit corpsbrüderlichem Gruß,\n${tenantLabel}`,
+			html: beitragHtml(tenantLabel, memberName, runName, formattedTotal, body),
+			attachments: [
+				{
+					filename: fileName,
+					content: pdfBuffer,
+					contentType: "application/pdf",
+				},
+			],
+		});
+		console.log(`Beitrag email sent to ${email}:`, result.messageId);
+	} catch (error) {
+		console.error(`Error sending Beitrag email to ${email}:`, error);
+		throw new Error(`Failed to send Beitrag email to ${email}`);
+	}
+}
+
+export async function sendMahnungEmail(
+	email: string,
+	memberName: string,
+	runName: string,
+	total: number,
+	pdfBuffer: Buffer,
+	fileName: string,
+): Promise<void> {
+	try {
+		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
+		const tenant = await getCurrentTenant();
+		const tenantLabel = tenant?.displayName ?? "Corps";
+		const body = `dein Semesterbeitrag für <strong>${runName}</strong> ist trotz Fälligkeit weiterhin offen. Wir erlauben uns daher, eine Mahngebühr zu berechnen. Der offene Gesamtbetrag beträgt <strong>${formattedTotal}</strong> (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.`;
+
+		const result = await transporter.sendMail({
+			from: env.GMAIL,
+			to: email,
+			subject: `Zahlungserinnerung — ${runName}`,
+			text: `Lieber ${memberName},\n\ndein Semesterbeitrag für ${runName} ist weiterhin offen. Inklusive Mahngebühr beträgt der offene Gesamtbetrag ${formattedTotal} (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.\n\nMit corpsbrüderlichem Gruß,\n${tenantLabel}`,
+			html: beitragHtml(tenantLabel, memberName, runName, formattedTotal, body),
+			attachments: [
+				{
+					filename: fileName,
+					content: pdfBuffer,
+					contentType: "application/pdf",
+				},
+			],
+		});
+		console.log(`Mahnung email sent to ${email}:`, result.messageId);
+	} catch (error) {
+		console.error(`Error sending Mahnung email to ${email}:`, error);
+		throw new Error(`Failed to send Mahnung email to ${email}`);
+	}
+}

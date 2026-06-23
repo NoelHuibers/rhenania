@@ -2,6 +2,7 @@
 
 import {
 	Beer,
+	BookUser,
 	BottleWine,
 	CalendarDays,
 	Camera,
@@ -133,6 +134,12 @@ const navGroups: NavGroup[] = [
 				href: "/cc-kasse",
 				icon: PiggyBank,
 				roles: ["CC-Kasse", "Senior", "Admin"],
+			},
+			{
+				title: "Adressliste",
+				href: "/adressliste",
+				icon: BookUser,
+				roles: ["Senior", "Subsenior", "Admin", "CC-Kasse"],
 			},
 			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
 		],

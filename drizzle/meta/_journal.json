@@ -29,6 +29,13 @@
 			"when": 1782144187288,
 			"tag": "0003_lush_leopardon",
 			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1782255685477,
+			"tag": "0004_boring_vindicator",
+			"breakpoints": true
 		}
 	]
 }

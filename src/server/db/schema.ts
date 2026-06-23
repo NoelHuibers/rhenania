@@ -1419,3 +1419,180 @@ export type Kostenpunkt = typeof kostenpunkte.$inferSelect;
 export type KostenpunktPosition = typeof kostenpunktPositionen.$inferSelect;
 export type Kostenerstattung = typeof kostenerstattungen.$inferSelect;
 export type UserPaymentInfo = typeof userPaymentInfo.$inferSelect;
+
+// ─── Mitglieder (Adressliste) + Semesterbeitrag ───────────────────────────────
+//
+// `members` is the directory source of truth, decoupled from `users` (most Alte
+// Herren have no app account). An optional `userId` links a member to an account
+// (auto-linked by email on profile load).
+
+export const members = createTable(
+	"member",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		status: d.text({ enum: ["Fuchs", "CB", "IaCB", "AH", "AHEB"] }).notNull(),
+		firstName: d.text({ length: 255 }).notNull(),
+		lastName: d.text({ length: 255 }).notNull(),
+		// Member contact email — distinct from users.email; may be null.
+		email: d.text({ length: 255 }),
+		street: d.text({ length: 255 }),
+		houseNumber: d.text({ length: 50 }),
+		addressLine2: d.text({ length: 255 }),
+		postalCode: d.text({ length: 20 }), // text: leading zeros / non-DE
+		city: d.text({ length: 255 }),
+		country: d.text({ length: 100 }).default("Deutschland"),
+		lettersOptOut: d.integer({ mode: "boolean" }).notNull().default(false),
+		addressNeedsUpdate: d.integer({ mode: "boolean" }).notNull().default(false),
+		notes: d.text({ length: 1000 }),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		updatedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("member_user_idx").on(t.userId),
+		index("member_status_idx").on(t.status),
+		index("member_email_idx").on(t.email),
+		index("member_name_idx").on(t.lastName, t.firstName),
+	],
+);
+
+export const semesterbeitragRuns = createTable(
+	"semesterbeitrag_run",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		etaplanId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => etaplans.id, { onDelete: "cascade" }),
+		// FK to kostenpunkte declared in the index array (restrict).
+		kostenpunktId: d.text({ length: 255 }).notNull(),
+		name: d.text({ length: 255 }).notNull(),
+		amount: d.real().notNull().default(28),
+		mahnungFee: d.real().notNull().default(5),
+		dueDate: d.integer({ mode: "timestamp" }).notNull(),
+		status: d
+			.text({ enum: ["Offen", "Abgeschlossen"] })
+			.notNull()
+			.default("Offen"),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("beitrag_run_etaplan_idx").on(t.etaplanId),
+		index("beitrag_run_kp_idx").on(t.kostenpunktId),
+		index("beitrag_run_status_idx").on(t.status),
+		foreignKey({
+			columns: [t.kostenpunktId],
+			foreignColumns: [kostenpunkte.id],
+			name: "beitrag_run_kp_fk",
+		}).onDelete("restrict"),
+	],
+);
+
+export const semesterbeitragCharges = createTable(
+	"semesterbeitrag_charge",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		runId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => semesterbeitragRuns.id, { onDelete: "cascade" }),
+		memberId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => members.id, { onDelete: "cascade" }),
+		memberName: d.text({ length: 255 }).notNull(), // snapshot
+		baseAmount: d.real().notNull(),
+		mahnungAmount: d.real().notNull().default(0),
+		status: d
+			.text({ enum: ["Offen", "Bezahlt", "Gemahnt"] })
+			.notNull()
+			.default("Offen"),
+		deliveryMethod: d.text({ enum: ["email", "letter"] }),
+		emailSentAt: d.integer({ mode: "timestamp" }),
+		mahnungSentAt: d.integer({ mode: "timestamp" }),
+		paidAt: d.integer({ mode: "timestamp" }),
+		paidBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		uniqueIndex("beitrag_charge_unique_idx").on(t.runId, t.memberId),
+		index("beitrag_charge_run_idx").on(t.runId),
+		index("beitrag_charge_member_idx").on(t.memberId),
+		index("beitrag_charge_status_idx").on(t.status),
+	],
+);
+
+export const membersRelations = relations(members, ({ one, many }) => ({
+	user: one(users, { fields: [members.userId], references: [users.id] }),
+	charges: many(semesterbeitragCharges),
+}));
+
+export const semesterbeitragRunsRelations = relations(
+	semesterbeitragRuns,
+	({ one, many }) => ({
+		etaplan: one(etaplans, {
+			fields: [semesterbeitragRuns.etaplanId],
+			references: [etaplans.id],
+		}),
+		kostenpunkt: one(kostenpunkte, {
+			fields: [semesterbeitragRuns.kostenpunktId],
+			references: [kostenpunkte.id],
+		}),
+		charges: many(semesterbeitragCharges),
+	}),
+);
+
+export const semesterbeitragChargesRelations = relations(
+	semesterbeitragCharges,
+	({ one }) => ({
+		run: one(semesterbeitragRuns, {
+			fields: [semesterbeitragCharges.runId],
+			references: [semesterbeitragRuns.id],
+		}),
+		member: one(members, {
+			fields: [semesterbeitragCharges.memberId],
+			references: [members.id],
+		}),
+	}),
+);
+
+export type Member = typeof members.$inferSelect;
+export type NewMember = typeof members.$inferInsert;
+export type SemesterbeitragRun = typeof semesterbeitragRuns.$inferSelect;
+export type SemesterbeitragCharge = typeof semesterbeitragCharges.$inferSelect;

@@ -20,6 +20,11 @@ import type {
 	LinkableEvent,
 } from "~/server/actions/cc-kasse/kostenpunkte";
 import type { EtaplanOverview } from "~/server/actions/cc-kasse/overview";
+import type {
+	BeitragRun,
+	ChargesForRun,
+} from "~/server/actions/members/semesterbeitrag";
+import { BeitraegeTab } from "./BeitraegeTab";
 import { EtaplanDialog } from "./EtaplanDialog";
 import { EtaplanEditorTab } from "./EtaplanEditorTab";
 import { OverviewTab } from "./OverviewTab";
@@ -33,6 +38,8 @@ type Props = {
 	queue: QueueReimbursement[];
 	events: LinkableEvent[];
 	isTreasury: boolean;
+	beitragRuns: BeitragRun[];
+	selectedBeitrag: ChargesForRun | null;
 };
 
 export function CcKassePage({
@@ -43,6 +50,8 @@ export function CcKassePage({
 	queue,
 	events,
 	isTreasury,
+	beitragRuns,
+	selectedBeitrag,
 }: Props) {
 	const router = useRouter();
 	const sp = useSearchParams();
@@ -55,10 +64,11 @@ export function CcKassePage({
 		category: k.category,
 	}));
 
-	const navigate = (next: { tab?: string; etaplan?: string }) => {
+	const navigate = (next: { tab?: string; etaplan?: string; run?: string }) => {
 		const params = new URLSearchParams(sp.toString());
 		if (next.tab) params.set("tab", next.tab);
 		if (next.etaplan) params.set("etaplan", next.etaplan);
+		if (next.run) params.set("run", next.run);
 		router.replace(`/cc-kasse?${params.toString()}`);
 	};
 
@@ -104,6 +114,9 @@ export function CcKassePage({
 						<TabsList className="w-full sm:w-fit">
 							<TabsTrigger value="etaplan">Etatplan</TabsTrigger>
 							<TabsTrigger value="antraege">Anträge</TabsTrigger>
+							{isTreasury && (
+								<TabsTrigger value="beitraege">Beiträge</TabsTrigger>
+							)}
 							<TabsTrigger value="uebersicht">Übersicht</TabsTrigger>
 						</TabsList>
 						<TabsContent value="etaplan" className="mt-4">
@@ -121,6 +134,17 @@ export function CcKassePage({
 								kostenpunkte={kostenpunktOptions}
 							/>
 						</TabsContent>
+						{isTreasury && (
+							<TabsContent value="beitraege" className="mt-4">
+								<BeitraegeTab
+									runs={beitragRuns}
+									selected={selectedBeitrag}
+									etaplan={selectedEtaplan}
+									kostenpunkte={kostenpunktOptions}
+									onNavigateRun={(id) => navigate({ run: id })}
+								/>
+							</TabsContent>
+						)}
 						<TabsContent value="uebersicht" className="mt-4">
 							<OverviewTab overview={overview} />
 						</TabsContent>

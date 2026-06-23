@@ -51,6 +51,7 @@ const VALID_PATHS = [
 	"/konten",
 	"/cc-kasse",
 	"/kostenerstattung",
+	"/adressliste",
 	"/superadmin",
 	"/superadmin/(.*)",
 ];
@@ -82,6 +83,7 @@ const ROLE_PROTECTED_PATHS: Record<string, string[]> = {
 	"/inventur": ["Admin", "Getränkewart"],
 	"/bilder": ["Admin", "Fotowart"],
 	"/cc-kasse": ["Admin", "CC-Kasse", "Senior"],
+	"/adressliste": ["Admin", "CC-Kasse", "Senior", "Subsenior"],
 	"/admin": ["Admin"],
 };
 
