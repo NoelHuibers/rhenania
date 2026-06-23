@@ -240,7 +240,7 @@ export function KostenpunktDialog({
 							</Button>
 						</div>
 
-						<div className="grid grid-cols-[1fr_110px_110px_36px] items-center gap-2 px-1 text-muted-foreground text-xs">
+						<div className="hidden grid-cols-[1fr_110px_110px_36px] items-center gap-2 px-1 text-muted-foreground text-xs sm:grid">
 							<span>Bemerkung</span>
 							<span className="text-right">Ausgaben (€)</span>
 							<span className="text-right">Einnahmen (€)</span>
@@ -251,12 +251,13 @@ export function KostenpunktDialog({
 							<div
 								// biome-ignore lint/suspicious/noArrayIndexKey: position rows are order-stable within the dialog session
 								key={i}
-								className="grid grid-cols-[1fr_110px_110px_36px] items-center gap-2"
+								className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-[1fr_110px_110px_36px] sm:items-center sm:rounded-none sm:border-0 sm:p-0"
 							>
 								<Input
+									className="col-span-2 sm:col-span-1"
 									value={p.bemerkung}
 									onChange={(e) => setPos(i, "bemerkung", e.target.value)}
-									placeholder="z.B. Zimmer"
+									placeholder="Bemerkung (z.B. Zimmer)"
 								/>
 								<Input
 									type="number"
@@ -264,7 +265,7 @@ export function KostenpunktDialog({
 									className="text-right"
 									value={p.ausgaben}
 									onChange={(e) => setPos(i, "ausgaben", e.target.value)}
-									placeholder="0,00"
+									placeholder="Ausgaben €"
 								/>
 								<Input
 									type="number"
@@ -272,7 +273,7 @@ export function KostenpunktDialog({
 									className="text-right"
 									value={p.einnahmen}
 									onChange={(e) => setPos(i, "einnahmen", e.target.value)}
-									placeholder="0,00"
+									placeholder="Einnahmen €"
 								/>
 								<Button
 									type="button"
@@ -280,6 +281,7 @@ export function KostenpunktDialog({
 									size="icon"
 									onClick={() => removePos(i)}
 									disabled={positions.length === 1}
+									className="col-span-2 justify-self-end sm:col-span-1 sm:justify-self-auto"
 								>
 									<Trash2 className="h-4 w-4" />
 								</Button>

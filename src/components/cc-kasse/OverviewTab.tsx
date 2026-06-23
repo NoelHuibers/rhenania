@@ -66,7 +66,7 @@ export function OverviewTab({
 
 	return (
 		<div className="space-y-6">
-			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 				<SummaryCard
 					title="Budget (Ausgaben)"
 					value={formatEur(total.budget)}
@@ -150,8 +150,12 @@ export function OverviewTab({
 								<TableHead>Kostenpunkt</TableHead>
 								<TableHead className="text-right">Budget</TableHead>
 								<TableHead className="text-right">Ausgegeben</TableHead>
-								<TableHead className="text-right">Verbleibend</TableHead>
-								<TableHead className="w-[160px]">Auslastung</TableHead>
+								<TableHead className="hidden text-right sm:table-cell">
+									Verbleibend
+								</TableHead>
+								<TableHead className="hidden w-[160px] sm:table-cell">
+									Auslastung
+								</TableHead>
 								<TableHead>Status</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -228,10 +232,10 @@ function CategoryRows({
 				<TableCell>{category}</TableCell>
 				<TableCell className="text-right">{formatEur(catBudget)}</TableCell>
 				<TableCell className="text-right">{formatEur(catAusgegeben)}</TableCell>
-				<TableCell className="text-right">
+				<TableCell className="hidden text-right sm:table-cell">
 					{formatEur(catVerbleibend)}
 				</TableCell>
-				<TableCell>
+				<TableCell className="hidden sm:table-cell">
 					<Progress value={Math.min(catAuslastung, 100)} />
 				</TableCell>
 				<TableCell>
@@ -245,10 +249,10 @@ function CategoryRows({
 					<TableCell className="text-right">
 						{formatEur(k.ausgegeben)}
 					</TableCell>
-					<TableCell className="text-right">
+					<TableCell className="hidden text-right sm:table-cell">
 						{formatEur(k.verbleibend)}
 					</TableCell>
-					<TableCell>
+					<TableCell className="hidden sm:table-cell">
 						<Progress value={Math.min(k.auslastung, 100)} />
 					</TableCell>
 					<TableCell>

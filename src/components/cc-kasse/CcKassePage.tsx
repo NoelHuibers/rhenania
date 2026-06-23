@@ -66,13 +66,13 @@ export function CcKassePage({
 		<div className="flex flex-col">
 			<SiteHeader title="CC-Kasse" />
 			<div className="space-y-4 p-4 md:p-6">
-				<div className="flex flex-wrap items-center justify-between gap-2">
+				<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
 					{etaplans.length > 0 ? (
 						<Select
 							value={selectedEtaplan?.id ?? ""}
 							onValueChange={(id) => navigate({ etaplan: id })}
 						>
-							<SelectTrigger className="w-[240px]">
+							<SelectTrigger className="w-full sm:w-[240px]">
 								<SelectValue placeholder="Etatplan wählen" />
 							</SelectTrigger>
 							<SelectContent>
@@ -85,9 +85,12 @@ export function CcKassePage({
 							</SelectContent>
 						</Select>
 					) : (
-						<span />
+						<span className="hidden sm:block" />
 					)}
-					<Button onClick={() => setCreateOpen(true)}>
+					<Button
+						onClick={() => setCreateOpen(true)}
+						className="w-full sm:w-auto"
+					>
 						<Plus className="mr-2 h-4 w-4" /> Neuer Etatplan
 					</Button>
 				</div>
@@ -98,7 +101,7 @@ export function CcKassePage({
 					</p>
 				) : (
 					<Tabs value={tab} onValueChange={(v) => navigate({ tab: v })}>
-						<TabsList>
+						<TabsList className="w-full sm:w-fit">
 							<TabsTrigger value="etaplan">Etatplan</TabsTrigger>
 							<TabsTrigger value="antraege">Anträge</TabsTrigger>
 							<TabsTrigger value="uebersicht">Übersicht</TabsTrigger>

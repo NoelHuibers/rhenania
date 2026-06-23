@@ -43,11 +43,15 @@ export function KostenerstattungPage({
 		<div className="flex flex-col">
 			<SiteHeader title="Kostenerstattung" />
 			<div className="space-y-4 p-4 md:p-6">
-				<div className="flex flex-wrap items-center justify-between gap-2">
+				<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
 					<p className="text-muted-foreground text-sm">
 						Belege einreichen und deine Erstattungen verfolgen.
 					</p>
-					<Button onClick={openNew} disabled={kostenpunkte.length === 0}>
+					<Button
+						onClick={openNew}
+						disabled={kostenpunkte.length === 0}
+						className="w-full sm:w-auto"
+					>
 						<Plus className="mr-2 h-4 w-4" /> Neue Kostenerstattung
 					</Button>
 				</div>

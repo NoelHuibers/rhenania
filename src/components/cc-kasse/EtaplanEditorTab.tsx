@@ -166,7 +166,7 @@ export function EtaplanEditorTab({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-wrap items-center justify-between gap-2">
+			<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
 				<div className="flex items-center gap-2">
 					<h2 className="font-semibold text-lg">{etaplan.name}</h2>
 					<Badge variant={etaplan.status === "Aktiv" ? "default" : "secondary"}>

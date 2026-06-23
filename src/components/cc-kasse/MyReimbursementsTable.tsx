@@ -50,78 +50,121 @@ export function MyReimbursementsTable({
 		);
 	}
 
+	const actions = (r: MyReimbursement) =>
+		r.status === "Eingereicht" ? (
+			<div className="flex gap-1">
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={isPending}
+					onClick={() => onEdit(r)}
+				>
+					Bearbeiten
+				</Button>
+				<Button
+					variant="ghost"
+					size="sm"
+					disabled={isPending}
+					onClick={() => cancel(r.id)}
+				>
+					Stornieren
+				</Button>
+			</div>
+		) : null;
+
 	return (
-		<Table>
-			<TableHeader>
-				<TableRow>
-					<TableHead>Datum</TableHead>
-					<TableHead>Kostenpunkt</TableHead>
-					<TableHead>Beschreibung</TableHead>
-					<TableHead className="text-right">Betrag</TableHead>
-					<TableHead>Status</TableHead>
-					<TableHead>Beleg</TableHead>
-					<TableHead />
-				</TableRow>
-			</TableHeader>
-			<TableBody>
+		<>
+			{/* Mobile: stacked cards */}
+			<div className="space-y-3 md:hidden">
 				{reimbursements.map((r) => (
-					<TableRow key={r.id}>
-						<TableCell className="whitespace-nowrap">
-							{new Date(r.expenseDate).toLocaleDateString("de-DE")}
-						</TableCell>
-						<TableCell>
-							<span className="text-muted-foreground text-xs">
-								{r.kostenpunkt?.category}
-							</span>
-							<br />
-							{r.kostenpunkt?.name ?? "—"}
-						</TableCell>
-						<TableCell className="max-w-[220px]">
-							<span className="line-clamp-2">{r.description}</span>
-							{r.status === "Abgelehnt" && r.rejectionReason && (
-								<span className="mt-1 block text-red-700 text-xs">
-									Abgelehnt: {r.rejectionReason}
-								</span>
-							)}
-						</TableCell>
-						<TableCell className="text-right font-medium">
-							{formatEur(r.amount)}
-						</TableCell>
-						<TableCell>
+					<div key={r.id} className="space-y-2 rounded-lg border p-3">
+						<div className="flex items-start justify-between gap-2">
+							<div className="min-w-0">
+								<div className="text-muted-foreground text-xs">
+									{r.kostenpunkt?.category}
+								</div>
+								<div className="font-medium">{r.kostenpunkt?.name ?? "—"}</div>
+							</div>
 							<ReimbursementStatusBadge status={r.status} />
-						</TableCell>
-						<TableCell>
+						</div>
+						<div className="flex items-center justify-between text-sm">
+							<span className="text-muted-foreground">
+								{new Date(r.expenseDate).toLocaleDateString("de-DE")}
+							</span>
+							<span className="font-semibold">{formatEur(r.amount)}</span>
+						</div>
+						<p className="text-sm">{r.description}</p>
+						{r.status === "Abgelehnt" && r.rejectionReason && (
+							<p className="text-red-700 text-xs">
+								Abgelehnt: {r.rejectionReason}
+							</p>
+						)}
+						<div className="flex items-center justify-between gap-2">
 							<ReceiptLinks
 								receipts={r.receipts}
 								legacyUrl={r.receiptUrl}
 								legacyName={r.receiptName}
 							/>
-						</TableCell>
-						<TableCell className="text-right">
-							{r.status === "Eingereicht" && (
-								<div className="flex justify-end gap-1">
-									<Button
-										variant="ghost"
-										size="sm"
-										disabled={isPending}
-										onClick={() => onEdit(r)}
-									>
-										Bearbeiten
-									</Button>
-									<Button
-										variant="ghost"
-										size="sm"
-										disabled={isPending}
-										onClick={() => cancel(r.id)}
-									>
-										Stornieren
-									</Button>
-								</div>
-							)}
-						</TableCell>
-					</TableRow>
+							{actions(r)}
+						</div>
+					</div>
 				))}
-			</TableBody>
-		</Table>
+			</div>
+
+			{/* Desktop: table */}
+			<div className="hidden md:block">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Datum</TableHead>
+							<TableHead>Kostenpunkt</TableHead>
+							<TableHead>Beschreibung</TableHead>
+							<TableHead className="text-right">Betrag</TableHead>
+							<TableHead>Status</TableHead>
+							<TableHead>Beleg</TableHead>
+							<TableHead />
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{reimbursements.map((r) => (
+							<TableRow key={r.id}>
+								<TableCell className="whitespace-nowrap">
+									{new Date(r.expenseDate).toLocaleDateString("de-DE")}
+								</TableCell>
+								<TableCell>
+									<span className="text-muted-foreground text-xs">
+										{r.kostenpunkt?.category}
+									</span>
+									<br />
+									{r.kostenpunkt?.name ?? "—"}
+								</TableCell>
+								<TableCell className="max-w-[220px]">
+									<span className="line-clamp-2">{r.description}</span>
+									{r.status === "Abgelehnt" && r.rejectionReason && (
+										<span className="mt-1 block text-red-700 text-xs">
+											Abgelehnt: {r.rejectionReason}
+										</span>
+									)}
+								</TableCell>
+								<TableCell className="text-right font-medium">
+									{formatEur(r.amount)}
+								</TableCell>
+								<TableCell>
+									<ReimbursementStatusBadge status={r.status} />
+								</TableCell>
+								<TableCell>
+									<ReceiptLinks
+										receipts={r.receipts}
+										legacyUrl={r.receiptUrl}
+										legacyName={r.receiptName}
+									/>
+								</TableCell>
+								<TableCell className="text-right">{actions(r)}</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			</div>
+		</>
 	);
 }
