@@ -48,6 +48,22 @@ export function memberStatusClasses(status: string): string {
 	return "border-border bg-muted text-muted-foreground";
 }
 
+export type MemberCategory = "fuchs" | "aktive" | "inaktive" | "ah" | "other";
+
+// Coarse membership category from the (free-text, variant-tolerant) status:
+// Füchse (Fuchs), Aktive (CB), Inaktive (IaCB / IaCBoB), AH (AH / AHEB / AH idC).
+export function memberCategory(
+	status: string | null | undefined,
+): MemberCategory {
+	const s = (status ?? "").toLowerCase().replace(/[^a-z]/g, "");
+	if (!s) return "other";
+	if (s.startsWith("ah")) return "ah";
+	if (s.startsWith("iacb")) return "inaktive";
+	if (s.startsWith("fuchs") || s.startsWith("fux")) return "fuchs";
+	if (s.startsWith("cb")) return "aktive";
+	return "other";
+}
+
 const AVATAR_PALETTE = [
 	"bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
 	"bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",

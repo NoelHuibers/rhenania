@@ -3,10 +3,11 @@
 import {
 	Download,
 	GraduationCap,
-	Link2,
 	Plus,
+	Sprout,
 	Upload,
-	Users,
+	UserCheck,
+	UserMinus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
@@ -35,6 +36,7 @@ import {
 } from "~/server/actions/members/membersExcel";
 import { MemberDialog } from "./MemberDialog";
 import { MembersTable } from "./MembersTable";
+import { memberCategory } from "./member-constants";
 
 function Stat({
 	icon,
@@ -84,8 +86,14 @@ export function AdresslistePage({
 	const [deleteTarget, setDeleteTarget] = useState<MemberListItem | null>(null);
 
 	const total = members.length;
-	const alteHerren = members.filter((m) => !m.beitragspflichtig).length;
-	const linked = members.filter((m) => m.linked).length;
+	const counts = { aktive: 0, inaktive: 0, ah: 0, fuchs: 0 };
+	for (const m of members) {
+		const c = memberCategory(m.status);
+		if (c === "aktive") counts.aktive++;
+		else if (c === "inaktive") counts.inaktive++;
+		else if (c === "ah") counts.ah++;
+		else if (c === "fuchs") counts.fuchs++;
+	}
 
 	const openNew = () => {
 		setEditing(null);
@@ -140,7 +148,7 @@ export function AdresslistePage({
 	};
 
 	return (
-		<div className="flex flex-col md:h-dvh md:overflow-hidden">
+		<div className="flex flex-col md:h-dvh md:min-w-0 md:overflow-hidden">
 			<SiteHeader title="Adressliste" subtitle={`${total} Mitglieder`} />
 			<div className="flex flex-1 flex-col gap-4 p-4 md:min-h-0 md:gap-6 md:p-6">
 				<div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
@@ -186,28 +194,34 @@ export function AdresslistePage({
 					</div>
 				</div>
 
-				<div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
+				<div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-4">
 					<Stat
-						icon={<Users className="h-5 w-5" />}
-						label="Mitglieder gesamt"
-						value={total}
-						accent="bg-primary/10 text-primary"
+						icon={<UserCheck className="h-5 w-5" />}
+						label="Aktive"
+						value={counts.aktive}
+						accent="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+					/>
+					<Stat
+						icon={<UserMinus className="h-5 w-5" />}
+						label="Inaktive"
+						value={counts.inaktive}
+						accent="bg-sky-500/10 text-sky-600 dark:text-sky-400"
 					/>
 					<Stat
 						icon={<GraduationCap className="h-5 w-5" />}
 						label="Alte Herren"
-						value={alteHerren}
-						accent="bg-sky-500/10 text-sky-600 dark:text-sky-400"
+						value={counts.ah}
+						accent="bg-slate-500/10 text-slate-600 dark:text-slate-400"
 					/>
 					<Stat
-						icon={<Link2 className="h-5 w-5" />}
-						label="Mit Account"
-						value={linked}
-						accent="bg-violet-500/10 text-violet-600 dark:text-violet-400"
+						icon={<Sprout className="h-5 w-5" />}
+						label="Füchse"
+						value={counts.fuchs}
+						accent="bg-amber-500/10 text-amber-600 dark:text-amber-400"
 					/>
 				</div>
 
-				<div className="md:flex md:min-h-0 md:flex-1 md:flex-col">
+				<div className="md:flex md:min-h-0 md:min-w-0 md:flex-1 md:flex-col">
 					<MembersTable
 						members={members}
 						canEdit={canEdit}
