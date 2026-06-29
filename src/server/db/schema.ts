@@ -1176,6 +1176,9 @@ export const fuchsenOrders = createTable(
 			.text({ enum: ["Offen", "Bezahlt"] })
 			.notNull()
 			.default("Offen"),
+		// Set once the order has been aggregated into a fuchsen bill period.
+		// Null => not yet billed (shows up in the next billing run).
+		billId: o.text({ length: 255 }),
 		paidAt: o.integer({ mode: "timestamp" }),
 		createdAt: o
 			.integer({ mode: "timestamp" })
@@ -1187,6 +1190,7 @@ export const fuchsenOrders = createTable(
 		index("fuchsen_order_user_idx").on(t.userId),
 		index("fuchsen_order_item_idx").on(t.itemId),
 		index("fuchsen_order_status_idx").on(t.status),
+		index("fuchsen_order_bill_idx").on(t.billId),
 		index("fuchsen_order_created_idx").on(t.createdAt),
 		foreignKey({
 			columns: [t.itemId],
@@ -1210,6 +1214,127 @@ export const fuchsenOrdersRelations = relations(fuchsenOrders, ({ one }) => ({
 		references: [users.id],
 	}),
 }));
+
+// --- Fuchsenladen billing (mirrors the drinks bill_period/bill/bill_item model,
+// minus inventory umlage and event bookings which don't apply to the shop) ---
+
+export const fuchsenBillPeriods = createTable(
+	"fuchsen_bill_period",
+	(bp) => ({
+		id: bp
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		billNumber: bp.text().notNull().unique(),
+		totalAmount: bp.real().notNull().default(0),
+		createdAt: bp
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		createdBy: bp.text({ length: 255 }),
+		updatedAt: bp.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+		closedAt: bp.integer({ mode: "timestamp" }),
+	}),
+	(t) => [
+		index("fuchsen_bill_period_number_idx").on(t.billNumber),
+		index("fuchsen_bill_period_dates_idx").on(t.createdAt),
+	],
+);
+
+export const fuchsenBills = createTable(
+	"fuchsen_bill",
+	(b) => ({
+		id: b
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		billPeriodId: b.text({ length: 255 }).notNull(),
+		userId: b.text({ length: 255 }).notNull(),
+		userName: b.text({ length: 255 }).notNull(),
+		status: b
+			.text({ enum: ["Bezahlt", "Unbezahlt", "Gestundet"] })
+			.notNull()
+			.default("Unbezahlt"),
+		oldBillingAmount: b.real().notNull().default(0),
+		itemsTotal: b.real().notNull(),
+		total: b.real().notNull(),
+		createdAt: b
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: b.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+		paidAt: b.integer({ mode: "timestamp" }),
+	}),
+	(t) => [
+		index("fuchsen_bill_period_idx").on(t.billPeriodId),
+		index("fuchsen_bill_user_idx").on(t.userId),
+		index("fuchsen_bill_status_idx").on(t.status),
+		index("fuchsen_bill_created_idx").on(t.createdAt),
+		foreignKey({
+			columns: [t.billPeriodId],
+			foreignColumns: [fuchsenBillPeriods.id],
+			name: "fuchsen_bill_period_fk",
+		}),
+	],
+);
+
+export const fuchsenBillItems = createTable(
+	"fuchsen_bill_item",
+	(bi) => ({
+		id: bi
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		billId: bi.text({ length: 255 }).notNull(),
+		itemName: bi.text({ length: 255 }).notNull(),
+		amount: bi.integer().notNull(),
+		pricePerItem: bi.real().notNull(),
+		totalPrice: bi.real().notNull(),
+		createdAt: bi
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+	}),
+	(t) => [
+		index("fuchsen_bill_item_bill_idx").on(t.billId),
+		foreignKey({
+			columns: [t.billId],
+			foreignColumns: [fuchsenBills.id],
+			name: "fuchsen_bill_item_bill_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const fuchsenBillPeriodsRelations = relations(
+	fuchsenBillPeriods,
+	({ many }) => ({
+		bills: many(fuchsenBills),
+	}),
+);
+
+export const fuchsenBillsRelations = relations(
+	fuchsenBills,
+	({ one, many }) => ({
+		billPeriod: one(fuchsenBillPeriods, {
+			fields: [fuchsenBills.billPeriodId],
+			references: [fuchsenBillPeriods.id],
+		}),
+		items: many(fuchsenBillItems),
+	}),
+);
+
+export const fuchsenBillItemsRelations = relations(
+	fuchsenBillItems,
+	({ one }) => ({
+		bill: one(fuchsenBills, {
+			fields: [fuchsenBillItems.billId],
+			references: [fuchsenBills.id],
+		}),
+	}),
+);
 
 export const homepageSections = createTable(
 	"homepage_section",

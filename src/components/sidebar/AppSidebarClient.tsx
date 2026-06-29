@@ -6,8 +6,8 @@ import {
 	BottleWine,
 	CalendarDays,
 	Camera,
-	HandCoins,
 	Candy,
+	HandCoins,
 	House,
 	Landmark,
 	LogOut,
@@ -81,6 +81,18 @@ const navGroups: NavGroup[] = [
 			{
 				title: "Bestellungen",
 				href: "/bestellungen",
+				icon: ReceiptText,
+				roles: [],
+			},
+			{
+				title: "Fuchsenrechnungen",
+				href: "/fuchsenrechnungen",
+				icon: ReceiptEuro,
+				roles: [],
+			},
+			{
+				title: "Fuchsenbestellungen",
+				href: "/fuchsenbestellungen",
 				icon: ReceiptText,
 				roles: [],
 			},

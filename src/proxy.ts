@@ -45,6 +45,8 @@ const VALID_PATHS = [
 	"/trinken",
 	"/fuchsenladen",
 	"/fuchsenwart",
+	"/fuchsenrechnungen",
+	"/fuchsenbestellungen",
 	"/leaderboard",
 	"/admin",
 	"/admin/(.*)",
