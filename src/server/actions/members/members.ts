@@ -11,6 +11,7 @@ import {
 	MEMBER_VIEW_ROLES,
 	requireRoles,
 } from "./_guards";
+import { normalizeStatus } from "./members-excel-map";
 
 const clean = (s?: string | null): string | null => {
 	const t = s?.trim();
@@ -51,7 +52,7 @@ type MemberInput = z.input<typeof memberInputSchema>;
 
 function toValues(p: z.infer<typeof memberInputSchema>) {
 	return {
-		status: p.status.trim(),
+		status: normalizeStatus(p.status),
 		firstName: p.firstName.trim(),
 		lastName: p.lastName.trim(),
 		email: clean(p.email),
@@ -166,7 +167,8 @@ export async function updateMemberFields(
 			if (typeof val === "string") {
 				const t = val.trim();
 				if (REQUIRED_FIELDS.has(k) && t === "") continue; // never blank a required field
-				set[k] = REQUIRED_FIELDS.has(k) ? t : t || null;
+				if (k === "status") set[k] = normalizeStatus(t);
+				else set[k] = REQUIRED_FIELDS.has(k) ? t : t || null;
 			} else {
 				set[k] = val;
 			}

@@ -11,6 +11,7 @@ import {
 	boolToCell,
 	COLUMNS,
 	HEADER_ROW,
+	normalizeStatus,
 	parseBool,
 	parseExcelDate,
 	SHEET_NAME,
@@ -153,7 +154,7 @@ export async function importMembersXlsx(input: { base64: string }) {
 			const email = (v.email as string | null) ?? null;
 
 			const record = {
-				status: (v.status as string | null) || "AH",
+				status: normalizeStatus(v.status as string | null) || "AH",
 				firstName,
 				lastName,
 				email,

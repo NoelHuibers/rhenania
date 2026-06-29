@@ -76,6 +76,28 @@ export const COLUMNS: ColDef[] = [
 	{ header: "Notizen", field: "notes" },
 ];
 
+// Canonical casing for known statuses (Abteilung). Unknown values pass through
+// unchanged so genuinely new categories are preserved. Matching is
+// case/punctuation-insensitive: "iaCB"/"IACB" -> "IaCB", "iaCBoB" -> "IaCBoB".
+const STATUS_CANON: Record<string, string> = {
+	fuchs: "Fuchs",
+	fux: "Fuchs",
+	cb: "CB",
+	iacb: "IaCB",
+	iacbob: "IaCBoB",
+	ah: "AH",
+	aheb: "AHEB",
+	ahidc: "AH idC",
+	fck: "FCK",
+};
+
+export function normalizeStatus(raw: string | null | undefined): string {
+	const s = (raw ?? "").trim();
+	if (!s) return "";
+	const key = s.toLowerCase().replace(/[^a-z]/g, "");
+	return STATUS_CANON[key] ?? s;
+}
+
 export function parseBool(raw: unknown): boolean {
 	const v = String(raw ?? "")
 		.trim()
