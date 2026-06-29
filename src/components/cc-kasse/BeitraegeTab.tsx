@@ -35,8 +35,8 @@ function chargeBadge(c: ChargeListItem) {
 	if (c.status === "Bezahlt")
 		return (
 			<Badge
-				variant="secondary"
-				className="bg-green-100 text-green-900 hover:bg-green-100"
+				variant="outline"
+				className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
 			>
 				Bezahlt
 			</Badge>
@@ -44,8 +44,8 @@ function chargeBadge(c: ChargeListItem) {
 	if (c.status === "Gemahnt")
 		return (
 			<Badge
-				variant="secondary"
-				className="bg-red-100 text-red-900 hover:bg-red-100"
+				variant="outline"
+				className="border-red-200 bg-red-50 font-medium text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
 			>
 				Gemahnt
 			</Badge>
@@ -53,8 +53,8 @@ function chargeBadge(c: ChargeListItem) {
 	if (c.ueberfaellig)
 		return (
 			<Badge
-				variant="secondary"
-				className="bg-amber-100 text-amber-900 hover:bg-amber-100"
+				variant="outline"
+				className="border-amber-200 bg-amber-50 font-medium text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300"
 			>
 				Überfällig
 			</Badge>

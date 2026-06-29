@@ -1,5 +1,6 @@
 "use client";
 
+import { Clock, PiggyBank, TrendingDown, Wallet } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -19,21 +20,31 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { formatEur } from "~/lib/cc-kasse-format";
+import { cn } from "~/lib/utils";
 import type {
 	BudgetStatus,
 	EtaplanOverview,
 } from "~/server/actions/cc-kasse/overview";
 
 const STATUS_META: Record<BudgetStatus, { label: string; cls: string }> = {
-	"on-track": { label: "Im Plan", cls: "bg-green-100 text-green-900" },
-	warning: { label: "Achtung", cls: "bg-amber-100 text-amber-900" },
-	"over-budget": { label: "Über Budget", cls: "bg-red-100 text-red-900" },
+	"on-track": {
+		label: "Im Plan",
+		cls: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300",
+	},
+	warning: {
+		label: "Achtung",
+		cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300",
+	},
+	"over-budget": {
+		label: "Über Budget",
+		cls: "border-red-200 bg-red-50 text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300",
+	},
 };
 
 function StatusBadge({ status }: { status: BudgetStatus }) {
 	const m = STATUS_META[status];
 	return (
-		<Badge variant="secondary" className={`${m.cls} hover:${m.cls}`}>
+		<Badge variant="outline" className={cn("font-medium", m.cls)}>
 			{m.label}
 		</Badge>
 	);
@@ -68,49 +79,64 @@ export function OverviewTab({
 		<div className="space-y-6">
 			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
 				<SummaryCard
+					icon={<Wallet className="h-5 w-5" />}
+					accent="bg-primary/10 text-primary"
 					title="Budget (Ausgaben)"
 					value={formatEur(total.budget)}
 				/>
 				<SummaryCard
+					icon={<TrendingDown className="h-5 w-5" />}
+					accent="bg-amber-500/10 text-amber-600 dark:text-amber-400"
 					title="Ausgegeben"
 					value={formatEur(total.ausgegeben)}
 					sub={`${total.auslastung}% ausgelastet`}
 					badge={<StatusBadge status={total.status} />}
 				/>
 				<SummaryCard
+					icon={<Clock className="h-5 w-5" />}
+					accent="bg-sky-500/10 text-sky-600 dark:text-sky-400"
 					title="Genehmigt (offen)"
 					value={formatEur(total.genehmigt)}
 				/>
-				<SummaryCard title="Verbleibend" value={formatEur(total.verbleibend)} />
+				<SummaryCard
+					icon={<PiggyBank className="h-5 w-5" />}
+					accent={
+						total.verbleibend < 0
+							? "bg-red-500/10 text-red-600 dark:text-red-400"
+							: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+					}
+					title="Verbleibend"
+					value={formatEur(total.verbleibend)}
+					valueClass={
+						total.verbleibend < 0 ? "text-red-600 dark:text-red-400" : ""
+					}
+				/>
 			</div>
 
 			<Card>
-				<CardHeader>
+				<CardHeader className="pb-2">
 					<CardTitle className="text-base">Plan-Saldo</CardTitle>
 				</CardHeader>
-				<CardContent className="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-					<span>
-						Geplante Ausgaben:{" "}
-						<span className="font-semibold">{formatEur(total.budget)}</span>
-					</span>
-					<span>
-						Geplante Einnahmen:{" "}
-						<span className="font-semibold">
-							{formatEur(overview.geplanteEinnahmen)}
-						</span>
-					</span>
-					<span>
-						Ist-Einnahmen:{" "}
-						<span className="font-semibold">
-							{formatEur(total.istEinnahmen)}
-						</span>
-					</span>
-					<span>
-						Zuschuss AHV (geplant):{" "}
-						<span className="font-semibold">
-							{formatEur(overview.geplanterZuschuss)}
-						</span>
-					</span>
+				<CardContent>
+					<div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+						<SaldoItem
+							label="Geplante Ausgaben"
+							value={formatEur(total.budget)}
+						/>
+						<SaldoItem
+							label="Geplante Einnahmen"
+							value={formatEur(overview.geplanteEinnahmen)}
+						/>
+						<SaldoItem
+							label="Ist-Einnahmen"
+							value={formatEur(total.istEinnahmen)}
+							accent="text-emerald-600 dark:text-emerald-400"
+						/>
+						<SaldoItem
+							label="Zuschuss AHV (geplant)"
+							value={formatEur(overview.geplanterZuschuss)}
+						/>
+					</div>
 				</CardContent>
 			</Card>
 
@@ -189,29 +215,62 @@ export function OverviewTab({
 }
 
 function SummaryCard({
+	icon,
+	accent,
 	title,
 	value,
 	sub,
 	badge,
+	valueClass,
 }: {
+	icon: React.ReactNode;
+	accent: string;
 	title: string;
 	value: string;
 	sub?: string;
 	badge?: React.ReactNode;
+	valueClass?: string;
 }) {
 	return (
-		<Card>
-			<CardHeader className="pb-2">
-				<CardTitle className="flex items-center justify-between font-medium text-muted-foreground text-sm">
-					{title}
+		<div className="flex items-start gap-3 rounded-xl border bg-card p-4 shadow-sm">
+			<div
+				className={cn(
+					"flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+					accent,
+				)}
+			>
+				{icon}
+			</div>
+			<div className="min-w-0 flex-1">
+				<div className="flex items-center justify-between gap-2">
+					<p className="truncate text-muted-foreground text-xs">{title}</p>
 					{badge}
-				</CardTitle>
-			</CardHeader>
-			<CardContent>
-				<div className="font-bold text-2xl">{value}</div>
+				</div>
+				<div className={cn("mt-1 font-bold text-2xl tabular-nums", valueClass)}>
+					{value}
+				</div>
 				{sub && <p className="text-muted-foreground text-xs">{sub}</p>}
-			</CardContent>
-		</Card>
+			</div>
+		</div>
+	);
+}
+
+function SaldoItem({
+	label,
+	value,
+	accent,
+}: {
+	label: string;
+	value: string;
+	accent?: string;
+}) {
+	return (
+		<div>
+			<div className="text-muted-foreground text-xs">{label}</div>
+			<div className={cn("mt-0.5 font-semibold tabular-nums", accent)}>
+				{value}
+			</div>
+		</div>
 	);
 }
 
