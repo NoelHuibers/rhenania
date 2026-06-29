@@ -368,7 +368,7 @@ export default function DashboardTab({
 							</div>
 						</div>
 					</div>
-					<div className="flex shrink-0 gap-2">
+					<div className="flex flex-col gap-2 sm:shrink-0 sm:flex-row">
 						<Button
 							size="sm"
 							onClick={() => setShowFinishEvent(true)}
@@ -423,7 +423,7 @@ export default function DashboardTab({
 						)}
 					</div>
 				</div>
-				<div className="flex shrink-0 gap-2">
+				<div className="flex flex-col gap-2 sm:shrink-0 sm:flex-row">
 					<Button
 						onClick={handleQuickSave}
 						disabled={!hasChanges || isQuickSaving}
