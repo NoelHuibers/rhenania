@@ -362,9 +362,9 @@ export function MembersTable({
 	});
 
 	return (
-		<div className="space-y-4">
+		<div className="flex flex-col gap-4 md:min-h-0 md:flex-1">
 			{/* Toolbar */}
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div className="relative w-full sm:max-w-xs">
 					<Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 					<Input
@@ -529,8 +529,8 @@ export function MembersTable({
 			</div>
 
 			{/* Desktop: editable grid */}
-			<div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm md:block">
-				<div className="max-h-[72vh] overflow-auto">
+			<div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm md:flex md:min-h-0 md:flex-1 md:flex-col">
+				<div className="overflow-auto md:min-h-0 md:flex-1">
 					<table className="w-full border-collapse">
 						<thead>
 							{table.getHeaderGroups().map((hg) => (

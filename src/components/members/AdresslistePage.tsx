@@ -6,7 +6,6 @@ import {
 	Link2,
 	Plus,
 	Upload,
-	UserCheck,
 	Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -85,7 +84,7 @@ export function AdresslistePage({
 	const [deleteTarget, setDeleteTarget] = useState<MemberListItem | null>(null);
 
 	const total = members.length;
-	const aktiv = members.filter((m) => m.beitragspflichtig).length;
+	const alteHerren = members.filter((m) => !m.beitragspflichtig).length;
 	const linked = members.filter((m) => m.linked).length;
 
 	const openNew = () => {
@@ -141,10 +140,10 @@ export function AdresslistePage({
 	};
 
 	return (
-		<div className="flex flex-col">
+		<div className="flex flex-col md:h-dvh md:overflow-hidden">
 			<SiteHeader title="Adressliste" subtitle={`${total} Mitglieder`} />
-			<div className="space-y-6 p-4 md:p-6">
-				<div className="flex flex-wrap items-end justify-between gap-3">
+			<div className="flex flex-1 flex-col gap-4 p-4 md:min-h-0 md:gap-6 md:p-6">
+				<div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
 					<div>
 						<h2 className="font-semibold text-xl tracking-tight">
 							Mitgliederverzeichnis
@@ -187,7 +186,7 @@ export function AdresslistePage({
 					</div>
 				</div>
 
-				<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+				<div className="grid shrink-0 grid-cols-1 gap-3 sm:grid-cols-3">
 					<Stat
 						icon={<Users className="h-5 w-5" />}
 						label="Mitglieder gesamt"
@@ -195,15 +194,9 @@ export function AdresslistePage({
 						accent="bg-primary/10 text-primary"
 					/>
 					<Stat
-						icon={<UserCheck className="h-5 w-5" />}
-						label="Aktiv / beitragspflichtig"
-						value={aktiv}
-						accent="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-					/>
-					<Stat
 						icon={<GraduationCap className="h-5 w-5" />}
 						label="Alte Herren"
-						value={total - aktiv}
+						value={alteHerren}
 						accent="bg-sky-500/10 text-sky-600 dark:text-sky-400"
 					/>
 					<Stat
@@ -214,15 +207,17 @@ export function AdresslistePage({
 					/>
 				</div>
 
-				<MembersTable
-					members={members}
-					canEdit={canEdit}
-					onEditFull={(m) => {
-						setEditing(m);
-						setDialogOpen(true);
-					}}
-					onRequestDelete={(m) => setDeleteTarget(m)}
-				/>
+				<div className="md:flex md:min-h-0 md:flex-1 md:flex-col">
+					<MembersTable
+						members={members}
+						canEdit={canEdit}
+						onEditFull={(m) => {
+							setEditing(m);
+							setDialogOpen(true);
+						}}
+						onRequestDelete={(m) => setDeleteTarget(m)}
+					/>
+				</div>
 			</div>
 
 			<MemberDialog
