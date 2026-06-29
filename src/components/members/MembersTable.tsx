@@ -5,24 +5,43 @@ import {
 	flexRender,
 	getCoreRowModel,
 	useReactTable,
+	type VisibilityState,
 } from "@tanstack/react-table";
 import {
 	Cake,
+	ChevronLeft,
+	ChevronRight,
 	Link2,
 	Mail,
 	MapPin,
 	Pencil,
 	Phone,
 	Search,
+	SlidersHorizontal,
 	Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useTransition,
+} from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
+import {
+	DropdownMenu,
+	DropdownMenuCheckboxItem,
+	DropdownMenuContent,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import {
 	Select,
@@ -215,10 +234,52 @@ export function MembersTable({
 	const [rows, setRows] = useState(members);
 	const [search, setSearch] = useState("");
 	const [statusFilter, setStatusFilter] = useState("alle");
+	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+		title: false,
+		email2: false,
+		email3: false,
+		phonePrivate: false,
+		phonePrivate2: false,
+		phoneWork: false,
+		phoneWork2: false,
+		houseNumber: false,
+		country: false,
+		birthday: false,
+		company: false,
+		notes: false,
+	});
 	const [, startTransition] = useTransition();
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const [overflow, setOverflow] = useState({ left: false, right: false });
+
+	const updateOverflow = useCallback(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+		setOverflow({
+			left: el.scrollLeft > 1,
+			right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+		});
+	}, []);
+
+	const scrollByX = (dir: 1 | -1) => {
+		const el = scrollRef.current;
+		if (el)
+			el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+	};
 
 	// Re-seed when the server data changes (import / add / delete refresh).
 	useEffect(() => setRows(members), [members]);
+
+	// Recompute horizontal overflow when size, data or visible columns change.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: deps trigger re-measure
+	useEffect(() => {
+		const el = scrollRef.current;
+		if (!el) return;
+		updateOverflow();
+		const ro = new ResizeObserver(updateOverflow);
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, [updateOverflow, columnVisibility, rows, search, statusFilter]);
 
 	const saveField = (
 		id: string,
@@ -259,6 +320,7 @@ export function MembersTable({
 			{
 				id: "identity",
 				header: "Mitglied",
+				enableHiding: false,
 				cell: ({ row }) => <Identity m={row.original} />,
 				meta: {
 					thClass: "left-0 z-30! min-w-[210px] bg-card",
@@ -325,6 +387,7 @@ export function MembersTable({
 		cols.push({
 			id: "actions",
 			header: "",
+			enableHiding: false,
 			cell: ({ row }) =>
 				canEdit ? (
 					<div className="flex justify-end gap-0.5 px-1">
@@ -358,6 +421,8 @@ export function MembersTable({
 	const table = useReactTable({
 		data: visibleRows,
 		columns,
+		state: { columnVisibility },
+		onColumnVisibilityChange: setColumnVisibility,
 		getCoreRowModel: getCoreRowModel(),
 	});
 
@@ -392,6 +457,59 @@ export function MembersTable({
 						{visibleRows.length}
 						<span className="text-muted-foreground/60"> / {rows.length}</span>
 					</span>
+					<div className="hidden items-center gap-1 md:flex">
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button variant="outline" size="sm">
+									<SlidersHorizontal className="mr-1 h-4 w-4" /> Spalten
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent
+								align="end"
+								className="max-h-[60vh] overflow-auto"
+							>
+								<DropdownMenuLabel>Spalten anzeigen</DropdownMenuLabel>
+								<DropdownMenuSeparator />
+								{table
+									.getAllColumns()
+									.filter((c) => c.getCanHide())
+									.map((c) => (
+										<DropdownMenuCheckboxItem
+											key={c.id}
+											checked={c.getIsVisible()}
+											onCheckedChange={(v) => c.toggleVisibility(!!v)}
+											onSelect={(e) => e.preventDefault()}
+										>
+											{String(c.columnDef.header)}
+										</DropdownMenuCheckboxItem>
+									))}
+							</DropdownMenuContent>
+						</DropdownMenu>
+						{(overflow.left || overflow.right) && (
+							<>
+								<Button
+									variant="outline"
+									size="icon"
+									className="h-8 w-8"
+									disabled={!overflow.left}
+									onClick={() => scrollByX(-1)}
+									aria-label="Nach links scrollen"
+								>
+									<ChevronLeft className="h-4 w-4" />
+								</Button>
+								<Button
+									variant="outline"
+									size="icon"
+									className="h-8 w-8"
+									disabled={!overflow.right}
+									onClick={() => scrollByX(1)}
+									aria-label="Nach rechts scrollen"
+								>
+									<ChevronRight className="h-4 w-4" />
+								</Button>
+							</>
+						)}
+					</div>
 				</div>
 			</div>
 
@@ -530,7 +648,11 @@ export function MembersTable({
 
 			{/* Desktop: editable grid (horizontal scroll; page scrolls vertically) */}
 			<div className="hidden overflow-hidden rounded-xl border bg-card shadow-sm md:block">
-				<div className="overflow-x-auto">
+				<div
+					ref={scrollRef}
+					onScroll={updateOverflow}
+					className="overflow-x-auto"
+				>
 					<table className="w-full border-collapse">
 						<thead>
 							{table.getHeaderGroups().map((hg) => (
@@ -555,7 +677,7 @@ export function MembersTable({
 							{table.getRowModel().rows.length === 0 ? (
 								<tr>
 									<td
-										colSpan={columns.length}
+										colSpan={table.getVisibleLeafColumns().length}
 										className="h-28 text-center text-muted-foreground text-sm"
 									>
 										Keine Mitglieder gefunden.
