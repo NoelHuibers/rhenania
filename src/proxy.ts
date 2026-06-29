@@ -3,6 +3,7 @@
 import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import { betterAuthInstance } from "~/server/auth";
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
@@ -49,6 +50,9 @@ const VALID_PATHS = [
 	"/getraenkewart",
 	"/semesterprogramm",
 	"/konten",
+	"/cc-kasse",
+	"/kostenerstattung",
+	"/adressliste",
 	"/superadmin",
 	"/superadmin/(.*)",
 ];
@@ -79,6 +83,8 @@ const ROLE_PROTECTED_PATHS: Record<string, string[]> = {
 	"/getraenkewart": ["Admin", "Getränkewart"],
 	"/inventur": ["Admin", "Getränkewart"],
 	"/bilder": ["Admin", "Fotowart"],
+	"/cc-kasse": ["Admin", "CC-Kasse", "Senior"],
+	"/adressliste": ADRESSLISTE_ROLES,
 	"/admin": ["Admin"],
 };
 

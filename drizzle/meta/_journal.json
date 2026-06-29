@@ -15,6 +15,34 @@
 			"when": 1778347075190,
 			"tag": "0001_thankful_magdalene",
 			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "6",
+			"when": 1782140632386,
+			"tag": "0002_tired_albert_cleary",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "6",
+			"when": 1782144187288,
+			"tag": "0003_lush_leopardon",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "6",
+			"when": 1782255685477,
+			"tag": "0004_boring_vindicator",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "6",
+			"when": 1782691284028,
+			"tag": "0005_flaky_the_liberteens",
+			"breakpoints": true
 		}
 	]
 }

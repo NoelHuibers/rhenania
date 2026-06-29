@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, gte, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { eventRsvps, events } from "~/server/db/schema";
@@ -57,6 +57,25 @@ export async function getPublicUpcomingEvents(limit?: number) {
 		return await query;
 	} catch (error) {
 		console.error("Error fetching public upcoming events:", error);
+		return [];
+	}
+}
+
+export async function getPublicPastEvents(limit?: number) {
+	try {
+		const now = new Date();
+		const query = db
+			.select()
+			.from(events)
+			.where(and(lt(events.date, now), eq(events.isPublic, true)))
+			.orderBy(desc(events.date));
+
+		if (limit) {
+			return await query.limit(limit);
+		}
+		return await query;
+	} catch (error) {
+		console.error("Error fetching public past events:", error);
 		return [];
 	}
 }

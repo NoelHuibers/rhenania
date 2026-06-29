@@ -148,6 +148,21 @@ export async function initializeRoles(): Promise<void> {
 			{ name: "Fuchsmajor", description: "Fuchsmajor des Corps (FM)" },
 			{ name: "CC-Kasse", description: "CC-Kassenwart" },
 			{ name: "Aktivenkasse", description: "Aktivenkassenwart" },
+			{ name: "AHV 1. Vorstand", description: "Altherrenverein – 1. Vorstand" },
+			{ name: "AHV 2. Vorstand", description: "Altherrenverein – 2. Vorstand" },
+			{ name: "AHV 3. Vorstand", description: "Altherrenverein – 3. Vorstand" },
+			{
+				name: "Hausverein 1. Vorstand",
+				description: "Hausverein – 1. Vorstand",
+			},
+			{
+				name: "Hausverein 2. Vorstand",
+				description: "Hausverein – 2. Vorstand",
+			},
+			{
+				name: "Hausverein 3. Vorstand",
+				description: "Hausverein – 3. Vorstand",
+			},
 		];
 
 		for (const role of defaultRoles) {

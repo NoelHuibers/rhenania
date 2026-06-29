@@ -1,0 +1,1 @@
+ALTER TABLE `kostenerstattung` ADD `receipts` text;

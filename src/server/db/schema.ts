@@ -1230,3 +1230,476 @@ export const homepageSections = createTable(
 	}),
 	(t) => [index("homepage_section_active_idx").on(t.isActive)],
 );
+
+// ─── CC-Kasse (Treasury): Etaplan, Kostenpunkte, Reimbursements ───────────────
+//
+// Per-semester budget plan ("Etatplan") with category-grouped cost items
+// ("Kostenpunkte"), each holding line-item "Positionen", plus member
+// reimbursements ("Kostenrückerstattungen") booked against a Kostenpunkt.
+
+export const etaplans = createTable(
+	"etaplan",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: d.text({ length: 255 }).notNull(), // e.g. "SS 2026"
+		semesterType: d.text({ enum: ["SS", "WS"] }).notNull(),
+		year: d.integer().notNull(),
+		// Nullable → backfill of older semesters with custom dates.
+		startDate: d.integer({ mode: "timestamp" }),
+		endDate: d.integer({ mode: "timestamp" }),
+		status: d
+			.text({ enum: ["Aktiv", "Abgeschlossen"] })
+			.notNull()
+			.default("Aktiv"),
+		notes: d.text({ length: 1000 }),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("etaplan_status_idx").on(t.status),
+		index("etaplan_year_idx").on(t.year),
+	],
+);
+
+export const kostenpunkte = createTable(
+	"kostenpunkt",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		etaplanId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => etaplans.id, { onDelete: "cascade" }),
+		category: d.text({ length: 255 }).notNull(), // Gruppe
+		categoryOrder: d.integer().notNull().default(0),
+		name: d.text({ length: 255 }).notNull(),
+		description: d.text({ length: 1000 }),
+		// Cached aggregates of the child positions (kept in sync by the actions).
+		budget: d.real().notNull().default(0),
+		income: d.real().notNull().default(0),
+		eventId: d
+			.text({ length: 255 })
+			.references(() => events.id, { onDelete: "set null" }),
+		displayOrder: d.integer().notNull().default(0),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("kostenpunkt_etaplan_idx").on(t.etaplanId),
+		index("kostenpunkt_event_idx").on(t.eventId),
+		index("kostenpunkt_category_idx").on(t.etaplanId, t.categoryOrder),
+	],
+);
+
+export const kostenpunktPositionen = createTable(
+	"kostenpunkt_position",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		kostenpunktId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => kostenpunkte.id, { onDelete: "cascade" }),
+		bemerkung: d.text({ length: 500 }),
+		ausgaben: d.real().notNull().default(0),
+		einnahmen: d.real().notNull().default(0),
+		displayOrder: d.integer().notNull().default(0),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [index("position_kostenpunkt_idx").on(t.kostenpunktId)],
+);
+
+export type ReceiptFile = { url: string; name: string };
+
+export const kostenerstattungen = createTable(
+	"kostenerstattung",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		// FK declared in the index array below with onDelete "restrict".
+		kostenpunktId: d.text({ length: 255 }).notNull(),
+		etaplanId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => etaplans.id, { onDelete: "cascade" }),
+		source: d
+			.text({ enum: ["Antrag", "Direktbuchung"] })
+			.notNull()
+			.default("Antrag"),
+		status: d
+			.text({ enum: ["Eingereicht", "Genehmigt", "Ausgezahlt", "Abgelehnt"] })
+			.notNull()
+			.default("Eingereicht"),
+		description: d.text({ length: 500 }).notNull(),
+		amount: d.real().notNull(),
+		submittedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		recipientName: d.text({ length: 255 }).notNull(),
+		iban: d.text({ length: 50 }),
+		// Legacy single-receipt fields — kept nullable for back-compat. New
+		// submissions populate `receipts` (multiple). Safe to drop later via a
+		// TTY-run migration once no old rows rely on them.
+		receiptUrl: d.text(),
+		receiptName: d.text({ length: 255 }),
+		receipts: d.text({ mode: "json" }).$type<ReceiptFile[]>(),
+		// When the money was spent (custom past date for backfill).
+		expenseDate: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		approvedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		approvedAt: d.integer({ mode: "timestamp" }),
+		paidBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		paidAt: d.integer({ mode: "timestamp" }),
+		rejectedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		rejectedAt: d.integer({ mode: "timestamp" }),
+		rejectionReason: d.text({ length: 500 }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("erstattung_kostenpunkt_idx").on(t.kostenpunktId),
+		index("erstattung_etaplan_idx").on(t.etaplanId),
+		index("erstattung_status_idx").on(t.status),
+		index("erstattung_submitter_idx").on(t.submittedBy),
+		index("erstattung_etaplan_status_idx").on(t.etaplanId, t.status),
+		foreignKey({
+			columns: [t.kostenpunktId],
+			foreignColumns: [kostenpunkte.id],
+			name: "erstattung_kostenpunkt_fk",
+		}).onDelete("restrict"),
+	],
+);
+
+export const userPaymentInfo = createTable("user_payment_info", (d) => ({
+	userId: d
+		.text({ length: 255 })
+		.notNull()
+		.primaryKey()
+		.references(() => users.id, { onDelete: "cascade" }),
+	accountHolder: d.text({ length: 255 }).notNull(),
+	iban: d.text({ length: 50 }).notNull(),
+	createdAt: d
+		.integer({ mode: "timestamp" })
+		.default(sql`(unixepoch())`)
+		.notNull(),
+	updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+}));
+
+export const etaplansRelations = relations(etaplans, ({ one, many }) => ({
+	createdBy: one(users, {
+		fields: [etaplans.createdBy],
+		references: [users.id],
+	}),
+	kostenpunkte: many(kostenpunkte),
+	erstattungen: many(kostenerstattungen),
+}));
+
+export const kostenpunkteRelations = relations(
+	kostenpunkte,
+	({ one, many }) => ({
+		etaplan: one(etaplans, {
+			fields: [kostenpunkte.etaplanId],
+			references: [etaplans.id],
+		}),
+		event: one(events, {
+			fields: [kostenpunkte.eventId],
+			references: [events.id],
+		}),
+		positionen: many(kostenpunktPositionen),
+		erstattungen: many(kostenerstattungen),
+	}),
+);
+
+export const kostenpunktPositionenRelations = relations(
+	kostenpunktPositionen,
+	({ one }) => ({
+		kostenpunkt: one(kostenpunkte, {
+			fields: [kostenpunktPositionen.kostenpunktId],
+			references: [kostenpunkte.id],
+		}),
+	}),
+);
+
+export const kostenerstattungenRelations = relations(
+	kostenerstattungen,
+	({ one }) => ({
+		kostenpunkt: one(kostenpunkte, {
+			fields: [kostenerstattungen.kostenpunktId],
+			references: [kostenpunkte.id],
+		}),
+		etaplan: one(etaplans, {
+			fields: [kostenerstattungen.etaplanId],
+			references: [etaplans.id],
+		}),
+		submitter: one(users, {
+			fields: [kostenerstattungen.submittedBy],
+			references: [users.id],
+			relationName: "erstattung_submitter",
+		}),
+		approver: one(users, {
+			fields: [kostenerstattungen.approvedBy],
+			references: [users.id],
+			relationName: "erstattung_approver",
+		}),
+		payer: one(users, {
+			fields: [kostenerstattungen.paidBy],
+			references: [users.id],
+			relationName: "erstattung_payer",
+		}),
+		rejecter: one(users, {
+			fields: [kostenerstattungen.rejectedBy],
+			references: [users.id],
+			relationName: "erstattung_rejecter",
+		}),
+	}),
+);
+
+export const userPaymentInfoRelations = relations(
+	userPaymentInfo,
+	({ one }) => ({
+		user: one(users, {
+			fields: [userPaymentInfo.userId],
+			references: [users.id],
+		}),
+	}),
+);
+
+export type Etaplan = typeof etaplans.$inferSelect;
+export type NewEtaplan = typeof etaplans.$inferInsert;
+export type Kostenpunkt = typeof kostenpunkte.$inferSelect;
+export type KostenpunktPosition = typeof kostenpunktPositionen.$inferSelect;
+export type Kostenerstattung = typeof kostenerstattungen.$inferSelect;
+export type UserPaymentInfo = typeof userPaymentInfo.$inferSelect;
+
+// ─── Mitglieder (Adressliste) + Semesterbeitrag ───────────────────────────────
+//
+// `members` is the directory source of truth, decoupled from `users` (most Alte
+// Herren have no app account). An optional `userId` links a member to an account
+// (auto-linked by email on profile load).
+
+export const members = createTable(
+	"member",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		// Abteilung — free text to preserve spreadsheet variants (iaCBoB, AH idC,
+		// FCK, …); beitragspflichtig is derived in code, not from a DB enum.
+		status: d.text().notNull(),
+		firstName: d.text({ length: 255 }).notNull(),
+		lastName: d.text({ length: 255 }).notNull(),
+		// Member contact email — distinct from users.email; may be null.
+		email: d.text({ length: 255 }),
+		street: d.text({ length: 255 }),
+		houseNumber: d.text({ length: 50 }),
+		addressLine2: d.text({ length: 255 }),
+		postalCode: d.text({ length: 20 }), // text: leading zeros / non-DE
+		city: d.text({ length: 255 }),
+		country: d.text({ length: 100 }).default("Deutschland"),
+		lettersOptOut: d.integer({ mode: "boolean" }).notNull().default(false),
+		addressNeedsUpdate: d.integer({ mode: "boolean" }).notNull().default(false),
+		notes: d.text({ length: 1000 }),
+		// Extended fields imported from the member spreadsheet.
+		externalId: d.text({ length: 100 }), // source list ID (stable match key)
+		title: d.text({ length: 255 }), // Position / academic title
+		mobile: d.text({ length: 100 }),
+		phonePrivate: d.text({ length: 100 }),
+		phonePrivate2: d.text({ length: 100 }),
+		email2: d.text({ length: 255 }),
+		email3: d.text({ length: 255 }),
+		company: d.text({ length: 255 }),
+		phoneWork: d.text({ length: 100 }),
+		phoneWork2: d.text({ length: 100 }),
+		birthday: d.text({ length: 50 }),
+		forwarding: d.integer({ mode: "boolean" }).notNull().default(false),
+		// Lossless round-trip of any unmapped spreadsheet columns (e.g. SharePoint
+		// metadata: Geändert / Elementtyp / Pfad).
+		extra: d.text({ mode: "json" }).$type<Record<string, string>>(),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		updatedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("member_user_idx").on(t.userId),
+		index("member_status_idx").on(t.status),
+		index("member_email_idx").on(t.email),
+		index("member_name_idx").on(t.lastName, t.firstName),
+		index("member_external_idx").on(t.externalId),
+	],
+);
+
+export const semesterbeitragRuns = createTable(
+	"semesterbeitrag_run",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		etaplanId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => etaplans.id, { onDelete: "cascade" }),
+		// FK to kostenpunkte declared in the index array (restrict).
+		kostenpunktId: d.text({ length: 255 }).notNull(),
+		name: d.text({ length: 255 }).notNull(),
+		amount: d.real().notNull().default(28),
+		mahnungFee: d.real().notNull().default(5),
+		dueDate: d.integer({ mode: "timestamp" }).notNull(),
+		status: d
+			.text({ enum: ["Offen", "Abgeschlossen"] })
+			.notNull()
+			.default("Offen"),
+		createdBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("beitrag_run_etaplan_idx").on(t.etaplanId),
+		index("beitrag_run_kp_idx").on(t.kostenpunktId),
+		index("beitrag_run_status_idx").on(t.status),
+		foreignKey({
+			columns: [t.kostenpunktId],
+			foreignColumns: [kostenpunkte.id],
+			name: "beitrag_run_kp_fk",
+		}).onDelete("restrict"),
+	],
+);
+
+export const semesterbeitragCharges = createTable(
+	"semesterbeitrag_charge",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		runId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => semesterbeitragRuns.id, { onDelete: "cascade" }),
+		memberId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => members.id, { onDelete: "cascade" }),
+		memberName: d.text({ length: 255 }).notNull(), // snapshot
+		baseAmount: d.real().notNull(),
+		mahnungAmount: d.real().notNull().default(0),
+		status: d
+			.text({ enum: ["Offen", "Bezahlt", "Gemahnt"] })
+			.notNull()
+			.default("Offen"),
+		deliveryMethod: d.text({ enum: ["email", "letter"] }),
+		emailSentAt: d.integer({ mode: "timestamp" }),
+		mahnungSentAt: d.integer({ mode: "timestamp" }),
+		paidAt: d.integer({ mode: "timestamp" }),
+		paidBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		uniqueIndex("beitrag_charge_unique_idx").on(t.runId, t.memberId),
+		index("beitrag_charge_run_idx").on(t.runId),
+		index("beitrag_charge_member_idx").on(t.memberId),
+		index("beitrag_charge_status_idx").on(t.status),
+	],
+);
+
+export const membersRelations = relations(members, ({ one, many }) => ({
+	user: one(users, { fields: [members.userId], references: [users.id] }),
+	charges: many(semesterbeitragCharges),
+}));
+
+export const semesterbeitragRunsRelations = relations(
+	semesterbeitragRuns,
+	({ one, many }) => ({
+		etaplan: one(etaplans, {
+			fields: [semesterbeitragRuns.etaplanId],
+			references: [etaplans.id],
+		}),
+		kostenpunkt: one(kostenpunkte, {
+			fields: [semesterbeitragRuns.kostenpunktId],
+			references: [kostenpunkte.id],
+		}),
+		charges: many(semesterbeitragCharges),
+	}),
+);
+
+export const semesterbeitragChargesRelations = relations(
+	semesterbeitragCharges,
+	({ one }) => ({
+		run: one(semesterbeitragRuns, {
+			fields: [semesterbeitragCharges.runId],
+			references: [semesterbeitragRuns.id],
+		}),
+		member: one(members, {
+			fields: [semesterbeitragCharges.memberId],
+			references: [members.id],
+		}),
+	}),
+);
+
+export type Member = typeof members.$inferSelect;
+export type NewMember = typeof members.$inferInsert;
+export type SemesterbeitragRun = typeof semesterbeitragRuns.$inferSelect;
+export type SemesterbeitragCharge = typeof semesterbeitragCharges.$inferSelect;

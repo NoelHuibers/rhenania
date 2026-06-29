@@ -2,6 +2,7 @@
 
 import {
 	Beer,
+	BookUser,
 	BottleWine,
 	CalendarDays,
 	Camera,
@@ -9,6 +10,7 @@ import {
 	House,
 	Landmark,
 	LogOut,
+	PiggyBank,
 	ReceiptEuro,
 	ReceiptText,
 	Settings,
@@ -41,6 +43,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "~/components/ui/sidebar";
+import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import { signOut } from "~/server/auth/client";
 
 type Role = "Admin" | "Getränkewart" | string;
@@ -91,6 +94,12 @@ const navGroups: NavGroup[] = [
 				icon: CalendarDays,
 				roles: [],
 			},
+			{
+				title: "Kostenerstattung",
+				href: "/kostenerstattung",
+				icon: HandCoins,
+				roles: [],
+			},
 			{ title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
 			{ title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
 			{
@@ -133,6 +142,18 @@ const navGroups: NavGroup[] = [
 				href: "/konten",
 				icon: Landmark,
 				roles: ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"],
+			},
+			{
+				title: "CC-Kasse",
+				href: "/cc-kasse",
+				icon: PiggyBank,
+				roles: ["CC-Kasse", "Senior", "Admin"],
+			},
+			{
+				title: "Adressliste",
+				href: "/adressliste",
+				icon: BookUser,
+				roles: ADRESSLISTE_ROLES,
 			},
 			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
 		],

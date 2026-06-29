@@ -16,8 +16,8 @@ export async function SidebarLayout({
 		<SidebarProvider defaultOpen={false}>
 			<ChallengeBadgeProvider notificationsEnabled={enabled}>
 				<AppSidebar className={className} />
-				<main className="flex min-h-screen flex-1 flex-col">
-					<div className="h-full flex-1">{children}</div>
+				<main className="flex min-h-screen min-w-0 flex-1 flex-col">
+					<div className="h-full min-w-0 flex-1">{children}</div>
 				</main>
 			</ChallengeBadgeProvider>
 		</SidebarProvider>

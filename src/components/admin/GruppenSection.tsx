@@ -2,7 +2,7 @@ import { Users } from "lucide-react";
 import { Badge } from "../ui/badge";
 import {
 	type Role,
-	SINGLE_PERSON_ROLES,
+	SECTIONED_ROLE_NAMES,
 	type UserWithRoles,
 } from "./dashboard";
 
@@ -18,10 +18,7 @@ export function GruppenSection({
 	onRoleClick,
 }: GruppenSectionProps) {
 	const gruppenRoles = roles.filter(
-		(r) =>
-			!SINGLE_PERSON_ROLES.includes(
-				r.name as (typeof SINGLE_PERSON_ROLES)[number],
-			) && r.name !== "Admin",
+		(r) => !SECTIONED_ROLE_NAMES.includes(r.name) && r.name !== "Admin",
 	);
 
 	if (gruppenRoles.length === 0) return null;

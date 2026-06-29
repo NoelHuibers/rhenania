@@ -1,10 +1,6 @@
 import { AlertTriangle, UserRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import {
-	type Role,
-	SINGLE_PERSON_ROLES,
-	type UserWithRoles,
-} from "./dashboard";
+import type { Role, UserWithRoles } from "./dashboard";
 
 const getInitials = (name: string | null) => {
 	if (!name) return "??";
@@ -16,40 +12,38 @@ const getInitials = (name: string | null) => {
 		.substring(0, 2);
 };
 
-interface AemterSectionProps {
+interface RoleSectionProps {
+	title: string;
+	orderedNames: readonly string[];
 	roles: Role[];
 	users: UserWithRoles[];
 	onRoleClick: (role: Role) => void;
 }
 
-export function AemterSection({
+// A section of single-holder "office" roles (Ämter / AHV / Hausverein), shown in
+// a fixed order with the current holder's avatar + name.
+export function RoleSection({
+	title,
+	orderedNames,
 	roles,
 	users,
 	onRoleClick,
-}: AemterSectionProps) {
-	const aemterRoles = roles
-		.filter((r) =>
-			SINGLE_PERSON_ROLES.includes(
-				r.name as (typeof SINGLE_PERSON_ROLES)[number],
-			),
-		)
+}: RoleSectionProps) {
+	const sectionRoles = roles
+		.filter((r) => orderedNames.includes(r.name))
 		.sort(
-			(a, b) =>
-				SINGLE_PERSON_ROLES.indexOf(
-					a.name as (typeof SINGLE_PERSON_ROLES)[number],
-				) -
-				SINGLE_PERSON_ROLES.indexOf(
-					b.name as (typeof SINGLE_PERSON_ROLES)[number],
-				),
+			(a, b) => orderedNames.indexOf(a.name) - orderedNames.indexOf(b.name),
 		);
+
+	if (sectionRoles.length === 0) return null;
 
 	return (
 		<div>
 			<h2 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
-				Ämter
+				{title}
 			</h2>
 			<div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-				{aemterRoles.map((role) => {
+				{sectionRoles.map((role) => {
 					const holders = users.filter((u) =>
 						u.roles.some((r) => r.name === role.name),
 					);

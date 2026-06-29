@@ -1,0 +1,4256 @@
+{
+	"version": "6",
+	"dialect": "sqlite",
+	"id": "8ec87806-a397-48b0-aeb3-f78167616865",
+	"prevId": "2856c42b-d07f-4076-9324-7317a20dd342",
+	"tables": {
+		"achievement_progress": {
+			"name": "achievement_progress",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"achievementId": {
+					"name": "achievementId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"currentValue": {
+					"name": "currentValue",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"metadata": {
+					"name": "metadata",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"lastUpdated": {
+					"name": "lastUpdated",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"achievement_progress_unique_idx": {
+					"name": "achievement_progress_unique_idx",
+					"columns": ["userId", "achievementId"],
+					"isUnique": true
+				},
+				"achievement_progress_user_idx": {
+					"name": "achievement_progress_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"achievement_progress_achievement_idx": {
+					"name": "achievement_progress_achievement_idx",
+					"columns": ["achievementId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"achievement_progress_userId_user_id_fk": {
+					"name": "achievement_progress_userId_user_id_fk",
+					"tableFrom": "achievement_progress",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"achievement_progress_achievementId_achievement_id_fk": {
+					"name": "achievement_progress_achievementId_achievement_id_fk",
+					"tableFrom": "achievement_progress",
+					"tableTo": "achievement",
+					"columnsFrom": ["achievementId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"achievement": {
+			"name": "achievement",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"key": {
+					"name": "key",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"category": {
+					"name": "category",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"icon": {
+					"name": "icon",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"targetValue": {
+					"name": "targetValue",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"isSecret": {
+					"name": "isSecret",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"points": {
+					"name": "points",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 10
+				},
+				"rarity": {
+					"name": "rarity",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'common'"
+				},
+				"isActive": {
+					"name": "isActive",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"achievement_key_unique": {
+					"name": "achievement_key_unique",
+					"columns": ["key"],
+					"isUnique": true
+				},
+				"achievement_category_idx": {
+					"name": "achievement_category_idx",
+					"columns": ["category"],
+					"isUnique": false
+				},
+				"achievement_active_idx": {
+					"name": "achievement_active_idx",
+					"columns": ["isActive"],
+					"isUnique": false
+				},
+				"achievement_rarity_idx": {
+					"name": "achievement_rarity_idx",
+					"columns": ["rarity"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"bank_entry": {
+			"name": "bank_entry",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"date": {
+					"name": "date",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"createdBy": {
+					"name": "createdBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				}
+			},
+			"indexes": {
+				"bank_entry_date_idx": {
+					"name": "bank_entry_date_idx",
+					"columns": ["date"],
+					"isUnique": false
+				},
+				"bank_entry_created_idx": {
+					"name": "bank_entry_created_idx",
+					"columns": ["createdAt"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"bank_entry_createdBy_user_id_fk": {
+					"name": "bank_entry_createdBy_user_id_fk",
+					"tableFrom": "bank_entry",
+					"tableTo": "user",
+					"columnsFrom": ["createdBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"bill_csv": {
+			"name": "bill_csv",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"billPeriodId": {
+					"name": "billPeriodId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"blobUrl": {
+					"name": "blobUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"fileName": {
+					"name": "fileName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"delimiter": {
+					"name": "delimiter",
+					"type": "text(10)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'\t'"
+				},
+				"fileSize": {
+					"name": "fileSize",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				}
+			},
+			"indexes": {
+				"bill_csv_period_idx": {
+					"name": "bill_csv_period_idx",
+					"columns": ["billPeriodId"],
+					"isUnique": false
+				},
+				"bill_csv_created_idx": {
+					"name": "bill_csv_created_idx",
+					"columns": ["createdAt"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"bill_csv_period_fk": {
+					"name": "bill_csv_period_fk",
+					"tableFrom": "bill_csv",
+					"tableTo": "bill_period",
+					"columnsFrom": ["billPeriodId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"bill_item": {
+			"name": "bill_item",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"billId": {
+					"name": "billId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"drinkName": {
+					"name": "drinkName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"pricePerDrink": {
+					"name": "pricePerDrink",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"totalPricePerDrink": {
+					"name": "totalPricePerDrink",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				}
+			},
+			"indexes": {
+				"bill_item_bill_idx": {
+					"name": "bill_item_bill_idx",
+					"columns": ["billId"],
+					"isUnique": false
+				},
+				"bill_item_drink_idx": {
+					"name": "bill_item_drink_idx",
+					"columns": ["drinkName"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"bill_item_bill_fk": {
+					"name": "bill_item_bill_fk",
+					"tableFrom": "bill_item",
+					"tableTo": "bill",
+					"columnsFrom": ["billId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"bill_pdf": {
+			"name": "bill_pdf",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"billId": {
+					"name": "billId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"blobUrl": {
+					"name": "blobUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"fileName": {
+					"name": "fileName",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"fileSize": {
+					"name": "fileSize",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				}
+			},
+			"indexes": {
+				"bill_pdf_bill_idx": {
+					"name": "bill_pdf_bill_idx",
+					"columns": ["billId"],
+					"isUnique": false
+				},
+				"bill_pdf_user_idx": {
+					"name": "bill_pdf_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"bill_pdf_unique_idx": {
+					"name": "bill_pdf_unique_idx",
+					"columns": ["billId"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {
+				"bill_pdf_bill_fk": {
+					"name": "bill_pdf_bill_fk",
+					"tableFrom": "bill_pdf",
+					"tableTo": "bill",
+					"columnsFrom": ["billId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"bill_period": {
+			"name": "bill_period",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"billNumber": {
+					"name": "billNumber",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"totalAmount": {
+					"name": "totalAmount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"createdBy": {
+					"name": "createdBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"closedAt": {
+					"name": "closedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"bill_period_billNumber_unique": {
+					"name": "bill_period_billNumber_unique",
+					"columns": ["billNumber"],
+					"isUnique": true
+				},
+				"bill_period_number_idx": {
+					"name": "bill_period_number_idx",
+					"columns": ["billNumber"],
+					"isUnique": false
+				},
+				"bill_period_dates_idx": {
+					"name": "bill_period_dates_idx",
+					"columns": ["createdAt"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"bill": {
+			"name": "bill",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"billPeriodId": {
+					"name": "billPeriodId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userName": {
+					"name": "userName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Unbezahlt'"
+				},
+				"oldBillingAmount": {
+					"name": "oldBillingAmount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"fees": {
+					"name": "fees",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"umlage": {
+					"name": "umlage",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"drinksTotal": {
+					"name": "drinksTotal",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"total": {
+					"name": "total",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"paidAt": {
+					"name": "paidAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"bill_period_idx": {
+					"name": "bill_period_idx",
+					"columns": ["billPeriodId"],
+					"isUnique": false
+				},
+				"bill_user_idx": {
+					"name": "bill_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"bill_status_idx": {
+					"name": "bill_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				},
+				"bill_created_idx": {
+					"name": "bill_created_idx",
+					"columns": ["createdAt"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"bill_period_fk": {
+					"name": "bill_period_fk",
+					"tableFrom": "bill",
+					"tableTo": "bill_period",
+					"columnsFrom": ["billPeriodId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"calendar_token": {
+			"name": "calendar_token",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"token": {
+					"name": "token",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"lastUsedAt": {
+					"name": "lastUsedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"calendar_token_token_unique": {
+					"name": "calendar_token_token_unique",
+					"columns": ["token"],
+					"isUnique": true
+				},
+				"calendar_token_user_idx": {
+					"name": "calendar_token_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"calendar_token_token_idx": {
+					"name": "calendar_token_token_idx",
+					"columns": ["token"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"calendar_token_userId_user_id_fk": {
+					"name": "calendar_token_userId_user_id_fk",
+					"tableFrom": "calendar_token",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"challenge": {
+			"name": "challenge",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"challengerId": {
+					"name": "challengerId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"opponentId": {
+					"name": "opponentId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'pending'"
+				},
+				"payment": {
+					"name": "payment",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'challenger'"
+				},
+				"drinkId": {
+					"name": "drinkId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"quantity": {
+					"name": "quantity",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 2
+				},
+				"proposedWinnerId": {
+					"name": "proposedWinnerId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"proposedById": {
+					"name": "proposedById",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"proposedAt": {
+					"name": "proposedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"acceptedAt": {
+					"name": "acceptedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"declinedAt": {
+					"name": "declinedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"respondDeadline": {
+					"name": "respondDeadline",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"playDeadline": {
+					"name": "playDeadline",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"confirmDeadline": {
+					"name": "confirmDeadline",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"gameId": {
+					"name": "gameId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"challenge_challenger_status_idx": {
+					"name": "challenge_challenger_status_idx",
+					"columns": ["challengerId", "status"],
+					"isUnique": false
+				},
+				"challenge_opponent_status_idx": {
+					"name": "challenge_opponent_status_idx",
+					"columns": ["opponentId", "status"],
+					"isUnique": false
+				},
+				"challenge_status_idx": {
+					"name": "challenge_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				},
+				"challenge_created_idx": {
+					"name": "challenge_created_idx",
+					"columns": ["createdAt"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"challenge_challengerId_user_id_fk": {
+					"name": "challenge_challengerId_user_id_fk",
+					"tableFrom": "challenge",
+					"tableTo": "user",
+					"columnsFrom": ["challengerId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"challenge_opponentId_user_id_fk": {
+					"name": "challenge_opponentId_user_id_fk",
+					"tableFrom": "challenge",
+					"tableTo": "user",
+					"columnsFrom": ["opponentId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"challenge_drinkId_drink_id_fk": {
+					"name": "challenge_drinkId_drink_id_fk",
+					"tableFrom": "challenge",
+					"tableTo": "drink",
+					"columnsFrom": ["drinkId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"challenge_proposedWinnerId_user_id_fk": {
+					"name": "challenge_proposedWinnerId_user_id_fk",
+					"tableFrom": "challenge",
+					"tableTo": "user",
+					"columnsFrom": ["proposedWinnerId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"challenge_proposedById_user_id_fk": {
+					"name": "challenge_proposedById_user_id_fk",
+					"tableFrom": "challenge",
+					"tableTo": "user",
+					"columnsFrom": ["proposedById"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"drink": {
+			"name": "drink",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"price": {
+					"name": "price",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"kastengroesse": {
+					"name": "kastengroesse",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"volume": {
+					"name": "volume",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"picture": {
+					"name": "picture",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"isCurrentlyAvailable": {
+					"name": "isCurrentlyAvailable",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"drink_name_idx": {
+					"name": "drink_name_idx",
+					"columns": ["name"],
+					"isUnique": false
+				},
+				"drink_available_idx": {
+					"name": "drink_available_idx",
+					"columns": ["isCurrentlyAvailable"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"etaplan": {
+			"name": "etaplan",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"semesterType": {
+					"name": "semesterType",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"year": {
+					"name": "year",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"startDate": {
+					"name": "startDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"endDate": {
+					"name": "endDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Aktiv'"
+				},
+				"notes": {
+					"name": "notes",
+					"type": "text(1000)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdBy": {
+					"name": "createdBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"etaplan_status_idx": {
+					"name": "etaplan_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				},
+				"etaplan_year_idx": {
+					"name": "etaplan_year_idx",
+					"columns": ["year"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"etaplan_createdBy_user_id_fk": {
+					"name": "etaplan_createdBy_user_id_fk",
+					"tableFrom": "etaplan",
+					"tableTo": "user",
+					"columnsFrom": ["createdBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"event_rsvp": {
+			"name": "event_rsvp",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"eventId": {
+					"name": "eventId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"note": {
+					"name": "note",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"event_rsvp_unique_idx": {
+					"name": "event_rsvp_unique_idx",
+					"columns": ["eventId", "userId"],
+					"isUnique": true
+				},
+				"event_rsvp_event_idx": {
+					"name": "event_rsvp_event_idx",
+					"columns": ["eventId"],
+					"isUnique": false
+				},
+				"event_rsvp_user_idx": {
+					"name": "event_rsvp_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"event_rsvp_eventId_event_id_fk": {
+					"name": "event_rsvp_eventId_event_id_fk",
+					"tableFrom": "event_rsvp",
+					"tableTo": "event",
+					"columnsFrom": ["eventId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"event_rsvp_userId_user_id_fk": {
+					"name": "event_rsvp_userId_user_id_fk",
+					"tableFrom": "event_rsvp",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"event_type": {
+			"name": "event_type",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"key": {
+					"name": "key",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"label": {
+					"name": "label",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"displayOrder": {
+					"name": "displayOrder",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"isActive": {
+					"name": "isActive",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"event_type_key_unique": {
+					"name": "event_type_key_unique",
+					"columns": ["key"],
+					"isUnique": true
+				},
+				"event_type_active_idx": {
+					"name": "event_type_active_idx",
+					"columns": ["isActive"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"event": {
+			"name": "event",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"title": {
+					"name": "title",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(1000)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"date": {
+					"name": "date",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"endDate": {
+					"name": "endDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"location": {
+					"name": "location",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"type": {
+					"name": "type",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Sonstige'"
+				},
+				"isPublic": {
+					"name": "isPublic",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"isCancelled": {
+					"name": "isCancelled",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"meetingUrl": {
+					"name": "meetingUrl",
+					"type": "text(2048)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"rsvpDeadline": {
+					"name": "rsvpDeadline",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"maxAttendees": {
+					"name": "maxAttendees",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"recurringEventId": {
+					"name": "recurringEventId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdBy": {
+					"name": "createdBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"event_date_idx": {
+					"name": "event_date_idx",
+					"columns": ["date"],
+					"isUnique": false
+				},
+				"event_type_idx": {
+					"name": "event_type_idx",
+					"columns": ["type"],
+					"isUnique": false
+				},
+				"event_public_idx": {
+					"name": "event_public_idx",
+					"columns": ["isPublic"],
+					"isUnique": false
+				},
+				"event_recurring_idx": {
+					"name": "event_recurring_idx",
+					"columns": ["recurringEventId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"event_recurringEventId_recurring_event_id_fk": {
+					"name": "event_recurringEventId_recurring_event_id_fk",
+					"tableFrom": "event",
+					"tableTo": "recurring_event",
+					"columnsFrom": ["recurringEventId"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"event_createdBy_user_id_fk": {
+					"name": "event_createdBy_user_id_fk",
+					"tableFrom": "event",
+					"tableTo": "user",
+					"columnsFrom": ["createdBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"external_bill": {
+			"name": "external_bill",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"creditor": {
+					"name": "creditor",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Offen'"
+				},
+				"paidAt": {
+					"name": "paidAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdBy": {
+					"name": "createdBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"external_bill_status_idx": {
+					"name": "external_bill_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				},
+				"external_bill_created_idx": {
+					"name": "external_bill_created_idx",
+					"columns": ["createdAt"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"external_bill_createdBy_user_id_fk": {
+					"name": "external_bill_createdBy_user_id_fk",
+					"tableFrom": "external_bill",
+					"tableTo": "user",
+					"columnsFrom": ["createdBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"game": {
+			"name": "game",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"player1Id": {
+					"name": "player1Id",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"player2Id": {
+					"name": "player2Id",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"winnerId": {
+					"name": "winnerId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"playedAt": {
+					"name": "playedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"player1EloBefore": {
+					"name": "player1EloBefore",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": 1200
+				},
+				"player2EloBefore": {
+					"name": "player2EloBefore",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": 1200
+				},
+				"player1EloAfter": {
+					"name": "player1EloAfter",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": 1200
+				},
+				"player2EloAfter": {
+					"name": "player2EloAfter",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": 1200
+				},
+				"orderId": {
+					"name": "orderId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"challengeId": {
+					"name": "challengeId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"gameType": {
+					"name": "gameType",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "'bierjunge'"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"game_player1Id_user_id_fk": {
+					"name": "game_player1Id_user_id_fk",
+					"tableFrom": "game",
+					"tableTo": "user",
+					"columnsFrom": ["player1Id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"game_player2Id_user_id_fk": {
+					"name": "game_player2Id_user_id_fk",
+					"tableFrom": "game",
+					"tableTo": "user",
+					"columnsFrom": ["player2Id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"game_winnerId_user_id_fk": {
+					"name": "game_winnerId_user_id_fk",
+					"tableFrom": "game",
+					"tableTo": "user",
+					"columnsFrom": ["winnerId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"homepage_image": {
+			"name": "homepage_image",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"section": {
+					"name": "section",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"imageUrl": {
+					"name": "imageUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"imageName": {
+					"name": "imageName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"fileSize": {
+					"name": "fileSize",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"mimeType": {
+					"name": "mimeType",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"displayOrder": {
+					"name": "displayOrder",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"isActive": {
+					"name": "isActive",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"uploadedBy": {
+					"name": "uploadedBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"homepage_image_section_idx": {
+					"name": "homepage_image_section_idx",
+					"columns": ["section"],
+					"isUnique": false
+				},
+				"homepage_image_active_idx": {
+					"name": "homepage_image_active_idx",
+					"columns": ["isActive"],
+					"isUnique": false
+				},
+				"homepage_image_order_idx": {
+					"name": "homepage_image_order_idx",
+					"columns": ["displayOrder"],
+					"isUnique": false
+				},
+				"homepage_image_section_active_idx": {
+					"name": "homepage_image_section_active_idx",
+					"columns": ["section", "isActive"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"homepage_image_uploadedBy_user_id_fk": {
+					"name": "homepage_image_uploadedBy_user_id_fk",
+					"tableFrom": "homepage_image",
+					"tableTo": "user",
+					"columnsFrom": ["uploadedBy"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"homepage_section": {
+			"name": "homepage_section",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"key": {
+					"name": "key",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"label": {
+					"name": "label",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"displayOrder": {
+					"name": "displayOrder",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"isActive": {
+					"name": "isActive",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"homepage_section_key_unique": {
+					"name": "homepage_section_key_unique",
+					"columns": ["key"],
+					"isUnique": true
+				},
+				"homepage_section_active_idx": {
+					"name": "homepage_section_active_idx",
+					"columns": ["isActive"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"inventory": {
+			"name": "inventory",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'active'"
+				},
+				"totalLoss": {
+					"name": "totalLoss",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"performedBy": {
+					"name": "performedBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"closedAt": {
+					"name": "closedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"inventory_status_idx": {
+					"name": "inventory_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"inventory_performedBy_user_id_fk": {
+					"name": "inventory_performedBy_user_id_fk",
+					"tableFrom": "inventory",
+					"tableTo": "user",
+					"columnsFrom": ["performedBy"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"inventory_item": {
+			"name": "inventory_item",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"inventoryId": {
+					"name": "inventoryId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"drinkId": {
+					"name": "drinkId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"countedStock": {
+					"name": "countedStock",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"previousStock": {
+					"name": "previousStock",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"purchasedSince": {
+					"name": "purchasedSince",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"soldSince": {
+					"name": "soldSince",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"priceAtCount": {
+					"name": "priceAtCount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"lossValue": {
+					"name": "lossValue",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				}
+			},
+			"indexes": {
+				"inventory_item_inventory_idx": {
+					"name": "inventory_item_inventory_idx",
+					"columns": ["inventoryId"],
+					"isUnique": false
+				},
+				"inventory_item_drink_idx": {
+					"name": "inventory_item_drink_idx",
+					"columns": ["drinkId"],
+					"isUnique": false
+				},
+				"inventory_item_unique_idx": {
+					"name": "inventory_item_unique_idx",
+					"columns": ["inventoryId", "drinkId"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {
+				"inventory_item_inventoryId_inventory_id_fk": {
+					"name": "inventory_item_inventoryId_inventory_id_fk",
+					"tableFrom": "inventory_item",
+					"tableTo": "inventory",
+					"columnsFrom": ["inventoryId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"inventory_item_drinkId_drink_id_fk": {
+					"name": "inventory_item_drinkId_drink_id_fk",
+					"tableFrom": "inventory_item",
+					"tableTo": "drink",
+					"columnsFrom": ["drinkId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"kasse_config": {
+			"name": "kasse_config",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(50)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'singleton'"
+				},
+				"pfandWert": {
+					"name": "pfandWert",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"updatedBy": {
+					"name": "updatedBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"kasse_config_updatedBy_user_id_fk": {
+					"name": "kasse_config_updatedBy_user_id_fk",
+					"tableFrom": "kasse_config",
+					"tableTo": "user",
+					"columnsFrom": ["updatedBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"kasse_type": {
+			"name": "kasse_type",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"key": {
+					"name": "key",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"label": {
+					"name": "label",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"displayOrder": {
+					"name": "displayOrder",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"isActive": {
+					"name": "isActive",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"kasse_type_key_unique": {
+					"name": "kasse_type_key_unique",
+					"columns": ["key"],
+					"isUnique": true
+				},
+				"kasse_type_active_idx": {
+					"name": "kasse_type_active_idx",
+					"columns": ["isActive"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"konto": {
+			"name": "konto",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"kasseType": {
+					"name": "kasseType",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"iban": {
+					"name": "iban",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"bic": {
+					"name": "bic",
+					"type": "text(20)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"bankName": {
+					"name": "bankName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"isActive": {
+					"name": "isActive",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"konto_type_idx": {
+					"name": "konto_type_idx",
+					"columns": ["kasseType"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"kostenerstattung": {
+			"name": "kostenerstattung",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"kostenpunktId": {
+					"name": "kostenpunktId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"etaplanId": {
+					"name": "etaplanId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"source": {
+					"name": "source",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Antrag'"
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Eingereicht'"
+				},
+				"description": {
+					"name": "description",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"submittedBy": {
+					"name": "submittedBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"recipientName": {
+					"name": "recipientName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"iban": {
+					"name": "iban",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"receiptUrl": {
+					"name": "receiptUrl",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"receiptName": {
+					"name": "receiptName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"receipts": {
+					"name": "receipts",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"expenseDate": {
+					"name": "expenseDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"approvedBy": {
+					"name": "approvedBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"approvedAt": {
+					"name": "approvedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"paidBy": {
+					"name": "paidBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"paidAt": {
+					"name": "paidAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"rejectedBy": {
+					"name": "rejectedBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"rejectedAt": {
+					"name": "rejectedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"rejectionReason": {
+					"name": "rejectionReason",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"erstattung_kostenpunkt_idx": {
+					"name": "erstattung_kostenpunkt_idx",
+					"columns": ["kostenpunktId"],
+					"isUnique": false
+				},
+				"erstattung_etaplan_idx": {
+					"name": "erstattung_etaplan_idx",
+					"columns": ["etaplanId"],
+					"isUnique": false
+				},
+				"erstattung_status_idx": {
+					"name": "erstattung_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				},
+				"erstattung_submitter_idx": {
+					"name": "erstattung_submitter_idx",
+					"columns": ["submittedBy"],
+					"isUnique": false
+				},
+				"erstattung_etaplan_status_idx": {
+					"name": "erstattung_etaplan_status_idx",
+					"columns": ["etaplanId", "status"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"kostenerstattung_etaplanId_etaplan_id_fk": {
+					"name": "kostenerstattung_etaplanId_etaplan_id_fk",
+					"tableFrom": "kostenerstattung",
+					"tableTo": "etaplan",
+					"columnsFrom": ["etaplanId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"kostenerstattung_submittedBy_user_id_fk": {
+					"name": "kostenerstattung_submittedBy_user_id_fk",
+					"tableFrom": "kostenerstattung",
+					"tableTo": "user",
+					"columnsFrom": ["submittedBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"kostenerstattung_approvedBy_user_id_fk": {
+					"name": "kostenerstattung_approvedBy_user_id_fk",
+					"tableFrom": "kostenerstattung",
+					"tableTo": "user",
+					"columnsFrom": ["approvedBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"kostenerstattung_paidBy_user_id_fk": {
+					"name": "kostenerstattung_paidBy_user_id_fk",
+					"tableFrom": "kostenerstattung",
+					"tableTo": "user",
+					"columnsFrom": ["paidBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"kostenerstattung_rejectedBy_user_id_fk": {
+					"name": "kostenerstattung_rejectedBy_user_id_fk",
+					"tableFrom": "kostenerstattung",
+					"tableTo": "user",
+					"columnsFrom": ["rejectedBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"erstattung_kostenpunkt_fk": {
+					"name": "erstattung_kostenpunkt_fk",
+					"tableFrom": "kostenerstattung",
+					"tableTo": "kostenpunkt",
+					"columnsFrom": ["kostenpunktId"],
+					"columnsTo": ["id"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"kostenpunkt_position": {
+			"name": "kostenpunkt_position",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"kostenpunktId": {
+					"name": "kostenpunktId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"bemerkung": {
+					"name": "bemerkung",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"ausgaben": {
+					"name": "ausgaben",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"einnahmen": {
+					"name": "einnahmen",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"displayOrder": {
+					"name": "displayOrder",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"position_kostenpunkt_idx": {
+					"name": "position_kostenpunkt_idx",
+					"columns": ["kostenpunktId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"kostenpunkt_position_kostenpunktId_kostenpunkt_id_fk": {
+					"name": "kostenpunkt_position_kostenpunktId_kostenpunkt_id_fk",
+					"tableFrom": "kostenpunkt_position",
+					"tableTo": "kostenpunkt",
+					"columnsFrom": ["kostenpunktId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"kostenpunkt": {
+			"name": "kostenpunkt",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"etaplanId": {
+					"name": "etaplanId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"category": {
+					"name": "category",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"categoryOrder": {
+					"name": "categoryOrder",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"name": {
+					"name": "name",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(1000)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"budget": {
+					"name": "budget",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"income": {
+					"name": "income",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"eventId": {
+					"name": "eventId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"displayOrder": {
+					"name": "displayOrder",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"kostenpunkt_etaplan_idx": {
+					"name": "kostenpunkt_etaplan_idx",
+					"columns": ["etaplanId"],
+					"isUnique": false
+				},
+				"kostenpunkt_event_idx": {
+					"name": "kostenpunkt_event_idx",
+					"columns": ["eventId"],
+					"isUnique": false
+				},
+				"kostenpunkt_category_idx": {
+					"name": "kostenpunkt_category_idx",
+					"columns": ["etaplanId", "categoryOrder"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"kostenpunkt_etaplanId_etaplan_id_fk": {
+					"name": "kostenpunkt_etaplanId_etaplan_id_fk",
+					"tableFrom": "kostenpunkt",
+					"tableTo": "etaplan",
+					"columnsFrom": ["etaplanId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"kostenpunkt_eventId_event_id_fk": {
+					"name": "kostenpunkt_eventId_event_id_fk",
+					"tableFrom": "kostenpunkt",
+					"tableTo": "event",
+					"columnsFrom": ["eventId"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"member": {
+			"name": "member",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"firstName": {
+					"name": "firstName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"lastName": {
+					"name": "lastName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"email": {
+					"name": "email",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"street": {
+					"name": "street",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"houseNumber": {
+					"name": "houseNumber",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"addressLine2": {
+					"name": "addressLine2",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"postalCode": {
+					"name": "postalCode",
+					"type": "text(20)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"city": {
+					"name": "city",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"country": {
+					"name": "country",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "'Deutschland'"
+				},
+				"lettersOptOut": {
+					"name": "lettersOptOut",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"addressNeedsUpdate": {
+					"name": "addressNeedsUpdate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"notes": {
+					"name": "notes",
+					"type": "text(1000)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"externalId": {
+					"name": "externalId",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"title": {
+					"name": "title",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"mobile": {
+					"name": "mobile",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"phonePrivate": {
+					"name": "phonePrivate",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"phonePrivate2": {
+					"name": "phonePrivate2",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"email2": {
+					"name": "email2",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"email3": {
+					"name": "email3",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"company": {
+					"name": "company",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"phoneWork": {
+					"name": "phoneWork",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"phoneWork2": {
+					"name": "phoneWork2",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"birthday": {
+					"name": "birthday",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"forwarding": {
+					"name": "forwarding",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"extra": {
+					"name": "extra",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdBy": {
+					"name": "createdBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"updatedBy": {
+					"name": "updatedBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"member_user_idx": {
+					"name": "member_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"member_status_idx": {
+					"name": "member_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				},
+				"member_email_idx": {
+					"name": "member_email_idx",
+					"columns": ["email"],
+					"isUnique": false
+				},
+				"member_name_idx": {
+					"name": "member_name_idx",
+					"columns": ["lastName", "firstName"],
+					"isUnique": false
+				},
+				"member_external_idx": {
+					"name": "member_external_idx",
+					"columns": ["externalId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"member_userId_user_id_fk": {
+					"name": "member_userId_user_id_fk",
+					"tableFrom": "member",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"member_createdBy_user_id_fk": {
+					"name": "member_createdBy_user_id_fk",
+					"tableFrom": "member",
+					"tableTo": "user",
+					"columnsFrom": ["createdBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"member_updatedBy_user_id_fk": {
+					"name": "member_updatedBy_user_id_fk",
+					"tableFrom": "member",
+					"tableTo": "user",
+					"columnsFrom": ["updatedBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"order": {
+			"name": "order",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userName": {
+					"name": "userName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"drinkId": {
+					"name": "drinkId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"drinkName": {
+					"name": "drinkName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"pricePerUnit": {
+					"name": "pricePerUnit",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"total": {
+					"name": "total",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"inBill": {
+					"name": "inBill",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"bookingFor": {
+					"name": "bookingFor",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"bookedByAdminId": {
+					"name": "bookedByAdminId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"bookedByAdminName": {
+					"name": "bookedByAdminName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"order_user_idx": {
+					"name": "order_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"order_drink_idx": {
+					"name": "order_drink_idx",
+					"columns": ["drinkId"],
+					"isUnique": false
+				},
+				"order_created_idx": {
+					"name": "order_created_idx",
+					"columns": ["createdAt"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"order_drink_fk": {
+					"name": "order_drink_fk",
+					"tableFrom": "order",
+					"tableTo": "drink",
+					"columnsFrom": ["drinkId"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"recurring_event": {
+			"name": "recurring_event",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"title": {
+					"name": "title",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(1000)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"location": {
+					"name": "location",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "'adH Rhenania'"
+				},
+				"type": {
+					"name": "type",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Sonstige'"
+				},
+				"recurrenceType": {
+					"name": "recurrenceType",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"dayOfWeek": {
+					"name": "dayOfWeek",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"time": {
+					"name": "time",
+					"type": "text(5)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'20:00'"
+				},
+				"isPublic": {
+					"name": "isPublic",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"meetingUrl": {
+					"name": "meetingUrl",
+					"type": "text(2048)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"startDate": {
+					"name": "startDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"endDate": {
+					"name": "endDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"isActive": {
+					"name": "isActive",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": true
+				},
+				"createdBy": {
+					"name": "createdBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"recurring_event_type_idx": {
+					"name": "recurring_event_type_idx",
+					"columns": ["type"],
+					"isUnique": false
+				},
+				"recurring_event_active_idx": {
+					"name": "recurring_event_active_idx",
+					"columns": ["isActive"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"recurring_event_createdBy_user_id_fk": {
+					"name": "recurring_event_createdBy_user_id_fk",
+					"tableFrom": "recurring_event",
+					"tableTo": "user",
+					"columnsFrom": ["createdBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"role": {
+			"name": "role",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"description": {
+					"name": "description",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				}
+			},
+			"indexes": {
+				"role_name_unique": {
+					"name": "role_name_unique",
+					"columns": ["name"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"semester_config": {
+			"name": "semester_config",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(50)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'singleton'"
+				},
+				"name": {
+					"name": "name",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "''"
+				},
+				"startDate": {
+					"name": "startDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"endDate": {
+					"name": "endDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"semesterbeitrag_charge": {
+			"name": "semesterbeitrag_charge",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"runId": {
+					"name": "runId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"memberId": {
+					"name": "memberId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"memberName": {
+					"name": "memberName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"baseAmount": {
+					"name": "baseAmount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"mahnungAmount": {
+					"name": "mahnungAmount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Offen'"
+				},
+				"deliveryMethod": {
+					"name": "deliveryMethod",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"emailSentAt": {
+					"name": "emailSentAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"mahnungSentAt": {
+					"name": "mahnungSentAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"paidAt": {
+					"name": "paidAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"paidBy": {
+					"name": "paidBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"beitrag_charge_unique_idx": {
+					"name": "beitrag_charge_unique_idx",
+					"columns": ["runId", "memberId"],
+					"isUnique": true
+				},
+				"beitrag_charge_run_idx": {
+					"name": "beitrag_charge_run_idx",
+					"columns": ["runId"],
+					"isUnique": false
+				},
+				"beitrag_charge_member_idx": {
+					"name": "beitrag_charge_member_idx",
+					"columns": ["memberId"],
+					"isUnique": false
+				},
+				"beitrag_charge_status_idx": {
+					"name": "beitrag_charge_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"semesterbeitrag_charge_runId_semesterbeitrag_run_id_fk": {
+					"name": "semesterbeitrag_charge_runId_semesterbeitrag_run_id_fk",
+					"tableFrom": "semesterbeitrag_charge",
+					"tableTo": "semesterbeitrag_run",
+					"columnsFrom": ["runId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"semesterbeitrag_charge_memberId_member_id_fk": {
+					"name": "semesterbeitrag_charge_memberId_member_id_fk",
+					"tableFrom": "semesterbeitrag_charge",
+					"tableTo": "member",
+					"columnsFrom": ["memberId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"semesterbeitrag_charge_paidBy_user_id_fk": {
+					"name": "semesterbeitrag_charge_paidBy_user_id_fk",
+					"tableFrom": "semesterbeitrag_charge",
+					"tableTo": "user",
+					"columnsFrom": ["paidBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"semesterbeitrag_run": {
+			"name": "semesterbeitrag_run",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"etaplanId": {
+					"name": "etaplanId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"kostenpunktId": {
+					"name": "kostenpunktId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"amount": {
+					"name": "amount",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 28
+				},
+				"mahnungFee": {
+					"name": "mahnungFee",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 5
+				},
+				"dueDate": {
+					"name": "dueDate",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'Offen'"
+				},
+				"createdBy": {
+					"name": "createdBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"beitrag_run_etaplan_idx": {
+					"name": "beitrag_run_etaplan_idx",
+					"columns": ["etaplanId"],
+					"isUnique": false
+				},
+				"beitrag_run_kp_idx": {
+					"name": "beitrag_run_kp_idx",
+					"columns": ["kostenpunktId"],
+					"isUnique": false
+				},
+				"beitrag_run_status_idx": {
+					"name": "beitrag_run_status_idx",
+					"columns": ["status"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"semesterbeitrag_run_etaplanId_etaplan_id_fk": {
+					"name": "semesterbeitrag_run_etaplanId_etaplan_id_fk",
+					"tableFrom": "semesterbeitrag_run",
+					"tableTo": "etaplan",
+					"columnsFrom": ["etaplanId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"semesterbeitrag_run_createdBy_user_id_fk": {
+					"name": "semesterbeitrag_run_createdBy_user_id_fk",
+					"tableFrom": "semesterbeitrag_run",
+					"tableTo": "user",
+					"columnsFrom": ["createdBy"],
+					"columnsTo": ["id"],
+					"onDelete": "set null",
+					"onUpdate": "no action"
+				},
+				"beitrag_run_kp_fk": {
+					"name": "beitrag_run_kp_fk",
+					"tableFrom": "semesterbeitrag_run",
+					"tableTo": "kostenpunkt",
+					"columnsFrom": ["kostenpunktId"],
+					"columnsTo": ["id"],
+					"onDelete": "restrict",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"user_achievement": {
+			"name": "user_achievement",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"achievementId": {
+					"name": "achievementId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"unlockedAt": {
+					"name": "unlockedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"progress": {
+					"name": "progress",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": 0
+				},
+				"notificationSent": {
+					"name": "notificationSent",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				}
+			},
+			"indexes": {
+				"user_achievement_unique_idx": {
+					"name": "user_achievement_unique_idx",
+					"columns": ["userId", "achievementId"],
+					"isUnique": true
+				},
+				"user_achievement_user_idx": {
+					"name": "user_achievement_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"user_achievement_achievement_idx": {
+					"name": "user_achievement_achievement_idx",
+					"columns": ["achievementId"],
+					"isUnique": false
+				},
+				"user_achievement_unlocked_idx": {
+					"name": "user_achievement_unlocked_idx",
+					"columns": ["unlockedAt"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"user_achievement_userId_user_id_fk": {
+					"name": "user_achievement_userId_user_id_fk",
+					"tableFrom": "user_achievement",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"user_achievement_achievementId_achievement_id_fk": {
+					"name": "user_achievement_achievementId_achievement_id_fk",
+					"tableFrom": "user_achievement",
+					"tableTo": "achievement",
+					"columnsFrom": ["achievementId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"user_payment_info": {
+			"name": "user_payment_info",
+			"columns": {
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"accountHolder": {
+					"name": "accountHolder",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"iban": {
+					"name": "iban",
+					"type": "text(50)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"user_payment_info_userId_user_id_fk": {
+					"name": "user_payment_info_userId_user_id_fk",
+					"tableFrom": "user_payment_info",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"user_preference": {
+			"name": "user_preference",
+			"columns": {
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"key": {
+					"name": "key",
+					"type": "text(100)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"value": {
+					"name": "value",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"valueType": {
+					"name": "valueType",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "'json'"
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				}
+			},
+			"indexes": {
+				"user_pref_user_idx": {
+					"name": "user_pref_user_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"user_pref_key_idx": {
+					"name": "user_pref_key_idx",
+					"columns": ["key"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"user_preference_userId_user_id_fk": {
+					"name": "user_preference_userId_user_id_fk",
+					"tableFrom": "user_preference",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"user_preference_userId_key_pk": {
+					"columns": ["userId", "key"],
+					"name": "user_preference_userId_key_pk"
+				}
+			},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"user_role": {
+			"name": "user_role",
+			"columns": {
+				"userId": {
+					"name": "userId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"roleId": {
+					"name": "roleId",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"assignedAt": {
+					"name": "assignedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				},
+				"assignedBy": {
+					"name": "assignedBy",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"user_roles_user_id_idx": {
+					"name": "user_roles_user_id_idx",
+					"columns": ["userId"],
+					"isUnique": false
+				},
+				"user_roles_role_id_idx": {
+					"name": "user_roles_role_id_idx",
+					"columns": ["roleId"],
+					"isUnique": false
+				}
+			},
+			"foreignKeys": {
+				"user_role_userId_user_id_fk": {
+					"name": "user_role_userId_user_id_fk",
+					"tableFrom": "user_role",
+					"tableTo": "user",
+					"columnsFrom": ["userId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				},
+				"user_role_roleId_role_id_fk": {
+					"name": "user_role_roleId_role_id_fk",
+					"tableFrom": "user_role",
+					"tableTo": "role",
+					"columnsFrom": ["roleId"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"user_role_userId_roleId_pk": {
+					"columns": ["userId", "roleId"],
+					"name": "user_role_userId_roleId_pk"
+				}
+			},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"user": {
+			"name": "user",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"name": {
+					"name": "name",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"email": {
+					"name": "email",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"emailVerified": {
+					"name": "emailVerified",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": false
+				},
+				"image": {
+					"name": "image",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": false,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"updatedAt": {
+					"name": "updatedAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {
+				"user_email_unique": {
+					"name": "user_email_unique",
+					"columns": ["email"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"venue": {
+			"name": "venue",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text(255)",
+					"primaryKey": true,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"shortName": {
+					"name": "shortName",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"fullAddress": {
+					"name": "fullAddress",
+					"type": "text(500)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"createdAt": {
+					"name": "createdAt",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false,
+					"default": "(unixepoch())"
+				}
+			},
+			"indexes": {
+				"venue_shortName_unique": {
+					"name": "venue_shortName_unique",
+					"columns": ["shortName"],
+					"isUnique": true
+				},
+				"venue_short_name_idx": {
+					"name": "venue_short_name_idx",
+					"columns": ["shortName"],
+					"isUnique": true
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		},
+		"verification_token": {
+			"name": "verification_token",
+			"columns": {
+				"identifier": {
+					"name": "identifier",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"token": {
+					"name": "token",
+					"type": "text(255)",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				},
+				"expires": {
+					"name": "expires",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"autoincrement": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {
+				"verification_token_identifier_token_pk": {
+					"columns": ["identifier", "token"],
+					"name": "verification_token_identifier_token_pk"
+				}
+			},
+			"uniqueConstraints": {},
+			"checkConstraints": {}
+		}
+	},
+	"views": {},
+	"enums": {},
+	"_meta": {
+		"schemas": {},
+		"tables": {},
+		"columns": {}
+	},
+	"internal": {
+		"indexes": {}
+	}
+}
