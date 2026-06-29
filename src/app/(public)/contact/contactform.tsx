@@ -1,11 +1,11 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowRight } from "lucide-react";
 import type React from "react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { Button } from "~/components/ui/button";
 import {
 	Form,
 	FormControl,
@@ -22,10 +22,13 @@ import {
 	contactFormSchema,
 } from "~/types/contactformschema";
 
+const fieldClass =
+	"bg-white border-black/10 focus-visible:border-[#2f86d4] focus-visible:ring-[#2f86d4]/30";
+
 const ContactForm = () => {
 	const [formLoadTime, setFormLoadTime] = useState(0);
 
-	const [state, formAction] = useActionState(onSubmitAction, {
+	const [state, formAction, pending] = useActionState(onSubmitAction, {
 		message: "",
 	});
 
@@ -71,83 +74,99 @@ const ContactForm = () => {
 	};
 
 	return (
-		<section className="flex flex-col items-center justify-center space-y-2 md:w-3/4 dark:bg-gray-800">
-			<h2 className="font-bold text-2xl md:text-4xl">Rhenania Stuttgart</h2>
-			<p className="text-center text-gray-500 dark:text-gray-400">
-				Bist Du bereit Stuttgarter Rhenane zu werden und ein Studium mit
-				Persönlichkeit zu haben?
-			</p>
-			<p className="text-gray-500 dark:text-gray-400">
-				Schreib uns eine E-Mail an und stelle Dich vor!
-			</p>
-			<Form {...form}>
-				<form
-					className="flex w-3/4 flex-col space-y-4 md:w-1/2"
-					action={formAction}
-					ref={formRef}
-					onSubmit={handleSubmit}
+		<Form {...form}>
+			<form
+				className="flex flex-col gap-5"
+				action={formAction}
+				ref={formRef}
+				onSubmit={handleSubmit}
+			>
+				<FormField
+					control={form.control}
+					name="name"
+					render={({ field }) => (
+						<FormItem className="w-full">
+							<FormLabel className="text-[#2c2630]">Name</FormLabel>
+							<FormControl>
+								<Input
+									placeholder="Max Mustermann"
+									className={fieldClass}
+									{...field}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="email"
+					render={({ field }) => (
+						<FormItem className="w-full">
+							<FormLabel className="text-[#2c2630]">E-Mail</FormLabel>
+							<FormControl>
+								<Input
+									type="email"
+									placeholder="max@beispiel.de"
+									className={fieldClass}
+									{...field}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="message"
+					render={({ field }) => (
+						<FormItem className="w-full">
+							<FormLabel className="text-[#2c2630]">Deine Nachricht</FormLabel>
+							<FormControl>
+								<Textarea
+									rows={6}
+									placeholder="Erzähl uns ein wenig über Dich…"
+									className={fieldClass}
+									{...field}
+								/>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<FormField
+					control={form.control}
+					name="honeypot"
+					render={({ field }) => (
+						<FormItem className="hidden">
+							<FormLabel>Honeypot</FormLabel>
+							<FormControl>
+								<Input type="text" {...field} />
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+
+				<button
+					type="submit"
+					disabled={pending}
+					className="group relative mt-1 inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#d98aa6] to-[#2f86d4] px-8 py-3 font-semibold text-white shadow-[0_14px_40px_-12px_rgba(47,134,212,0.7)] transition-transform duration-300 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
 				>
-					<FormField
-						control={form.control}
-						name="name"
-						render={({ field }) => (
-							<FormItem className="w-full">
-								<FormLabel>Name</FormLabel>
-								<FormControl>
-									<Input {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
+					<span
+						aria-hidden
+						className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/55 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-[420%]"
 					/>
-
-					<FormField
-						control={form.control}
-						name="email"
-						render={({ field }) => (
-							<FormItem className="w-full">
-								<FormLabel>E-Mail</FormLabel>
-								<FormControl>
-									<Input {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-
-					<FormField
-						control={form.control}
-						name="message"
-						render={({ field }) => (
-							<FormItem className="w-full">
-								<FormLabel>Deine Nachricht</FormLabel>
-								<FormControl>
-									<Textarea {...field} rows={6} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-
-					<FormField
-						control={form.control}
-						name="honeypot"
-						render={({ field }) => (
-							<FormItem className="hidden">
-								<FormLabel>Honeypot</FormLabel>
-								<FormControl>
-									<Input type="text" {...field} />
-								</FormControl>
-								<FormMessage />
-							</FormItem>
-						)}
-					/>
-					<Button type="submit" className="mt-4">
-						Senden
-					</Button>
-				</form>
-			</Form>
-		</section>
+					<span className="relative">{pending ? "Senden…" : "Senden"}</span>
+					{!pending && (
+						<ArrowRight className="relative h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+					)}
+				</button>
+			</form>
+		</Form>
 	);
 };
 
