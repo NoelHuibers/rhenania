@@ -1,8 +1,10 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, ReceiptEuro } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import {
@@ -138,7 +140,7 @@ export function FuchsenBillingOverview() {
 						<p className="text-muted-foreground text-xs md:text-sm">
 							Bereits bezahlt
 						</p>
-						<p className="font-semibold text-base md:text-lg text-muted-foreground">
+						<p className="font-semibold text-base text-muted-foreground md:text-lg">
 							{currencyFormatter.format(summary.paidTotal)}
 						</p>
 					</div>
@@ -221,6 +223,13 @@ export function FuchsenBillingOverview() {
 						</div>
 					</details>
 				)}
+
+				<Button asChild variant="outline" className="w-full gap-2">
+					<Link href="/fuchsenrechnungen">
+						<ReceiptEuro className="h-4 w-4" />
+						Rechnungen, PDF &amp; PayPal
+					</Link>
+				</Button>
 			</CardContent>
 		</Card>
 	);
