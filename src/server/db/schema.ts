@@ -1437,7 +1437,9 @@ export const members = createTable(
 		userId: d
 			.text({ length: 255 })
 			.references(() => users.id, { onDelete: "set null" }),
-		status: d.text({ enum: ["Fuchs", "CB", "IaCB", "AH", "AHEB"] }).notNull(),
+		// Abteilung — free text to preserve spreadsheet variants (iaCBoB, AH idC,
+		// FCK, …); beitragspflichtig is derived in code, not from a DB enum.
+		status: d.text().notNull(),
 		firstName: d.text({ length: 255 }).notNull(),
 		lastName: d.text({ length: 255 }).notNull(),
 		// Member contact email — distinct from users.email; may be null.
@@ -1451,6 +1453,22 @@ export const members = createTable(
 		lettersOptOut: d.integer({ mode: "boolean" }).notNull().default(false),
 		addressNeedsUpdate: d.integer({ mode: "boolean" }).notNull().default(false),
 		notes: d.text({ length: 1000 }),
+		// Extended fields imported from the member spreadsheet.
+		externalId: d.text({ length: 100 }), // source list ID (stable match key)
+		title: d.text({ length: 255 }), // Position / academic title
+		mobile: d.text({ length: 100 }),
+		phonePrivate: d.text({ length: 100 }),
+		phonePrivate2: d.text({ length: 100 }),
+		email2: d.text({ length: 255 }),
+		email3: d.text({ length: 255 }),
+		company: d.text({ length: 255 }),
+		phoneWork: d.text({ length: 100 }),
+		phoneWork2: d.text({ length: 100 }),
+		birthday: d.text({ length: 50 }),
+		forwarding: d.integer({ mode: "boolean" }).notNull().default(false),
+		// Lossless round-trip of any unmapped spreadsheet columns (e.g. SharePoint
+		// metadata: Geändert / Elementtyp / Pfad).
+		extra: d.text({ mode: "json" }).$type<Record<string, string>>(),
 		createdBy: d
 			.text({ length: 255 })
 			.references(() => users.id, { onDelete: "set null" }),
@@ -1468,6 +1486,7 @@ export const members = createTable(
 		index("member_status_idx").on(t.status),
 		index("member_email_idx").on(t.email),
 		index("member_name_idx").on(t.lastName, t.firstName),
+		index("member_external_idx").on(t.externalId),
 	],
 );
 

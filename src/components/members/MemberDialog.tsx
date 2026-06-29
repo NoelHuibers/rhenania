@@ -13,23 +13,13 @@ import {
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import {
 	createMember,
 	type MemberListItem,
 	updateMember,
 } from "~/server/actions/members/members";
-import {
-	MEMBER_STATUS_OPTIONS,
-	type MemberStatusValue,
-} from "./member-constants";
+import { MEMBER_STATUS_OPTIONS } from "./member-constants";
 
 type Props = {
 	open: boolean;
@@ -42,21 +32,63 @@ const empty = {
 	status: "CB",
 	firstName: "",
 	lastName: "",
+	title: "",
 	email: "",
+	email2: "",
+	email3: "",
+	mobile: "",
+	phonePrivate: "",
+	phonePrivate2: "",
+	phoneWork: "",
+	phoneWork2: "",
 	street: "",
 	houseNumber: "",
 	addressLine2: "",
 	postalCode: "",
 	city: "",
 	country: "Deutschland",
+	birthday: "",
+	company: "",
+	notes: "",
+	forwarding: false,
 	lettersOptOut: false,
 	addressNeedsUpdate: false,
-	notes: "",
 };
+
+type Form = typeof empty;
+
+function TF({
+	id,
+	label,
+	value,
+	onChange,
+	list,
+	placeholder,
+}: {
+	id: string;
+	label: string;
+	value: string;
+	onChange: (v: string) => void;
+	list?: string;
+	placeholder?: string;
+}) {
+	return (
+		<div className="grid gap-1.5">
+			<Label htmlFor={id}>{label}</Label>
+			<Input
+				id={id}
+				value={value}
+				onChange={(e) => onChange(e.target.value)}
+				list={list}
+				placeholder={placeholder}
+			/>
+		</div>
+	);
+}
 
 export function MemberDialog({ open, onOpenChange, member, onSaved }: Props) {
 	const isEdit = !!member;
-	const [f, setF] = useState(empty);
+	const [f, setF] = useState<Form>(empty);
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
@@ -66,23 +98,34 @@ export function MemberDialog({ open, onOpenChange, member, onSaved }: Props) {
 				status: member.status,
 				firstName: member.firstName,
 				lastName: member.lastName,
+				title: member.title ?? "",
 				email: member.email ?? "",
+				email2: member.email2 ?? "",
+				email3: member.email3 ?? "",
+				mobile: member.mobile ?? "",
+				phonePrivate: member.phonePrivate ?? "",
+				phonePrivate2: member.phonePrivate2 ?? "",
+				phoneWork: member.phoneWork ?? "",
+				phoneWork2: member.phoneWork2 ?? "",
 				street: member.street ?? "",
 				houseNumber: member.houseNumber ?? "",
 				addressLine2: member.addressLine2 ?? "",
 				postalCode: member.postalCode ?? "",
 				city: member.city ?? "",
 				country: member.country ?? "Deutschland",
+				birthday: member.birthday ?? "",
+				company: member.company ?? "",
+				notes: member.notes ?? "",
+				forwarding: member.forwarding,
 				lettersOptOut: member.lettersOptOut,
 				addressNeedsUpdate: member.addressNeedsUpdate,
-				notes: member.notes ?? "",
 			});
 		} else {
 			setF(empty);
 		}
 	}, [open, member]);
 
-	const set = (k: keyof typeof empty, v: string | boolean) =>
+	const set = (k: keyof Form, v: string | boolean) =>
 		setF((prev) => ({ ...prev, [k]: v }));
 
 	const save = () => {
@@ -90,11 +133,14 @@ export function MemberDialog({ open, onOpenChange, member, onSaved }: Props) {
 			toast.error("Vor- und Nachname erforderlich");
 			return;
 		}
+		if (!f.status.trim()) {
+			toast.error("Abteilung erforderlich");
+			return;
+		}
 		startTransition(async () => {
-			const payload = { ...f, status: f.status as MemberStatusValue };
 			const res = member
-				? await updateMember(member.id, payload)
-				: await createMember(payload);
+				? await updateMember(member.id, f)
+				: await createMember(f);
 			if (res.success) {
 				toast.success(isEdit ? "Mitglied gespeichert" : "Mitglied erstellt");
 				onSaved();
@@ -107,144 +153,212 @@ export function MemberDialog({ open, onOpenChange, member, onSaved }: Props) {
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="flex max-h-[90vh] flex-col sm:max-w-[560px]">
+			<DialogContent className="flex max-h-[90vh] flex-col sm:max-w-[640px]">
 				<DialogHeader>
 					<DialogTitle>
 						{isEdit ? "Mitglied bearbeiten" : "Neues Mitglied"}
 					</DialogTitle>
 				</DialogHeader>
 
-				<div className="flex-1 space-y-4 overflow-y-auto px-1 py-2">
+				<div className="flex-1 space-y-5 overflow-y-auto px-1 py-2">
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-						<div className="grid gap-2">
-							<Label htmlFor="m-last">Nachname</Label>
-							<Input
-								id="m-last"
-								value={f.lastName}
-								onChange={(e) => set("lastName", e.target.value)}
-							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="m-first">Vorname</Label>
-							<Input
-								id="m-first"
-								value={f.firstName}
-								onChange={(e) => set("firstName", e.target.value)}
-							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="m-status">Status</Label>
-							<Select value={f.status} onValueChange={(v) => set("status", v)}>
-								<SelectTrigger id="m-status">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{MEMBER_STATUS_OPTIONS.map((o) => (
-										<SelectItem key={o.value} value={o.value}>
-											{o.label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="m-email">Email</Label>
-							<Input
+						<TF
+							id="m-last"
+							label="Nachname"
+							value={f.lastName}
+							onChange={(v) => set("lastName", v)}
+						/>
+						<TF
+							id="m-first"
+							label="Vorname"
+							value={f.firstName}
+							onChange={(v) => set("firstName", v)}
+						/>
+						<TF
+							id="m-status"
+							label="Abteilung"
+							value={f.status}
+							onChange={(v) => set("status", v)}
+							list="member-status-options"
+							placeholder="Fuchs / CB / IaCB / AH / AHEB"
+						/>
+						<datalist id="member-status-options">
+							{MEMBER_STATUS_OPTIONS.map((o) => (
+								<option key={o.value} value={o.value} />
+							))}
+						</datalist>
+						<TF
+							id="m-title"
+							label="Position / Titel"
+							value={f.title}
+							onChange={(v) => set("title", v)}
+							placeholder="z.B. Dr.-Ing."
+						/>
+					</div>
+
+					<div className="space-y-3">
+						<p className="font-medium text-muted-foreground text-xs uppercase">
+							Kontakt
+						</p>
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+							<TF
 								id="m-email"
+								label="E-Mail"
 								value={f.email}
-								onChange={(e) => set("email", e.target.value)}
-								placeholder="optional"
+								onChange={(v) => set("email", v)}
+							/>
+							<TF
+								id="m-email2"
+								label="E-Mail 2"
+								value={f.email2}
+								onChange={(v) => set("email2", v)}
+							/>
+							<TF
+								id="m-email3"
+								label="E-Mail 3"
+								value={f.email3}
+								onChange={(v) => set("email3", v)}
+							/>
+							<TF
+								id="m-mobile"
+								label="Mobil"
+								value={f.mobile}
+								onChange={(v) => set("mobile", v)}
+							/>
+							<TF
+								id="m-telp"
+								label="Tel. privat"
+								value={f.phonePrivate}
+								onChange={(v) => set("phonePrivate", v)}
+							/>
+							<TF
+								id="m-telp2"
+								label="Tel. privat 2"
+								value={f.phonePrivate2}
+								onChange={(v) => set("phonePrivate2", v)}
+							/>
+							<TF
+								id="m-telw"
+								label="Tel. geschäftlich"
+								value={f.phoneWork}
+								onChange={(v) => set("phoneWork", v)}
+							/>
+							<TF
+								id="m-telw2"
+								label="Tel. geschäftlich 2"
+								value={f.phoneWork2}
+								onChange={(v) => set("phoneWork2", v)}
 							/>
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_120px]">
-						<div className="grid gap-2">
-							<Label htmlFor="m-street">Straße</Label>
-							<Input
+					<div className="space-y-3">
+						<p className="font-medium text-muted-foreground text-xs uppercase">
+							Adresse
+						</p>
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_120px]">
+							<TF
 								id="m-street"
+								label="Straße"
 								value={f.street}
-								onChange={(e) => set("street", e.target.value)}
+								onChange={(v) => set("street", v)}
 							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="m-house">Hausnr.</Label>
-							<Input
+							<TF
 								id="m-house"
+								label="Hausnr."
 								value={f.houseNumber}
-								onChange={(e) => set("houseNumber", e.target.value)}
+								onChange={(v) => set("houseNumber", v)}
 							/>
 						</div>
-					</div>
-
-					<div className="grid gap-2">
-						<Label htmlFor="m-line2">Adresszusatz (optional)</Label>
-						<Input
+						<TF
 							id="m-line2"
+							label="Adresszusatz"
 							value={f.addressLine2}
-							onChange={(e) => set("addressLine2", e.target.value)}
+							onChange={(v) => set("addressLine2", v)}
 							placeholder="c/o, Wohnung…"
 						/>
-					</div>
-
-					<div className="grid grid-cols-1 gap-3 sm:grid-cols-[120px_1fr_1fr]">
-						<div className="grid gap-2">
-							<Label htmlFor="m-plz">PLZ</Label>
-							<Input
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-[120px_1fr_1fr]">
+							<TF
 								id="m-plz"
+								label="PLZ"
 								value={f.postalCode}
-								onChange={(e) => set("postalCode", e.target.value)}
+								onChange={(v) => set("postalCode", v)}
 							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="m-city">Ort</Label>
-							<Input
+							<TF
 								id="m-city"
+								label="Ort"
 								value={f.city}
-								onChange={(e) => set("city", e.target.value)}
+								onChange={(v) => set("city", v)}
 							/>
-						</div>
-						<div className="grid gap-2">
-							<Label htmlFor="m-country">Land</Label>
-							<Input
+							<TF
 								id="m-country"
+								label="Land"
 								value={f.country}
-								onChange={(e) => set("country", e.target.value)}
+								onChange={(v) => set("country", v)}
 							/>
 						</div>
 					</div>
 
-					<div className="space-y-2">
-						<div className="flex items-center gap-2">
-							<Checkbox
-								id="m-opt"
-								checked={f.lettersOptOut}
-								onCheckedChange={(c) => set("lettersOptOut", c === true)}
+					<div className="space-y-3">
+						<p className="font-medium text-muted-foreground text-xs uppercase">
+							Sonstiges
+						</p>
+						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+							<TF
+								id="m-bday"
+								label="Geburtstag"
+								value={f.birthday}
+								onChange={(v) => set("birthday", v)}
+								placeholder="TT.MM.JJJJ"
 							/>
-							<Label htmlFor="m-opt" className="font-normal">
-								Nur Email, keine Briefe
-							</Label>
-						</div>
-						<div className="flex items-center gap-2">
-							<Checkbox
-								id="m-veraltet"
-								checked={f.addressNeedsUpdate}
-								onCheckedChange={(c) => set("addressNeedsUpdate", c === true)}
+							<TF
+								id="m-firma"
+								label="Firma"
+								value={f.company}
+								onChange={(v) => set("company", v)}
 							/>
-							<Label htmlFor="m-veraltet" className="font-normal">
-								Adresse veraltet
-							</Label>
 						</div>
-					</div>
-
-					<div className="grid gap-2">
-						<Label htmlFor="m-notes">Notizen (optional)</Label>
-						<Textarea
-							id="m-notes"
-							value={f.notes}
-							onChange={(e) => set("notes", e.target.value)}
-							rows={2}
-						/>
+						<div className="grid gap-1.5">
+							<Label htmlFor="m-notes">Notizen</Label>
+							<Textarea
+								id="m-notes"
+								value={f.notes}
+								onChange={(e) => set("notes", e.target.value)}
+								rows={2}
+							/>
+						</div>
+						<div className="flex flex-wrap gap-4">
+							<div className="flex items-center gap-2 text-sm">
+								<Checkbox
+									id="m-opt"
+									checked={f.lettersOptOut}
+									onCheckedChange={(c) => set("lettersOptOut", c === true)}
+								/>
+								<Label htmlFor="m-opt" className="font-normal">
+									Nur Email, keine Briefe
+								</Label>
+							</div>
+							<div className="flex items-center gap-2 text-sm">
+								<Checkbox
+									id="m-veraltet"
+									checked={f.addressNeedsUpdate}
+									onCheckedChange={(c) => set("addressNeedsUpdate", c === true)}
+								/>
+								<Label htmlFor="m-veraltet" className="font-normal">
+									Adresse veraltet
+								</Label>
+							</div>
+							<div className="flex items-center gap-2 text-sm">
+								<Checkbox
+									id="m-fwd"
+									checked={f.forwarding}
+									onCheckedChange={(c) => set("forwarding", c === true)}
+								/>
+								<Label htmlFor="m-fwd" className="font-normal">
+									Weiterleitung
+								</Label>
+							</div>
+						</div>
 					</div>
 				</div>
 

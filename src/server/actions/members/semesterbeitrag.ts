@@ -1,6 +1,6 @@
 "use server";
 
-import { desc, eq, inArray } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -13,11 +13,7 @@ import {
 	semesterbeitragCharges,
 	semesterbeitragRuns,
 } from "~/server/db/schema";
-import {
-	BEITRAG_ROLES,
-	BEITRAGSPFLICHTIG_STATUSES,
-	requireRoles,
-} from "./_guards";
+import { BEITRAG_ROLES, isBeitragspflichtig, requireRoles } from "./_guards";
 import { generateBeitragPDF } from "./beitragPDF";
 
 function round2(n: number) {
@@ -50,14 +46,17 @@ async function insertCharges(
 	runId: string,
 	baseAmount: number,
 ): Promise<number> {
-	const beitragMembers = await db
+	const allMembers = await db
 		.select({
 			id: members.id,
 			firstName: members.firstName,
 			lastName: members.lastName,
+			status: members.status,
 		})
-		.from(members)
-		.where(inArray(members.status, BEITRAGSPFLICHTIG_STATUSES));
+		.from(members);
+	const beitragMembers = allMembers.filter((m) =>
+		isBeitragspflichtig(m.status),
+	);
 	if (!beitragMembers.length) return 0;
 	await db
 		.insert(semesterbeitragCharges)

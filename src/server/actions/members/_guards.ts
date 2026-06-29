@@ -10,15 +10,23 @@ export const MEMBER_VIEW_ROLES = ["Senior", "Subsenior", "Admin", "CC-Kasse"];
 // CC-Kasse + Admin run the Semesterbeitrag.
 export const BEITRAG_ROLES = ["CC-Kasse", "Admin"];
 
+// Canonical statuses (for the dialog dropdown); the column is free text, so the
+// imported spreadsheet may contain variants (iaCBoB, AH idC, FCK, …).
 export const MEMBER_STATUSES = ["Fuchs", "CB", "IaCB", "AH", "AHEB"] as const;
 export type MemberStatus = (typeof MEMBER_STATUSES)[number];
-// Statuses that owe the Semesterbeitrag.
-export const BEITRAGSPFLICHTIG_STATUSES: MemberStatus[] = [
-	"Fuchs",
-	"CB",
-	"IaCB",
-];
 
-export function isBeitragspflichtig(status: string): boolean {
-	return (BEITRAGSPFLICHTIG_STATUSES as string[]).includes(status);
+// Beitragspflichtig = active members (Fuchs / CB / IaCB and their variants),
+// NOT Alte Herren (AH / AHEB / "AH idC"). Variant-tolerant.
+export function isBeitragspflichtig(
+	status: string | null | undefined,
+): boolean {
+	const s = (status ?? "").toLowerCase().replace(/[^a-z]/g, "");
+	if (!s) return false;
+	if (s.startsWith("ah")) return false;
+	return (
+		s.startsWith("fuchs") ||
+		s.startsWith("fux") ||
+		s.startsWith("cb") ||
+		s.startsWith("iacb")
+	);
 }

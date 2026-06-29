@@ -1,79 +1,107 @@
-// Central column map for the member Adressliste Excel. The import + export read
-// ONLY from here, so adapting to the real member spreadsheet is a one-file edit.
-
-import type { MemberStatus } from "./_guards";
+// Column map for the member Adressliste Excel, matched to the real export
+// (Corpsverzeichnis). Import matches columns by HEADER text (robust to column
+// reordering); export writes them in this order. Unmapped source columns are
+// preserved losslessly in `members.extra` keyed by their header.
 
 export const SHEET_NAME = "Adressliste";
 export const HEADER_ROW = 1;
 export const BODY_START_ROW = 2;
 
-// TODO(member-excel): replace COL/HEADERS/STATUS_MAP with the real member
-// spreadsheet's layout once the user provides it. 1-based column indices.
-export const COL = {
-	lastName: 1,
-	firstName: 2,
-	status: 3,
-	email: 4,
-	street: 5,
-	houseNumber: 6,
-	postalCode: 7,
-	city: 8,
-	country: 9,
-	lettersOptOut: 10,
-	addressNeedsUpdate: 11,
-} as const;
+export type ColKind = "string" | "bool" | "date";
 
-export type ColKey = keyof typeof COL;
+export type MemberField =
+	| "externalId"
+	| "lastName"
+	| "firstName"
+	| "status"
+	| "title"
+	| "mobile"
+	| "phonePrivate"
+	| "phonePrivate2"
+	| "email"
+	| "email2"
+	| "street"
+	| "postalCode"
+	| "city"
+	| "country"
+	| "birthday"
+	| "company"
+	| "phoneWork2"
+	| "phoneWork"
+	| "email3"
+	| "forwarding"
+	| "houseNumber"
+	| "addressLine2"
+	| "lettersOptOut"
+	| "addressNeedsUpdate"
+	| "notes";
 
-export const HEADERS: Record<ColKey, string> = {
-	lastName: "Nachname",
-	firstName: "Vorname",
-	status: "Status",
-	email: "Email",
-	street: "Straße",
-	houseNumber: "Hausnr.",
-	postalCode: "PLZ",
-	city: "Ort",
-	country: "Land",
-	lettersOptOut: "Nur Email",
-	addressNeedsUpdate: "Adresse veraltet",
-};
+export type ColDef =
+	| { header: string; field: MemberField; kind?: ColKind }
+	| { header: string; extraKey: string };
 
-const STATUS_MAP: Record<string, MemberStatus> = {
-	fuchs: "Fuchs",
-	fux: "Fuchs",
-	f: "Fuchs",
-	cb: "CB",
-	corpsbursche: "CB",
-	bursche: "CB",
-	aktiver: "CB",
-	aktiv: "CB",
-	iacb: "IaCB",
-	"ia cb": "IaCB",
-	inaktiv: "IaCB",
-	inaktiver: "IaCB",
-	ah: "AH",
-	"alter herr": "AH",
-	aheb: "AHEB",
-	"ah eb": "AHEB",
-};
-
-export function parseStatus(raw: unknown): MemberStatus | null {
-	const key = String(raw ?? "")
-		.trim()
-		.toLowerCase()
-		.replace(/\s+/g, " ");
-	if (!key) return null;
-	return STATUS_MAP[key] ?? null;
-}
+// The first 23 entries mirror the real spreadsheet exactly (so re-import of the
+// original file works and export looks identical). The trailing entries are the
+// app-managed fields, appended so an export→re-import round-trips them too; the
+// original file simply lacks these headers.
+export const COLUMNS: ColDef[] = [
+	{ header: "ID", field: "externalId" },
+	{ header: "Nachname", field: "lastName" },
+	{ header: "Vorname", field: "firstName" },
+	{ header: "Abteilung", field: "status" },
+	{ header: "Position", field: "title" },
+	{ header: "Mobiltelefonnummer", field: "mobile" },
+	{ header: "Telefon (privat)", field: "phonePrivate" },
+	{ header: "Telefon (privat 2)", field: "phonePrivate2" },
+	{ header: "E-Mail-Adresse", field: "email" },
+	{ header: "E-Mail 2", field: "email2" },
+	{ header: "Adresse privat: Straße", field: "street" },
+	{ header: "Adresse privat: PLZ", field: "postalCode" },
+	{ header: "Adresse privat: Ort", field: "city" },
+	{ header: "Adresse privat: Land/Region", field: "country" },
+	{ header: "Geburtstag", field: "birthday", kind: "date" },
+	{ header: "Firma", field: "company" },
+	{ header: "Telefon geschäftlich 2", field: "phoneWork2" },
+	{ header: "Telefon (geschäftlich)", field: "phoneWork" },
+	{ header: "E-Mail 3", field: "email3" },
+	{ header: "Weiterleitung", field: "forwarding", kind: "bool" },
+	{ header: "Geändert", extraKey: "Geändert" },
+	{ header: "Elementtyp", extraKey: "Elementtyp" },
+	{ header: "Pfad", extraKey: "Pfad" },
+	// App-managed fields (not in the original file).
+	{ header: "Hausnummer", field: "houseNumber" },
+	{ header: "Adresszusatz", field: "addressLine2" },
+	{ header: "Nur Email", field: "lettersOptOut", kind: "bool" },
+	{ header: "Adresse veraltet", field: "addressNeedsUpdate", kind: "bool" },
+	{ header: "Notizen", field: "notes" },
+];
 
 export function parseBool(raw: unknown): boolean {
 	const v = String(raw ?? "")
 		.trim()
 		.toLowerCase();
-	return ["ja", "x", "true", "1", "wahr", "y", "yes"].includes(v);
+	return ["1", "ja", "x", "true", "wahr", "y", "yes"].includes(v);
 }
 
 export function boolToCell(v: boolean): string {
-	return v ? "ja" : "";
+	return v ? "1" : "0";
+}
+
+function fmtDMY(d: Date): string {
+	const dd = String(d.getUTCDate()).padStart(2, "0");
+	const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+	return `${dd}.${mm}.${d.getUTCFullYear()}`;
+}
+
+// Geburtstag arrives as a Date (date-formatted cell), an Excel serial number, or
+// plain text. Normalize to a "DD.MM.YYYY" string for storage + round-trip.
+export function parseExcelDate(value: unknown, text: string): string | null {
+	if (value instanceof Date) return fmtDMY(value);
+	if (typeof value === "number" && value > 0 && value < 100000) {
+		return fmtDMY(
+			new Date(Date.UTC(1899, 11, 30) + Math.round(value) * 86400000),
+		);
+	}
+	const t = (text ?? "").trim();
+	return t || null;
 }
