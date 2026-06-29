@@ -102,6 +102,22 @@ export default function RhenaniaExperience({
 		};
 	}, [shared]);
 
+	// Recompute every ScrollTrigger position after late layout shifts (fonts,
+	// images, the canvas mounting) so reveals further down the page — e.g. the
+	// "Das Corps" cards below the parallax house section — aren't left hidden.
+	useEffect(() => {
+		const { ScrollTrigger } = ensureGsap();
+		const refresh = () => ScrollTrigger.refresh();
+		window.addEventListener("load", refresh);
+		const t1 = window.setTimeout(refresh, 500);
+		const t2 = window.setTimeout(refresh, 1800);
+		return () => {
+			window.removeEventListener("load", refresh);
+			window.clearTimeout(t1);
+			window.clearTimeout(t2);
+		};
+	}, []);
+
 	const showCanvas = mounted && webglOk;
 
 	return (

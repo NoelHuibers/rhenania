@@ -47,7 +47,12 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(options?: {
 				stagger: options?.stagger ?? 0.12,
 				scrollTrigger: {
 					trigger: el,
-					start: options?.start ?? "top 80%",
+					start: options?.start ?? "top 85%",
+					// Recompute on refresh and only play once, so a stale start
+					// position (from media/fonts loading above) can't leave the
+					// content stuck hidden once positions settle.
+					once: true,
+					invalidateOnRefresh: true,
 				},
 			});
 		}, el);
