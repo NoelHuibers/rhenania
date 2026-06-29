@@ -7,6 +7,7 @@ import {
 	ChevronDown,
 	ChevronUp,
 	Package,
+	PartyPopper,
 	TrendingDown,
 } from "lucide-react";
 import { useState } from "react";
@@ -131,6 +132,15 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 											<Calendar className="h-3 w-3" />
 											{fmtDate(record.inventoryDate)}
 										</span>
+										{record.kind === "event" && (
+											<Badge
+												variant="outline"
+												className="shrink-0 border-amber-300 bg-amber-50 text-amber-700 text-xs dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+											>
+												<PartyPopper className="mr-1 h-3 w-3" />
+												{record.eventName ?? "Veranstaltung"}
+											</Badge>
+										)}
 									</div>
 
 									{/* Right: badges + chevron */}
@@ -162,8 +172,18 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 												{itemsWithSurplus} Überschuss
 											</Badge>
 										)}
-										<Badge variant="destructive" className="text-xs">
-											€{record.totalLosses.toFixed(2)}
+										<Badge
+											variant={
+												record.kind === "event" ? "outline" : "destructive"
+											}
+											className={
+												record.kind === "event"
+													? "border-amber-300 text-amber-700 text-xs dark:text-amber-300"
+													: "text-xs"
+											}
+										>
+											{record.kind === "event" ? "Verbrauch " : ""}€
+											{record.totalLosses.toFixed(2)}
 										</Badge>
 										<span className="ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center">
 											{isExpanded ? (

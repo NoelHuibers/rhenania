@@ -16,6 +16,9 @@ export type InventoryWithItems = {
 	inventoryDate: Date;
 	status: string;
 	totalLosses: number;
+	kind: "routine" | "event";
+	eventName: string | null;
+	eventDate: Date | null;
 	items: Array<{
 		drinkId: string;
 		drinkName: string;

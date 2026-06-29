@@ -1,7 +1,13 @@
 // DashboardTab.tsx
 "use client";
 
-import { ChevronDown, ChevronUp, FileSpreadsheet, Save } from "lucide-react";
+import {
+	ChevronDown,
+	ChevronUp,
+	FileSpreadsheet,
+	PartyPopper,
+	Save,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -19,6 +25,13 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "~/components/ui/select";
+import {
 	Table,
 	TableBody,
 	TableCell,
@@ -28,6 +41,11 @@ import {
 } from "~/components/ui/table";
 import { createNewBilling } from "~/server/actions/billings/billings";
 import {
+	type ActiveEventInventory,
+	cancelEventInventory,
+	type EtaplanWithKostenpunkte,
+	finishEventInventory,
+	type InventurEvent,
 	saveInventoryCount,
 	saveQuickAdjustments,
 } from "~/server/actions/inventur/inventur";
@@ -37,9 +55,17 @@ import { calculateLostValue, getStockStatus } from "./utils";
 
 interface DashboardTabProps {
 	stockItems: StockStatusWithDetails[];
+	activeEvent: ActiveEventInventory;
+	events: InventurEvent[];
+	etaplans: EtaplanWithKostenpunkte[];
 }
 
-export default function DashboardTab({ stockItems }: DashboardTabProps) {
+export default function DashboardTab({
+	stockItems,
+	activeEvent,
+	events,
+	etaplans,
+}: DashboardTabProps) {
 	const router = useRouter();
 
 	const [purchases, setPurchases] = useState<{ [key: string]: number }>(() => {
@@ -58,6 +84,18 @@ export default function DashboardTab({ stockItems }: DashboardTabProps) {
 	const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 	const [showInventoryDialog, setShowInventoryDialog] = useState(false);
 	const [createInvoice, setCreateInvoice] = useState(false);
+	const [showStartEvent, setShowStartEvent] = useState(false);
+	const [showFinishEvent, setShowFinishEvent] = useState(false);
+	const [eventSel, setEventSel] = useState("");
+	const [freeName, setFreeName] = useState("");
+	const [freeDate, setFreeDate] = useState("");
+	const [doBook, setDoBook] = useState(true);
+	const [etaplanId, setEtaplanId] = useState(
+		() =>
+			etaplans.find((e) => e.status === "Aktiv")?.id ?? etaplans[0]?.id ?? "",
+	);
+	const [kostenpunktId, setKostenpunktId] = useState("");
+	const [isEventPending, startEventTransition] = useTransition();
 
 	useEffect(() => {
 		const initialStock: { [key: string]: number } = {};
@@ -197,6 +235,98 @@ export default function DashboardTab({ stockItems }: DashboardTabProps) {
 		});
 	};
 
+	const buildItems = () =>
+		stockItems.map((item) => ({
+			drinkId: item.drinkId,
+			countedStock: countedStock[item.drinkId] ?? item.calculatedStock,
+			purchasedSince: purchases[item.drinkId] || 0,
+		}));
+
+	const handleStartEvent = () => {
+		let info: {
+			eventId?: string | null;
+			eventName: string;
+			eventDate?: Date | null;
+		};
+		if (eventSel === "__free__") {
+			if (!freeName.trim()) {
+				toast.error("Name der Veranstaltung fehlt");
+				return;
+			}
+			info = {
+				eventName: freeName.trim(),
+				eventDate: freeDate ? new Date(freeDate) : null,
+			};
+		} else {
+			const ev = events.find((e) => e.id === eventSel);
+			if (!ev) {
+				toast.error("Bitte Veranstaltung wählen");
+				return;
+			}
+			info = { eventId: ev.id, eventName: ev.title, eventDate: ev.date };
+		}
+		startEventTransition(async () => {
+			const res = await saveInventoryCount(buildItems(), { startEvent: info });
+			if (res.success) {
+				toast.success(
+					"Veranstaltungs-Inventur gestartet — Anfangsbestand gespeichert",
+				);
+				setShowStartEvent(false);
+				router.refresh();
+			} else {
+				toast.error(res.error ?? "Fehler beim Starten");
+			}
+		});
+	};
+
+	const handleFinishEvent = () => {
+		startEventTransition(async () => {
+			const res = await finishEventInventory(buildItems(), {
+				kostenpunktId: doBook ? kostenpunktId || null : null,
+			});
+			if (res.success) {
+				const r = res.report;
+				toast.success(
+					`Veranstaltung abgeschlossen — ${r.totalQty} Fl., €${r.totalValue.toFixed(2)} Verbrauch${r.booked ? " · in CC-Kasse gebucht" : ""}`,
+				);
+				setShowFinishEvent(false);
+				router.refresh();
+			} else {
+				toast.error(res.error);
+			}
+		});
+	};
+
+	const handleCancelEvent = () => {
+		startEventTransition(async () => {
+			const res = await cancelEventInventory();
+			if (res.success) {
+				toast.success("Veranstaltungs-Inventur abgebrochen");
+				router.refresh();
+			} else {
+				toast.error(res.error ?? "Fehler");
+			}
+		});
+	};
+
+	const consumptionPreview = stockItems
+		.map((item) => {
+			const p = purchases[item.drinkId] || 0;
+			const calc = item.lastInventoryStock + p - item.soldSince;
+			const actual = countedStock[item.drinkId] ?? calc;
+			const consumed = Math.max(0, calc - actual);
+			return {
+				name: item.drinkName,
+				consumed,
+				value: consumed * item.currentPrice,
+			};
+		})
+		.filter((x) => x.consumed > 0);
+	const previewQty = consumptionPreview.reduce((s, x) => s + x.consumed, 0);
+	const previewValue = consumptionPreview.reduce((s, x) => s + x.value, 0);
+	const kpOptions =
+		etaplans.find((e) => e.id === etaplanId)?.kostenpunkte ?? [];
+
 	const diffClass = (diff: number) => {
 		if (diff < 0) return "text-red-600 font-semibold";
 		if (diff > 0) return "text-green-600 font-semibold";
@@ -223,6 +353,41 @@ export default function DashboardTab({ stockItems }: DashboardTabProps) {
 
 	return (
 		<>
+			{activeEvent && (
+				<div className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/30 dark:bg-amber-500/10">
+					<div className="flex items-start gap-3">
+						<PartyPopper className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+						<div>
+							<div className="font-semibold">
+								Veranstaltungs-Inventur läuft: {activeEvent.eventName}
+							</div>
+							<div className="text-muted-foreground text-sm">
+								Anfangsbestand erfasst am{" "}
+								{new Date(activeEvent.startedAt).toLocaleString("de-DE")}. Zähle
+								jetzt den Endbestand und schließe ab.
+							</div>
+						</div>
+					</div>
+					<div className="flex shrink-0 gap-2">
+						<Button
+							size="sm"
+							onClick={() => setShowFinishEvent(true)}
+							disabled={isEventPending}
+						>
+							Endbestand abschließen
+						</Button>
+						<Button
+							size="sm"
+							variant="ghost"
+							onClick={handleCancelEvent}
+							disabled={isEventPending}
+						>
+							Abbrechen
+						</Button>
+					</div>
+				</div>
+			)}
+
 			{/* Header */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 				<div>
@@ -272,15 +437,28 @@ export default function DashboardTab({ stockItems }: DashboardTabProps) {
 								? `${changedItems.size} speichern`
 								: "Keine Änderungen"}
 					</Button>
-					<Button
-						onClick={() => setShowInventoryDialog(true)}
-						disabled={isSaving}
-						variant="secondary"
-						size="sm"
-					>
-						<FileSpreadsheet className="mr-2 h-4 w-4" />
-						{isSaving ? "Erstelle..." : "Vollständige Inventur"}
-					</Button>
+					{!activeEvent && (
+						<>
+							<Button
+								onClick={() => setShowStartEvent(true)}
+								disabled={isSaving || isEventPending}
+								variant="outline"
+								size="sm"
+							>
+								<PartyPopper className="mr-2 h-4 w-4" />
+								Veranstaltung
+							</Button>
+							<Button
+								onClick={() => setShowInventoryDialog(true)}
+								disabled={isSaving}
+								variant="secondary"
+								size="sm"
+							>
+								<FileSpreadsheet className="mr-2 h-4 w-4" />
+								{isSaving ? "Erstelle..." : "Vollständige Inventur"}
+							</Button>
+						</>
+					)}
 				</div>
 			</div>
 
@@ -585,6 +763,193 @@ export default function DashboardTab({ stockItems }: DashboardTabProps) {
 									Inventur erstellen
 								</>
 							)}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Veranstaltungs-Inventur: Start */}
+			<Dialog open={showStartEvent} onOpenChange={setShowStartEvent}>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Veranstaltungs-Inventur starten</DialogTitle>
+						<DialogDescription>
+							Der aktuell erfasste Bestand wird als{" "}
+							<strong>Anfangsbestand</strong> gespeichert. Nach der
+							Veranstaltung zählst du erneut — die Differenz ist der Verbrauch.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-3 py-2">
+						<div className="grid gap-1.5">
+							<Label>Veranstaltung</Label>
+							<Select value={eventSel} onValueChange={setEventSel}>
+								<SelectTrigger>
+									<SelectValue placeholder="Veranstaltung wählen" />
+								</SelectTrigger>
+								<SelectContent>
+									{events.map((e) => (
+										<SelectItem key={e.id} value={e.id}>
+											{e.title} · {new Date(e.date).toLocaleDateString("de-DE")}
+										</SelectItem>
+									))}
+									<SelectItem value="__free__">Andere (Freitext)…</SelectItem>
+								</SelectContent>
+							</Select>
+						</div>
+						{eventSel === "__free__" && (
+							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+								<div className="grid gap-1.5">
+									<Label htmlFor="ev-name">Name</Label>
+									<Input
+										id="ev-name"
+										value={freeName}
+										onChange={(e) => setFreeName(e.target.value)}
+										placeholder="z.B. Sommerfest"
+									/>
+								</div>
+								<div className="grid gap-1.5">
+									<Label htmlFor="ev-date">Datum</Label>
+									<Input
+										id="ev-date"
+										type="date"
+										value={freeDate}
+										onChange={(e) => setFreeDate(e.target.value)}
+									/>
+								</div>
+							</div>
+						)}
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setShowStartEvent(false)}
+							disabled={isEventPending}
+						>
+							Abbrechen
+						</Button>
+						<Button
+							onClick={handleStartEvent}
+							disabled={isEventPending || !eventSel}
+						>
+							Anfangsbestand speichern
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Veranstaltungs-Inventur: Abschluss */}
+			<Dialog open={showFinishEvent} onOpenChange={setShowFinishEvent}>
+				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+					<DialogHeader>
+						<DialogTitle>Veranstaltung abschließen</DialogTitle>
+						<DialogDescription>
+							Der aktuell gezählte Bestand ist der <strong>Endbestand</strong>.
+							Folgender Verbrauch wird verbucht:
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-4 py-2">
+						<div className="rounded-md border">
+							{consumptionPreview.length === 0 ? (
+								<p className="p-3 text-muted-foreground text-sm">
+									Kein Verbrauch erkannt (Endbestand ≥ erwartet).
+								</p>
+							) : (
+								<ul className="max-h-56 divide-y overflow-y-auto text-sm">
+									{consumptionPreview.map((x) => (
+										<li
+											key={x.name}
+											className="flex items-center justify-between px-3 py-1.5"
+										>
+											<span>{x.name}</span>
+											<span className="text-muted-foreground">
+												{x.consumed} Fl. · €{x.value.toFixed(2)}
+											</span>
+										</li>
+									))}
+								</ul>
+							)}
+							<div className="flex items-center justify-between border-t px-3 py-2 font-semibold">
+								<span>Gesamt</span>
+								<span>
+									{previewQty} Fl. · €{previewValue.toFixed(2)}
+								</span>
+							</div>
+						</div>
+
+						<div className="flex items-center gap-2">
+							<Checkbox
+								id="ev-book"
+								checked={doBook}
+								onCheckedChange={(c) => setDoBook(c === true)}
+							/>
+							<Label htmlFor="ev-book" className="font-normal">
+								Verbrauch als Ausgabe in die CC-Kasse buchen
+							</Label>
+						</div>
+						{doBook && (
+							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+								<div className="grid gap-1.5">
+									<Label>Etatplan</Label>
+									<Select
+										value={etaplanId}
+										onValueChange={(v) => {
+											setEtaplanId(v);
+											setKostenpunktId("");
+										}}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Etatplan" />
+										</SelectTrigger>
+										<SelectContent>
+											{etaplans.map((e) => (
+												<SelectItem key={e.id} value={e.id}>
+													{e.name}
+													{e.status === "Abgeschlossen"
+														? " (abgeschlossen)"
+														: ""}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="grid gap-1.5">
+									<Label>Kostenpunkt</Label>
+									<Select
+										value={kostenpunktId}
+										onValueChange={setKostenpunktId}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Kostenpunkt" />
+										</SelectTrigger>
+										<SelectContent>
+											{kpOptions.map((k) => (
+												<SelectItem key={k.id} value={k.id}>
+													{k.category} · {k.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						)}
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => setShowFinishEvent(false)}
+							disabled={isEventPending}
+						>
+							Abbrechen
+						</Button>
+						<Button
+							onClick={handleFinishEvent}
+							disabled={isEventPending || (doBook && !kostenpunktId)}
+						>
+							{isEventPending
+								? "Speichere..."
+								: doBook
+									? "Abschließen & buchen"
+									: "Abschließen"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

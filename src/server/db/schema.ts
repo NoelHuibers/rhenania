@@ -560,8 +560,23 @@ export const inventories = createTable(
 			.default(sql`(unixepoch())`)
 			.notNull(),
 		closedAt: i.integer({ mode: "timestamp" }),
+		// A "routine" inventory is the normal rolling stocktake. An "event"
+		// inventory marks the period between a before- and after-Veranstaltung
+		// count; its loss is the event's drink consumption.
+		kind: i
+			.text({ enum: ["routine", "event"] })
+			.notNull()
+			.default("routine"),
+		eventId: i
+			.text({ length: 255 })
+			.references(() => events.id, { onDelete: "set null" }),
+		eventName: i.text({ length: 255 }),
+		eventDate: i.integer({ mode: "timestamp" }),
 	}),
-	(t) => [index("inventory_status_idx").on(t.status)],
+	(t) => [
+		index("inventory_status_idx").on(t.status),
+		index("inventory_event_idx").on(t.eventId),
+	],
 );
 
 export const inventoryItems = createTable(

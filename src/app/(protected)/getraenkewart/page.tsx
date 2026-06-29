@@ -15,8 +15,11 @@ import {
 	getPfandWert,
 } from "~/server/actions/getraenkewart/kasse";
 import {
+	getActiveEventInventory,
 	getInventoryHistory,
 	getStockData,
+	listEtaplansWithKostenpunkte,
+	listInventurEvents,
 } from "~/server/actions/inventur/inventur";
 
 async function GetraenkewartData() {
@@ -29,6 +32,9 @@ async function GetraenkewartData() {
 		pfandWert,
 		stockData,
 		inventoryHistory,
+		activeEvent,
+		inventurEvents,
+		etaplansWithKp,
 	] = await Promise.all([
 		getKasseSummary(),
 		getBankEntries(),
@@ -38,12 +44,22 @@ async function GetraenkewartData() {
 		getPfandWert(),
 		getStockData(),
 		getInventoryHistory(),
+		getActiveEventInventory(),
+		listInventurEvents(),
+		listEtaplansWithKostenpunkte(),
 	]);
 
 	return (
 		<GetraenkewartPage
 			getraenkeTab={<GetraenkePage />}
-			inventurTab={<DashboardTab stockItems={stockData} />}
+			inventurTab={
+				<DashboardTab
+					stockItems={stockData}
+					activeEvent={activeEvent}
+					events={inventurEvents}
+					etaplans={etaplansWithKp}
+				/>
+			}
 			verlaufTab={<HistoryTab history={inventoryHistory} />}
 			kasseTab={
 				<KasseTab
