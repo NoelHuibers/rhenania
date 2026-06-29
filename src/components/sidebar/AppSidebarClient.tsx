@@ -6,6 +6,7 @@ import {
 	BottleWine,
 	CalendarDays,
 	Camera,
+	HandCoins,
 	Candy,
 	House,
 	Landmark,
