@@ -1,6 +1,14 @@
 "use client";
 
-import { Download, Plus, Upload } from "lucide-react";
+import {
+	Download,
+	GraduationCap,
+	Link2,
+	Plus,
+	Upload,
+	UserCheck,
+	Users,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -17,6 +25,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { downloadBase64, fileToBase64, XLSX_MIME } from "~/lib/file-download";
+import { cn } from "~/lib/utils";
 import {
 	deleteMember,
 	type MemberListItem,
@@ -27,6 +36,39 @@ import {
 } from "~/server/actions/members/membersExcel";
 import { MemberDialog } from "./MemberDialog";
 import { MembersTable } from "./MembersTable";
+
+function Stat({
+	icon,
+	label,
+	value,
+	accent,
+}: {
+	icon: React.ReactNode;
+	label: string;
+	value: number;
+	accent: string;
+}) {
+	return (
+		<div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
+			<div
+				className={cn(
+					"flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+					accent,
+				)}
+			>
+				{icon}
+			</div>
+			<div className="min-w-0">
+				<div className="font-semibold text-2xl tabular-nums leading-none">
+					{value}
+				</div>
+				<div className="mt-1 truncate text-muted-foreground text-xs">
+					{label}
+				</div>
+			</div>
+		</div>
+	);
+}
 
 export function AdresslistePage({
 	members,
@@ -41,6 +83,10 @@ export function AdresslistePage({
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editing, setEditing] = useState<MemberListItem | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<MemberListItem | null>(null);
+
+	const total = members.length;
+	const aktiv = members.filter((m) => m.beitragspflichtig).length;
+	const linked = members.filter((m) => m.linked).length;
 
 	const openNew = () => {
 		setEditing(null);
@@ -96,39 +142,76 @@ export function AdresslistePage({
 
 	return (
 		<div className="flex flex-col">
-			<SiteHeader title="Adressliste" />
-			<div className="space-y-4 p-4 md:p-6">
-				<div className="flex flex-wrap items-center justify-end gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={onExport}
-						disabled={isPending}
-					>
-						<Download className="mr-1 h-4 w-4" /> Export
-					</Button>
-					{canEdit && (
-						<>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => fileInputRef.current?.click()}
-								disabled={isPending}
-							>
-								<Upload className="mr-1 h-4 w-4" /> Import
-							</Button>
-							<input
-								ref={fileInputRef}
-								type="file"
-								accept=".xlsx"
-								className="hidden"
-								onChange={onImport}
-							/>
-							<Button size="sm" onClick={openNew}>
-								<Plus className="mr-1 h-4 w-4" /> Mitglied
-							</Button>
-						</>
-					)}
+			<SiteHeader title="Adressliste" subtitle={`${total} Mitglieder`} />
+			<div className="space-y-6 p-4 md:p-6">
+				<div className="flex flex-wrap items-end justify-between gap-3">
+					<div>
+						<h2 className="font-semibold text-xl tracking-tight">
+							Mitgliederverzeichnis
+						</h2>
+						<p className="text-muted-foreground text-sm">
+							Kontakt- und Adressdaten aller Mitglieder.
+						</p>
+					</div>
+					<div className="flex flex-wrap gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={onExport}
+							disabled={isPending}
+						>
+							<Download className="mr-1 h-4 w-4" /> Export
+						</Button>
+						{canEdit && (
+							<>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => fileInputRef.current?.click()}
+									disabled={isPending}
+								>
+									<Upload className="mr-1 h-4 w-4" /> Import
+								</Button>
+								<input
+									ref={fileInputRef}
+									type="file"
+									accept=".xlsx"
+									className="hidden"
+									onChange={onImport}
+								/>
+								<Button size="sm" onClick={openNew}>
+									<Plus className="mr-1 h-4 w-4" /> Mitglied
+								</Button>
+							</>
+						)}
+					</div>
+				</div>
+
+				<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+					<Stat
+						icon={<Users className="h-5 w-5" />}
+						label="Mitglieder gesamt"
+						value={total}
+						accent="bg-primary/10 text-primary"
+					/>
+					<Stat
+						icon={<UserCheck className="h-5 w-5" />}
+						label="Aktiv / beitragspflichtig"
+						value={aktiv}
+						accent="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+					/>
+					<Stat
+						icon={<GraduationCap className="h-5 w-5" />}
+						label="Alte Herren"
+						value={total - aktiv}
+						accent="bg-sky-500/10 text-sky-600 dark:text-sky-400"
+					/>
+					<Stat
+						icon={<Link2 className="h-5 w-5" />}
+						label="Mit Account"
+						value={linked}
+						accent="bg-violet-500/10 text-violet-600 dark:text-violet-400"
+					/>
 				</div>
 
 				<MembersTable

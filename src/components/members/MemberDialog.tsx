@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
@@ -14,12 +15,18 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
+import { cn } from "~/lib/utils";
 import {
 	createMember,
 	type MemberListItem,
 	updateMember,
 } from "~/server/actions/members/members";
-import { MEMBER_STATUS_OPTIONS } from "./member-constants";
+import { MemberStatusBadge } from "./MemberStatusBadge";
+import {
+	avatarColorClasses,
+	MEMBER_STATUS_OPTIONS,
+	memberInitials,
+} from "./member-constants";
 
 type Props = {
 	open: boolean;
@@ -159,6 +166,31 @@ export function MemberDialog({ open, onOpenChange, member, onSaved }: Props) {
 						{isEdit ? "Mitglied bearbeiten" : "Neues Mitglied"}
 					</DialogTitle>
 				</DialogHeader>
+
+				{(f.firstName || f.lastName) && (
+					<div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+						<Avatar size="lg" className="shrink-0">
+							<AvatarFallback
+								className={cn(
+									"font-semibold text-sm",
+									avatarColorClasses(f.lastName + f.firstName),
+								)}
+							>
+								{memberInitials(f.firstName, f.lastName)}
+							</AvatarFallback>
+						</Avatar>
+						<div className="min-w-0">
+							<div className="truncate font-medium">
+								{[f.lastName, f.firstName].filter(Boolean).join(", ")}
+							</div>
+							{f.status && (
+								<div className="mt-1">
+									<MemberStatusBadge status={f.status} />
+								</div>
+							)}
+						</div>
+					</div>
+				)}
 
 				<div className="flex-1 space-y-5 overflow-y-auto px-1 py-2">
 					<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
