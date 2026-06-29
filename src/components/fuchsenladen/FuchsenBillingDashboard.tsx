@@ -13,6 +13,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { getUserRoles } from "~/server/actions/admin/userRoles";
 import {
+	type FuchsenBillingConfig,
+	getFuchsenBillingConfig,
+} from "~/server/actions/fuchsenladen/billingConfig";
+import {
 	createNewFuchsenBilling,
 	type FuchsenBillingEntry,
 	type FuchsenBillPeriod,
@@ -24,6 +28,22 @@ import {
 	updateFuchsenBillStatus,
 } from "~/server/actions/fuchsenladen/billings";
 import { useSession } from "~/server/auth/client";
+import { FuchsenBillDetailsDialog } from "./FuchsenBillDetailsDialog";
+import { FuchsenBillingSettings } from "./FuchsenBillingSettings";
+
+const EMPTY_CONFIG: FuchsenBillingConfig = {
+	id: "singleton",
+	senderName: "",
+	senderStreet: "",
+	senderCity: "",
+	location: "",
+	iban: "",
+	accountHolder: "",
+	paypalBaseUrl: "",
+	paymentDueDays: 14,
+	updatedAt: null,
+	updatedBy: null,
+};
 
 function downloadCSV(content: string, fileName: string) {
 	const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
@@ -43,6 +63,7 @@ function downloadCSV(content: string, fileName: string) {
 export default function FuchsenBillingDashboard() {
 	const { data: session, isPending } = useSession();
 	const [roles, setRoles] = useState<string[]>([]);
+	const [config, setConfig] = useState<FuchsenBillingConfig>(EMPTY_CONFIG);
 	const isAuthenticated = !isPending && !!session?.user?.id;
 	const isFuchsenwart = roles.includes("Fuchs") || roles.includes("Admin");
 
@@ -56,6 +77,13 @@ export default function FuchsenBillingDashboard() {
 			.catch(() => setRoles([]));
 	}, [session?.user?.id]);
 
+	useEffect(() => {
+		if (!session?.user?.id) return;
+		getFuchsenBillingConfig()
+			.then(setConfig)
+			.catch(() => setConfig(EMPTY_CONFIG));
+	}, [session?.user?.id]);
+
 	return (
 		<>
 			<SiteHeader title="Fuchsenrechnungen" />
@@ -65,22 +93,30 @@ export default function FuchsenBillingDashboard() {
 						<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
 					</div>
 				) : isFuchsenwart ? (
-					<FuchsenwartBilling />
+					<FuchsenwartBilling config={config} onConfigSaved={setConfig} />
 				) : (
-					<MemberBilling />
+					<MemberBilling config={config} />
 				)}
 			</div>
 		</>
 	);
 }
 
+/** Factory: a details dialog bound to the current billing config. */
+function makeDetails(config: FuchsenBillingConfig) {
+	return function Details({ entry }: { entry: FuchsenBillingEntry }) {
+		return <FuchsenBillDetailsDialog entry={entry} config={config} />;
+	};
+}
+
 // --- Member view: only the current user's own orders & bills ----------------
 
-function MemberBilling() {
+function MemberBilling({ config }: { config: FuchsenBillingConfig }) {
 	const [bills, setBills] = useState<
 		{ period: FuchsenBillPeriod | null; bill: FuchsenBillingEntry }[]
 	>([]);
 	const [loading, setLoading] = useState(true);
+	const Details = makeDetails(config);
 
 	useEffect(() => {
 		getMyFuchsenBills()
@@ -121,6 +157,7 @@ function MemberBilling() {
 					isLoading={loading}
 					emptyMessage="Du hast noch keine Fuchsenrechnungen."
 					canEditStatus={false}
+					detailsComponent={Details}
 				/>
 			</CardContent>
 		</Card>
@@ -129,7 +166,13 @@ function MemberBilling() {
 
 // --- Fuchsenwart view: manage all bills, run new billing periods ------------
 
-function FuchsenwartBilling() {
+function FuchsenwartBilling({
+	config,
+	onConfigSaved,
+}: {
+	config: FuchsenBillingConfig;
+	onConfigSaved: (config: FuchsenBillingConfig) => void;
+}) {
 	const [activeTab, setActiveTab] = useState("current-orders");
 	const [periods, setPeriods] = useState<FuchsenBillPeriod[]>([]);
 	const [unbilled, setUnbilled] = useState<FuchsenBillingEntry[]>([]);
@@ -139,6 +182,7 @@ function FuchsenwartBilling() {
 	>(new Map());
 	const [loading, setLoading] = useState(true);
 	const [isRunning, setIsRunning] = useState(false);
+	const Details = makeDetails(config);
 
 	const currentPeriod = periods[0] ?? null;
 
@@ -236,12 +280,13 @@ function FuchsenwartBilling() {
 
 	return (
 		<Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-			<TabsList className="grid h-auto w-full grid-cols-3 gap-1 bg-muted p-1 lg:flex lg:w-auto">
+			<TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted p-1 lg:flex lg:w-auto">
 				<TabsTrigger value="current-orders">Offene Bestellungen</TabsTrigger>
 				<TabsTrigger value="current-billing">Aktuelle Abrechnung</TabsTrigger>
 				{olderPeriods.length > 0 && (
 					<TabsTrigger value="history">Frühere Rechnungen</TabsTrigger>
 				)}
+				<TabsTrigger value="settings">Zahlungsdaten</TabsTrigger>
 			</TabsList>
 
 			<TabsContent value="current-orders" className="space-y-4">
@@ -314,6 +359,7 @@ function FuchsenwartBilling() {
 							onStatusChange={handleStatusChange}
 							isLoading={loading}
 							emptyMessage="Noch keine Abrechnung. Erstelle oben eine Rechnung."
+							detailsComponent={Details}
 						/>
 					</CardContent>
 				</Card>
@@ -348,6 +394,7 @@ function FuchsenwartBilling() {
 									entries={historyBills.get(period.id) ?? []}
 									showStatus
 									emptyMessage="Keine Rechnungen in dieser Periode."
+									detailsComponent={Details}
 								/>
 							) : (
 								<Button
@@ -361,6 +408,12 @@ function FuchsenwartBilling() {
 						</CardContent>
 					</Card>
 				))}
+			</TabsContent>
+
+			<TabsContent value="settings" className="space-y-4">
+				<FuchsenBillingSettings
+					onSaved={() => getFuchsenBillingConfig().then(onConfigSaved)}
+				/>
 			</TabsContent>
 		</Tabs>
 	);

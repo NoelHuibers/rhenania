@@ -1336,6 +1336,24 @@ export const fuchsenBillItemsRelations = relations(
 	}),
 );
 
+// Singleton row holding the sender / payment details the Fuchsenwart enters;
+// used on the generated PDF invoices and for the PayPal payment link.
+export const fuchsenBillingConfig = createTable("fuchsen_billing_config", (d) => ({
+	id: d.text({ length: 50 }).notNull().primaryKey().default("singleton"),
+	senderName: d.text({ length: 255 }).notNull().default(""),
+	senderStreet: d.text({ length: 255 }).notNull().default(""),
+	senderCity: d.text({ length: 255 }).notNull().default(""),
+	location: d.text({ length: 255 }).notNull().default(""),
+	iban: d.text({ length: 50 }).notNull().default(""),
+	accountHolder: d.text({ length: 255 }).notNull().default(""),
+	paypalBaseUrl: d.text({ length: 500 }).notNull().default(""),
+	paymentDueDays: d.integer().notNull().default(14),
+	updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	updatedBy: d
+		.text({ length: 255 })
+		.references(() => users.id, { onDelete: "set null" }),
+}));
+
 export const homepageSections = createTable(
 	"homepage_section",
 	(d) => ({
