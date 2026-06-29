@@ -7,7 +7,10 @@ import {
 	getActiveImageBySection,
 	getAllActiveImagesBySection,
 } from "~/server/actions/bilder/images";
-import { getPublicUpcomingEvents } from "~/server/actions/events/events";
+import {
+	getPublicPastEvents,
+	getPublicUpcomingEvents,
+} from "~/server/actions/events/events";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 import RhenaniaExperience, { type LandingEvent } from "./experience";
 
@@ -17,6 +20,7 @@ function relativeLabel(d: Date): string | null {
 			86_400_000,
 	);
 	if (diffDays === 0) return "Heute";
+	if (diffDays < 0) return null;
 	if (diffDays === 1) return "Morgen";
 	if (diffDays <= 7) return `In ${diffDays} Tagen`;
 	return null;
@@ -60,8 +64,14 @@ export default async function RhenaniaLandingPage() {
 	const hausUrls =
 		hausImages.length > 0 ? hausImages.map((i) => i.imageUrl) : HAUS_FALLBACK;
 
+	// Prefer upcoming events; if there are none, fall back to the most recent
+	// past ones so the section still has something to show.
+	const upcoming = rawEvents;
+	const eventsArePast = upcoming.length === 0;
+	const sourceEvents = eventsArePast ? await getPublicPastEvents(3) : upcoming;
+
 	// Pre-format events server-side so the client section needs no Date/TZ logic.
-	const events: LandingEvent[] = rawEvents.map((e) => ({
+	const events: LandingEvent[] = sourceEvents.map((e) => ({
 		id: e.id,
 		title: e.title,
 		type: e.type,
@@ -69,7 +79,7 @@ export default async function RhenaniaLandingPage() {
 		location: e.location,
 		fullDate: formatEventFullDate(e.date),
 		time: formatAcademicTime(e.date),
-		relativeLabel: relativeLabel(e.date),
+		relativeLabel: eventsArePast ? null : relativeLabel(e.date),
 	}));
 
 	return (
@@ -80,6 +90,7 @@ export default async function RhenaniaLandingPage() {
 			aktiveImages={aktiveUrls}
 			hausImages={hausUrls}
 			events={events}
+			eventsArePast={eventsArePast}
 		/>
 	);
 }

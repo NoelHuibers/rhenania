@@ -31,6 +31,7 @@ export type RhenaniaExperienceProps = {
 	aktiveImages: string[];
 	hausImages: string[];
 	events: LandingEvent[];
+	eventsArePast: boolean;
 };
 
 const CanvasBackground = dynamic(() => import("./webgl/canvas-background"), {
@@ -57,6 +58,7 @@ export default function RhenaniaExperience({
 	aktiveImages,
 	hausImages,
 	events,
+	eventsArePast,
 }: RhenaniaExperienceProps) {
 	// One mutable object shared with the render loop (mutated, never replaced).
 	const shared = useRef<SharedMotion>({
@@ -141,7 +143,7 @@ export default function RhenaniaExperience({
 				{/* Solid backdrop scrolls over the fixed canvas past the hero. */}
 				<div className="relative z-10 bg-[#faf6f4]">
 					<Leben images={aktiveImages} />
-					<Veranstaltungen events={events} />
+					<Veranstaltungen events={events} past={eventsArePast} />
 					<Haus images={hausImages} />
 					<Corps />
 					<Bewirb ctaImageUrl={ctaImageUrl} />

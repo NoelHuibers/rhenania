@@ -17,7 +17,13 @@ const TYPE_COLORS: Record<string, string> = {
 	Sonstige: "bg-zinc-100 text-zinc-600 ring-zinc-200",
 };
 
-export function Veranstaltungen({ events }: { events: LandingEvent[] }) {
+export function Veranstaltungen({
+	events,
+	past = false,
+}: {
+	events: LandingEvent[];
+	past?: boolean;
+}) {
 	const reveal = useReveal<HTMLDivElement>({ start: "top 85%" });
 
 	if (events.length === 0) return null;
@@ -27,10 +33,12 @@ export function Veranstaltungen({ events }: { events: LandingEvent[] }) {
 			<CouleurDivider />
 			<div className="mx-auto max-w-3xl text-center">
 				<h2 className="font-heading font-semibold text-4xl text-[#2c2630] tracking-tight sm:text-5xl">
-					Kommende Veranstaltungen
+					{past ? "Rückblick" : "Kommende Veranstaltungen"}
 				</h2>
 				<p className="mt-3 text-[#6f6675] text-sm tracking-wide">
-					Die nächsten Ereignisse des Verbindungslebens
+					{past
+						? "Ein Blick auf die letzten Ereignisse des Verbindungslebens"
+						: "Die nächsten Ereignisse des Verbindungslebens"}
 				</p>
 			</div>
 
