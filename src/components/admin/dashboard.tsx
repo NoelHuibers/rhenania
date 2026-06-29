@@ -2,15 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { AHV_VORSTAND_ROLES, HAUSVEREIN_VORSTAND_ROLES } from "~/lib/roles";
 import { toggleUserRole } from "../../server/actions/admin/admin";
 import { SiteHeader } from "../trinken/SiteHeader";
 import { AddUserDialog } from "./AddUserDialog";
-import { AemterSection } from "./AemterSection";
 import { BulkRoleDialog } from "./BulkRoleDialog";
 import { DeleteUserDialog } from "./DeleteUserDialog";
 import { EditUserDialog } from "./EditUserDialog";
 import { GruppenSection } from "./GruppenSection";
 import { RoleManagementDialog } from "./RoleManagementDialog";
+import { RoleSection } from "./RoleSection";
 import { UsersTab } from "./UsersTab";
 
 export const SINGLE_PERSON_ROLES = [
@@ -22,6 +23,14 @@ export const SINGLE_PERSON_ROLES = [
 	"Getränkewart",
 	"Aktivenkasse",
 ] as const;
+
+// Role names that have their own dedicated single-holder sections (Ämter / AHV /
+// Hausverein) — the generic Gruppen list excludes these.
+export const SECTIONED_ROLE_NAMES: string[] = [
+	...SINGLE_PERSON_ROLES,
+	...AHV_VORSTAND_ROLES,
+	...HAUSVEREIN_VORSTAND_ROLES,
+];
 
 export type UserWithRoles = {
 	id: string;
@@ -116,7 +125,31 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 		<div className="min-h-screen bg-background">
 			<SiteHeader title="Admin" />
 			<div className="container mx-auto max-w-7xl space-y-8 p-4">
-				<AemterSection
+				<RoleSection
+					title="Ämter"
+					orderedNames={SINGLE_PERSON_ROLES}
+					roles={roles}
+					users={users}
+					onRoleClick={(role) => {
+						setBulkRole(role);
+						setShowBulkModal(true);
+					}}
+				/>
+
+				<RoleSection
+					title="AHV Vorstand"
+					orderedNames={AHV_VORSTAND_ROLES}
+					roles={roles}
+					users={users}
+					onRoleClick={(role) => {
+						setBulkRole(role);
+						setShowBulkModal(true);
+					}}
+				/>
+
+				<RoleSection
+					title="Hausverein Vorstand"
+					orderedNames={HAUSVEREIN_VORSTAND_ROLES}
 					roles={roles}
 					users={users}
 					onRoleClick={(role) => {

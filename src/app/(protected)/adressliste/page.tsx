@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { AdresslistePage } from "~/components/members/AdresslistePage";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
+import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import { listMembers } from "~/server/actions/members/members";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -16,8 +17,8 @@ async function getUserRoleNames(userId: string): Promise<string[]> {
 	return rows.map((r) => r.name);
 }
 
-const VIEW_ROLES = ["Senior", "Subsenior", "Admin", "CC-Kasse"];
-const EDIT_ROLES = ["Senior", "Subsenior", "Admin"];
+const VIEW_ROLES = ADRESSLISTE_ROLES;
+const EDIT_ROLES = ADRESSLISTE_ROLES;
 
 export default async function AdresslisteRoute() {
 	const session = await auth();

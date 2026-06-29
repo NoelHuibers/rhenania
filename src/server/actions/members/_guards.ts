@@ -1,12 +1,13 @@
 // Shared role guards for the Mitglieder / Semesterbeitrag actions.
 // Reuses the auth helpers from the CC-Kasse guards.
 
+import { ADRESSLISTE_ROLES } from "~/lib/roles";
+
 export { requireAuth, requireRoles } from "~/server/actions/cc-kasse/_guards";
 
-// Senior + Subsenior + Admin manage the member directory.
-export const MEMBER_EDIT_ROLES = ["Senior", "Subsenior", "Admin"];
-// CC-Kasse may additionally view the directory (for letters / Beiträge).
-export const MEMBER_VIEW_ROLES = ["Senior", "Subsenior", "Admin", "CC-Kasse"];
+// Only Admins and the AHV Vorstand may view + edit the member directory.
+export const MEMBER_EDIT_ROLES = ADRESSLISTE_ROLES;
+export const MEMBER_VIEW_ROLES = ADRESSLISTE_ROLES;
 // CC-Kasse + Admin run the Semesterbeitrag.
 export const BEITRAG_ROLES = ["CC-Kasse", "Admin"];
 

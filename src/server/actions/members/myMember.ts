@@ -53,18 +53,34 @@ export async function getMyMember(): Promise<Member | null> {
 	return resolveMyMember(userId, session.user.email ?? null);
 }
 
-const addressSchema = z.object({
+// Members may edit all of their own data EXCEPT their status (Abteilung) and the
+// management-only "Adresse veraltet" flag.
+const selfSchema = z.object({
+	firstName: z.string().trim().min(1, "Vorname erforderlich").max(255),
+	lastName: z.string().trim().min(1, "Nachname erforderlich").max(255),
+	title: z.string().max(255).nullable().optional(),
 	email: z.string().max(255).nullable().optional(),
+	email2: z.string().max(255).nullable().optional(),
+	email3: z.string().max(255).nullable().optional(),
+	mobile: z.string().max(100).nullable().optional(),
+	phonePrivate: z.string().max(100).nullable().optional(),
+	phonePrivate2: z.string().max(100).nullable().optional(),
+	phoneWork: z.string().max(100).nullable().optional(),
+	phoneWork2: z.string().max(100).nullable().optional(),
+	company: z.string().max(255).nullable().optional(),
+	birthday: z.string().max(50).nullable().optional(),
 	street: z.string().max(255).nullable().optional(),
 	houseNumber: z.string().max(50).nullable().optional(),
 	addressLine2: z.string().max(255).nullable().optional(),
 	postalCode: z.string().max(20).nullable().optional(),
 	city: z.string().max(255).nullable().optional(),
 	country: z.string().max(100).nullable().optional(),
+	forwarding: z.boolean().optional(),
 	lettersOptOut: z.boolean().optional(),
+	notes: z.string().max(1000).nullable().optional(),
 });
 
-export async function updateMyAddress(input: z.input<typeof addressSchema>) {
+export async function updateMyMember(input: z.input<typeof selfSchema>) {
 	const session = await auth();
 	const userId = session?.user?.id;
 	if (!userId) return { success: false as const, error: "Nicht angemeldet" };
@@ -78,18 +94,32 @@ export async function updateMyAddress(input: z.input<typeof addressSchema>) {
 	}
 
 	try {
-		const parsed = addressSchema.parse(input);
+		const p = selfSchema.parse(input);
 		await db
 			.update(members)
 			.set({
-				email: clean(parsed.email),
-				street: clean(parsed.street),
-				houseNumber: clean(parsed.houseNumber),
-				addressLine2: clean(parsed.addressLine2),
-				postalCode: clean(parsed.postalCode),
-				city: clean(parsed.city),
-				country: clean(parsed.country) ?? "Deutschland",
-				lettersOptOut: parsed.lettersOptOut ?? member.lettersOptOut,
+				firstName: p.firstName.trim(),
+				lastName: p.lastName.trim(),
+				title: clean(p.title),
+				email: clean(p.email),
+				email2: clean(p.email2),
+				email3: clean(p.email3),
+				mobile: clean(p.mobile),
+				phonePrivate: clean(p.phonePrivate),
+				phonePrivate2: clean(p.phonePrivate2),
+				phoneWork: clean(p.phoneWork),
+				phoneWork2: clean(p.phoneWork2),
+				company: clean(p.company),
+				birthday: clean(p.birthday),
+				street: clean(p.street),
+				houseNumber: clean(p.houseNumber),
+				addressLine2: clean(p.addressLine2),
+				postalCode: clean(p.postalCode),
+				city: clean(p.city),
+				country: clean(p.country) ?? "Deutschland",
+				forwarding: p.forwarding ?? member.forwarding,
+				lettersOptOut: p.lettersOptOut ?? member.lettersOptOut,
+				notes: clean(p.notes),
 				updatedBy: userId,
 			})
 			.where(eq(members.id, member.id));
@@ -102,7 +132,7 @@ export async function updateMyAddress(input: z.input<typeof addressSchema>) {
 				error: error.issues[0]?.message ?? "Validierungsfehler",
 			};
 		}
-		console.error("Error updating own address:", error);
+		console.error("Error updating own member data:", error);
 		return { success: false as const, error: "Fehler beim Speichern" };
 	}
 }

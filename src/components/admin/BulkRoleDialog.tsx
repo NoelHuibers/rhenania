@@ -17,7 +17,7 @@ import {
 import { Input } from "../ui/input";
 import {
 	type Role,
-	SINGLE_PERSON_ROLES,
+	SECTIONED_ROLE_NAMES,
 	type UserWithRoles,
 } from "./dashboard";
 
@@ -109,9 +109,7 @@ export function BulkRoleDialog({
 
 	if (!role) return null;
 
-	const isSinglePerson = SINGLE_PERSON_ROLES.includes(
-		role.name as (typeof SINGLE_PERSON_ROLES)[number],
-	);
+	const isSinglePerson = SECTIONED_ROLE_NAMES.includes(role.name);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>

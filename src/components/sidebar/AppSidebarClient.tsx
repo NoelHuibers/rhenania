@@ -42,6 +42,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "~/components/ui/sidebar";
+import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import { signOut } from "~/server/auth/client";
 
 type Role = "Admin" | "Getränkewart" | string;
@@ -139,7 +140,7 @@ const navGroups: NavGroup[] = [
 				title: "Adressliste",
 				href: "/adressliste",
 				icon: BookUser,
-				roles: ["Senior", "Subsenior", "Admin", "CC-Kasse"],
+				roles: ADRESSLISTE_ROLES,
 			},
 			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
 		],
