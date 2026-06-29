@@ -39,7 +39,7 @@ export function Haus({ images }: { images: string[] }) {
 	return (
 		<section
 			ref={section}
-			className="relative w-full overflow-hidden px-6 py-28 md:py-40"
+			className="relative w-full overflow-hidden px-6 py-20 md:py-40"
 		>
 			{/* Parallax backdrop */}
 			<div ref={bg} className="absolute inset-0 -z-10 scale-125">

@@ -6,7 +6,7 @@ export function CouleurDivider({ className = "" }: { className?: string }) {
 	return (
 		<div
 			aria-hidden
-			className={`relative mx-auto flex w-full max-w-5xl items-center justify-center px-6 py-10 ${className}`}
+			className={`relative mx-auto flex w-full max-w-5xl items-center justify-center px-6 py-6 md:py-10 ${className}`}
 		>
 			<span
 				className="h-px flex-1"

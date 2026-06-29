@@ -23,7 +23,7 @@ export function Veranstaltungen({ events }: { events: LandingEvent[] }) {
 	if (events.length === 0) return null;
 
 	return (
-		<section className="relative w-full px-6 py-24 md:py-32">
+		<section className="relative w-full px-6 py-16 md:py-32">
 			<CouleurDivider />
 			<div className="mx-auto max-w-3xl text-center">
 				<h2 className="font-heading font-semibold text-4xl text-[#2c2630] tracking-tight sm:text-5xl">

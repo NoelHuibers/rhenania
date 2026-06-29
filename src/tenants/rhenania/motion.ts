@@ -22,8 +22,11 @@ export function prefersReducedMotion(): boolean {
 }
 
 // Reveal the elements marked with [data-animate] inside the returned ref on
-// scroll-into-view. Content is visible by default (no CSS opacity:0), so if JS
-// fails or reduced-motion is on, nothing is hidden.
+// scroll-into-view. Uses IntersectionObserver (not ScrollTrigger) so it stays
+// reliable on mobile, where the dynamic toolbar resizing throws scroll-position
+// math off. A safety timeout guarantees the content is shown even if the
+// observer never fires, so nothing can ever stay stuck hidden. Under
+// reduced-motion (or if JS fails) content is simply left visible.
 export function useReveal<T extends HTMLElement = HTMLDivElement>(options?: {
 	y?: number;
 	stagger?: number;
@@ -36,29 +39,56 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(options?: {
 		if (!el || prefersReducedMotion()) return;
 		const { gsap } = ensureGsap();
 
-		const ctx = gsap.context(() => {
-			const items = el.querySelectorAll("[data-animate]");
-			const targets = items.length ? items : [el];
-			gsap.from(targets, {
-				y: options?.y ?? 44,
-				opacity: 0,
+		const items = el.querySelectorAll<HTMLElement>("[data-animate]");
+		const targets = items.length ? Array.from(items) : [el];
+
+		gsap.set(targets, { y: options?.y ?? 44, opacity: 0 });
+
+		let played = false;
+		const play = () => {
+			if (played) return;
+			played = true;
+			gsap.to(targets, {
+				y: 0,
+				opacity: 1,
 				duration: 0.9,
 				ease: "power3.out",
 				stagger: options?.stagger ?? 0.12,
-				scrollTrigger: {
-					trigger: el,
-					start: options?.start ?? "top 85%",
-					// Recompute on refresh and only play once, so a stale start
-					// position (from media/fonts loading above) can't leave the
-					// content stuck hidden once positions settle.
-					once: true,
-					invalidateOnRefresh: true,
-				},
+				overwrite: true,
 			});
-		}, el);
+		};
 
-		return () => ctx.revert();
-	}, [options?.y, options?.stagger, options?.start]);
+		if (typeof IntersectionObserver === "undefined") {
+			play();
+			return;
+		}
+
+		const io = new IntersectionObserver(
+			(entries) => {
+				for (const entry of entries) {
+					if (entry.isIntersecting) {
+						play();
+						io.disconnect();
+						break;
+					}
+				}
+			},
+			{ rootMargin: "0px 0px -8% 0px", threshold: 0.04 },
+		);
+		io.observe(el);
+
+		// Safety net: never leave content hidden if the observer never fires.
+		const safety = window.setTimeout(() => {
+			play();
+			io.disconnect();
+		}, 2500);
+
+		return () => {
+			io.disconnect();
+			window.clearTimeout(safety);
+			gsap.set(targets, { clearProps: "transform,opacity" });
+		};
+	}, [options?.y, options?.stagger]);
 
 	return ref;
 }

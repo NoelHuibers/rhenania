@@ -39,7 +39,7 @@ export function Leben({ images }: { images: string[] }) {
 	}, []);
 
 	return (
-		<section id="leben" className="relative w-full px-6 py-24 md:py-36">
+		<section id="leben" className="relative w-full px-6 py-16 md:py-36">
 			<div ref={reveal} className="mx-auto max-w-3xl text-center">
 				<p
 					data-animate
