@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { PALETTE } from "../theme";
 
 export function SiteFooter() {
 	return (
-		<footer className="relative z-10 border-black/5 border-t bg-[#f3ebee] px-6 py-12 text-[#6f6675] md:px-12">
+		<footer className="relative z-10 border-black/5 border-t bg-[#f3ebee] px-6 py-8 text-[#6f6675] md:px-12">
 			<div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
 				<div>
 					<p className="font-heading font-semibold text-[#2c2630]">Kontakt</p>
@@ -53,16 +52,6 @@ export function SiteFooter() {
 					</div>
 				</div>
 			</div>
-
-			<div
-				className="mx-auto mt-10 h-px max-w-5xl"
-				style={{
-					background: `linear-gradient(90deg, transparent, ${PALETTE.rose}, ${PALETTE.azure}, transparent)`,
-				}}
-			/>
-			<p className="mt-6 text-center text-[#6f6675]/70 text-xs tracking-wide">
-				Corps Rhenania Stuttgart
-			</p>
 		</footer>
 	);
 }
