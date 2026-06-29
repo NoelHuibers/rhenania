@@ -1,38 +1,85 @@
-import Footer from "~/components/footer/footer";
-import Header from "~/components/header/header";
-import Aktive from "~/components/landingpage/aktive";
-import ContactUs from "~/components/landingpage/contactus";
-import CorpsSection from "~/components/landingpage/corpssection";
-import Haus from "~/components/landingpage/haus";
-import MainSection from "~/components/landingpage/mainsection";
-import Veranstaltungen from "~/components/landingpage/veranstaltungen";
-import { getActiveImageBySection } from "~/server/actions/bilder/images";
+import {
+	formatAcademicTime,
+	formatEventFullDate,
+	startOfDayInTZ,
+} from "~/lib/time";
+import {
+	getActiveImageBySection,
+	getAllActiveImagesBySection,
+} from "~/server/actions/bilder/images";
+import { getPublicUpcomingEvents } from "~/server/actions/events/events";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
+import RhenaniaExperience, { type LandingEvent } from "./experience";
+
+function relativeLabel(d: Date): string | null {
+	const diffDays = Math.round(
+		(startOfDayInTZ(d).getTime() - startOfDayInTZ(new Date()).getTime()) /
+			86_400_000,
+	);
+	if (diffDays === 0) return "Heute";
+	if (diffDays === 1) return "Morgen";
+	if (diffDays <= 7) return `In ${diffDays} Tagen`;
+	return null;
+}
+
+const AKTIVE_FALLBACK = ["/0.png", "/1.jpg", "/2.png", "/3.jpg"];
+const HAUS_FALLBACK = [
+	"/Haus0.png",
+	"/Haus1.png",
+	"/Haus2.png",
+	"/Haus3.png",
+	"/Haus4.png",
+	"/Haus5.png",
+	"/Haus6.gif",
+];
 
 export default async function RhenaniaLandingPage() {
-	const headerImage = await getActiveImageBySection("header");
-	const backgroundImageUrl = headerImage?.imageUrl || "/stifi.jpg";
+	const [
+		tenant,
+		headerImage,
+		aktiveImages,
+		hausImages,
+		footerImage,
+		rawEvents,
+	] = await Promise.all([
+		getCurrentTenant(),
+		getActiveImageBySection("header"),
+		getAllActiveImagesBySection("aktive"),
+		getAllActiveImagesBySection("haus"),
+		getActiveImageBySection("footer"),
+		getPublicUpcomingEvents(6),
+	]);
+
+	const heroImageUrl = headerImage?.imageUrl || "/stifi.jpg";
+	const ctaImageUrl = footerImage?.imageUrl || "/background.png";
+
+	const aktiveUrls =
+		aktiveImages.length > 0
+			? aktiveImages.map((i) => i.imageUrl)
+			: AKTIVE_FALLBACK;
+	const hausUrls =
+		hausImages.length > 0 ? hausImages.map((i) => i.imageUrl) : HAUS_FALLBACK;
+
+	// Pre-format events server-side so the client section needs no Date/TZ logic.
+	const events: LandingEvent[] = rawEvents.map((e) => ({
+		id: e.id,
+		title: e.title,
+		type: e.type,
+		description: e.description,
+		location: e.location,
+		fullDate: formatEventFullDate(e.date),
+		time: formatAcademicTime(e.date),
+		relativeLabel: relativeLabel(e.date),
+	}));
 
 	return (
-		<>
-			<Header />
-			<main className="flex w-screen flex-col">
-				<div
-					className="sticky top-0 h-screen bg-center bg-cover"
-					style={{
-						backgroundImage: `url('${backgroundImageUrl}')`,
-					}}
-				>
-					<MainSection />
-				</div>
-				<div className="relative z-10 bg-white">
-					<Aktive />
-					<Veranstaltungen />
-					<Haus />
-					<CorpsSection />
-					<ContactUs />
-				</div>
-			</main>
-			<Footer />
-		</>
+		<RhenaniaExperience
+			displayName={tenant?.displayName ?? "Corps Rhenania"}
+			heroImageUrl={heroImageUrl}
+			ctaImageUrl={ctaImageUrl}
+			aktiveImages={aktiveUrls}
+			hausImages={hausUrls}
+			events={events}
+		/>
 	);
 }
