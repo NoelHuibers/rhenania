@@ -236,7 +236,9 @@ export const bills = createTable(
 		userName: b.text({ length: 255 }).notNull(),
 		status: b
 			.text({
-				enum: ["Bezahlt", "Unbezahlt", "Gestundet"],
+				// "Übertragen" = this bill's amount was rolled into a later bill's
+				// Übertrag, so it is settled and must not appear as open / double.
+				enum: ["Bezahlt", "Unbezahlt", "Gestundet", "Übertragen"],
 			})
 			.notNull()
 			.default("Unbezahlt"),

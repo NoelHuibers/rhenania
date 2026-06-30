@@ -298,6 +298,25 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					}`,
 				);
 
+				// The old unpaid/deferred bill was just rolled into this new bill's
+				// Übertrag — settle it as "Übertragen" so the member isn't listed
+				// (and counted) twice.
+				if (oldBillingAmount > 0 && lastBillPeriod) {
+					await tx
+						.update(bills)
+						.set({ status: "Übertragen", updatedAt: now })
+						.where(
+							and(
+								eq(bills.billPeriodId, lastBillPeriod.id),
+								eq(bills.userId, userId),
+								or(
+									eq(bills.status, "Unbezahlt"),
+									eq(bills.status, "Gestundet"),
+								),
+							),
+						);
+				}
+
 				// Group orders by drink to consolidate quantities (only if there are new orders)
 				if (userOrders.length > 0) {
 					const drinkSummary = new Map<
@@ -678,7 +697,7 @@ export async function closeBillPeriod(billPeriodId: string) {
 // Update bill status
 export async function updateBillStatus(
 	billId: string,
-	newStatus: "Bezahlt" | "Unbezahlt" | "Gestundet",
+	newStatus: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen",
 ) {
 	try {
 		const now = new Date();
@@ -691,7 +710,7 @@ export async function updateBillStatus(
 		// Set paidAt if marking as paid
 		if (newStatus === "Bezahlt") {
 			updateData.paidAt = now;
-		} else if (newStatus === "Unbezahlt" || newStatus === "Gestundet") {
+		} else {
 			updateData.paidAt = null;
 		}
 

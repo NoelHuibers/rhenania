@@ -6,7 +6,7 @@ import { db } from "~/server/db";
 import { billItems, billPeriods, bills } from "~/server/db/schema";
 
 export type BillData = {
-	status: "Bezahlt" | "Unbezahlt" | "Gestundet";
+	status: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen";
 	total: number;
 	drinksTotal: number;
 	fees: number;

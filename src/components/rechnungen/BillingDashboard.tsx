@@ -28,7 +28,7 @@ export interface BillingEntry {
 	id: string;
 	name: string;
 	totalDue: number;
-	status?: "Bezahlt" | "Unbezahlt" | "Gestundet";
+	status?: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen";
 	items: DrinkItem[];
 	paidAt?: Date | null;
 }
