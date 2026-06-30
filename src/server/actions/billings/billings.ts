@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -715,6 +715,29 @@ export async function updateBillStatus(
 		}
 
 		await db.update(bills).set(updateData).where(eq(bills.id, billId));
+
+		// When a consolidated bill is paid, also settle the carried-over
+		// ("Übertragen") predecessor bills of the same member — their amount was
+		// rolled into this bill's Übertrag, so they are now paid too.
+		if (newStatus === "Bezahlt") {
+			const [paid] = await db
+				.select({ userId: bills.userId, createdAt: bills.createdAt })
+				.from(bills)
+				.where(eq(bills.id, billId))
+				.limit(1);
+			if (paid) {
+				await db
+					.update(bills)
+					.set({ status: "Bezahlt", paidAt: now, updatedAt: now })
+					.where(
+						and(
+							eq(bills.userId, paid.userId),
+							eq(bills.status, "Übertragen"),
+							lt(bills.createdAt, paid.createdAt),
+						),
+					);
+			}
+		}
 
 		return { success: true };
 	} catch (error) {
