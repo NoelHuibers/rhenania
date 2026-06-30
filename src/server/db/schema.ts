@@ -1141,6 +1141,240 @@ export const eventTypes = createTable(
 	(t) => [index("event_type_active_idx").on(t.isActive)],
 );
 
+// ─── Fuchsenladen ─────────────────────────────────────────────────────────────
+//
+// Parallel to the drinks shop (drinks/orders) but for Fuchsen-specific items
+// (sweets, snacks, etc.). Bill tracking is per-order: each order carries a
+// "Offen" / "Bezahlt" status the Fuchsenwart can flip.
+
+export const fuchsenItems = createTable(
+	"fuchsen_item",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: d.text({ length: 255 }).notNull(),
+		price: d.real().notNull(),
+		description: d.text({ length: 500 }),
+		picture: d.text(),
+		isCurrentlyAvailable: d
+			.integer({ mode: "boolean" })
+			.notNull()
+			.default(true),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("fuchsen_item_name_idx").on(t.name),
+		index("fuchsen_item_available_idx").on(t.isCurrentlyAvailable),
+	],
+);
+
+export const fuchsenOrders = createTable(
+	"fuchsen_order",
+	(o) => ({
+		id: o
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		userId: o.text({ length: 255 }).notNull(),
+		userName: o.text({ length: 255 }).notNull(),
+		itemId: o.text({ length: 255 }).notNull(),
+		itemName: o.text({ length: 255 }).notNull(),
+		amount: o.integer().notNull(),
+		pricePerUnit: o.real().notNull(),
+		total: o.real().notNull(),
+		status: o
+			.text({ enum: ["Offen", "Bezahlt"] })
+			.notNull()
+			.default("Offen"),
+		// Set once the order has been aggregated into a fuchsen bill period.
+		// Null => not yet billed (shows up in the next billing run).
+		billId: o.text({ length: 255 }),
+		paidAt: o.integer({ mode: "timestamp" }),
+		createdAt: o
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: o.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("fuchsen_order_user_idx").on(t.userId),
+		index("fuchsen_order_item_idx").on(t.itemId),
+		index("fuchsen_order_status_idx").on(t.status),
+		index("fuchsen_order_bill_idx").on(t.billId),
+		index("fuchsen_order_created_idx").on(t.createdAt),
+		foreignKey({
+			columns: [t.itemId],
+			foreignColumns: [fuchsenItems.id],
+			name: "fuchsen_order_item_fk",
+		}),
+	],
+);
+
+export const fuchsenItemsRelations = relations(fuchsenItems, ({ many }) => ({
+	orders: many(fuchsenOrders),
+}));
+
+export const fuchsenOrdersRelations = relations(fuchsenOrders, ({ one }) => ({
+	item: one(fuchsenItems, {
+		fields: [fuchsenOrders.itemId],
+		references: [fuchsenItems.id],
+	}),
+	user: one(users, {
+		fields: [fuchsenOrders.userId],
+		references: [users.id],
+	}),
+}));
+
+// --- Fuchsenladen billing (mirrors the drinks bill_period/bill/bill_item model,
+// minus inventory umlage and event bookings which don't apply to the shop) ---
+
+export const fuchsenBillPeriods = createTable(
+	"fuchsen_bill_period",
+	(bp) => ({
+		id: bp
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		billNumber: bp.text().notNull().unique(),
+		totalAmount: bp.real().notNull().default(0),
+		createdAt: bp
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		createdBy: bp.text({ length: 255 }),
+		updatedAt: bp.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+		closedAt: bp.integer({ mode: "timestamp" }),
+	}),
+	(t) => [
+		index("fuchsen_bill_period_number_idx").on(t.billNumber),
+		index("fuchsen_bill_period_dates_idx").on(t.createdAt),
+	],
+);
+
+export const fuchsenBills = createTable(
+	"fuchsen_bill",
+	(b) => ({
+		id: b
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		billPeriodId: b.text({ length: 255 }).notNull(),
+		userId: b.text({ length: 255 }).notNull(),
+		userName: b.text({ length: 255 }).notNull(),
+		status: b
+			.text({ enum: ["Bezahlt", "Unbezahlt", "Gestundet"] })
+			.notNull()
+			.default("Unbezahlt"),
+		oldBillingAmount: b.real().notNull().default(0),
+		itemsTotal: b.real().notNull(),
+		total: b.real().notNull(),
+		createdAt: b
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: b.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+		paidAt: b.integer({ mode: "timestamp" }),
+	}),
+	(t) => [
+		index("fuchsen_bill_period_idx").on(t.billPeriodId),
+		index("fuchsen_bill_user_idx").on(t.userId),
+		index("fuchsen_bill_status_idx").on(t.status),
+		index("fuchsen_bill_created_idx").on(t.createdAt),
+		foreignKey({
+			columns: [t.billPeriodId],
+			foreignColumns: [fuchsenBillPeriods.id],
+			name: "fuchsen_bill_period_fk",
+		}),
+	],
+);
+
+export const fuchsenBillItems = createTable(
+	"fuchsen_bill_item",
+	(bi) => ({
+		id: bi
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		billId: bi.text({ length: 255 }).notNull(),
+		itemName: bi.text({ length: 255 }).notNull(),
+		amount: bi.integer().notNull(),
+		pricePerItem: bi.real().notNull(),
+		totalPrice: bi.real().notNull(),
+		createdAt: bi
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+	}),
+	(t) => [
+		index("fuchsen_bill_item_bill_idx").on(t.billId),
+		foreignKey({
+			columns: [t.billId],
+			foreignColumns: [fuchsenBills.id],
+			name: "fuchsen_bill_item_bill_fk",
+		}).onDelete("cascade"),
+	],
+);
+
+export const fuchsenBillPeriodsRelations = relations(
+	fuchsenBillPeriods,
+	({ many }) => ({
+		bills: many(fuchsenBills),
+	}),
+);
+
+export const fuchsenBillsRelations = relations(
+	fuchsenBills,
+	({ one, many }) => ({
+		billPeriod: one(fuchsenBillPeriods, {
+			fields: [fuchsenBills.billPeriodId],
+			references: [fuchsenBillPeriods.id],
+		}),
+		items: many(fuchsenBillItems),
+	}),
+);
+
+export const fuchsenBillItemsRelations = relations(
+	fuchsenBillItems,
+	({ one }) => ({
+		bill: one(fuchsenBills, {
+			fields: [fuchsenBillItems.billId],
+			references: [fuchsenBills.id],
+		}),
+	}),
+);
+
+// Singleton row holding the sender / payment details the Fuchsenwart enters;
+// used on the generated PDF invoices and for the PayPal payment link.
+export const fuchsenBillingConfig = createTable(
+	"fuchsen_billing_config",
+	(d) => ({
+		id: d.text({ length: 50 }).notNull().primaryKey().default("singleton"),
+		senderName: d.text({ length: 255 }).notNull().default(""),
+		senderStreet: d.text({ length: 255 }).notNull().default(""),
+		senderCity: d.text({ length: 255 }).notNull().default(""),
+		location: d.text({ length: 255 }).notNull().default(""),
+		iban: d.text({ length: 50 }).notNull().default(""),
+		accountHolder: d.text({ length: 255 }).notNull().default(""),
+		paypalBaseUrl: d.text({ length: 500 }).notNull().default(""),
+		paymentDueDays: d.integer().notNull().default(14),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+		updatedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+	}),
+);
+
 export const homepageSections = createTable(
 	"homepage_section",
 	(d) => ({

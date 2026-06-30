@@ -43,6 +43,10 @@ const VALID_PATHS = [
 	"/challenges",
 	"/rechnungen",
 	"/trinken",
+	"/fuchsenladen",
+	"/fuchsenwart",
+	"/fuchsenrechnungen",
+	"/fuchsenbestellungen",
 	"/leaderboard",
 	"/admin",
 	"/admin/(.*)",
@@ -86,6 +90,7 @@ const ROLE_PROTECTED_PATHS: Record<string, string[]> = {
 	"/cc-kasse": ["Admin", "CC-Kasse", "Senior"],
 	"/adressliste": ADRESSLISTE_ROLES,
 	"/admin": ["Admin"],
+	"/fuchsenwart": ["Fuchs", "Admin"],
 };
 
 function getRequiredRoles(pathname: string): string[] | null {

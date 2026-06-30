@@ -57,6 +57,13 @@
 			"when": 1782855846668,
 			"tag": "0007_plain_the_phantom",
 			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "6",
+			"when": 1782861798675,
+			"tag": "0008_condemned_wiccan",
+			"breakpoints": true
 		}
 	]
 }

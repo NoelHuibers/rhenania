@@ -6,6 +6,7 @@ import {
 	BottleWine,
 	CalendarDays,
 	Camera,
+	Candy,
 	HandCoins,
 	House,
 	Landmark,
@@ -14,6 +15,7 @@ import {
 	ReceiptEuro,
 	ReceiptText,
 	Settings,
+	ShoppingBag,
 	Swords,
 	Trophy,
 	Truck,
@@ -65,6 +67,12 @@ const navGroups: NavGroup[] = [
 		items: [
 			{ title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
 			{
+				title: "Fuchsenladen",
+				href: "/fuchsenladen",
+				icon: Candy,
+				roles: [],
+			},
+			{
 				title: "Rechnungen",
 				href: "/rechnungen",
 				icon: ReceiptEuro,
@@ -73,6 +81,18 @@ const navGroups: NavGroup[] = [
 			{
 				title: "Bestellungen",
 				href: "/bestellungen",
+				icon: ReceiptText,
+				roles: [],
+			},
+			{
+				title: "Fuchsenrechnungen",
+				href: "/fuchsenrechnungen",
+				icon: ReceiptEuro,
+				roles: [],
+			},
+			{
+				title: "Fuchsenbestellungen",
+				href: "/fuchsenbestellungen",
 				icon: ReceiptText,
 				roles: [],
 			},
@@ -111,6 +131,12 @@ const navGroups: NavGroup[] = [
 				href: "/getraenkewart",
 				icon: Truck,
 				roles: ["Getränkewart", "Admin"],
+			},
+			{
+				title: "Fuchsenwart",
+				href: "/fuchsenwart",
+				icon: ShoppingBag,
+				roles: ["Fuchs", "Admin"],
 			},
 			{
 				title: "Bilder",
