@@ -41,6 +41,7 @@ type FormState = {
 	iban: string;
 	bic: string;
 	bankName: string;
+	paypalLink: string;
 	description: string;
 	isActive: boolean;
 };
@@ -50,6 +51,7 @@ const emptyForm: FormState = {
 	iban: "",
 	bic: "",
 	bankName: "",
+	paypalLink: "",
 	description: "",
 	isActive: true,
 };
@@ -140,6 +142,17 @@ function KontoForm({
 								placeholder="VOBADE21XXX"
 							/>
 						</div>
+						<div className="space-y-2 sm:col-span-2">
+							<Label htmlFor="k-paypal">PayPal-Link</Label>
+							<Input
+								id="k-paypal"
+								value={form.paypalLink}
+								onChange={(e) =>
+									setForm((f) => ({ ...f, paypalLink: e.target.value }))
+								}
+								placeholder="https://paypal.me/deinName"
+							/>
+						</div>
 						<div className="flex items-center gap-3 pt-6">
 							<Switch
 								id="k-active"
@@ -207,6 +220,11 @@ function KontoCard({
 					<p className="text-muted-foreground text-sm">
 						BIC: {konto.bic} · {konto.bankName}
 					</p>
+					{konto.paypalLink && (
+						<p className="truncate text-muted-foreground text-sm">
+							PayPal: {konto.paypalLink}
+						</p>
+					)}
 					{konto.description && (
 						<p className="text-muted-foreground text-sm">{konto.description}</p>
 					)}
@@ -259,6 +277,7 @@ export function KontenPage({
 			iban: konto.iban,
 			bic: konto.bic,
 			bankName: konto.bankName,
+			paypalLink: konto.paypalLink ?? "",
 			description: konto.description ?? "",
 			isActive: konto.isActive,
 		});
@@ -288,6 +307,7 @@ export function KontenPage({
 			iban: form.iban.replace(/\s/g, ""),
 			bic: form.bic,
 			bankName: form.bankName,
+			paypalLink: form.paypalLink.trim() || null,
 			description: form.description || undefined,
 			isActive: form.isActive,
 		};

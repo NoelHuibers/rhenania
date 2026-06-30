@@ -3,6 +3,7 @@
 import { and, eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
 import { formatEur } from "~/lib/cc-kasse-format";
+import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db";
 import { kontos } from "~/server/db/schema";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
@@ -120,24 +121,39 @@ export async function generateBeitragPDF(
 		}
 
 		y += 8;
-		doc.text("Mit corpsbrüderlichem Gruß,", 20, y);
+		doc.text("Mit corpsbrüderlichen Grüßen", 20, y);
 		y += 7;
 		doc.text(tenantName, 20, y);
 
 		// Bank details
-		const footerY = 250;
+		const clean = (s: string) => s.replace(/\s+/g, " ").trim();
+		const paypalUrl = konto.paypalLink
+			? normalizePaypalLink(konto.paypalLink)
+			: null;
+		let footerY = paypalUrl ? 243 : 250;
 		doc.setFont("helvetica", "bold");
 		doc.text("Bankverbindung", 20, footerY);
 		doc.setFont("helvetica", "normal");
-		doc.text(`Kontoinhaber: ${tenantName}`, 20, footerY + 7);
-		doc.text(`IBAN: ${konto.iban}`, 20, footerY + 14);
-		if (konto.bic) doc.text(`BIC: ${konto.bic}`, 20, footerY + 21);
-		doc.text(`Bank: ${konto.bankName}`, 20, footerY + 28);
-		doc.text(
-			`Verwendungszweck: ${run.name} ${charge.memberName}`,
-			20,
-			footerY + 35,
-		);
+		footerY += 7;
+		doc.text(`Kontoinhaber: ${clean(tenantName)}`, 20, footerY);
+		footerY += 7;
+		doc.text(`IBAN: ${clean(konto.iban)}`, 20, footerY);
+		if (konto.bic) {
+			footerY += 7;
+			doc.text(`BIC: ${clean(konto.bic)}`, 20, footerY);
+		}
+		footerY += 7;
+		doc.text(`Bank: ${clean(konto.bankName)}`, 20, footerY);
+		footerY += 7;
+		doc.text(`Verwendungszweck: ${run.name} ${charge.memberName}`, 20, footerY);
+		if (paypalUrl) {
+			footerY += 7;
+			doc.text("Oder bequem per PayPal: ", 20, footerY);
+			const labelWidth = doc.getTextWidth("Oder bequem per PayPal: ");
+			doc.setTextColor(0, 0, 238);
+			doc.textWithLink(paypalUrl, 20 + labelWidth, footerY, { url: paypalUrl });
+			doc.setTextColor(0, 0, 0);
+		}
 
 		const pdfContent = Buffer.from(doc.output("arraybuffer"));
 		const safe = (s: string) => s.replace(/[^a-zA-Z0-9]/g, "_");

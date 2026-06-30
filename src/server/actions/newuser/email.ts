@@ -1,11 +1,25 @@
 // lib/email.ts
 "use server";
+import { and, eq } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { env } from "~/env";
+import { normalizePaypalLink } from "~/lib/paypal";
+import { db } from "~/server/db";
+import { kontos } from "~/server/db/schema";
 import {
 	getCurrentRequestOrigin,
 	getCurrentTenant,
 } from "~/server/lib/tenant-context";
+
+/** Canonical PayPal URL stored on the active konto of the given kasse, or null. */
+async function getKontoPaypalUrl(kasseType: string): Promise<string | null> {
+	const [konto] = await db
+		.select({ paypalLink: kontos.paypalLink })
+		.from(kontos)
+		.where(and(eq(kontos.kasseType, kasseType), eq(kontos.isActive, true)))
+		.limit(1);
+	return konto?.paypalLink ? normalizePaypalLink(konto.paypalLink) : null;
+}
 
 // Configure your email transporter using your existing Gmail setup
 const transporter = nodemailer.createTransport({
@@ -274,7 +288,11 @@ function beitragHtml(
 	runName: string,
 	formattedTotal: string,
 	body: string,
+	paypalUrl: string | null,
 ): string {
+	const paypalLine = paypalUrl
+		? `<p>Oder bezahle bequem per PayPal: <a href="${paypalUrl}">${paypalUrl}</a></p>`
+		: "";
 	return `
     <!DOCTYPE html>
     <html>
@@ -303,7 +321,8 @@ function beitragHtml(
               <div class="amount">${formattedTotal}</div>
             </div>
             <p>Die Bankverbindung findest du im angehängten PDF.</p>
-            <p>Mit corpsbrüderlichem Gruß <br><strong>${tenantLabel}</strong></p>
+            ${paypalLine}
+            <p>Mit corpsbrüderlichen Grüßen <br><strong>${tenantLabel}</strong></p>
           </div>
           <div class="footer">
             <p>Diese E-Mail wurde automatisch generiert. Bitte antworte nicht auf diese E-Mail.</p>
@@ -325,14 +344,25 @@ export async function sendBeitragEmail(
 		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
 		const tenant = await getCurrentTenant();
 		const tenantLabel = tenant?.displayName ?? "Corps";
+		const paypalUrl = await getKontoPaypalUrl("CC-Kasse");
+		const paypalText = paypalUrl
+			? `\nOder bezahle bequem per PayPal: ${paypalUrl}`
+			: "";
 		const body = `für <strong>${runName}</strong> bitten wir um deinen Semesterbeitrag in Höhe von <strong>${formattedTotal}</strong>. Im Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.`;
 
 		const result = await transporter.sendMail({
 			from: env.GMAIL,
 			to: email,
 			subject: `Dein Semesterbeitrag — ${runName}`,
-			text: `Lieber ${memberName},\n\nfür ${runName} bitten wir um deinen Semesterbeitrag in Höhe von ${formattedTotal}.\nIm Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.\n\nMit corpsbrüderlichem Gruß,\n${tenantLabel}`,
-			html: beitragHtml(tenantLabel, memberName, runName, formattedTotal, body),
+			text: `Lieber ${memberName},\n\nfür ${runName} bitten wir um deinen Semesterbeitrag in Höhe von ${formattedTotal}.\nIm Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.${paypalText}\n\nMit corpsbrüderlichen Grüßen\n${tenantLabel}`,
+			html: beitragHtml(
+				tenantLabel,
+				memberName,
+				runName,
+				formattedTotal,
+				body,
+				paypalUrl,
+			),
 			attachments: [
 				{
 					filename: fileName,
@@ -360,14 +390,25 @@ export async function sendMahnungEmail(
 		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
 		const tenant = await getCurrentTenant();
 		const tenantLabel = tenant?.displayName ?? "Corps";
+		const paypalUrl = await getKontoPaypalUrl("CC-Kasse");
+		const paypalText = paypalUrl
+			? `\nOder bezahle bequem per PayPal: ${paypalUrl}`
+			: "";
 		const body = `dein Semesterbeitrag für <strong>${runName}</strong> ist trotz Fälligkeit weiterhin offen. Wir erlauben uns daher, eine Mahngebühr zu berechnen. Der offene Gesamtbetrag beträgt <strong>${formattedTotal}</strong> (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.`;
 
 		const result = await transporter.sendMail({
 			from: env.GMAIL,
 			to: email,
 			subject: `Zahlungserinnerung — ${runName}`,
-			text: `Lieber ${memberName},\n\ndein Semesterbeitrag für ${runName} ist weiterhin offen. Inklusive Mahngebühr beträgt der offene Gesamtbetrag ${formattedTotal} (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.\n\nMit corpsbrüderlichem Gruß,\n${tenantLabel}`,
-			html: beitragHtml(tenantLabel, memberName, runName, formattedTotal, body),
+			text: `Lieber ${memberName},\n\ndein Semesterbeitrag für ${runName} ist weiterhin offen. Inklusive Mahngebühr beträgt der offene Gesamtbetrag ${formattedTotal} (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.${paypalText}\n\nMit corpsbrüderlichen Grüßen\n${tenantLabel}`,
+			html: beitragHtml(
+				tenantLabel,
+				memberName,
+				runName,
+				formattedTotal,
+				body,
+				paypalUrl,
+			),
 			attachments: [
 				{
 					filename: fileName,

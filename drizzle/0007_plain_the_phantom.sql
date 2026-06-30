@@ -1,0 +1,1 @@
+ALTER TABLE `konto` ADD `paypalLink` text(255);

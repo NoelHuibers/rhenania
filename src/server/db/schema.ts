@@ -1081,6 +1081,7 @@ export const kontos = createTable(
 		iban: d.text({ length: 50 }).notNull(),
 		bic: d.text({ length: 20 }).notNull(),
 		bankName: d.text({ length: 255 }).notNull(),
+		paypalLink: d.text({ length: 255 }),
 		description: d.text({ length: 500 }),
 		isActive: d.integer({ mode: "boolean" }).notNull().default(true),
 		createdAt: d

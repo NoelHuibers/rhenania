@@ -14,6 +14,7 @@ export type KontoInput = {
 	iban: string;
 	bic: string;
 	bankName: string;
+	paypalLink?: string | null;
 	description?: string;
 	isActive?: boolean;
 };
@@ -83,6 +84,7 @@ export async function createKonto(
 			iban: input.iban,
 			bic: input.bic,
 			bankName: input.bankName,
+			paypalLink: input.paypalLink ?? null,
 			description: input.description ?? null,
 			isActive: input.isActive ?? true,
 		})
@@ -117,6 +119,7 @@ export async function updateKonto(
 	if (input.iban !== undefined) updateData.iban = input.iban;
 	if (input.bic !== undefined) updateData.bic = input.bic;
 	if (input.bankName !== undefined) updateData.bankName = input.bankName;
+	if (input.paypalLink !== undefined) updateData.paypalLink = input.paypalLink;
 	if (input.description !== undefined)
 		updateData.description = input.description;
 	if (input.isActive !== undefined) updateData.isActive = input.isActive;
