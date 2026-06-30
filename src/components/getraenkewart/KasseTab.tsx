@@ -39,6 +39,13 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "~/components/ui/dialog";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
+	DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -50,7 +57,10 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
-import { createNewBilling } from "~/server/actions/billings/billings";
+import {
+	createNewBilling,
+	updateBillStatus,
+} from "~/server/actions/billings/billings";
 import {
 	addBankEntry,
 	addExternalBill,
@@ -521,8 +531,39 @@ function CollapsibleCard({
 
 // ─── Member Bills ─────────────────────────────────────────────────────────────
 
+type BillStatus = "Bezahlt" | "Unbezahlt" | "Gestundet";
+
+function memberStatusClass(status: string) {
+	return status === "Gestundet"
+		? "border-amber-300 text-amber-700 dark:text-amber-300"
+		: "border-red-300 text-red-700 dark:text-red-300";
+}
+
 function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
+	const router = useRouter();
+	const [isPending, startTransition] = useTransition();
+	const [pendingId, setPendingId] = useState<string | null>(null);
 	const total = bills.reduce((s, b) => s + b.total, 0);
+
+	function setStatus(id: string, name: string, status: BillStatus) {
+		setPendingId(id);
+		startTransition(async () => {
+			const res = await updateBillStatus(id, status);
+			if (res.success) {
+				toast.success(
+					status === "Bezahlt"
+						? `${name} als bezahlt markiert`
+						: status === "Gestundet"
+							? `${name} gestundet`
+							: `${name} auf unbezahlt gesetzt`,
+				);
+				router.refresh();
+			} else {
+				toast.error("Status konnte nicht geändert werden");
+			}
+			setPendingId(null);
+		});
+	}
 
 	return (
 		<CollapsibleCard
@@ -544,8 +585,8 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 					<TableHeader>
 						<TableRow>
 							<TableHead>Mitglied</TableHead>
-							<TableHead>Status</TableHead>
 							<TableHead className="text-right">Betrag</TableHead>
+							<TableHead className="text-right">Status</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -554,29 +595,52 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 								<TableCell className="font-medium text-sm">
 									{b.userName}
 								</TableCell>
-								<TableCell>
-									<Badge
-										variant={
-											b.status === "Gestundet" ? "secondary" : "destructive"
-										}
-									>
-										{b.status}
-									</Badge>
-								</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
 									{fmt(b.total)}
+								</TableCell>
+								<TableCell className="text-right">
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button
+												variant="outline"
+												size="sm"
+												disabled={isPending && pendingId === b.id}
+												className={`h-7 ${memberStatusClass(b.status)}`}
+											>
+												{b.status}
+												<ChevronDown className="ml-1 size-3.5" />
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="end">
+											<DropdownMenuRadioGroup
+												value={b.status}
+												onValueChange={(v) =>
+													setStatus(b.id, b.userName, v as BillStatus)
+												}
+											>
+												<DropdownMenuRadioItem value="Bezahlt">
+													Bezahlt
+												</DropdownMenuRadioItem>
+												<DropdownMenuRadioItem value="Gestundet">
+													Gestundet
+												</DropdownMenuRadioItem>
+												<DropdownMenuRadioItem value="Unbezahlt">
+													Unbezahlt
+												</DropdownMenuRadioItem>
+											</DropdownMenuRadioGroup>
+										</DropdownMenuContent>
+									</DropdownMenu>
 								</TableCell>
 							</TableRow>
 						))}
 					</TableBody>
 					<TableFooter>
 						<TableRow>
-							<TableCell colSpan={2} className="font-semibold">
-								Gesamt
-							</TableCell>
+							<TableCell className="font-semibold">Gesamt</TableCell>
 							<TableCell className="text-right font-bold">
 								{fmt(total)}
 							</TableCell>
+							<TableCell />
 						</TableRow>
 					</TableFooter>
 				</Table>
