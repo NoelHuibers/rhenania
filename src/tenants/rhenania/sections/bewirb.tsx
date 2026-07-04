@@ -136,10 +136,7 @@ export function Bewirb({ ctaImageUrl }: { ctaImageUrl: string }) {
 					data-animate
 					className="max-w-3xl font-heading font-semibold text-5xl text-[#2c2630] leading-[1.02] tracking-tight sm:text-7xl"
 				>
-					Werde Teil von{" "}
-					<span className="bg-gradient-to-r from-[#b85d7c] via-[#d98aa6] to-[#2f86d4] bg-clip-text text-transparent">
-						Rhenania
-					</span>
+					Werde Teil von <span className="text-[#b85d7c] italic">Rhenania</span>
 				</h2>
 				<p
 					data-animate
@@ -151,7 +148,7 @@ export function Bewirb({ ctaImageUrl }: { ctaImageUrl: string }) {
 					<Link
 						ref={btn}
 						href="/contact"
-						className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#d98aa6] to-[#2f86d4] px-12 py-4 font-semibold text-lg text-white tracking-wide shadow-[0_16px_44px_-12px_rgba(47,134,212,0.7)] transition-transform duration-300 hover:scale-105"
+						className="group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-[#2c2630] px-12 py-4 font-medium text-[#faf6f4] text-lg tracking-wide shadow-[0_16px_44px_-12px_rgba(44,38,48,0.55)] transition-colors duration-300 hover:bg-[#b85d7c]"
 					>
 						<span
 							data-shine
