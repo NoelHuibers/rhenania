@@ -66,6 +66,15 @@ export function SiteHeader({ displayName }: { displayName: string }) {
 						<Icon className="h-5 w-5" />
 					</Link>
 				))}
+				{/* Members' entrance — /profile bounces logged-out visitors to the
+				    sign-in page and logged-in members straight into the app. */}
+				<Link
+					href="/profile"
+					prefetch={false}
+					className="rounded-full bg-[#2c2630] px-4 py-1.5 font-medium text-[#faf6f4] text-xs tracking-wide transition-colors duration-300 hover:bg-[#b85d7c] sm:px-5 sm:py-2 sm:text-sm"
+				>
+					Intranet
+				</Link>
 			</nav>
 		</header>
 	);
