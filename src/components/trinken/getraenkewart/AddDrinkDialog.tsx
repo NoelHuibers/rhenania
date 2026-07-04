@@ -26,6 +26,7 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
+import { parseDecimalInput } from "~/lib/decimal";
 import { addDrink } from "~/server/actions/drinks";
 
 interface AddDrinkDialogProps {
@@ -110,13 +111,15 @@ export function AddDrinkDialog({
 			return;
 		}
 
-		const price = parseFloat(formData.price);
+		const price = parseDecimalInput(formData.price);
 		if (Number.isNaN(price) || price <= 0) {
 			toast.error("Gültiger Preis ist erforderlich");
 			return;
 		}
 
-		const volume = formData.volume ? parseFloat(formData.volume) : undefined;
+		const volume = formData.volume
+			? parseDecimalInput(formData.volume)
+			: undefined;
 		if (
 			formData.volume &&
 			volume !== undefined &&
@@ -214,7 +217,9 @@ export function AddDrinkDialog({
 
 	const isSubmitting = isPending || isUploading;
 	const isFormValid =
-		formData.name.trim() && formData.price && parseFloat(formData.price) > 0;
+		formData.name.trim() &&
+		formData.price &&
+		parseDecimalInput(formData.price) > 0;
 
 	return (
 		<Dialog
@@ -254,12 +259,10 @@ export function AddDrinkDialog({
 								<Label htmlFor="price">Preis (€) *</Label>
 								<Input
 									id="price"
-									type="number"
-									step="0.01"
-									min="0"
+									inputMode="decimal"
 									value={formData.price}
 									onChange={(e) => handleInputChange("price", e.target.value)}
-									placeholder="0.00"
+									placeholder="0,00"
 									required
 									disabled={isSubmitting}
 								/>
@@ -269,12 +272,10 @@ export function AddDrinkDialog({
 								<Label htmlFor="volume">Volumen (Liter)</Label>
 								<Input
 									id="volume"
-									type="number"
-									step="0.01"
-									min="0"
+									inputMode="decimal"
 									value={formData.volume}
 									onChange={(e) => handleInputChange("volume", e.target.value)}
-									placeholder="0.33"
+									placeholder="0,33"
 									disabled={isSubmitting}
 								/>
 							</div>

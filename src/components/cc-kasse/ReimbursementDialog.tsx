@@ -25,6 +25,7 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
+import { parseDecimalInput } from "~/lib/decimal";
 import { uploadReceipt, validateReceiptFile } from "~/lib/receipt-upload";
 import {
 	createDirectBooking,
@@ -164,7 +165,7 @@ export function ReimbursementDialog({
 			: kostenpunkte;
 
 	const num = (s: string) => {
-		const v = Number.parseFloat(s.replace(",", "."));
+		const v = parseDecimalInput(s);
 		return Number.isFinite(v) ? v : 0;
 	};
 
@@ -351,9 +352,7 @@ export function ReimbursementDialog({
 							<Label htmlFor="re-amount">Betrag (€)</Label>
 							<Input
 								id="re-amount"
-								type="number"
-								step="0.01"
-								min="0"
+								inputMode="decimal"
 								value={amount}
 								onChange={(e) => setAmount(e.target.value)}
 								placeholder="0,00"

@@ -20,6 +20,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import { parseDecimalInput } from "~/lib/decimal";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
 import { createBeitragRun } from "~/server/actions/members/semesterbeitrag";
 
@@ -62,7 +63,7 @@ export function BeitragRunDialog({
 	}, [open, etaplan, kostenpunkte]);
 
 	const num = (s: string) => {
-		const v = Number.parseFloat(s.replace(",", "."));
+		const v = parseDecimalInput(s);
 		return Number.isFinite(v) ? v : 0;
 	};
 
@@ -150,8 +151,7 @@ export function BeitragRunDialog({
 							<Label htmlFor="br-amount">Beitrag (€)</Label>
 							<Input
 								id="br-amount"
-								type="number"
-								step="0.01"
+								inputMode="decimal"
 								value={amount}
 								onChange={(e) => setAmount(e.target.value)}
 							/>
@@ -160,8 +160,7 @@ export function BeitragRunDialog({
 							<Label htmlFor="br-mahn">Mahngebühr (€)</Label>
 							<Input
 								id="br-mahn"
-								type="number"
-								step="0.01"
+								inputMode="decimal"
 								value={mahnungFee}
 								onChange={(e) => setMahnungFee(e.target.value)}
 							/>

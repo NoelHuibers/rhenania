@@ -26,6 +26,7 @@ import {
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
+import { parseDecimalInput } from "~/lib/decimal";
 import { addFuchsenItem } from "~/server/actions/fuchsenladen/items";
 
 interface AddFuchsenItemDialogProps {
@@ -97,7 +98,7 @@ export function AddFuchsenItemDialog({
 			return;
 		}
 
-		const price = parseFloat(formData.price);
+		const price = parseDecimalInput(formData.price);
 		if (Number.isNaN(price) || price <= 0) {
 			toast.error("Gültiger Preis ist erforderlich");
 			return;
@@ -158,7 +159,9 @@ export function AddFuchsenItemDialog({
 
 	const isSubmitting = isPending || isUploading;
 	const isFormValid =
-		formData.name.trim() && formData.price && parseFloat(formData.price) > 0;
+		formData.name.trim() &&
+		formData.price &&
+		parseDecimalInput(formData.price) > 0;
 
 	return (
 		<Dialog
@@ -197,14 +200,12 @@ export function AddFuchsenItemDialog({
 								<Label htmlFor="fuchsen-price">Preis (€) *</Label>
 								<Input
 									id="fuchsen-price"
-									type="number"
-									step="0.01"
-									min="0"
+									inputMode="decimal"
 									value={formData.price}
 									onChange={(e) =>
 										setFormData((p) => ({ ...p, price: e.target.value }))
 									}
-									placeholder="0.00"
+									placeholder="0,00"
 									required
 									disabled={isSubmitting}
 								/>

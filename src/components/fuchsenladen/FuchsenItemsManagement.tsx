@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useTenantSlug } from "~/components/TenantProvider";
 import { Button } from "~/components/ui/button";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
+import { parseDecimalInput } from "~/lib/decimal";
 import {
 	deleteFuchsenItem,
 	type FuchsenItem,
@@ -130,7 +131,7 @@ export function FuchsenItemsManagement() {
 	};
 
 	const saveEdit = (id: string) => {
-		const price = parseFloat(editingData.price);
+		const price = parseDecimalInput(editingData.price);
 		if (!editingData.name.trim()) {
 			toast.error("Name ist erforderlich");
 			return;

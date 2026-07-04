@@ -7,6 +7,7 @@ import {
 	CalendarDays,
 	Camera,
 	Candy,
+	ChevronDown,
 	HandCoins,
 	House,
 	Landmark,
@@ -22,9 +23,14 @@ import {
 	User as UserIcon,
 } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useChallengeBadge } from "~/components/eloranking/ChallengeBadgeProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "~/components/ui/collapsible";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -67,12 +73,6 @@ const navGroups: NavGroup[] = [
 		items: [
 			{ title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
 			{
-				title: "Fuchsenladen",
-				href: "/fuchsenladen",
-				icon: Candy,
-				roles: [],
-			},
-			{
 				title: "Rechnungen",
 				href: "/rechnungen",
 				icon: ReceiptEuro,
@@ -85,16 +85,39 @@ const navGroups: NavGroup[] = [
 				roles: [],
 			},
 			{
-				title: "Fuchsenrechnungen",
+				title: "Getränkewart",
+				href: "/getraenkewart",
+				icon: Truck,
+				roles: ["Getränkewart", "Admin"],
+			},
+		],
+	},
+	{
+		label: "Fuchsenladen",
+		items: [
+			{
+				title: "Laden",
+				href: "/fuchsenladen",
+				icon: Candy,
+				roles: [],
+			},
+			{
+				title: "Rechnungen",
 				href: "/fuchsenrechnungen",
 				icon: ReceiptEuro,
 				roles: [],
 			},
 			{
-				title: "Fuchsenbestellungen",
+				title: "Bestellungen",
 				href: "/fuchsenbestellungen",
 				icon: ReceiptText,
 				roles: [],
+			},
+			{
+				title: "Fuchsenwart",
+				href: "/fuchsenwart",
+				icon: ShoppingBag,
+				roles: ["Fuchs", "Admin"],
 			},
 		],
 	},
@@ -126,18 +149,6 @@ const navGroups: NavGroup[] = [
 	{
 		label: "Verwaltung",
 		items: [
-			{
-				title: "Getränkewart",
-				href: "/getraenkewart",
-				icon: Truck,
-				roles: ["Getränkewart", "Admin"],
-			},
-			{
-				title: "Fuchsenwart",
-				href: "/fuchsenwart",
-				icon: ShoppingBag,
-				roles: ["Fuchs", "Admin"],
-			},
 			{
 				title: "Bilder",
 				href: "/bilder",
@@ -184,6 +195,8 @@ export type AppSidebarClientProps = {
 	};
 };
 
+const COLLAPSED_GROUPS_KEY = "sidebar-collapsed-groups";
+
 function initials(name?: string | null) {
 	if (!name) return "U";
 	return name
@@ -202,6 +215,31 @@ export function AppSidebarClient({
 	const userRoles = userData?.roles ?? [];
 	const { badgeCount, notificationsEnabled } = useChallengeBadge();
 	const showChallengeBadge = notificationsEnabled && badgeCount > 0;
+
+	const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+
+	useEffect(() => {
+		try {
+			const stored = window.localStorage.getItem(COLLAPSED_GROUPS_KEY);
+			if (stored) setCollapsedGroups(JSON.parse(stored));
+		} catch {
+			// ignore invalid stored state
+		}
+	}, []);
+
+	const toggleGroup = useCallback((label: string) => {
+		setCollapsedGroups((prev) => {
+			const next = prev.includes(label)
+				? prev.filter((l) => l !== label)
+				: [...prev, label];
+			try {
+				window.localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(next));
+			} catch {
+				// ignore storage errors
+			}
+			return next;
+		});
+	}, []);
 
 	const filteredGroups = useMemo(
 		() =>
@@ -243,33 +281,47 @@ export function AppSidebarClient({
 
 			<SidebarContent>
 				{filteredGroups.map((group) => (
-					<SidebarGroup key={group.label}>
-						<SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-						<SidebarGroupContent>
-							<SidebarMenu>
-								{group.items.map((item) => {
-									const Icon = item.icon;
-									const showBadge =
-										item.href === "/challenges" && showChallengeBadge;
-									return (
-										<SidebarMenuItem key={item.href}>
-											<SidebarMenuButton asChild>
-												<Link href={item.href}>
-													<Icon />
-													<span>{item.title}</span>
-													{showBadge ? (
-														<span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 font-medium text-white text-xs">
-															{badgeCount}
-														</span>
-													) : null}
-												</Link>
-											</SidebarMenuButton>
-										</SidebarMenuItem>
-									);
-								})}
-							</SidebarMenu>
-						</SidebarGroupContent>
-					</SidebarGroup>
+					<Collapsible
+						key={group.label}
+						open={!collapsedGroups.includes(group.label)}
+						onOpenChange={() => toggleGroup(group.label)}
+						className="group/collapsible"
+					>
+						<SidebarGroup>
+							<SidebarGroupLabel asChild>
+								<CollapsibleTrigger>
+									{group.label}
+									<ChevronDown className="ml-auto size-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+								</CollapsibleTrigger>
+							</SidebarGroupLabel>
+							<CollapsibleContent>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										{group.items.map((item) => {
+											const Icon = item.icon;
+											const showBadge =
+												item.href === "/challenges" && showChallengeBadge;
+											return (
+												<SidebarMenuItem key={item.href}>
+													<SidebarMenuButton asChild>
+														<Link href={item.href}>
+															<Icon />
+															<span>{item.title}</span>
+															{showBadge ? (
+																<span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 font-medium text-white text-xs">
+																	{badgeCount}
+																</span>
+															) : null}
+														</Link>
+													</SidebarMenuButton>
+												</SidebarMenuItem>
+											);
+										})}
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</CollapsibleContent>
+						</SidebarGroup>
+					</Collapsible>
 				))}
 			</SidebarContent>
 

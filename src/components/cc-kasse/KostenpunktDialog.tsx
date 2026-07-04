@@ -21,6 +21,7 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { formatEur } from "~/lib/cc-kasse-format";
+import { parseDecimalInput } from "~/lib/decimal";
 import {
 	createKostenpunkt,
 	type KostenpunktWithPositions,
@@ -88,7 +89,7 @@ export function KostenpunktDialog({
 	}, [open, kostenpunkt, categories]);
 
 	const num = (s: string) => {
-		const v = Number.parseFloat(s.replace(",", "."));
+		const v = parseDecimalInput(s);
 		return Number.isFinite(v) ? v : 0;
 	};
 	const budgetSum = positions.reduce((s, p) => s + num(p.ausgaben), 0);
@@ -260,16 +261,14 @@ export function KostenpunktDialog({
 									placeholder="Bemerkung (z.B. Zimmer)"
 								/>
 								<Input
-									type="number"
-									step="0.01"
+									inputMode="decimal"
 									className="text-right"
 									value={p.ausgaben}
 									onChange={(e) => setPos(i, "ausgaben", e.target.value)}
 									placeholder="Ausgaben €"
 								/>
 								<Input
-									type="number"
-									step="0.01"
+									inputMode="decimal"
 									className="text-right"
 									value={p.einnahmen}
 									onChange={(e) => setPos(i, "einnahmen", e.target.value)}

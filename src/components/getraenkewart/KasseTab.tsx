@@ -57,6 +57,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { parseDecimalInput } from "~/lib/decimal";
 import {
 	createNewBilling,
 	updateBillStatus,
@@ -161,7 +162,7 @@ function SummarySection({
 	const [isPending, startTransition] = useTransition();
 
 	function handleSavePfand() {
-		const parsed = Number.parseFloat(pfandInput.replace(",", "."));
+		const parsed = parseDecimalInput(pfandInput);
 		if (Number.isNaN(parsed)) return;
 		startTransition(async () => {
 			const res = await setPfandWert(parsed);
@@ -257,6 +258,7 @@ function SummarySection({
 							{editingPfand ? (
 								<div className="mt-1 flex items-center gap-2">
 									<Input
+										inputMode="decimal"
 										value={pfandInput}
 										onChange={(e) => setPfandInput(e.target.value)}
 										className="h-7 w-28 text-sm"
@@ -319,12 +321,18 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 	const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
 	const [isPending, startTransition] = useTransition();
 
+	const balance = entries.reduce((s, e) => s + e.amount, 0);
+
+	const parsedKontostand = parseDecimalInput(amount);
+	const diff = Number.isNaN(parsedKontostand)
+		? null
+		: parsedKontostand - balance;
+
 	function handleAdd() {
-		const parsed = Number.parseFloat(amount.replace(",", "."));
-		if (Number.isNaN(parsed) || !description.trim()) return;
+		if (diff === null || !description.trim()) return;
 		startTransition(async () => {
 			const res = await addBankEntry({
-				amount: parsed,
+				amount: diff,
 				description: description.trim(),
 				date: new Date(date),
 			});
@@ -352,8 +360,6 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 		});
 	}
 
-	const balance = entries.reduce((s, e) => s + e.amount, 0);
-
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-center justify-between">
@@ -371,12 +377,30 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 						</DialogHeader>
 						<div className="grid gap-4 py-2">
 							<div className="grid gap-1.5">
-								<Label>Betrag (negativ = Ausgabe)</Label>
+								<Label>Aktueller Kontostand (€)</Label>
 								<Input
-									placeholder="z. B. 150 oder -25,50"
+									inputMode="decimal"
+									placeholder="z. B. 1250,00"
 									value={amount}
 									onChange={(e) => setAmount(e.target.value)}
 								/>
+								<p className="text-muted-foreground text-xs">
+									Differenz zum letzten Stand ({fmt(balance)}):{" "}
+									{diff === null ? (
+										"—"
+									) : (
+										<span
+											className={
+												diff >= 0
+													? "font-medium text-green-600"
+													: "font-medium text-red-600"
+											}
+										>
+											{diff >= 0 ? "+" : ""}
+											{fmt(diff)}
+										</span>
+									)}
+								</p>
 							</div>
 							<div className="grid gap-1.5">
 								<Label>Beschreibung</Label>
@@ -396,7 +420,10 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 							</div>
 						</div>
 						<DialogFooter>
-							<Button onClick={handleAdd} disabled={isPending}>
+							<Button
+								onClick={handleAdd}
+								disabled={isPending || diff === null || !description.trim()}
+							>
 								Hinzufügen
 							</Button>
 						</DialogFooter>
@@ -760,7 +787,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 	const [isPending, startTransition] = useTransition();
 
 	function handleAdd() {
-		const parsed = Number.parseFloat(amount.replace(",", "."));
+		const parsed = parseDecimalInput(amount);
 		if (Number.isNaN(parsed) || !creditor.trim() || !description.trim()) return;
 		startTransition(async () => {
 			const res = await addExternalBill({
@@ -851,6 +878,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 							<div className="grid gap-1.5">
 								<Label>Betrag (€)</Label>
 								<Input
+									inputMode="decimal"
 									placeholder="0,00"
 									value={amount}
 									onChange={(e) => setAmount(e.target.value)}

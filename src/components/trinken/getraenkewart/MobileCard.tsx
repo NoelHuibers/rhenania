@@ -175,9 +175,6 @@ export function DrinksCardsMobile({
 											<Input
 												aria-label="Preis in Euro"
 												inputMode="decimal"
-												type="number"
-												step="0.01"
-												min="0"
 												value={editingData.price}
 												onChange={(e) =>
 													setEditingData((p) => ({
@@ -199,9 +196,6 @@ export function DrinksCardsMobile({
 											<Input
 												aria-label="Volumen in Litern"
 												inputMode="decimal"
-												type="number"
-												step="0.01"
-												min="0"
 												value={editingData.volume}
 												onChange={(e) =>
 													setEditingData((p) => ({

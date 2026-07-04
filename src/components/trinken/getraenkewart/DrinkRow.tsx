@@ -164,9 +164,6 @@ export function DrinkRow({
 						<Input
 							aria-label="Preis in Euro"
 							inputMode="decimal"
-							type="number"
-							step="0.01"
-							min="0"
 							value={editingData.price}
 							onChange={(e) =>
 								setEditingData((prev) => ({ ...prev, price: e.target.value }))
@@ -190,9 +187,6 @@ export function DrinkRow({
 						<Input
 							aria-label="Volumen in Litern"
 							inputMode="decimal"
-							type="number"
-							step="0.01"
-							min="0"
 							value={editingData.volume}
 							onChange={(e) =>
 								setEditingData((prev) => ({ ...prev, volume: e.target.value }))

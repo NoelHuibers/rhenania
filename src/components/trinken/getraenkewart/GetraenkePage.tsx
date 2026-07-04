@@ -9,6 +9,7 @@ import { DrinksTableDesktop } from "~/components/trinken/getraenkewart/DesktopCa
 import { DrinksCardsMobile } from "~/components/trinken/getraenkewart/MobileCard";
 import { Button } from "~/components/ui/button";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
+import { parseDecimalInput } from "~/lib/decimal";
 import {
 	type Drink,
 	deleteDrink,
@@ -160,9 +161,9 @@ export default function GetraenkePage() {
 	};
 
 	const saveEdit = (id: string) => {
-		const price = parseFloat(editingData.price);
+		const price = parseDecimalInput(editingData.price);
 		const volume = editingData.volume
-			? parseFloat(editingData.volume)
+			? parseDecimalInput(editingData.volume)
 			: undefined;
 		const kastengroesse = editingData.kastengroesse
 			? parseInt(editingData.kastengroesse, 10)
