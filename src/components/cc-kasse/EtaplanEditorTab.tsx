@@ -231,7 +231,7 @@ export function EtaplanEditorTab({
 					const catIncome = g.items.reduce((s, k) => s + k.income, 0);
 					return (
 						<Card key={g.category}>
-							<CardHeader className="flex flex-row items-center justify-between py-3">
+							<CardHeader className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
 								<CardTitle className="text-base">{g.category}</CardTitle>
 								<span className="text-muted-foreground text-sm">
 									Budget {formatEur(catBudget)}
@@ -239,65 +239,132 @@ export function EtaplanEditorTab({
 								</span>
 							</CardHeader>
 							<CardContent>
-								<Table>
-									<TableBody>
-										{g.items.map((kp) => (
-											<TableRow key={kp.id} className="align-top">
-												<TableCell>
+								{/* Mobile: stacked cards */}
+								<div className="space-y-3 sm:hidden">
+									{g.items.map((kp) => (
+										<div key={kp.id} className="rounded-lg border p-3">
+											<div className="flex items-start justify-between gap-2">
+												<div className="min-w-0">
 													<div className="font-medium">{kp.name}</div>
 													{kp.event && (
 														<div className="text-muted-foreground text-xs">
 															↳ {kp.event.title}
 														</div>
 													)}
-													<div className="mt-1 space-y-0.5">
-														{kp.positionen.map((p) => (
-															<div
-																key={p.id}
-																className="flex justify-between gap-4 text-muted-foreground text-xs"
-															>
-																<span>{p.bemerkung ?? "—"}</span>
-																<span className="whitespace-nowrap">
-																	{formatEur(p.ausgaben)}
-																	{p.einnahmen > 0 &&
-																		` / +${formatEur(p.einnahmen)}`}
-																</span>
-															</div>
-														))}
-													</div>
-												</TableCell>
-												<TableCell className="text-right">
-													<div className="font-medium">
+													<div className="mt-1 font-medium text-sm tabular-nums">
 														{formatEur(kp.budget)}
+														{kp.income > 0 && (
+															<span className="text-muted-foreground">
+																{" "}
+																· +{formatEur(kp.income)}
+															</span>
+														)}
 													</div>
-													{kp.income > 0 && (
-														<div className="text-muted-foreground text-xs">
-															+{formatEur(kp.income)}
+												</div>
+												<div className="flex shrink-0 gap-1">
+													<Button
+														variant="ghost"
+														size="icon"
+														onClick={() => openEditKp(kp)}
+													>
+														<Pencil className="h-4 w-4" />
+													</Button>
+													<Button
+														variant="ghost"
+														size="icon"
+														onClick={() => setDeleteId(kp.id)}
+													>
+														<Trash2 className="h-4 w-4" />
+													</Button>
+												</div>
+											</div>
+											{kp.positionen.length > 0 && (
+												<div className="mt-2 space-y-0.5 border-t pt-2">
+													{kp.positionen.map((p) => (
+														<div
+															key={p.id}
+															className="flex justify-between gap-3 text-muted-foreground text-xs"
+														>
+															<span className="min-w-0 truncate">
+																{p.bemerkung ?? "—"}
+															</span>
+															<span className="shrink-0 whitespace-nowrap tabular-nums">
+																{formatEur(p.ausgaben)}
+																{p.einnahmen > 0 &&
+																	` / +${formatEur(p.einnahmen)}`}
+															</span>
 														</div>
-													)}
-												</TableCell>
-												<TableCell className="w-[90px] text-right">
-													<div className="flex justify-end gap-1">
-														<Button
-															variant="ghost"
-															size="icon"
-															onClick={() => openEditKp(kp)}
-														>
-															<Pencil className="h-4 w-4" />
-														</Button>
-														<Button
-															variant="ghost"
-															size="icon"
-															onClick={() => setDeleteId(kp.id)}
-														>
-															<Trash2 className="h-4 w-4" />
-														</Button>
-													</div>
-												</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
+													))}
+												</div>
+											)}
+										</div>
+									))}
+								</div>
+
+								{/* Desktop: table */}
+								<div className="hidden sm:block">
+									<Table>
+										<TableBody>
+											{g.items.map((kp) => (
+												<TableRow key={kp.id} className="align-top">
+													<TableCell>
+														<div className="font-medium">{kp.name}</div>
+														{kp.event && (
+															<div className="text-muted-foreground text-xs">
+																↳ {kp.event.title}
+															</div>
+														)}
+														<div className="mt-1 space-y-0.5">
+															{kp.positionen.map((p) => (
+																<div
+																	key={p.id}
+																	className="flex justify-between gap-4 text-muted-foreground text-xs"
+																>
+																	<span className="min-w-0 truncate">
+																		{p.bemerkung ?? "—"}
+																	</span>
+																	<span className="whitespace-nowrap">
+																		{formatEur(p.ausgaben)}
+																		{p.einnahmen > 0 &&
+																			` / +${formatEur(p.einnahmen)}`}
+																	</span>
+																</div>
+															))}
+														</div>
+													</TableCell>
+													<TableCell className="text-right">
+														<div className="font-medium">
+															{formatEur(kp.budget)}
+														</div>
+														{kp.income > 0 && (
+															<div className="text-muted-foreground text-xs">
+																+{formatEur(kp.income)}
+															</div>
+														)}
+													</TableCell>
+													<TableCell className="w-[90px] text-right">
+														<div className="flex justify-end gap-1">
+															<Button
+																variant="ghost"
+																size="icon"
+																onClick={() => openEditKp(kp)}
+															>
+																<Pencil className="h-4 w-4" />
+															</Button>
+															<Button
+																variant="ghost"
+																size="icon"
+																onClick={() => setDeleteId(kp.id)}
+															>
+																<Trash2 className="h-4 w-4" />
+															</Button>
+														</div>
+													</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+								</div>
 							</CardContent>
 						</Card>
 					);

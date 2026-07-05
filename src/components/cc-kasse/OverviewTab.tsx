@@ -176,38 +176,85 @@ export function OverviewTab({
 					<CardTitle className="text-base">Kostenpunkte</CardTitle>
 				</CardHeader>
 				<CardContent>
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Kostenpunkt</TableHead>
-								<TableHead className="text-right">Budget</TableHead>
-								<TableHead className="text-right">Ausgegeben</TableHead>
-								<TableHead className="hidden text-right sm:table-cell">
-									Verbleibend
-								</TableHead>
-								<TableHead className="hidden w-[160px] sm:table-cell">
-									Auslastung
-								</TableHead>
-								<TableHead>Status</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{categories.map((cat) => (
-								<CategoryRows
-									key={cat.category}
-									category={cat.category}
-									catBudget={cat.budget}
-									catAusgegeben={cat.ausgegeben}
-									catVerbleibend={cat.verbleibend}
-									catAuslastung={cat.auslastung}
-									catStatus={cat.status}
-									items={kostenpunkte.filter(
-										(k) => k.category === cat.category,
-									)}
-								/>
-							))}
-						</TableBody>
-					</Table>
+					{/* Mobile: stacked cards per Kostenpunkt */}
+					<div className="space-y-5 sm:hidden">
+						{categories.map((cat) => (
+							<div key={cat.category} className="space-y-2">
+								<div className="flex items-center justify-between gap-2 rounded-md bg-muted/50 px-2 py-1.5">
+									<span className="min-w-0 truncate font-medium text-sm">
+										{cat.category}
+									</span>
+									<StatusBadge status={cat.status} />
+								</div>
+								{kostenpunkte
+									.filter((k) => k.category === cat.category)
+									.map((k) => (
+										<div key={k.id} className="rounded-lg border p-3">
+											<div className="flex items-center justify-between gap-2">
+												<span className="min-w-0 truncate font-medium text-sm">
+													{k.name}
+												</span>
+												<StatusBadge status={k.status} />
+											</div>
+											<div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+												<MobileAmount label="Budget" value={k.budget} />
+												<MobileAmount label="Ausgegeben" value={k.ausgegeben} />
+												<MobileAmount
+													label="Verbleibend"
+													value={k.verbleibend}
+													negative={k.verbleibend < 0}
+												/>
+											</div>
+											<Progress
+												className="mt-2"
+												value={Math.min(k.auslastung, 100)}
+											/>
+										</div>
+									))}
+								<div className="grid grid-cols-3 gap-2 px-2 text-xs">
+									<MobileAmount label="Summe" value={cat.budget} />
+									<MobileAmount label="" value={cat.ausgegeben} />
+									<MobileAmount
+										label=""
+										value={cat.verbleibend}
+										negative={cat.verbleibend < 0}
+									/>
+								</div>
+							</div>
+						))}
+					</div>
+
+					{/* Desktop: table */}
+					<div className="hidden sm:block">
+						<Table>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Kostenpunkt</TableHead>
+									<TableHead className="text-right">Budget</TableHead>
+									<TableHead className="text-right">Ausgegeben</TableHead>
+									<TableHead className="text-right">Verbleibend</TableHead>
+									<TableHead className="w-[160px]">Auslastung</TableHead>
+									<TableHead>Status</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{categories.map((cat) => (
+									<CategoryRows
+										key={cat.category}
+										category={cat.category}
+										catBudget={cat.budget}
+										catAusgegeben={cat.ausgegeben}
+										catVerbleibend={cat.verbleibend}
+										catAuslastung={cat.auslastung}
+										catStatus={cat.status}
+										items={kostenpunkte.filter(
+											(k) => k.category === cat.category,
+										)}
+									/>
+								))}
+							</TableBody>
+						</Table>
+					</div>
 				</CardContent>
 			</Card>
 		</div>
@@ -232,24 +279,53 @@ function SummaryCard({
 	valueClass?: string;
 }) {
 	return (
-		<div className="flex items-start gap-3 rounded-xl border bg-card p-4 shadow-sm">
+		<div className="flex items-start gap-3 rounded-xl border bg-card p-3 shadow-sm sm:p-4">
 			<div
 				className={cn(
-					"flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+					"hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:flex",
 					accent,
 				)}
 			>
 				{icon}
 			</div>
 			<div className="min-w-0 flex-1">
-				<div className="flex items-center justify-between gap-2">
+				<div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
 					<p className="truncate text-muted-foreground text-xs">{title}</p>
 					{badge}
 				</div>
-				<div className={cn("mt-1 font-bold text-2xl tabular-nums", valueClass)}>
+				<div
+					className={cn(
+						"mt-1 font-bold text-lg tabular-nums sm:text-2xl",
+						valueClass,
+					)}
+				>
 					{value}
 				</div>
 				{sub && <p className="text-muted-foreground text-xs">{sub}</p>}
+			</div>
+		</div>
+	);
+}
+
+function MobileAmount({
+	label,
+	value,
+	negative,
+}: {
+	label: string;
+	value: number;
+	negative?: boolean;
+}) {
+	return (
+		<div className="min-w-0">
+			<div className="truncate text-muted-foreground">{label || " "}</div>
+			<div
+				className={cn(
+					"font-medium tabular-nums",
+					negative && "text-red-600 dark:text-red-400",
+				)}
+			>
+				{formatEur(value)}
 			</div>
 		</div>
 	);
@@ -297,10 +373,10 @@ function CategoryRows({
 				<TableCell>{category}</TableCell>
 				<TableCell className="text-right">{formatEur(catBudget)}</TableCell>
 				<TableCell className="text-right">{formatEur(catAusgegeben)}</TableCell>
-				<TableCell className="hidden text-right sm:table-cell">
+				<TableCell className="text-right">
 					{formatEur(catVerbleibend)}
 				</TableCell>
-				<TableCell className="hidden sm:table-cell">
+				<TableCell>
 					<Progress value={Math.min(catAuslastung, 100)} />
 				</TableCell>
 				<TableCell>
@@ -314,10 +390,10 @@ function CategoryRows({
 					<TableCell className="text-right">
 						{formatEur(k.ausgegeben)}
 					</TableCell>
-					<TableCell className="hidden text-right sm:table-cell">
+					<TableCell className="text-right">
 						{formatEur(k.verbleibend)}
 					</TableCell>
-					<TableCell className="hidden sm:table-cell">
+					<TableCell>
 						<Progress value={Math.min(k.auslastung, 100)} />
 					</TableCell>
 					<TableCell>
