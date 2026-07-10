@@ -294,6 +294,9 @@ export function MembersTable({
 			if (!res.success) {
 				toast.error(res.error);
 				router.refresh();
+			} else if (res.linkedNow) {
+				toast.success("E-Mail passt zu einem App-Account — verknüpft.");
+				router.refresh();
 			}
 		});
 	};

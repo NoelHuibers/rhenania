@@ -1,11 +1,12 @@
 "use server";
 
-import { eq, isNull, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
-import { members, users } from "~/server/db/schema";
+import { members } from "~/server/db/schema";
 import { MEMBER_EDIT_ROLES, requireRoles } from "./_guards";
+import { applyLink, computeLinkablePairs } from "./link-helpers";
 import {
 	BODY_START_ROW,
 	boolToCell,
@@ -215,27 +216,12 @@ export async function importMembersXlsx(input: { base64: string }) {
 			}
 		}
 
-		// Auto-link accounts by email.
-		let linked = 0;
-		const unlinked = await db
-			.select({ id: members.id, email: members.email })
-			.from(members)
-			.where(isNull(members.userId));
-		for (const m of unlinked) {
-			if (!m.email) continue;
-			const [u] = await db
-				.select({ id: users.id })
-				.from(users)
-				.where(sql`lower(${users.email}) = lower(${m.email})`)
-				.limit(1);
-			if (u) {
-				await db
-					.update(members)
-					.set({ userId: u.id })
-					.where(eq(members.id, m.id));
-				linked++;
-			}
+		// Auto-link accounts by email (shared unambiguous-match logic).
+		const { pairs } = await computeLinkablePairs();
+		for (const p of pairs) {
+			await applyLink(p.memberId, p.userId);
 		}
+		const linked = pairs.length;
 
 		revalidatePath("/adressliste");
 		return {

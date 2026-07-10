@@ -150,6 +150,9 @@ export function MemberDialog({ open, onOpenChange, member, onSaved }: Props) {
 				: await createMember(f);
 			if (res.success) {
 				toast.success(isEdit ? "Mitglied gespeichert" : "Mitglied erstellt");
+				if (res.linkedNow) {
+					toast.success("E-Mail passt zu einem App-Account — verknüpft.");
+				}
 				onSaved();
 				onOpenChange(false);
 			} else {

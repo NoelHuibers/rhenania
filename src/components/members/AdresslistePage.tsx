@@ -3,6 +3,7 @@
 import {
 	Download,
 	GraduationCap,
+	Link2,
 	Plus,
 	Sprout,
 	Upload,
@@ -26,6 +27,7 @@ import {
 import { Button } from "~/components/ui/button";
 import { downloadBase64, fileToBase64, XLSX_MIME } from "~/lib/file-download";
 import { cn } from "~/lib/utils";
+import { relinkMemberAccounts } from "~/server/actions/members/linkAccounts";
 import {
 	deleteMember,
 	type MemberListItem,
@@ -132,6 +134,32 @@ export function AdresslistePage({
 		});
 	};
 
+	const onRelink = () => {
+		startTransition(async () => {
+			const res = await relinkMemberAccounts();
+			if (!res.success) {
+				toast.error(res.error);
+				return;
+			}
+			if (res.linked > 0) {
+				const names = res.linkedNames.slice(0, 3).join(", ");
+				toast.success(
+					`${res.linked} ${res.linked === 1 ? "Konto" : "Konten"} verknüpft: ${names}${res.linked > 3 ? ", …" : ""}`,
+				);
+				router.refresh();
+			} else {
+				toast.info(
+					"Keine neuen Verknüpfungen — alle passenden Accounts sind schon verbunden.",
+				);
+			}
+			if (res.ambiguous > 0) {
+				toast.warning(
+					`${res.ambiguous} ${res.ambiguous === 1 ? "Eintrag" : "Einträge"} übersprungen: E-Mail passt auf mehrere Accounts/Mitglieder.`,
+				);
+			}
+		});
+	};
+
 	const confirmDelete = () => {
 		if (!deleteTarget) return;
 		const id = deleteTarget.id;
@@ -186,6 +214,15 @@ export function AdresslistePage({
 									className="hidden"
 									onChange={onImport}
 								/>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={onRelink}
+									disabled={isPending}
+									title="Unverknüpfte Einträge per E-Mail mit App-Accounts verknüpfen"
+								>
+									<Link2 className="mr-1 h-4 w-4" /> Konten verknüpfen
+								</Button>
 								<Button size="sm" onClick={openNew}>
 									<Plus className="mr-1 h-4 w-4" /> Mitglied
 								</Button>

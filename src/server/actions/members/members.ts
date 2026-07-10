@@ -11,6 +11,7 @@ import {
 	MEMBER_VIEW_ROLES,
 	requireRoles,
 } from "./_guards";
+import { tryAutoLinkMember } from "./link-helpers";
 import { normalizeStatus } from "./members-excel-map";
 
 const clean = (s?: string | null): string | null => {
@@ -109,8 +110,10 @@ export async function createMember(input: MemberInput) {
 				updatedBy: guard.userId,
 			})
 			.returning();
+		// If one of the emails matches an existing account, link it right away.
+		const linkedNow = row ? await tryAutoLinkMember(row.id) : false;
 		revalidatePath("/adressliste");
-		return { success: true as const, data: row };
+		return { success: true as const, data: row, linkedNow };
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			return {
@@ -135,8 +138,10 @@ export async function updateMember(id: string, input: MemberInput) {
 			.returning();
 		if (!row)
 			return { success: false as const, error: "Mitglied nicht gefunden" };
+		// A corrected email may now match an existing account — link it right away.
+		const linkedNow = row.userId == null ? await tryAutoLinkMember(id) : false;
 		revalidatePath("/adressliste");
-		return { success: true as const, data: row };
+		return { success: true as const, data: row, linkedNow };
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			return {
@@ -178,8 +183,11 @@ export async function updateMemberFields(
 		}
 		set.updatedBy = guard.userId;
 		await db.update(members).set(set).where(eq(members.id, id));
+		// A corrected email may now match an existing account — link it right away.
+		const emailTouched = ["email", "email2", "email3"].some((k) => k in set);
+		const linkedNow = emailTouched ? await tryAutoLinkMember(id) : false;
 		revalidatePath("/adressliste");
-		return { success: true as const };
+		return { success: true as const, linkedNow };
 	} catch (error) {
 		if (error instanceof z.ZodError) {
 			return {
