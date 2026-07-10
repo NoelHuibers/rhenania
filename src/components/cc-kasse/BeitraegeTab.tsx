@@ -1,9 +1,27 @@
 "use client";
 
-import { BellRing, Check, FileText, Mail, Plus, RefreshCw } from "lucide-react";
+import {
+	BellRing,
+	Check,
+	FileText,
+	Mail,
+	Plus,
+	RefreshCw,
+	Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
@@ -20,6 +38,7 @@ import {
 	type BeitragRun,
 	type ChargeListItem,
 	type ChargesForRun,
+	deleteBeitragRun,
 	downloadChargePdf,
 	markChargePaid,
 	markChargeUnpaid,
@@ -78,6 +97,7 @@ export function BeitraegeTab({
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [createOpen, setCreateOpen] = useState(false);
+	const [deleteOpen, setDeleteOpen] = useState(false);
 
 	const run = selected?.run ?? null;
 	const charges = selected?.charges ?? [];
@@ -127,6 +147,21 @@ export function BeitraegeTab({
 				router.refresh();
 			} else {
 				toast.error(res.error);
+			}
+		});
+	};
+
+	const confirmDeleteRun = () => {
+		if (!run) return;
+		const id = run.id;
+		setDeleteOpen(false);
+		startTransition(async () => {
+			const res = await deleteBeitragRun(id);
+			if (res.success) {
+				toast.success("Beitragslauf gelöscht");
+				router.refresh();
+			} else {
+				toast.error(res.error ?? "Fehler");
 			}
 		});
 	};
@@ -214,6 +249,15 @@ export function BeitraegeTab({
 						>
 							<RefreshCw className="mr-1 h-4 w-4" /> Mitglieder aktualisieren
 						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							onClick={() => setDeleteOpen(true)}
+							disabled={isPending}
+							className="text-destructive hover:text-destructive"
+						>
+							<Trash2 className="mr-1 h-4 w-4" /> Lauf löschen
+						</Button>
 					</div>
 
 					{charges.length === 0 ? (
@@ -287,6 +331,25 @@ export function BeitraegeTab({
 					}}
 				/>
 			)}
+
+			<AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Beitragslauf löschen?</AlertDialogTitle>
+						<AlertDialogDescription>
+							„{run?.name}“ und alle zugehörigen offenen Beiträge werden
+							gelöscht. Das ist nur möglich, solange noch kein Beitrag bezahlt
+							wurde.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
+						<AlertDialogAction onClick={confirmDeleteRun}>
+							Löschen
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

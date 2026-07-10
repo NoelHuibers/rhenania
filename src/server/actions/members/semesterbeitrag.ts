@@ -1,6 +1,6 @@
 "use server";
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -122,6 +122,48 @@ export async function regenerateCharges(runId: string) {
 	const added = await insertCharges(runId, run.amount);
 	revalidatePath("/cc-kasse");
 	return { success: true as const, data: { checked: added } };
+}
+
+// Delete a run created by mistake. Blocked once any Beitrag is paid — paid
+// charges are financial records (they count as Ist-Einnahmen in the Etatplan
+// overview). Open/gemahnte charges are removed with the run.
+export async function deleteBeitragRun(runId: string) {
+	const guard = await requireRoles(BEITRAG_ROLES);
+	if (!guard.ok) return { success: false as const, error: guard.error };
+	try {
+		const run = await db.query.semesterbeitragRuns.findFirst({
+			where: (t, { eq }) => eq(t.id, runId),
+		});
+		if (!run) return { success: false as const, error: "Lauf nicht gefunden" };
+		const [row] = await db
+			.select({ c: sql<number>`count(*)` })
+			.from(semesterbeitragCharges)
+			.where(
+				and(
+					eq(semesterbeitragCharges.runId, runId),
+					eq(semesterbeitragCharges.status, "Bezahlt"),
+				),
+			);
+		if (Number(row?.c ?? 0) > 0) {
+			return {
+				success: false as const,
+				error:
+					"Der Lauf hat bereits bezahlte Beiträge und kann nicht gelöscht werden.",
+			};
+		}
+		// Explicit charge delete first — don't rely on FK cascade being enforced.
+		await db
+			.delete(semesterbeitragCharges)
+			.where(eq(semesterbeitragCharges.runId, runId));
+		await db
+			.delete(semesterbeitragRuns)
+			.where(eq(semesterbeitragRuns.id, runId));
+		revalidatePath("/cc-kasse");
+		return { success: true as const };
+	} catch (error) {
+		console.error("Error deleting Beitragslauf:", error);
+		return { success: false as const, error: "Fehler beim Löschen" };
+	}
 }
 
 // ─── Charges ──────────────────────────────────────────────────────────────────
