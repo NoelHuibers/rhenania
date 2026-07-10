@@ -134,7 +134,7 @@ export function Hero({ heroImageUrl }: { heroImageUrl: string }) {
 					<span className="sr-only">Corps Rhenania Stuttgart</span>
 					<span
 						aria-hidden
-						className="block overflow-hidden px-3 pb-2 font-medium text-7xl italic leading-[1.05] sm:text-8xl md:text-[8.5rem]"
+						className="block overflow-hidden whitespace-nowrap px-3 pb-2 font-medium text-6xl italic leading-[1.05] sm:text-8xl md:text-[8.5rem]"
 					>
 						{LETTERS.map((ch, i) => (
 							<span

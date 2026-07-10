@@ -48,17 +48,19 @@ export function SiteHeader({ displayName }: { displayName: string }) {
 		>
 			<Link
 				href="/"
-				className="font-heading font-semibold text-lg uppercase tracking-[0.2em] transition-colors hover:text-[#b85d7c]"
+				className="min-w-0 flex-1 font-heading font-semibold text-sm uppercase leading-snug tracking-[0.15em] transition-colors hover:text-[#b85d7c] sm:flex-none sm:text-lg sm:tracking-[0.2em]"
 			>
 				{displayName}
 			</Link>
-			<nav className="flex items-center gap-4">
+			<nav className="flex shrink-0 items-center gap-3 sm:gap-4">
+				{/* Social icons are secondary — keep the phone header to wordmark
+				    plus the Intranet entrance. */}
 				{SOCIAL.map(({ href, label, Icon, external }) => (
 					<Link
 						key={label}
 						href={href}
 						aria-label={label}
-						className="text-[#2c2630]/70 transition-colors hover:text-[#b85d7c]"
+						className="hidden text-[#2c2630]/70 transition-colors hover:text-[#b85d7c] sm:block"
 						{...(external
 							? { target: "_blank", rel: "noopener noreferrer" }
 							: {})}
