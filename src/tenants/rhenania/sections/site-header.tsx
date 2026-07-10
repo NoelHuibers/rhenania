@@ -48,19 +48,17 @@ export function SiteHeader({ displayName }: { displayName: string }) {
 		>
 			<Link
 				href="/"
-				className="min-w-0 flex-1 font-heading font-semibold text-sm uppercase leading-snug tracking-[0.15em] transition-colors hover:text-[#b85d7c] sm:flex-none sm:text-lg sm:tracking-[0.2em]"
+				className="min-w-0 flex-1 font-heading font-semibold text-xs uppercase leading-snug tracking-[0.12em] transition-colors hover:text-[#b85d7c] sm:flex-none sm:text-lg sm:tracking-[0.2em]"
 			>
 				{displayName}
 			</Link>
-			<nav className="flex shrink-0 items-center gap-3 sm:gap-4">
-				{/* Social icons are secondary — keep the phone header to wordmark
-				    plus the Intranet entrance. */}
+			<nav className="flex shrink-0 items-center gap-2 sm:gap-4">
 				{SOCIAL.map(({ href, label, Icon, external }) => (
 					<Link
 						key={label}
 						href={href}
 						aria-label={label}
-						className="hidden text-[#2c2630]/70 transition-colors hover:text-[#b85d7c] sm:block"
+						className="text-[#2c2630]/70 transition-colors hover:text-[#b85d7c]"
 						{...(external
 							? { target: "_blank", rel: "noopener noreferrer" }
 							: {})}
@@ -73,7 +71,7 @@ export function SiteHeader({ displayName }: { displayName: string }) {
 				<Link
 					href="/profile"
 					prefetch={false}
-					className="rounded-full bg-[#2c2630] px-4 py-1.5 font-medium text-[#faf6f4] text-xs tracking-wide transition-colors duration-300 hover:bg-[#b85d7c] sm:px-5 sm:py-2 sm:text-sm"
+					className="rounded-full bg-[#2c2630] px-3 py-1 font-medium text-[#faf6f4] text-[11px] tracking-wide transition-colors duration-300 hover:bg-[#b85d7c] sm:px-5 sm:py-2 sm:text-sm"
 				>
 					Intranet
 				</Link>
