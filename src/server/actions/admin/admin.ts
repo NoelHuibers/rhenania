@@ -14,15 +14,18 @@ import {
 import {
 	billPDFs,
 	bills,
+	challenges,
 	games,
 	homepageImages,
 	inventories,
+	members,
 	orders,
 	roles,
 	userRoles,
 	users,
 } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { requireTenantId } from "~/server/lib/tenant-context";
 import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
 // Types for our data
@@ -344,9 +347,14 @@ export async function bulkSetRoleUsers(
 }
 
 /**
- * Delete a user and all their associated data
+ * Remove a user from the CURRENT tenant: delete their tenant-local data,
+ * mirror row, and membership. The global identity (control DB user, accounts,
+ * sessions, cross-Corps stats) is only deleted when this was their last
+ * remaining tenant membership — identity is shared across tenants, so one
+ * tenant's admin must not destroy it while other memberships exist.
  */
 export async function deleteUser(userId: string): Promise<void> {
+	const tenantId = await requireTenantId();
 	const db = await getCurrentTenantDb();
 	try {
 		// Nullify nullable FK columns that reference this user
@@ -360,6 +368,12 @@ export async function deleteUser(userId: string): Promise<void> {
 			.set({ performedBy: null })
 			.where(eq(inventories.performedBy, userId));
 
+		// Unlink the Adressliste member row (the entry itself stays)
+		await db
+			.update(members)
+			.set({ userId: null })
+			.where(eq(members.userId, userId));
+
 		// Delete bill PDFs (no cascade from bills → billPDFs)
 		await db.delete(billPDFs).where(eq(billPDFs.userId, userId));
 
@@ -368,6 +382,18 @@ export async function deleteUser(userId: string): Promise<void> {
 
 		// Delete orders
 		await db.delete(orders).where(eq(orders.userId, userId));
+
+		// Delete challenges the user is involved in (no cascade, FK would block)
+		await db
+			.delete(challenges)
+			.where(
+				or(
+					eq(challenges.challengerId, userId),
+					eq(challenges.opponentId, userId),
+					eq(challenges.proposedWinnerId, userId),
+					eq(challenges.proposedById, userId),
+				),
+			);
 
 		// Delete games the user participated in
 		await db
@@ -380,23 +406,34 @@ export async function deleteUser(userId: string): Promise<void> {
 				),
 			);
 
-		// Delete user stats (lives in the control DB — unified across Corps).
-		await controlDb.delete(userStats).where(eq(userStats.userId, userId));
-
 		// Delete the tenant `users` mirror — cascades: userRoles,
-		// userPreferences, userAchievements, achievementProgress
+		// userPreferences, userAchievements, achievementProgress,
+		// userPaymentInfo; members.userId is set null by its FK.
 		await db.delete(users).where(eq(users.id, userId));
 
-		// Delete auth data + memberships + identity in the control DB.
-		// NOTE single-tenant for now: removing the user globally. When more than
-		// one tenant exists this should switch to "remove from this tenant only"
-		// (delete the membership row + tenant data, keep control identity).
-		await controlDb.delete(sessions).where(eq(sessions.userId, userId));
-		await controlDb.delete(accounts).where(eq(accounts.userId, userId));
+		// Control DB: remove the membership for THIS tenant only.
 		await controlDb
 			.delete(tenantMemberships)
-			.where(eq(tenantMemberships.userId, userId));
-		await controlDb.delete(controlUsers).where(eq(controlUsers.id, userId));
+			.where(
+				and(
+					eq(tenantMemberships.userId, userId),
+					eq(tenantMemberships.tenantId, tenantId),
+				),
+			);
+
+		// Last membership gone → delete the global identity as before.
+		const [remaining] = await controlDb
+			.select({ tenantId: tenantMemberships.tenantId })
+			.from(tenantMemberships)
+			.where(eq(tenantMemberships.userId, userId))
+			.limit(1);
+		if (!remaining) {
+			await controlDb.delete(sessions).where(eq(sessions.userId, userId));
+			await controlDb.delete(accounts).where(eq(accounts.userId, userId));
+			// Cross-Corps stats only go when the identity does.
+			await controlDb.delete(userStats).where(eq(userStats.userId, userId));
+			await controlDb.delete(controlUsers).where(eq(controlUsers.id, userId));
+		}
 
 		revalidatePath("/admin");
 	} catch (error) {

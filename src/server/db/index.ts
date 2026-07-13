@@ -55,7 +55,14 @@ async function resolveCurrentClient(): Promise<Client> {
 		// Not in a request context (script / build-time) — fall through.
 		return fallbackClient;
 	}
-	if (!tenantId) return fallbackClient;
+	if (!tenantId) {
+		// In a request context but the middleware never stamped a tenant.
+		// Falling back would silently read/write the default (Rhenania) DB on
+		// behalf of an unknown tenant — fail loudly instead.
+		throw new Error(
+			"Request reached the DB layer without x-tenant-id. Did the request bypass middleware?",
+		);
+	}
 
 	const { getTenantDb: _getTenantDb } = await import("./tenants");
 	// `getTenantDb` returns the drizzle instance, not the raw client. We want
