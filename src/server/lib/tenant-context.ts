@@ -8,13 +8,14 @@
 // Resolutions are cached in-process for a short TTL so steady-state traffic
 // hits the control DB at most once per host per minute.
 
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 
 import { controlDb } from "~/server/db/control";
 import {
 	type TenantBranding,
 	tenantDomains,
+	tenantMemberships,
 	tenants,
 } from "~/server/db/control-schema";
 
@@ -144,6 +145,43 @@ export async function getCurrentRequestOrigin(): Promise<string> {
 	}
 	const fallback = process.env.BETTER_AUTH_URL ?? "";
 	return fallback;
+}
+
+// Identity (sessions, users) is global across tenants, so "logged in" alone
+// must never grant access to a tenant's data — membership in the CURRENT
+// tenant is the fence. Cached per (tenant, user) with the same short TTL as
+// host resolution; revocations apply within a minute.
+const membershipCache = new Map<
+	string,
+	{ active: boolean; expiresAt: number }
+>();
+const MEMBERSHIP_CACHE_TTL_MS = 60_000;
+
+export async function hasActiveMembership(
+	userId: string,
+	tenantId: string,
+): Promise<boolean> {
+	const key = `${tenantId}:${userId}`;
+	const cached = membershipCache.get(key);
+	if (cached && cached.expiresAt > Date.now()) return cached.active;
+
+	const [row] = await controlDb
+		.select({ status: tenantMemberships.status })
+		.from(tenantMemberships)
+		.where(
+			and(
+				eq(tenantMemberships.userId, userId),
+				eq(tenantMemberships.tenantId, tenantId),
+			),
+		)
+		.limit(1);
+
+	const active = row?.status === "active";
+	membershipCache.set(key, {
+		active,
+		expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS,
+	});
+	return active;
 }
 
 export async function requireCurrentTenant(): Promise<TenantContext> {

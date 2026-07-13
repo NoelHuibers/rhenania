@@ -8,6 +8,7 @@ import { betterAuthInstance } from "~/server/auth";
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 import {
+	hasActiveMembership,
 	resolveTenantByHost,
 	TENANT_HEADER,
 } from "~/server/lib/tenant-context";
@@ -219,6 +220,33 @@ export default async function middleware(request: NextRequest) {
 			request,
 			tenantId,
 		);
+	}
+
+	// 4.5) Membership gate: sessions are global (control DB), so a login on
+	// tenant A is a valid session on tenant B's domain too. Every protected
+	// page/action requires an ACTIVE membership in the current tenant.
+	// Exempt: /access-denied (the redirect target itself) and /superadmin
+	// (platform-level, gated by the superAdmins table server-side).
+	const lowerPath = pathname.toLowerCase();
+	const membershipExempt =
+		lowerPath === "/access-denied" ||
+		lowerPath === "/superadmin" ||
+		lowerPath.startsWith("/superadmin/");
+
+	if (!membershipExempt) {
+		const isMember = await hasActiveMembership(session.user.id, tenantId);
+		if (!isMember) {
+			const accessDeniedUrl = request.nextUrl.clone();
+			accessDeniedUrl.pathname = "/access-denied";
+			accessDeniedUrl.search = "";
+			accessDeniedUrl.searchParams.set("required", "Mitglied");
+			accessDeniedUrl.searchParams.set("path", pathname);
+			return withTenantHeader(
+				NextResponse.redirect(accessDeniedUrl),
+				request,
+				tenantId,
+			);
+		}
 	}
 
 	// 5) Check role-protected paths

@@ -90,7 +90,7 @@ async function main() {
 		if (!keep && APPLY) {
 			await c.execute({
 				sql: "DELETE FROM __drizzle_migrations WHERE rowid = ?",
-				args: [r.rowid],
+				args: [Number(r.rowid)],
 			});
 		}
 	}

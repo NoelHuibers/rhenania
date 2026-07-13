@@ -6,6 +6,7 @@ import { z } from "zod";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { type Member, members } from "~/server/db/schema";
+import { getTenantId, hasActiveMembership } from "~/server/lib/tenant-context";
 
 const clean = (s?: string | null): string | null => {
 	const t = s?.trim();
@@ -19,6 +20,11 @@ async function resolveMyMember(
 	userId: string,
 	email: string | null,
 ): Promise<Member | null> {
+	// Sessions are global across tenants — never resolve (and especially never
+	// auto-link) a member row for someone who isn't a member of THIS tenant.
+	const tenantId = await getTenantId();
+	if (!tenantId || !(await hasActiveMembership(userId, tenantId))) return null;
+
 	const byUser = await db.query.members.findFirst({
 		where: (t, { eq }) => eq(t.userId, userId),
 	});
