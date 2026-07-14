@@ -76,9 +76,11 @@ function Stat({
 export function AdresslistePage({
 	members,
 	canEdit,
+	statusOptions,
 }: {
 	members: MemberListItem[];
 	canEdit: boolean;
+	statusOptions?: { value: string; label: string }[];
 }) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
@@ -266,6 +268,7 @@ export function AdresslistePage({
 						setDialogOpen(true);
 					}}
 					onRequestDelete={(m) => setDeleteTarget(m)}
+					statusOptions={statusOptions}
 				/>
 			</div>
 
@@ -274,6 +277,7 @@ export function AdresslistePage({
 				onOpenChange={setDialogOpen}
 				member={editing}
 				onSaved={() => router.refresh()}
+				statusOptions={statusOptions}
 			/>
 
 			<AlertDialog

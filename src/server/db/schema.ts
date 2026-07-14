@@ -1141,6 +1141,32 @@ export const eventTypes = createTable(
 	(t) => [index("event_type_active_idx").on(t.isActive)],
 );
 
+// Member status taxonomy (Adressliste "Abteilung"). `key` is the canonical
+// value offered in dropdowns; members.status stays free text, so imported
+// variants are matched against keys by normalized longest-prefix (see
+// member-statuses.ts). `beitragspflichtig` drives who gets Semesterbeitrag
+// charges — per-tenant, since other Corps use different labels.
+export const memberStatuses = createTable(
+	"member_status",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		key: d.text({ length: 100 }).notNull().unique(),
+		label: d.text({ length: 255 }).notNull(),
+		beitragspflichtig: d.integer({ mode: "boolean" }).notNull().default(false),
+		displayOrder: d.integer().notNull().default(0),
+		isActive: d.integer({ mode: "boolean" }).notNull().default(true),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+	}),
+	(t) => [index("member_status_active_idx").on(t.isActive)],
+);
+
 // ─── Fuchsenladen ─────────────────────────────────────────────────────────────
 //
 // Parallel to the drinks shop (drinks/orders) but for Fuchsen-specific items

@@ -25,6 +25,7 @@ import {
 	DEFAULT_EVENT_TYPES,
 	DEFAULT_HOMEPAGE_SECTIONS,
 	DEFAULT_KASSE_TYPES,
+	DEFAULT_MEMBER_STATUSES,
 } from "~/server/lib/tenant-default-config";
 import {
 	createDatabase,
@@ -194,5 +195,12 @@ async function seedTenantDefaults(
 			.insert(tenantSchema.homepageSections)
 			.values(s)
 			.onConflictDoNothing({ target: tenantSchema.homepageSections.key });
+	}
+
+	for (const m of DEFAULT_MEMBER_STATUSES) {
+		await tdb
+			.insert(tenantSchema.memberStatuses)
+			.values(m)
+			.onConflictDoNothing({ target: tenantSchema.memberStatuses.key });
 	}
 }

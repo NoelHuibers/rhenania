@@ -13,7 +13,11 @@ import {
 	semesterbeitragCharges,
 	semesterbeitragRuns,
 } from "~/server/db/schema";
-import { BEITRAG_ROLES, isBeitragspflichtig, requireRoles } from "./_guards";
+import {
+	getTenantMemberStatuses,
+	makeBeitragspflichtigMatcher,
+} from "~/server/lib/member-statuses";
+import { BEITRAG_ROLES, requireRoles } from "./_guards";
 import { generateBeitragPDF } from "./beitragPDF";
 
 function round2(n: number) {
@@ -46,6 +50,9 @@ async function insertCharges(
 	runId: string,
 	baseAmount: number,
 ): Promise<number> {
+	const isBeitragspflichtig = makeBeitragspflichtigMatcher(
+		await getTenantMemberStatuses(),
+	);
 	const allMembers = await db
 		.select({
 			id: members.id,

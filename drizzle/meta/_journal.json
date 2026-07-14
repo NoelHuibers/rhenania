@@ -64,6 +64,13 @@
 			"when": 1782861798675,
 			"tag": "0008_condemned_wiccan",
 			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "6",
+			"when": 1784057820410,
+			"tag": "0009_supreme_vanisher",
+			"breakpoints": true
 		}
 	]
 }

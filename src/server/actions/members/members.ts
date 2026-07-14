@@ -6,11 +6,10 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { members, semesterbeitragCharges } from "~/server/db/schema";
 import {
-	isBeitragspflichtig,
-	MEMBER_EDIT_ROLES,
-	MEMBER_VIEW_ROLES,
-	requireRoles,
-} from "./_guards";
+	getTenantMemberStatuses,
+	makeBeitragspflichtigMatcher,
+} from "~/server/lib/member-statuses";
+import { MEMBER_EDIT_ROLES, MEMBER_VIEW_ROLES, requireRoles } from "./_guards";
 import { tryAutoLinkMember } from "./link-helpers";
 import { normalizeStatus } from "./members-excel-map";
 
@@ -84,6 +83,9 @@ function toValues(p: z.infer<typeof memberInputSchema>) {
 export async function listMembers() {
 	const guard = await requireRoles(MEMBER_VIEW_ROLES);
 	if (!guard.ok) return [];
+	const isBeitragspflichtig = makeBeitragspflichtigMatcher(
+		await getTenantMemberStatuses(),
+	);
 	const rows = await db
 		.select()
 		.from(members)
@@ -93,6 +95,17 @@ export async function listMembers() {
 		beitragspflichtig: isBeitragspflichtig(m.status),
 		linked: m.userId != null,
 	}));
+}
+
+// Canonical status options for the Adressliste dropdowns, from the tenant's
+// member_status config table (defaults if not yet seeded).
+export async function listMemberStatusOptions(): Promise<
+	{ value: string; label: string }[]
+> {
+	const guard = await requireRoles(MEMBER_VIEW_ROLES);
+	if (!guard.ok) return [];
+	const statuses = await getTenantMemberStatuses();
+	return statuses.map((s) => ({ value: s.key, label: s.label }));
 }
 
 export type MemberListItem = Awaited<ReturnType<typeof listMembers>>[number];

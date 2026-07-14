@@ -33,6 +33,7 @@ type Props = {
 	onOpenChange: (open: boolean) => void;
 	member?: MemberListItem | null;
 	onSaved: () => void;
+	statusOptions?: { value: string; label: string }[];
 };
 
 const empty = {
@@ -93,7 +94,13 @@ function TF({
 	);
 }
 
-export function MemberDialog({ open, onOpenChange, member, onSaved }: Props) {
+export function MemberDialog({
+	open,
+	onOpenChange,
+	member,
+	onSaved,
+	statusOptions = MEMBER_STATUS_OPTIONS,
+}: Props) {
 	const isEdit = !!member;
 	const [f, setF] = useState<Form>(empty);
 	const [isPending, startTransition] = useTransition();
@@ -215,10 +222,10 @@ export function MemberDialog({ open, onOpenChange, member, onSaved }: Props) {
 							value={f.status}
 							onChange={(v) => set("status", v)}
 							list="member-status-options"
-							placeholder="Fuchs / CB / IaCB / AH / AHEB"
+							placeholder={statusOptions.map((o) => o.value).join(" / ")}
 						/>
 						<datalist id="member-status-options">
-							{MEMBER_STATUS_OPTIONS.map((o) => (
+							{statusOptions.map((o) => (
 								<option key={o.value} value={o.value} />
 							))}
 						</datalist>

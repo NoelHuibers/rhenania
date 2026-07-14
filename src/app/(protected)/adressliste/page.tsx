@@ -3,7 +3,10 @@ import { redirect } from "next/navigation";
 import { AdresslistePage } from "~/components/members/AdresslistePage";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { ADRESSLISTE_ROLES } from "~/lib/roles";
-import { listMembers } from "~/server/actions/members/members";
+import {
+	listMemberStatusOptions,
+	listMembers,
+} from "~/server/actions/members/members";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { roles, userRoles } from "~/server/db/schema";
@@ -29,16 +32,23 @@ export default async function AdresslisteRoute() {
 		redirect("/access-denied");
 	}
 	const canEdit = roleNames.some((r) => EDIT_ROLES.includes(r));
-	const members = await listMembers();
+	const [members, statusOptions] = await Promise.all([
+		listMembers(),
+		listMemberStatusOptions(),
+	]);
 
 	return (
 		<SidebarLayout>
-			<AdresslistePage members={members} canEdit={canEdit} />
+			<AdresslistePage
+				members={members}
+				canEdit={canEdit}
+				statusOptions={statusOptions.length > 0 ? statusOptions : undefined}
+			/>
 		</SidebarLayout>
 	);
 }
 
 export const metadata = {
-	title: "Adressliste - Rhenania",
+	title: "Adressliste",
 	description: "Mitglieder-Adressliste",
 };

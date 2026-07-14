@@ -1,5 +1,8 @@
 // Client-safe member constants + presentation helpers (no server imports).
 
+// Fallback status options; the real list comes from the tenant's
+// member_status config table (listMemberStatusOptions) and is passed down as
+// a prop where available.
 export const MEMBER_STATUS_OPTIONS = [
 	{ value: "Fuchs", label: "Fuchs" },
 	{ value: "CB", label: "CB (Corpsbursche)" },
@@ -7,11 +10,7 @@ export const MEMBER_STATUS_OPTIONS = [
 	{ value: "IaCBoB", label: "IaCBoB" },
 	{ value: "AH", label: "AH (Alter Herr)" },
 	{ value: "AHEB", label: "AHEB" },
-] as const;
-
-export type MemberStatusValue = (typeof MEMBER_STATUS_OPTIONS)[number]["value"];
-
-export const BEITRAGSPFLICHTIG_STATUSES = ["Fuchs", "CB", "IaCB"];
+];
 
 export function formatMemberAddress(m: {
 	street?: string | null;

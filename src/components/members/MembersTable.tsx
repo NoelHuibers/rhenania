@@ -224,11 +224,13 @@ export function MembersTable({
 	canEdit,
 	onEditFull,
 	onRequestDelete,
+	statusOptions = MEMBER_STATUS_OPTIONS,
 }: {
 	members: MemberListItem[];
 	canEdit: boolean;
 	onEditFull: (m: MemberListItem) => void;
 	onRequestDelete: (m: MemberListItem) => void;
+	statusOptions?: { value: string; label: string }[];
 }) {
 	const router = useRouter();
 	const [rows, setRows] = useState(members);
@@ -517,7 +519,7 @@ export function MembersTable({
 			</div>
 
 			<datalist id="member-status-options">
-				{MEMBER_STATUS_OPTIONS.map((o) => (
+				{statusOptions.map((o) => (
 					<option key={o.value} value={o.value} />
 				))}
 			</datalist>

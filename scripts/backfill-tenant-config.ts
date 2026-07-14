@@ -19,12 +19,18 @@ import { eq } from "drizzle-orm";
 
 import { controlDb } from "~/server/db/control";
 import { tenants } from "~/server/db/control-schema";
-import { eventTypes, homepageSections, kasseTypes } from "~/server/db/schema";
+import {
+	eventTypes,
+	homepageSections,
+	kasseTypes,
+	memberStatuses,
+} from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 import {
 	DEFAULT_EVENT_TYPES,
 	DEFAULT_HOMEPAGE_SECTIONS,
 	DEFAULT_KASSE_TYPES,
+	DEFAULT_MEMBER_STATUSES,
 } from "~/server/lib/tenant-default-config";
 
 function parseArgs() {
@@ -38,7 +44,7 @@ function parseArgs() {
 async function backfillForTenant(tenantId: string, slug: string) {
 	const tdb = await getTenantDb(tenantId);
 
-	const inserted = { kasse: 0, events: 0, sections: 0 };
+	const inserted = { kasse: 0, events: 0, sections: 0, statuses: 0 };
 
 	for (const k of DEFAULT_KASSE_TYPES) {
 		const r = await tdb
@@ -64,8 +70,16 @@ async function backfillForTenant(tenantId: string, slug: string) {
 		inserted.sections += r.rowsAffected ?? 0;
 	}
 
+	for (const m of DEFAULT_MEMBER_STATUSES) {
+		const r = await tdb
+			.insert(memberStatuses)
+			.values(m)
+			.onConflictDoNothing({ target: memberStatuses.key });
+		inserted.statuses += r.rowsAffected ?? 0;
+	}
+
 	console.log(
-		`  ${slug}: kasseTypes +${inserted.kasse}, eventTypes +${inserted.events}, homepageSections +${inserted.sections}`,
+		`  ${slug}: kasseTypes +${inserted.kasse}, eventTypes +${inserted.events}, homepageSections +${inserted.sections}, memberStatuses +${inserted.statuses}`,
 	);
 }
 
