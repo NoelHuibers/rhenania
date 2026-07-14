@@ -10,5 +10,5 @@ export default function Page() {
 }
 
 export const metadata = {
-	title: "Fuchsenladen - Rhenania",
+	title: "Fuchsenladen",
 };

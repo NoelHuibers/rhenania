@@ -1,0 +1,1 @@
+ALTER TABLE `control_tenant_auth_config` ADD `mailSenderEmail` text(255);

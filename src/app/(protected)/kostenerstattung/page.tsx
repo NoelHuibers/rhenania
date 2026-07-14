@@ -28,6 +28,6 @@ export default async function KostenerstattungRoute() {
 }
 
 export const metadata = {
-	title: "Kostenerstattung - Rhenania",
+	title: "Kostenerstattung",
 	description: "Kostenerstattungen einreichen und verfolgen",
 };

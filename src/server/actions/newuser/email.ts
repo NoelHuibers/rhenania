@@ -1,11 +1,10 @@
 // lib/email.ts
 "use server";
 import { and, eq } from "drizzle-orm";
-import nodemailer from "nodemailer";
-import { env } from "~/env";
 import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db";
 import { kontos } from "~/server/db/schema";
+import { sendTenantMail } from "~/server/lib/mailer";
 import {
 	getCurrentRequestOrigin,
 	getCurrentTenant,
@@ -20,15 +19,6 @@ async function getKontoPaypalUrl(kasseType: string): Promise<string | null> {
 		.limit(1);
 	return konto?.paypalLink ? normalizePaypalLink(konto.paypalLink) : null;
 }
-
-// Configure your email transporter using your existing Gmail setup
-const transporter = nodemailer.createTransport({
-	service: "gmail",
-	auth: {
-		user: env.GMAIL,
-		pass: env.GMAIL_PASSWORD,
-	},
-});
 
 interface EmailTemplate {
 	subject: string;
@@ -114,16 +104,13 @@ export async function sendVerificationEmail(
 		const verificationUrl = `${origin}/auth/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
 		const template = getVerificationEmailTemplate(verificationUrl);
 
-		const mailOptions = {
-			from: env.GMAIL,
+		await sendTenantMail({
 			to: email,
 			subject: template.subject,
 			text: template.text,
 			html: template.html,
-		};
-
-		const result = await transporter.sendMail(mailOptions);
-		console.log("Verification email sent successfully:", result.messageId);
+		});
+		console.log(`Verification email sent to ${email}`);
 	} catch (error) {
 		console.error("Error sending verification email:", error);
 		throw new Error("Failed to send verification email");
@@ -144,7 +131,6 @@ export async function sendBillNotificationEmail(
 		const tenantLabel = tenant?.displayName ?? "Corps";
 
 		const mailOptions = {
-			from: env.GMAIL,
 			to: email,
 			subject: `Deine Getränkerechnung ${billNumber} ist bereit`,
 			text: `
@@ -213,11 +199,8 @@ ${tenantLabel}
 			],
 		};
 
-		const result = await transporter.sendMail(mailOptions);
-		console.log(
-			`Bill notification email sent to ${email} (${billNumber}):`,
-			result.messageId,
-		);
+		await sendTenantMail(mailOptions);
+		console.log(`Bill notification email sent to ${email} (${billNumber})`);
 	} catch (error) {
 		console.error(`Error sending bill notification to ${email}:`, error);
 		throw new Error(`Failed to send bill notification email to ${email}`);
@@ -233,7 +216,6 @@ export async function sendPasswordResetEmail(
 		const resetUrl = `${origin}/auth/reset-password?token=${token}`;
 
 		const mailOptions = {
-			from: env.GMAIL,
 			to: email,
 			subject: "Passwort zurücksetzen",
 			text: `
@@ -274,8 +256,8 @@ Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignoriere
       `,
 		};
 
-		const result = await transporter.sendMail(mailOptions);
-		console.log("Password reset email sent successfully:", result.messageId);
+		await sendTenantMail(mailOptions);
+		console.log(`Password reset email sent to ${email}`);
 	} catch (error) {
 		console.error("Error sending password reset email:", error);
 		throw new Error("Failed to send password reset email");
@@ -350,8 +332,7 @@ export async function sendBeitragEmail(
 			: "";
 		const body = `für <strong>${runName}</strong> bitten wir um deinen Semesterbeitrag in Höhe von <strong>${formattedTotal}</strong>. Im Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.`;
 
-		const result = await transporter.sendMail({
-			from: env.GMAIL,
+		await sendTenantMail({
 			to: email,
 			subject: `Dein Semesterbeitrag — ${runName}`,
 			text: `Lieber ${memberName},\n\nfür ${runName} bitten wir um deinen Semesterbeitrag in Höhe von ${formattedTotal}.\nIm Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.${paypalText}\n\nMit corpsbrüderlichen Grüßen\n${tenantLabel}`,
@@ -371,7 +352,7 @@ export async function sendBeitragEmail(
 				},
 			],
 		});
-		console.log(`Beitrag email sent to ${email}:`, result.messageId);
+		console.log(`Beitrag email sent to ${email}`);
 	} catch (error) {
 		console.error(`Error sending Beitrag email to ${email}:`, error);
 		throw new Error(`Failed to send Beitrag email to ${email}`);
@@ -396,8 +377,7 @@ export async function sendMahnungEmail(
 			: "";
 		const body = `dein Semesterbeitrag für <strong>${runName}</strong> ist trotz Fälligkeit weiterhin offen. Wir erlauben uns daher, eine Mahngebühr zu berechnen. Der offene Gesamtbetrag beträgt <strong>${formattedTotal}</strong> (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.`;
 
-		const result = await transporter.sendMail({
-			from: env.GMAIL,
+		await sendTenantMail({
 			to: email,
 			subject: `Zahlungserinnerung — ${runName}`,
 			text: `Lieber ${memberName},\n\ndein Semesterbeitrag für ${runName} ist weiterhin offen. Inklusive Mahngebühr beträgt der offene Gesamtbetrag ${formattedTotal} (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.${paypalText}\n\nMit corpsbrüderlichen Grüßen\n${tenantLabel}`,
@@ -417,7 +397,7 @@ export async function sendMahnungEmail(
 				},
 			],
 		});
-		console.log(`Mahnung email sent to ${email}:`, result.messageId);
+		console.log(`Mahnung email sent to ${email}`);
 	} catch (error) {
 		console.error(`Error sending Mahnung email to ${email}:`, error);
 		throw new Error(`Failed to send Mahnung email to ${email}`);

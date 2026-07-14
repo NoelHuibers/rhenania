@@ -137,6 +137,7 @@ export type SuperadminTenantDetail = {
 		azureClientId: string | null;
 		azureTenantId: string | null;
 		hasAzureSecret: boolean;
+		mailSenderEmail: string | null;
 	} | null;
 	memberCount: number;
 };
@@ -195,6 +196,7 @@ export async function getTenantDetailAction(
 							azureClientId: cfg.azureClientId,
 							azureTenantId: cfg.azureTenantId,
 							hasAzureSecret: Boolean(cfg.azureClientSecret),
+							mailSenderEmail: cfg.mailSenderEmail,
 						}
 					: null,
 				memberCount: memberRows.length,
@@ -337,6 +339,7 @@ export type AuthConfigPatch = {
 	azureClientId?: string | null;
 	azureClientSecret?: string | null;
 	azureTenantId?: string | null;
+	mailSenderEmail?: string | null;
 };
 
 export async function updateTenantAuthConfigAction(
@@ -366,6 +369,9 @@ export async function updateTenantAuthConfigAction(
 		if (patch.azureTenantId !== undefined) {
 			set.azureTenantId = patch.azureTenantId;
 		}
+		if (patch.mailSenderEmail !== undefined) {
+			set.mailSenderEmail = patch.mailSenderEmail;
+		}
 
 		if (existing) {
 			if (Object.keys(set).length > 0) {
@@ -382,6 +388,7 @@ export async function updateTenantAuthConfigAction(
 				azureClientId: patch.azureClientId ?? null,
 				azureClientSecret: patch.azureClientSecret ?? null,
 				azureTenantId: patch.azureTenantId ?? null,
+				mailSenderEmail: patch.mailSenderEmail ?? null,
 			});
 		}
 

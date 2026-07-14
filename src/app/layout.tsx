@@ -15,7 +15,9 @@ export async function generateMetadata(): Promise<Metadata> {
 	const tenant = await getCurrentTenant();
 	const name = tenant?.displayName ?? "Corps";
 	return {
-		title: name,
+		// Pages set plain titles ("Adressliste"); the template brands them
+		// per-tenant ("Adressliste – Corps Hassia Darmstadt").
+		title: { default: name, template: `%s – ${name}` },
 		description: name,
 		icons: [{ rel: "icon", url: "/favicon.ico" }],
 	};

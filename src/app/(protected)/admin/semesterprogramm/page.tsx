@@ -12,7 +12,7 @@ import { getSemesterConfig } from "~/server/actions/semesterprogramm/semesterCon
 import { getVenues } from "~/server/actions/venues";
 
 export const metadata = {
-	title: "Veranstaltungen - Rhenania",
+	title: "Veranstaltungen",
 };
 
 export default async function AdminSemesterprogrammPage() {

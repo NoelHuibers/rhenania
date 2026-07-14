@@ -117,6 +117,6 @@ export default function AdminPage() {
 }
 
 export const metadata = {
-	title: "Admin Dashboard - Rhenania",
+	title: "Admin Dashboard",
 	description: "Verwaltung von Benutzern und Rollen",
 };

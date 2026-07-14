@@ -96,6 +96,6 @@ export default async function CcKasseRoute({
 }
 
 export const metadata = {
-	title: "CC-Kasse - Rhenania",
+	title: "CC-Kasse",
 	description: "Etatplan, Kostenerstattungen und Budgetübersicht",
 };

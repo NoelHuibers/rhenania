@@ -21,7 +21,9 @@ export type TenantBranding = {
 	// Used in bill PDFs / payment instructions.
 	paypalUrl?: string;
 	billingWebsite?: string;
-	// Future: logo URL, primary color, contact email, social links.
+	// Where the public contact form delivers (fallback: env TOMAIL).
+	contactEmail?: string;
+	// Future: logo URL, primary color, social links.
 };
 
 export const tenants = createControlTable("tenant", (d) => ({
@@ -90,6 +92,10 @@ export const tenantAuthConfig = createControlTable(
 		azureClientId: d.text({ length: 255 }),
 		azureClientSecret: d.text(),
 		azureTenantId: d.text({ length: 255 }),
+		// Mailbox the app sends as via Microsoft Graph (/users/{sender}/sendMail,
+		// client-credentials + Mail.Send application permission). Null → tenant
+		// mail falls back to the legacy Gmail transport.
+		mailSenderEmail: d.text({ length: 255 }),
 		createdAt: d
 			.integer({ mode: "timestamp" })
 			.notNull()

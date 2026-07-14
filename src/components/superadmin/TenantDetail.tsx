@@ -294,12 +294,14 @@ function AuthConfigSection({
 	const [tenantIdAzure, setTenantIdAzure] = useState(
 		initial?.azureTenantId ?? "",
 	);
+	const [mailSender, setMailSender] = useState(initial?.mailSenderEmail ?? "");
 
 	const submit = () => {
 		const patch: AuthConfigPatch = {
 			microsoftEnabled,
 			azureClientId: clientId.trim() || null,
 			azureTenantId: tenantIdAzure.trim() || null,
+			mailSenderEmail: mailSender.trim() || null,
 		};
 		// Only send the secret if user typed a new one (avoid overwriting with "")
 		if (clientSecret.trim() !== "") {
@@ -379,6 +381,23 @@ function AuthConfigSection({
 						onChange={(e) => setTenantIdAzure(e.target.value)}
 						disabled={disabled}
 					/>
+				</div>
+
+				<div className="space-y-1">
+					<Label htmlFor="mail-sender">Mail sender (Microsoft Graph)</Label>
+					<Input
+						id="mail-sender"
+						type="email"
+						value={mailSender}
+						onChange={(e) => setMailSender(e.target.value)}
+						placeholder="noreply@corps-domain.de"
+						disabled={disabled}
+					/>
+					<p className="text-muted-foreground text-xs">
+						Mailbox the app sends as via Graph <code>sendMail</code>. Requires
+						the <code>Mail.Send</code> APPLICATION permission (admin-consented)
+						on the Azure app above. Empty → legacy Gmail transport.
+					</p>
 				</div>
 
 				<Button onClick={submit} disabled={disabled}>

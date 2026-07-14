@@ -23,7 +23,7 @@ import {
 import { getHiddenEventTypes } from "~/server/actions/profile/preferences";
 
 export const metadata = {
-	title: "Semesterprogramm - Rhenania",
+	title: "Semesterprogramm",
 };
 
 const TYPE_COLORS: Record<string, string> = {

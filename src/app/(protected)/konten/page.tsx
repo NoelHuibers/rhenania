@@ -38,6 +38,6 @@ export default async function KontenRoute() {
 }
 
 export const metadata = {
-	title: "Konten - Rhenania",
+	title: "Konten",
 	description: "Corps-Konten verwalten",
 };

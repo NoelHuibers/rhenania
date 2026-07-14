@@ -10,5 +10,5 @@ export default function Page() {
 }
 
 export const metadata = {
-	title: "Fuchsenbestellungen - Rhenania",
+	title: "Fuchsenbestellungen",
 };
