@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, desc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -171,40 +171,46 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				`Created bill period ${nextBillNumber} (ID: ${billPeriodId}) by user ${createdByUserId}`,
 			);
 
-			// 4. Get unpaid and deferred amounts from the LAST bill period only for each user
+			// 4. Get unpaid and deferred amounts from ALL previous periods for each
+			// user — not just the last one. A member without new orders gets skipped
+			// by intermediate billing runs, so their debt can sit several periods
+			// back (and would otherwise never be carried over).
 			const unpaidAmountMap = new Map<string, number>();
 			const deferredStatusMap = new Map<string, boolean>();
+			const outstandingUserNameMap = new Map<string, string>();
 
-			if (lastBillPeriod) {
-				const outstandingBills = await tx
-					.select({
-						userId: bills.userId,
-						total: bills.total,
-						status: bills.status,
-					})
-					.from(bills)
-					.where(
-						and(
-							or(eq(bills.status, "Unbezahlt"), eq(bills.status, "Gestundet")),
-							eq(bills.billPeriodId, lastBillPeriod.id),
-						),
-					);
-
-				outstandingBills.forEach((row) => {
-					unpaidAmountMap.set(row.userId, Number(row.total) || 0);
-					// Track if this user's last bill was deferred
-					if (row.status === "Gestundet") {
-						deferredStatusMap.set(row.userId, true);
-					}
-				});
-
-				console.log(
-					`Found outstanding amounts from last bill period for ${unpaidAmountMap.size} users`,
+			const outstandingBills = await tx
+				.select({
+					userId: bills.userId,
+					userName: bills.userName,
+					total: bills.total,
+					status: bills.status,
+				})
+				.from(bills)
+				.where(
+					or(eq(bills.status, "Unbezahlt"), eq(bills.status, "Gestundet")),
 				);
-				console.log(
-					`Of which ${deferredStatusMap.size} were deferred (Gestundet)`,
+
+			outstandingBills.forEach((row) => {
+				// Gruppenrechnungen (event bills) are settled directly, never carried.
+				if (row.userId.startsWith("event-")) return;
+				unpaidAmountMap.set(
+					row.userId,
+					(unpaidAmountMap.get(row.userId) ?? 0) + (Number(row.total) || 0),
 				);
-			}
+				outstandingUserNameMap.set(row.userId, row.userName);
+				// Track if any of this user's outstanding bills was deferred
+				if (row.status === "Gestundet") {
+					deferredStatusMap.set(row.userId, true);
+				}
+			});
+
+			console.log(
+				`Found outstanding amounts from previous bill periods for ${unpaidAmountMap.size} users`,
+			);
+			console.log(
+				`Of which ${deferredStatusMap.size} were deferred (Gestundet)`,
+			);
 
 			// 5. Process personal orders - Group by user
 			const userOrderMap = new Map<string, OrderWithDetails[]>();
@@ -236,6 +242,31 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 			const createdEventBills: string[] = [];
 			let totalBillingAmount = 0;
 
+			// Calculate Umlage based on inventory loss
+			const hausbewohnerCountResult = await tx
+				.select({ count: count() })
+				.from(userRoles)
+				.innerJoin(roles, eq(userRoles.roleId, roles.id))
+				.where(eq(roles.name, "Hausbewohner"))
+				.execute();
+			const hausbewohnerCount = hausbewohnerCountResult[0]?.count || 1;
+			const umlage = totalInventoryLoss / hausbewohnerCount;
+
+			// The rolled-in old bills are settled as "Übertragen" so the member
+			// isn't listed (and counted) twice. Everything outstanding outside the
+			// period being created right now.
+			const settleCarriedBills = (userId: string) =>
+				tx
+					.update(bills)
+					.set({ status: "Übertragen", updatedAt: now })
+					.where(
+						and(
+							eq(bills.userId, userId),
+							or(eq(bills.status, "Unbezahlt"), eq(bills.status, "Gestundet")),
+							ne(bills.billPeriodId, billPeriodId),
+						),
+					);
+
 			// Process personal bills
 			for (const [userId, userOrders] of userOrderMap.entries()) {
 				const userName =
@@ -255,17 +286,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					: oldBillingAmount > 5
 						? oldBillingAmount * 0.1
 						: 0;
-
-				const hausbewohnerCountResult = await db
-					.select({ count: count() })
-					.from(userRoles)
-					.innerJoin(roles, eq(userRoles.roleId, roles.id))
-					.where(eq(roles.name, "Hausbewohner"))
-					.execute();
-
-				// Calculate Umlage based on inventory loss
-				const hausbewohnerCount = hausbewohnerCountResult[0]?.count || 1;
-				const umlage = totalInventoryLoss / hausbewohnerCount;
 
 				const finalTotal = drinksTotal + oldBillingAmount + fees + umlage;
 
@@ -298,23 +318,8 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					}`,
 				);
 
-				// The old unpaid/deferred bill was just rolled into this new bill's
-				// Übertrag — settle it as "Übertragen" so the member isn't listed
-				// (and counted) twice.
-				if (oldBillingAmount > 0 && lastBillPeriod) {
-					await tx
-						.update(bills)
-						.set({ status: "Übertragen", updatedAt: now })
-						.where(
-							and(
-								eq(bills.billPeriodId, lastBillPeriod.id),
-								eq(bills.userId, userId),
-								or(
-									eq(bills.status, "Unbezahlt"),
-									eq(bills.status, "Gestundet"),
-								),
-							),
-						);
+				if (oldBillingAmount > 0) {
+					await settleCarriedBills(userId);
 				}
 
 				// Group orders by drink to consolidate quantities (only if there are new orders)
@@ -367,6 +372,62 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					userName,
 					orders: userOrders,
 					drinksTotal,
+					oldBillingAmount,
+					fees,
+					finalTotal,
+				});
+
+				createdBills.push(billId);
+				totalBillingAmount += finalTotal;
+			}
+
+			// 7b. Members with outstanding debt but NO new orders: create a
+			// carry-over-only bill so the Altbetrag always moves into the newest
+			// Abrechnung. Without this, their old bill stays behind and the next
+			// run (which only sees the new period) would lose track of it.
+			for (const [userId, oldBillingAmount] of unpaidAmountMap.entries()) {
+				if (userOrderMap.has(userId)) continue; // already rolled in above
+				if (oldBillingAmount <= 0) continue;
+
+				const userName = outstandingUserNameMap.get(userId) ?? "";
+				const wasDeferred = deferredStatusMap.get(userId) || false;
+				const fees = wasDeferred
+					? 0
+					: oldBillingAmount > 5
+						? oldBillingAmount * 0.1
+						: 0;
+				// No drinks, no Umlage — this bill only carries the old amount.
+				const finalTotal = oldBillingAmount + fees;
+
+				const billId = crypto.randomUUID();
+				await tx.insert(bills).values({
+					id: billId,
+					billPeriodId: billPeriodId,
+					userId: userId,
+					userName: userName,
+					status: "Unbezahlt",
+					oldBillingAmount: oldBillingAmount,
+					fees: fees,
+					umlage: 0,
+					drinksTotal: 0,
+					total: finalTotal,
+					createdAt: now,
+				});
+				await settleCarriedBills(userId);
+
+				console.log(
+					`Created carry-over bill ${billId} for user ${userName} with total €${finalTotal.toFixed(
+						2,
+					)} (old billing: €${oldBillingAmount.toFixed(2)}, fees: €${fees.toFixed(2)})${
+						wasDeferred ? " [Previous bill was deferred - no fees applied]" : ""
+					}`,
+				);
+
+				userBillingSummaries.push({
+					userId,
+					userName,
+					orders: [],
+					drinksTotal: 0,
 					oldBillingAmount,
 					fees,
 					finalTotal,
