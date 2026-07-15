@@ -1,30 +1,8 @@
 "use client";
 
-import {
-	Clock,
-	Pencil,
-	PiggyBank,
-	Plus,
-	Trash2,
-	TrendingDown,
-	Wallet,
-} from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { Clock, PiggyBank, TrendingDown, Wallet } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
-import { toast } from "sonner";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
-import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
 	type ChartConfig,
@@ -43,16 +21,10 @@ import {
 } from "~/components/ui/table";
 import { formatEur } from "~/lib/cc-kasse-format";
 import { cn } from "~/lib/utils";
-import {
-	deleteEinnahme,
-	type EinnahmeRow,
-} from "~/server/actions/cc-kasse/einnahmen";
 import type {
 	BudgetStatus,
 	EtaplanOverview,
 } from "~/server/actions/cc-kasse/overview";
-import { type EditingEinnahme, EinnahmeDialog } from "./EinnahmeDialog";
-import type { KostenpunktOption } from "./ReimbursementDialog";
 
 const STATUS_META: Record<BudgetStatus, { label: string; cls: string }> = {
 	"on-track": {
@@ -85,14 +57,8 @@ const chartConfig = {
 
 export function OverviewTab({
 	overview,
-	einnahmen,
-	isTreasury,
-	kostenpunktOptions,
 }: {
 	overview: EtaplanOverview | null;
-	einnahmen: EinnahmeRow[];
-	isTreasury: boolean;
-	kostenpunktOptions: KostenpunktOption[];
 }) {
 	if (!overview || overview.kostenpunkte.length === 0) {
 		return (
@@ -173,12 +139,6 @@ export function OverviewTab({
 					</div>
 				</CardContent>
 			</Card>
-
-			<EinnahmenCard
-				einnahmen={einnahmen}
-				isTreasury={isTreasury}
-				kostenpunktOptions={kostenpunktOptions}
-			/>
 
 			<Card>
 				<CardHeader>
@@ -298,224 +258,6 @@ export function OverviewTab({
 				</CardContent>
 			</Card>
 		</div>
-	);
-}
-
-function EinnahmenCard({
-	einnahmen,
-	isTreasury,
-	kostenpunktOptions,
-}: {
-	einnahmen: EinnahmeRow[];
-	isTreasury: boolean;
-	kostenpunktOptions: KostenpunktOption[];
-}) {
-	const router = useRouter();
-	const [dialogOpen, setDialogOpen] = useState(false);
-	const [editing, setEditing] = useState<EditingEinnahme | null>(null);
-	const [deleteId, setDeleteId] = useState<string | null>(null);
-	const [isPending, startTransition] = useTransition();
-
-	const total = einnahmen.reduce((s, e) => s + e.amount, 0);
-
-	const openNew = () => {
-		setEditing(null);
-		setDialogOpen(true);
-	};
-	const openEdit = (e: EinnahmeRow) => {
-		setEditing({
-			id: e.id,
-			kostenpunktId: e.kostenpunktId,
-			kostenpunktName: e.kostenpunkt?.name ?? "",
-			kostenpunktCategory: e.kostenpunkt?.category ?? "",
-			amount: e.amount,
-			description: e.description,
-			incomeDate: e.incomeDate,
-		});
-		setDialogOpen(true);
-	};
-	const confirmDelete = () => {
-		if (!deleteId) return;
-		const id = deleteId;
-		setDeleteId(null);
-		startTransition(async () => {
-			const res = await deleteEinnahme(id);
-			if (res.success) {
-				toast.success("Einnahme gelöscht");
-				router.refresh();
-			} else {
-				toast.error(res.error);
-			}
-		});
-	};
-
-	return (
-		<Card>
-			<CardHeader className="flex flex-col gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between">
-				<CardTitle className="text-base">Gebuchte Einnahmen</CardTitle>
-				<div className="flex items-center gap-3">
-					{einnahmen.length > 0 && (
-						<span className="text-muted-foreground text-sm">
-							Summe{" "}
-							<span className="font-semibold text-foreground">
-								{formatEur(total)}
-							</span>
-						</span>
-					)}
-					{isTreasury && (
-						<Button variant="outline" size="sm" onClick={openNew}>
-							<Plus className="mr-1 h-4 w-4" /> Einnahme buchen
-						</Button>
-					)}
-				</div>
-			</CardHeader>
-			<CardContent>
-				{einnahmen.length === 0 ? (
-					<p className="py-4 text-center text-muted-foreground text-sm">
-						Noch keine Einnahmen gebucht (z.B. Barkasse einer Veranstaltung).
-					</p>
-				) : (
-					<>
-						{/* Mobile: stacked cards */}
-						<div className="space-y-2 sm:hidden">
-							{einnahmen.map((e) => (
-								<div key={e.id} className="rounded-lg border p-3">
-									<div className="flex items-start justify-between gap-2">
-										<div className="min-w-0">
-											<div className="truncate font-medium text-sm">
-												{e.kostenpunkt?.name ?? "—"}
-											</div>
-											<div className="truncate text-muted-foreground text-xs">
-												{e.description}
-											</div>
-											<div className="text-muted-foreground text-xs">
-												{new Date(e.incomeDate).toLocaleDateString("de-DE")}
-											</div>
-										</div>
-										<div className="shrink-0 text-right">
-											<div className="font-medium tabular-nums">
-												+{formatEur(e.amount)}
-											</div>
-											{isTreasury && (
-												<div className="mt-1 flex justify-end gap-1">
-													<Button
-														variant="ghost"
-														size="icon"
-														onClick={() => openEdit(e)}
-													>
-														<Pencil className="h-4 w-4" />
-													</Button>
-													<Button
-														variant="ghost"
-														size="icon"
-														onClick={() => setDeleteId(e.id)}
-													>
-														<Trash2 className="h-4 w-4" />
-													</Button>
-												</div>
-											)}
-										</div>
-									</div>
-								</div>
-							))}
-						</div>
-
-						{/* Desktop: table */}
-						<div className="hidden sm:block">
-							<Table>
-								<TableHeader>
-									<TableRow>
-										<TableHead>Datum</TableHead>
-										<TableHead>Kostenpunkt</TableHead>
-										<TableHead>Beschreibung</TableHead>
-										<TableHead className="text-right">Betrag</TableHead>
-										{isTreasury && <TableHead className="w-[90px]" />}
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{einnahmen.map((e) => (
-										<TableRow key={e.id}>
-											<TableCell className="whitespace-nowrap">
-												{new Date(e.incomeDate).toLocaleDateString("de-DE")}
-											</TableCell>
-											<TableCell>
-												<div className="font-medium">
-													{e.kostenpunkt?.name ?? "—"}
-												</div>
-												<div className="text-muted-foreground text-xs">
-													{e.kostenpunkt?.category ?? ""}
-												</div>
-											</TableCell>
-											<TableCell className="text-muted-foreground">
-												{e.description}
-											</TableCell>
-											<TableCell className="text-right tabular-nums">
-												+{formatEur(e.amount)}
-											</TableCell>
-											{isTreasury && (
-												<TableCell>
-													<div className="flex justify-end gap-1">
-														<Button
-															variant="ghost"
-															size="icon"
-															onClick={() => openEdit(e)}
-														>
-															<Pencil className="h-4 w-4" />
-														</Button>
-														<Button
-															variant="ghost"
-															size="icon"
-															onClick={() => setDeleteId(e.id)}
-														>
-															<Trash2 className="h-4 w-4" />
-														</Button>
-													</div>
-												</TableCell>
-											)}
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</div>
-					</>
-				)}
-			</CardContent>
-
-			{isTreasury && (
-				<EinnahmeDialog
-					open={dialogOpen}
-					onOpenChange={setDialogOpen}
-					kostenpunkte={kostenpunktOptions}
-					editing={editing}
-					onSaved={() => router.refresh()}
-				/>
-			)}
-
-			<AlertDialog
-				open={deleteId !== null}
-				onOpenChange={(o) => {
-					if (!o) setDeleteId(null);
-				}}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Einnahme löschen?</AlertDialogTitle>
-						<AlertDialogDescription>
-							Die gebuchte Einnahme wird entfernt und aus den Ist-Einnahmen
-							herausgerechnet.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel disabled={isPending}>
-							Abbrechen
-						</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete} disabled={isPending}>
-							Löschen
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		</Card>
 	);
 }
 
