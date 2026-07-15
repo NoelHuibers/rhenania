@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
 import {
+	einnahmen,
 	etaplans,
 	events,
 	kostenerstattungen,
@@ -181,6 +182,17 @@ export async function deleteKostenpunkt(id: string) {
 			return {
 				success: false as const,
 				error: "Kostenpunkt hat Erstattungen und kann nicht gelöscht werden.",
+			};
+		}
+		const [einnahmeRow] = await db
+			.select({ c: sql<number>`count(*)` })
+			.from(einnahmen)
+			.where(eq(einnahmen.kostenpunktId, id));
+		if (Number(einnahmeRow?.c ?? 0) > 0) {
+			return {
+				success: false as const,
+				error:
+					"Kostenpunkt hat gebuchte Einnahmen und kann nicht gelöscht werden.",
 			};
 		}
 

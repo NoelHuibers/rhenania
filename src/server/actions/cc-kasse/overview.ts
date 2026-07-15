@@ -3,6 +3,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import {
+	einnahmen,
 	kostenerstattungen,
 	kostenpunkte,
 	semesterbeitragCharges,
@@ -138,6 +139,22 @@ export async function getEtaplanOverview(
 		const incomeMap = new Map<string, number>();
 		for (const s of beitragSums) {
 			incomeMap.set(s.kostenpunktId, Number(s.total ?? 0));
+		}
+
+		// Manually booked income (e.g. cash from an event), grouped by KP.
+		const einnahmeSums = await db
+			.select({
+				kostenpunktId: einnahmen.kostenpunktId,
+				total: sql<number>`COALESCE(SUM(${einnahmen.amount}), 0)`,
+			})
+			.from(einnahmen)
+			.where(eq(einnahmen.etaplanId, etaplanId))
+			.groupBy(einnahmen.kostenpunktId);
+		for (const s of einnahmeSums) {
+			incomeMap.set(
+				s.kostenpunktId,
+				(incomeMap.get(s.kostenpunktId) ?? 0) + Number(s.total ?? 0),
+			);
 		}
 
 		const kpOverviews: KostenpunktOverview[] = kps.map((kp) => {

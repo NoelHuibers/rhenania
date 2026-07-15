@@ -1597,6 +1597,50 @@ export const kostenerstattungen = createTable(
 	],
 );
 
+// Actual income bookings (Ist-Einnahmen) against a Kostenpunkt — e.g. cash
+// from a Cocktailabend. Complements the automatic income from paid
+// Semesterbeiträge; both feed the overview's Ist-Einnahmen.
+export const einnahmen = createTable(
+	"einnahme",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		// FK declared in the index array below with onDelete "restrict".
+		kostenpunktId: d.text({ length: 255 }).notNull(),
+		etaplanId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => etaplans.id, { onDelete: "cascade" }),
+		description: d.text({ length: 500 }).notNull(),
+		amount: d.real().notNull(),
+		// When the money came in (custom past date for backfill).
+		incomeDate: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		bookedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [
+		index("einnahme_kostenpunkt_idx").on(t.kostenpunktId),
+		index("einnahme_etaplan_idx").on(t.etaplanId),
+		foreignKey({
+			columns: [t.kostenpunktId],
+			foreignColumns: [kostenpunkte.id],
+			name: "einnahme_kostenpunkt_fk",
+		}).onDelete("restrict"),
+	],
+);
+
 export const userPaymentInfo = createTable("user_payment_info", (d) => ({
 	userId: d
 		.text({ length: 255 })
@@ -1619,6 +1663,7 @@ export const etaplansRelations = relations(etaplans, ({ one, many }) => ({
 	}),
 	kostenpunkte: many(kostenpunkte),
 	erstattungen: many(kostenerstattungen),
+	einnahmen: many(einnahmen),
 }));
 
 export const kostenpunkteRelations = relations(
@@ -1634,6 +1679,7 @@ export const kostenpunkteRelations = relations(
 		}),
 		positionen: many(kostenpunktPositionen),
 		erstattungen: many(kostenerstattungen),
+		einnahmen: many(einnahmen),
 	}),
 );
 
@@ -1681,6 +1727,21 @@ export const kostenerstattungenRelations = relations(
 	}),
 );
 
+export const einnahmenRelations = relations(einnahmen, ({ one }) => ({
+	kostenpunkt: one(kostenpunkte, {
+		fields: [einnahmen.kostenpunktId],
+		references: [kostenpunkte.id],
+	}),
+	etaplan: one(etaplans, {
+		fields: [einnahmen.etaplanId],
+		references: [etaplans.id],
+	}),
+	booker: one(users, {
+		fields: [einnahmen.bookedBy],
+		references: [users.id],
+	}),
+}));
+
 export const userPaymentInfoRelations = relations(
 	userPaymentInfo,
 	({ one }) => ({
@@ -1696,6 +1757,7 @@ export type NewEtaplan = typeof etaplans.$inferInsert;
 export type Kostenpunkt = typeof kostenpunkte.$inferSelect;
 export type KostenpunktPosition = typeof kostenpunktPositionen.$inferSelect;
 export type Kostenerstattung = typeof kostenerstattungen.$inferSelect;
+export type Einnahme = typeof einnahmen.$inferSelect;
 export type UserPaymentInfo = typeof userPaymentInfo.$inferSelect;
 
 // ─── Mitglieder (Adressliste) + Semesterbeitrag ───────────────────────────────

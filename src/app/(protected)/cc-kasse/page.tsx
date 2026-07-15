@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { CcKassePage } from "~/components/cc-kasse/CcKassePage";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
+import { listEinnahmen } from "~/server/actions/cc-kasse/einnahmen";
 import {
 	getActiveEtaplan,
 	getEtaplanById,
@@ -56,7 +57,7 @@ export default async function CcKasseRoute({
 		selectedId = active?.id ?? etaplans[0]?.id;
 	}
 
-	const [selectedEtaplan, kostenpunkte, overview, queue, events] =
+	const [selectedEtaplan, kostenpunkte, overview, queue, events, einnahmen] =
 		await Promise.all([
 			selectedId ? getEtaplanById(selectedId) : Promise.resolve(null),
 			selectedId ? listKostenpunkteForEtaplan(selectedId) : Promise.resolve([]),
@@ -65,6 +66,7 @@ export default async function CcKasseRoute({
 				? listReimbursementQueue({ etaplanId: selectedId })
 				: Promise.resolve([]),
 			linkableEvents(),
+			selectedId ? listEinnahmen(selectedId) : Promise.resolve([]),
 		]);
 
 	let beitragRuns: Awaited<ReturnType<typeof listBeitragRuns>> = [];
@@ -86,6 +88,7 @@ export default async function CcKasseRoute({
 				kostenpunkte={kostenpunkte}
 				overview={overview}
 				queue={queue}
+				einnahmen={einnahmen}
 				events={events}
 				isTreasury={isTreasury}
 				beitragRuns={beitragRuns}

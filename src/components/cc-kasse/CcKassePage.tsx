@@ -13,6 +13,7 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import type { EinnahmeRow } from "~/server/actions/cc-kasse/einnahmen";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
 import type { QueueReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
 import type {
@@ -36,6 +37,7 @@ type Props = {
 	kostenpunkte: KostenpunktWithPositions[];
 	overview: EtaplanOverview | null;
 	queue: QueueReimbursement[];
+	einnahmen: EinnahmeRow[];
 	events: LinkableEvent[];
 	isTreasury: boolean;
 	beitragRuns: BeitragRun[];
@@ -48,6 +50,7 @@ export function CcKassePage({
 	kostenpunkte,
 	overview,
 	queue,
+	einnahmen,
 	events,
 	isTreasury,
 	beitragRuns,
@@ -146,7 +149,12 @@ export function CcKassePage({
 							</TabsContent>
 						)}
 						<TabsContent value="uebersicht" className="mt-4">
-							<OverviewTab overview={overview} />
+							<OverviewTab
+								overview={overview}
+								einnahmen={einnahmen}
+								isTreasury={isTreasury}
+								kostenpunktOptions={kostenpunktOptions}
+							/>
 						</TabsContent>
 					</Tabs>
 				)}

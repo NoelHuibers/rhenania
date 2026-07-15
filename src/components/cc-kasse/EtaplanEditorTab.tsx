@@ -1,6 +1,14 @@
 "use client";
 
-import { Download, Pencil, Plus, Receipt, Trash2, Upload } from "lucide-react";
+import {
+	Download,
+	Pencil,
+	PiggyBank,
+	Plus,
+	Receipt,
+	Trash2,
+	Upload,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -29,6 +37,7 @@ import {
 	type KostenpunktWithPositions,
 	type LinkableEvent,
 } from "~/server/actions/cc-kasse/kostenpunkte";
+import { EinnahmeDialog } from "./EinnahmeDialog";
 import { EtaplanDialog } from "./EtaplanDialog";
 import { KostenpunktDialog } from "./KostenpunktDialog";
 import { ReimbursementDialog } from "./ReimbursementDialog";
@@ -81,6 +90,7 @@ export function EtaplanEditorTab({
 		null,
 	);
 	const [bookingOpen, setBookingOpen] = useState(false);
+	const [einnahmeOpen, setEinnahmeOpen] = useState(false);
 	const [deleteId, setDeleteId] = useState<string | null>(null);
 
 	const categories = Array.from(
@@ -205,14 +215,24 @@ export function EtaplanEditorTab({
 						onChange={onImportFile}
 					/>
 					{isTreasury && (
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={() => setBookingOpen(true)}
-							disabled={kostenpunkte.length === 0}
-						>
-							<Receipt className="mr-1 h-4 w-4" /> Direktbuchung
-						</Button>
+						<>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setBookingOpen(true)}
+								disabled={kostenpunkte.length === 0}
+							>
+								<Receipt className="mr-1 h-4 w-4" /> Direktbuchung
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setEinnahmeOpen(true)}
+								disabled={kostenpunkte.length === 0}
+							>
+								<PiggyBank className="mr-1 h-4 w-4" /> Einnahme
+							</Button>
+						</>
 					)}
 					<Button size="sm" onClick={openNewKp}>
 						<Plus className="mr-1 h-4 w-4" /> Kostenpunkt
@@ -387,13 +407,21 @@ export function EtaplanEditorTab({
 				onSaved={() => router.refresh()}
 			/>
 			{isTreasury && (
-				<ReimbursementDialog
-					open={bookingOpen}
-					onOpenChange={setBookingOpen}
-					kostenpunkte={bookableOptions}
-					mode="direct"
-					onSaved={() => router.refresh()}
-				/>
+				<>
+					<ReimbursementDialog
+						open={bookingOpen}
+						onOpenChange={setBookingOpen}
+						kostenpunkte={bookableOptions}
+						mode="direct"
+						onSaved={() => router.refresh()}
+					/>
+					<EinnahmeDialog
+						open={einnahmeOpen}
+						onOpenChange={setEinnahmeOpen}
+						kostenpunkte={bookableOptions}
+						onSaved={() => router.refresh()}
+					/>
+				</>
 			)}
 
 			<AlertDialog
