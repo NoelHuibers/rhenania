@@ -1,92 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Progress } from "~/components/ui/progress";
 import {
 	getUserAchievements,
 	type UserAchievementData,
 } from "~/server/actions/profile/achievements";
-
-const CATEGORIES = [
-	{ key: "all", label: "Alle" },
-	{ key: "drinking", label: "Trinken" },
-	{ key: "games", label: "Spiele" },
-	{ key: "financial", label: "Finanzen" },
-	{ key: "time", label: "Zeit" },
-	{ key: "special", label: "Besonderes" },
-] as const;
-
-const RARITY_STYLES: Record<string, string> = {
-	common: "bg-muted text-muted-foreground",
-	uncommon:
-		"bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-	rare: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-	epic: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-	legendary:
-		"bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-};
-
-const RARITY_LABELS: Record<string, string> = {
-	common: "Common",
-	uncommon: "Uncommon",
-	rare: "Rare",
-	epic: "Epic",
-	legendary: "Legendary",
-};
-
-function AchievementCard({ a }: { a: UserAchievementData }) {
-	const isSecret = a.isSecret && !a.unlocked;
-	const progressPct =
-		a.targetValue && a.targetValue > 0
-			? Math.min(100, Math.round((a.currentValue / a.targetValue) * 100))
-			: 0;
-
-	return (
-		<div
-			className={`flex gap-3 rounded-lg border p-4 transition-opacity ${
-				a.unlocked ? "opacity-100" : "opacity-50"
-			}`}
-		>
-			<div className="w-9 shrink-0 text-center text-2xl">
-				{isSecret ? "🔒" : (a.icon ?? "🏆")}
-			</div>
-			<div className="min-w-0 flex-1 space-y-1">
-				<div className="flex items-start justify-between gap-2">
-					<p className="font-medium text-sm leading-tight">
-						{isSecret ? "???" : a.name}
-					</p>
-					<div className="flex shrink-0 items-center gap-1">
-						<span className="text-muted-foreground text-xs">+{a.points}</span>
-						<Badge
-							className={`px-1.5 py-0 text-[10px] ${RARITY_STYLES[a.rarity]}`}
-						>
-							{RARITY_LABELS[a.rarity]}
-						</Badge>
-					</div>
-				</div>
-				<p className="text-muted-foreground text-xs leading-tight">
-					{isSecret ? "Geheimes Achievement" : a.description}
-				</p>
-				{!a.unlocked && a.targetValue !== null && !isSecret && (
-					<div className="space-y-0.5">
-						<Progress value={progressPct} className="h-1.5" />
-						<p className="text-[10px] text-muted-foreground">
-							{a.currentValue} / {a.targetValue}
-						</p>
-					</div>
-				)}
-				{a.unlocked && a.unlockedAt && (
-					<p className="text-[10px] text-muted-foreground">
-						Freigeschaltet{" "}
-						{new Intl.DateTimeFormat("de-DE").format(new Date(a.unlockedAt))}
-					</p>
-				)}
-			</div>
-		</div>
-	);
-}
+import { AchievementCard, CATEGORIES } from "./achievement-ui";
 
 export function Achievements() {
 	const [data, setData] = useState<UserAchievementData[]>([]);

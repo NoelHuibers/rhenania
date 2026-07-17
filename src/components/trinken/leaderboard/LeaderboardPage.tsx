@@ -15,6 +15,7 @@ export default async function LeaderboardPage() {
 
 	const consumers = rows.map((r, i) => ({
 		id: i + 1,
+		userId: r.userId,
 		name: r.userName,
 		avatar: r.avatar ?? "/placeholder.svg?height=40&width=40",
 		amount: r.liters,

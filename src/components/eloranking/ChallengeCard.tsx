@@ -1,6 +1,7 @@
 "use client";
 
 import { AlertTriangle, Check, Clock, Swords, Trophy, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
@@ -214,25 +215,33 @@ export function ChallengeCard({
 			</div>
 
 			<div className="mb-3 flex items-center gap-3">
-				<Avatar className="h-9 w-9 sm:h-10 sm:w-10">
-					<AvatarImage src={other.avatar || undefined} alt={other.name || ""} />
-					<AvatarFallback className="text-xs">
-						{(other.name || "?")
-							.split(" ")
-							.map((n) => n[0])
-							.join("")
-							.toUpperCase()
-							.slice(0, 2)}
-					</AvatarFallback>
-				</Avatar>
-				<div className="min-w-0 flex-1">
-					<div className="truncate font-medium text-sm">
-						{other.name || "Unbekannt"}
+				<Link
+					href={`/profile/${other.id}`}
+					className="group flex min-w-0 flex-1 items-center gap-3"
+				>
+					<Avatar className="h-9 w-9 sm:h-10 sm:w-10">
+						<AvatarImage
+							src={other.avatar || undefined}
+							alt={other.name || ""}
+						/>
+						<AvatarFallback className="text-xs">
+							{(other.name || "?")
+								.split(" ")
+								.map((n) => n[0])
+								.join("")
+								.toUpperCase()
+								.slice(0, 2)}
+						</AvatarFallback>
+					</Avatar>
+					<div className="min-w-0 flex-1">
+						<div className="truncate font-medium text-sm group-hover:underline">
+							{other.name || "Unbekannt"}
+						</div>
+						<div className="truncate text-muted-foreground text-xs">
+							🍺 {c.drinkName} ({c.quantity}×) · 💰 {paymentText}
+						</div>
 					</div>
-					<div className="truncate text-muted-foreground text-xs">
-						🍺 {c.drinkName} ({c.quantity}×) · 💰 {paymentText}
-					</div>
-				</div>
+				</Link>
 			</div>
 
 			{variant === "awaiting-my-confirm" ? (

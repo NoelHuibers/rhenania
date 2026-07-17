@@ -1,6 +1,7 @@
 "use client";
 
 import { Target, TrendingUp, Trophy } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
@@ -200,44 +201,65 @@ export function LeaderboardClient({
 											{getRankIcon(rank)}
 										</div>
 
-										<Avatar className="h-8 w-8">
-											<AvatarImage
-												src={player.avatar || "/placeholder.svg"}
-												alt={player.userName || "Player Avatar"}
-											/>
-											<AvatarFallback>
-												{(player.userName || "?")
-													.split(" ")
-													.map((n) => n[0])
-													.join("")
-													.slice(0, 2)
-													.toUpperCase()}
-											</AvatarFallback>
-										</Avatar>
+										{(() => {
+											const avatarAndName = (
+												<>
+													<Avatar className="h-8 w-8">
+														<AvatarImage
+															src={player.avatar || "/placeholder.svg"}
+															alt={player.userName || "Player Avatar"}
+														/>
+														<AvatarFallback>
+															{(player.userName || "?")
+																.split(" ")
+																.map((n) => n[0])
+																.join("")
+																.slice(0, 2)
+																.toUpperCase()}
+														</AvatarFallback>
+													</Avatar>
 
-										<div className="min-w-0 flex-1">
-											<div className="flex flex-wrap items-center gap-1.5">
-												<span className="truncate font-medium text-xs sm:text-sm">
-													{player.userName || "Unknown"}
-												</span>
-												{player.tenantSlug ? (
-													<Badge
-														variant="secondary"
-														className="shrink-0 font-mono text-[10px]"
-													>
-														{player.tenantSlug}
-													</Badge>
-												) : null}
-											</div>
-											<div className="text-[10px] text-muted-foreground sm:hidden">
-												{player.wins}-{player.losses} •{" "}
-												{player.winRate.toFixed(0)}%
-											</div>
-											<div className="hidden text-muted-foreground text-xs sm:block">
-												{player.totalGames} games • {player.wins}W-
-												{player.losses}L • {player.winRate.toFixed(1)}% WR
-											</div>
-										</div>
+													<div className="min-w-0 flex-1">
+														<div className="flex flex-wrap items-center gap-1.5">
+															<span className="truncate font-medium text-xs group-hover:underline sm:text-sm">
+																{player.userName || "Unknown"}
+															</span>
+															{player.tenantSlug ? (
+																<Badge
+																	variant="secondary"
+																	className="shrink-0 font-mono text-[10px]"
+																>
+																	{player.tenantSlug}
+																</Badge>
+															) : null}
+														</div>
+														<div className="text-[10px] text-muted-foreground sm:hidden">
+															{player.wins}-{player.losses} •{" "}
+															{player.winRate.toFixed(0)}%
+														</div>
+														<div className="hidden text-muted-foreground text-xs sm:block">
+															{player.totalGames} games • {player.wins}W-
+															{player.losses}L • {player.winRate.toFixed(1)}% WR
+														</div>
+													</div>
+												</>
+											);
+
+											// Foreign-tenant rows (global scope) carry a tenantSlug —
+											// those users don't exist in this tenant's DB, so no link.
+											return player.tenantSlug ? (
+												<div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
+													{avatarAndName}
+												</div>
+											) : (
+												<Link
+													href={`/profile/${player.userId}`}
+													className="group flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
+												>
+													{avatarAndName}
+												</Link>
+											);
+										})()}
 									</div>
 
 									<div className="flex items-center gap-1 sm:gap-3">

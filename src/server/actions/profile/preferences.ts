@@ -106,6 +106,42 @@ export async function isEloEnabledForUser(userId: string): Promise<boolean> {
 	}
 }
 
+// --- Public profile sugar ---
+
+const PUBLIC_PROFILE_KEY = "privacy.publicProfileEnabled";
+
+export async function getPublicProfilePreferenceAction() {
+	// Default: true (profile visible to other members)
+	const enabled = await getUserPreference<boolean>(
+		PUBLIC_PROFILE_KEY,
+		true,
+		"boolean",
+	);
+	return { enabled };
+}
+
+export async function setPublicProfilePreferenceAction(opts: {
+	enabled: boolean;
+}) {
+	return await setUserPreference(PUBLIC_PROFILE_KEY, opts.enabled, "boolean");
+}
+
+export async function isPublicProfileEnabledForUser(
+	userId: string,
+): Promise<boolean> {
+	const row = await db.query.userPreferences.findFirst({
+		where: (t, { and, eq }) =>
+			and(eq(t.userId, userId), eq(t.key, PUBLIC_PROFILE_KEY)),
+		columns: { value: true },
+	});
+	if (!row) return true;
+	try {
+		return JSON.parse(row.value) !== false;
+	} catch {
+		return true;
+	}
+}
+
 // --- Challenge notification sugar ---
 
 const CHALLENGE_NOTIF_KEY = "gamification.challengeNotificationsEnabled";

@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock, TrendingDown, TrendingUp } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
@@ -76,7 +77,10 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 												: "bg-red-50 dark:bg-red-950/20"
 										}`}
 									>
-										<div className="flex items-center gap-3">
+										<Link
+											href={`/profile/${game.player1Id}`}
+											className="group flex items-center gap-3"
+										>
 											<Avatar className="h-8 w-8">
 												<AvatarImage
 													src={game.player1Avatar || "/placeholder.svg"}
@@ -90,14 +94,14 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 												</AvatarFallback>
 											</Avatar>
 											<div>
-												<div className="font-medium text-sm">
+												<div className="font-medium text-sm group-hover:underline">
 													{game.player1Name}
 												</div>
 												<div className="text-muted-foreground text-xs">
 													{game.player1EloBefore} → {game.player1EloAfter}
 												</div>
 											</div>
-										</div>
+										</Link>
 										<div className="flex items-center gap-2">
 											{player1Won && (
 												<Badge className="bg-green-500 text-xs">WIN</Badge>
@@ -132,7 +136,10 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 												: "bg-red-50 dark:bg-red-950/20"
 										}`}
 									>
-										<div className="flex items-center gap-3">
+										<Link
+											href={`/profile/${game.player2Id}`}
+											className="group flex items-center gap-3"
+										>
 											<Avatar className="h-8 w-8">
 												<AvatarImage
 													src={game.player2Avatar || "/placeholder.svg"}
@@ -146,14 +153,14 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 												</AvatarFallback>
 											</Avatar>
 											<div>
-												<div className="font-medium text-sm">
+												<div className="font-medium text-sm group-hover:underline">
 													{game.player2Name}
 												</div>
 												<div className="text-muted-foreground text-xs">
 													{game.player2EloBefore} → {game.player2EloAfter}
 												</div>
 											</div>
-										</div>
+										</Link>
 										<div className="flex items-center gap-2">
 											{!player1Won && (
 												<Badge className="bg-green-500 text-xs">WIN</Badge>

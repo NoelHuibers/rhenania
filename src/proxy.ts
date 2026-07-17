@@ -38,6 +38,7 @@ const VALID_PATHS = [
 	"/auth/(.*)",
 	"/access-denied",
 	"/profile",
+	"/profile/(.*)",
 	"/bestellungen",
 	"/bilder",
 	"/eloranking",

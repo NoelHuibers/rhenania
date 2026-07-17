@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
@@ -14,6 +15,7 @@ import {
 } from "~/components/ui/card";
 export interface Consumer {
 	id: number;
+	userId: string;
 	name: string;
 	avatar: string;
 	amount: number; // Liter
@@ -81,24 +83,31 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
 							<div className="w-12 text-center font-bold text-2xl">
 								{getRankIcon(index + 1)}
 							</div>
-							<Avatar className="h-10 w-10">
-								<AvatarImage
-									src={consumer.avatar || "/placeholder.svg"}
-									alt={consumer.name}
-								/>
-								<AvatarFallback>
-									{consumer.name
-										.split(" ")
-										.map((n) => n[0])
-										.join("")}
-								</AvatarFallback>
-							</Avatar>
-							<div>
-								<p className="font-semibold text-foreground">{consumer.name}</p>
-								<p className="text-muted-foreground text-sm">
-									{consumer.amount}L getrunken
-								</p>
-							</div>
+							<Link
+								href={`/profile/${consumer.userId}`}
+								className="group flex items-center gap-3"
+							>
+								<Avatar className="h-10 w-10">
+									<AvatarImage
+										src={consumer.avatar || "/placeholder.svg"}
+										alt={consumer.name}
+									/>
+									<AvatarFallback>
+										{consumer.name
+											.split(" ")
+											.map((n) => n[0])
+											.join("")}
+									</AvatarFallback>
+								</Avatar>
+								<div>
+									<p className="font-semibold text-foreground group-hover:underline">
+										{consumer.name}
+									</p>
+									<p className="text-muted-foreground text-sm">
+										{consumer.amount}L getrunken
+									</p>
+								</div>
+							</Link>
 						</div>
 						<Badge
 							variant="secondary"
@@ -138,26 +147,31 @@ export default function Leaderboard({ consumers }: LeaderboardProps) {
 									<div className="w-12 text-center font-semibold text-lg text-muted-foreground">
 										#{index + 6}
 									</div>
-									<Avatar className="h-8 w-8">
-										<AvatarImage
-											src={consumer.avatar || "/placeholder.svg"}
-											alt={consumer.name}
-										/>
-										<AvatarFallback className="text-xs">
-											{consumer.name
-												.split(" ")
-												.map((n) => n[0])
-												.join("")}
-										</AvatarFallback>
-									</Avatar>
-									<div>
-										<p className="font-medium text-foreground">
-											{consumer.name}
-										</p>
-										<p className="text-muted-foreground text-sm">
-											{consumer.amount}L
-										</p>
-									</div>
+									<Link
+										href={`/profile/${consumer.userId}`}
+										className="group flex items-center gap-3"
+									>
+										<Avatar className="h-8 w-8">
+											<AvatarImage
+												src={consumer.avatar || "/placeholder.svg"}
+												alt={consumer.name}
+											/>
+											<AvatarFallback className="text-xs">
+												{consumer.name
+													.split(" ")
+													.map((n) => n[0])
+													.join("")}
+											</AvatarFallback>
+										</Avatar>
+										<div>
+											<p className="font-medium text-foreground group-hover:underline">
+												{consumer.name}
+											</p>
+											<p className="text-muted-foreground text-sm">
+												{consumer.amount}L
+											</p>
+										</div>
+									</Link>
 								</div>
 								<Badge
 									variant="outline"

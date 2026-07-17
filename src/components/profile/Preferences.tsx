@@ -1,7 +1,7 @@
 // ~/components/profile/GamificationPreferences.tsx
 "use client";
 
-import { BellOff, Gamepad, Mail, ShieldOff } from "lucide-react";
+import { BellOff, Eye, Gamepad, Mail, ShieldOff } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
@@ -12,9 +12,11 @@ import {
 	getChallengeNotificationPreferenceAction,
 	getEloPreferenceAction,
 	getEmailNotificationPreferenceAction,
+	getPublicProfilePreferenceAction,
 	setChallengeNotificationPreferenceAction,
 	setEloPreferenceAction,
 	setEmailNotificationPreferenceAction,
+	setPublicProfilePreferenceAction,
 } from "~/server/actions/profile/preferences";
 
 export function Preferences() {
@@ -22,18 +24,22 @@ export function Preferences() {
 	const [challengeNotifsEnabled, setChallengeNotifsEnabled] =
 		useState<boolean>(true);
 	const [emailEnabled, setEmailEnabled] = useState<boolean>(true);
+	const [publicProfileEnabled, setPublicProfileEnabled] =
+		useState<boolean>(true);
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
 		(async () => {
-			const [elo, challengeNotifs, email] = await Promise.all([
+			const [elo, challengeNotifs, email, publicProfile] = await Promise.all([
 				getEloPreferenceAction(),
 				getChallengeNotificationPreferenceAction(),
 				getEmailNotificationPreferenceAction(),
+				getPublicProfilePreferenceAction(),
 			]);
 			setEloEnabled(elo?.enabled ?? true);
 			setChallengeNotifsEnabled(challengeNotifs?.enabled ?? true);
 			setEmailEnabled(email?.enabled ?? true);
+			setPublicProfileEnabled(publicProfile?.enabled ?? true);
 		})();
 	}, []);
 
@@ -81,6 +87,49 @@ export function Preferences() {
 					{eloEnabled
 						? "Eloranking deaktivieren"
 						: "Eloranking wieder aktivieren"}
+				</Button>
+
+				<Separator />
+
+				<div className="flex items-center justify-between">
+					<div>
+						<p className="font-medium">Öffentliches Profil</p>
+						<p className="text-muted-foreground text-sm">
+							Achievements, Elo & Trinkstatistiken für andere Mitglieder
+							sichtbar
+						</p>
+					</div>
+					<Badge variant={publicProfileEnabled ? "default" : "secondary"}>
+						{publicProfileEnabled ? "Aktiv" : "Deaktiviert"}
+					</Badge>
+				</div>
+				<Button
+					variant={publicProfileEnabled ? "outline" : "default"}
+					disabled={isPending}
+					onClick={() =>
+						startTransition(async () => {
+							const next = !publicProfileEnabled;
+							const ok = await setPublicProfilePreferenceAction({
+								enabled: next,
+							});
+							if (ok) {
+								setPublicProfileEnabled(next);
+								toast.success(
+									next
+										? "Öffentliches Profil aktiviert"
+										: "Öffentliches Profil deaktiviert",
+								);
+							} else {
+								toast.error("Aktion fehlgeschlagen");
+							}
+						})
+					}
+					className="w-full"
+				>
+					<Eye className="mr-2 h-4 w-4" />
+					{publicProfileEnabled
+						? "Öffentliches Profil deaktivieren"
+						: "Öffentliches Profil aktivieren"}
 				</Button>
 
 				<Separator />

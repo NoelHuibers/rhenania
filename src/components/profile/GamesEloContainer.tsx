@@ -1,10 +1,9 @@
 // GamesEloContainerDetailed.tsx
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { auth } from "~/server/auth";
-import { controlDb } from "~/server/db/control";
-import { userStats } from "~/server/db/control-schema";
 import { db } from "~/server/db/index";
-import { games, userPreferences } from "~/server/db/schema";
+import { userPreferences } from "~/server/db/schema";
+import { getEloStatsForUser } from "~/server/lib/elo-stats";
 import EloDisabledCard from "./EloDisabledCard";
 import { GamesElo } from "./GamesElo";
 
@@ -34,103 +33,7 @@ export default async function GamesEloContainerDetailed() {
 		return <EloDisabledCard />;
 	}
 
-	const userStatsData = await controlDb
-		.select()
-		.from(userStats)
-		.where(eq(userStats.userId, userId))
-		.limit(1);
-
-	let stats = userStatsData[0];
-
-	if (!stats) {
-		const userGamesStats = await db
-			.select({
-				totalGames: sql<number>`count(*)`,
-				wins: sql<number>`sum(case when ${games.winnerId} = ${userId} then 1 else 0 end)`,
-				losses: sql<number>`sum(case when ${games.winnerId} != ${userId} then 1 else 0 end)`,
-				lastGameAt: sql<Date>`max(${games.playedAt})`,
-			})
-			.from(games)
-			.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)));
-
-		const gameStats = userGamesStats[0];
-
-		const latestGame = await db
-			.select({
-				player1Id: games.player1Id,
-				player1EloAfter: games.player1EloAfter,
-				player2EloAfter: games.player2EloAfter,
-			})
-			.from(games)
-			.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)))
-			.orderBy(desc(games.playedAt))
-			.limit(1);
-
-		const currentElo = latestGame[0]
-			? latestGame[0].player1Id === userId
-				? (latestGame[0].player1EloAfter ?? 1200)
-				: (latestGame[0].player2EloAfter ?? 1200)
-			: 1200;
-
-		const allUserGames = await db
-			.select({
-				player1Id: games.player1Id,
-				player1EloAfter: games.player1EloAfter,
-				player2EloAfter: games.player2EloAfter,
-			})
-			.from(games)
-			.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)));
-
-		const peakElo = allUserGames.reduce((peak, game) => {
-			const userElo =
-				game.player1Id === userId
-					? (game.player1EloAfter ?? 1200)
-					: (game.player2EloAfter ?? 1200);
-			return Math.max(peak, userElo);
-		}, 1200);
-
-		stats = {
-			userId,
-			currentElo,
-			totalGames: gameStats?.totalGames || 0,
-			wins: gameStats?.wins || 0,
-			losses: gameStats?.losses || 0,
-			lastGameAt: gameStats?.lastGameAt || null,
-			peakElo,
-			createdAt: new Date(),
-			updatedAt: new Date(),
-		};
-	}
-
-	const recentGames = await db
-		.select({
-			playedAt: games.playedAt,
-			player1Id: games.player1Id,
-			player2Id: games.player2Id,
-			player1EloAfter: games.player1EloAfter,
-			player2EloAfter: games.player2EloAfter,
-		})
-		.from(games)
-		.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)))
-		.orderBy(desc(games.playedAt))
-		.limit(50);
-
-	const eloHistory = recentGames
-		.filter((game) => game.playedAt)
-		.map((game) => ({
-			date: game.playedAt?.toISOString().split("T")[0] ?? "",
-			elo:
-				game.player1Id === userId
-					? (game.player1EloAfter ?? 1200)
-					: (game.player2EloAfter ?? 1200),
-		}))
-		.reverse();
-
-	if (!stats) {
-		// Unreachable in practice — the if-block above always assigns it — but
-		// TypeScript can't narrow through `let` reassignment.
-		return null;
-	}
+	const { stats, eloHistory } = await getEloStatsForUser(userId);
 
 	return <GamesElo userStats={stats} eloHistory={eloHistory} />;
 }

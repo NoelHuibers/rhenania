@@ -8,6 +8,7 @@ import {
 	achievements,
 	userAchievements,
 } from "~/server/db/schema";
+import { getAchievementUnlockPercentages } from "~/server/lib/achievement-stats";
 
 export type UserAchievementData = {
 	id: string;
@@ -23,6 +24,7 @@ export type UserAchievementData = {
 	unlocked: boolean;
 	unlockedAt: Date | null;
 	currentValue: number;
+	unlockPercent: number;
 };
 
 export async function getUserAchievements(): Promise<UserAchievementData[]> {
@@ -31,17 +33,19 @@ export async function getUserAchievements(): Promise<UserAchievementData[]> {
 
 	const userId = session.user.id;
 
-	const [allAchievements, userUnlocked, userProgress] = await Promise.all([
-		db.select().from(achievements).where(eq(achievements.isActive, true)),
-		db
-			.select()
-			.from(userAchievements)
-			.where(eq(userAchievements.userId, userId)),
-		db
-			.select()
-			.from(achievementProgress)
-			.where(eq(achievementProgress.userId, userId)),
-	]);
+	const [allAchievements, userUnlocked, userProgress, unlockPercentages] =
+		await Promise.all([
+			db.select().from(achievements).where(eq(achievements.isActive, true)),
+			db
+				.select()
+				.from(userAchievements)
+				.where(eq(userAchievements.userId, userId)),
+			db
+				.select()
+				.from(achievementProgress)
+				.where(eq(achievementProgress.userId, userId)),
+			getAchievementUnlockPercentages(),
+		]);
 
 	const unlockedMap = new Map(
 		userUnlocked.map((u) => [u.achievementId, u.unlockedAt]),
@@ -64,5 +68,6 @@ export async function getUserAchievements(): Promise<UserAchievementData[]> {
 		unlocked: unlockedMap.has(a.id),
 		unlockedAt: unlockedMap.get(a.id) ?? null,
 		currentValue: progressMap.get(a.id) ?? 0,
+		unlockPercent: unlockPercentages[a.id] ?? 0,
 	}));
 }
