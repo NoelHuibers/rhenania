@@ -27,6 +27,10 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Table, TableBody, TableCell, TableRow } from "~/components/ui/table";
 import { formatEur } from "~/lib/cc-kasse-format";
+import {
+	deleteEinnahme,
+	type EinnahmeRow,
+} from "~/server/actions/cc-kasse/einnahmen";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
 import {
 	exportEtaplanXlsx,
@@ -37,7 +41,7 @@ import {
 	type KostenpunktWithPositions,
 	type LinkableEvent,
 } from "~/server/actions/cc-kasse/kostenpunkte";
-import { EinnahmeDialog } from "./EinnahmeDialog";
+import { type EditingEinnahme, EinnahmeDialog } from "./EinnahmeDialog";
 import { EtaplanDialog } from "./EtaplanDialog";
 import { KostenpunktDialog } from "./KostenpunktDialog";
 import { ReimbursementDialog } from "./ReimbursementDialog";
@@ -45,6 +49,7 @@ import { ReimbursementDialog } from "./ReimbursementDialog";
 type Props = {
 	etaplan: Etaplan;
 	kostenpunkte: KostenpunktWithPositions[];
+	einnahmen: EinnahmeRow[];
 	events: LinkableEvent[];
 	isTreasury: boolean;
 };
@@ -77,6 +82,7 @@ function fileToBase64(file: File): Promise<string> {
 export function EtaplanEditorTab({
 	etaplan,
 	kostenpunkte,
+	einnahmen,
 	events,
 	isTreasury,
 }: Props) {
@@ -91,6 +97,9 @@ export function EtaplanEditorTab({
 	);
 	const [bookingOpen, setBookingOpen] = useState(false);
 	const [einnahmeOpen, setEinnahmeOpen] = useState(false);
+	const [editingEinnahme, setEditingEinnahme] =
+		useState<EditingEinnahme | null>(null);
+	const [deleteEinnahmeId, setDeleteEinnahmeId] = useState<string | null>(null);
 	const [deleteId, setDeleteId] = useState<string | null>(null);
 
 	const categories = Array.from(
@@ -106,6 +115,46 @@ export function EtaplanEditorTab({
 		...c,
 		items: kostenpunkte.filter((k) => k.category === c.category),
 	}));
+
+	// Booked income grouped by Kostenpunkt — shown inline under each point so
+	// e.g. Stiftungsfest is one thing: plan positions plus what actually came in.
+	const einnahmenByKp = new Map<string, EinnahmeRow[]>();
+	for (const e of einnahmen) {
+		const list = einnahmenByKp.get(e.kostenpunktId) ?? [];
+		list.push(e);
+		einnahmenByKp.set(e.kostenpunktId, list);
+	}
+
+	const openNewEinnahme = () => {
+		setEditingEinnahme(null);
+		setEinnahmeOpen(true);
+	};
+	const openEditEinnahme = (e: EinnahmeRow) => {
+		setEditingEinnahme({
+			id: e.id,
+			kostenpunktId: e.kostenpunktId,
+			kostenpunktName: e.kostenpunkt?.name ?? "",
+			kostenpunktCategory: e.kostenpunkt?.category ?? "",
+			amount: e.amount,
+			description: e.description,
+			incomeDate: e.incomeDate,
+		});
+		setEinnahmeOpen(true);
+	};
+	const confirmDeleteEinnahme = () => {
+		if (!deleteEinnahmeId) return;
+		const id = deleteEinnahmeId;
+		setDeleteEinnahmeId(null);
+		startTransition(async () => {
+			const res = await deleteEinnahme(id);
+			if (res.success) {
+				toast.success("Einnahme gelöscht");
+				router.refresh();
+			} else {
+				toast.error(res.error);
+			}
+		});
+	};
 
 	const bookableOptions = kostenpunkte.map((k) => ({
 		id: k.id,
@@ -227,7 +276,7 @@ export function EtaplanEditorTab({
 							<Button
 								variant="outline"
 								size="sm"
-								onClick={() => setEinnahmeOpen(true)}
+								onClick={openNewEinnahme}
 								disabled={kostenpunkte.length === 0}
 							>
 								<PiggyBank className="mr-1 h-4 w-4" /> Einnahme
@@ -261,127 +310,231 @@ export function EtaplanEditorTab({
 							<CardContent>
 								{/* Mobile: stacked cards */}
 								<div className="space-y-3 sm:hidden">
-									{g.items.map((kp) => (
-										<div key={kp.id} className="rounded-lg border p-3">
-											<div className="flex items-start justify-between gap-2">
-												<div className="min-w-0">
-													<div className="font-medium">{kp.name}</div>
-													{kp.event && (
-														<div className="text-muted-foreground text-xs">
-															↳ {kp.event.title}
-														</div>
-													)}
-													<div className="mt-1 font-medium text-sm tabular-nums">
-														{formatEur(kp.budget)}
-														{kp.income > 0 && (
-															<span className="text-muted-foreground">
-																{" "}
-																· +{formatEur(kp.income)}
-															</span>
-														)}
-													</div>
-												</div>
-												<div className="flex shrink-0 gap-1">
-													<Button
-														variant="ghost"
-														size="icon"
-														onClick={() => openEditKp(kp)}
-													>
-														<Pencil className="h-4 w-4" />
-													</Button>
-													<Button
-														variant="ghost"
-														size="icon"
-														onClick={() => setDeleteId(kp.id)}
-													>
-														<Trash2 className="h-4 w-4" />
-													</Button>
-												</div>
-											</div>
-											{kp.positionen.length > 0 && (
-												<div className="mt-2 space-y-0.5 border-t pt-2">
-													{kp.positionen.map((p) => (
-														<div
-															key={p.id}
-															className="flex justify-between gap-3 text-muted-foreground text-xs"
-														>
-															<span className="min-w-0 truncate">
-																{p.bemerkung ?? "—"}
-															</span>
-															<span className="shrink-0 whitespace-nowrap tabular-nums">
-																{formatEur(p.ausgaben)}
-																{p.einnahmen > 0 &&
-																	` / +${formatEur(p.einnahmen)}`}
-															</span>
-														</div>
-													))}
-												</div>
-											)}
-										</div>
-									))}
-								</div>
-
-								{/* Desktop: table */}
-								<div className="hidden sm:block">
-									<Table>
-										<TableBody>
-											{g.items.map((kp) => (
-												<TableRow key={kp.id} className="align-top">
-													<TableCell>
+									{g.items.map((kp) => {
+										const kpEinnahmen = einnahmenByKp.get(kp.id) ?? [];
+										const erhalten = kpEinnahmen.reduce(
+											(s, e) => s + e.amount,
+											0,
+										);
+										return (
+											<div key={kp.id} className="rounded-lg border p-3">
+												<div className="flex items-start justify-between gap-2">
+													<div className="min-w-0">
 														<div className="font-medium">{kp.name}</div>
 														{kp.event && (
 															<div className="text-muted-foreground text-xs">
 																↳ {kp.event.title}
 															</div>
 														)}
-														<div className="mt-1 space-y-0.5">
-															{kp.positionen.map((p) => (
-																<div
-																	key={p.id}
-																	className="flex justify-between gap-4 text-muted-foreground text-xs"
-																>
-																	<span className="min-w-0 truncate">
-																		{p.bemerkung ?? "—"}
-																	</span>
-																	<span className="whitespace-nowrap">
-																		{formatEur(p.ausgaben)}
-																		{p.einnahmen > 0 &&
-																			` / +${formatEur(p.einnahmen)}`}
-																	</span>
-																</div>
-															))}
-														</div>
-													</TableCell>
-													<TableCell className="text-right">
-														<div className="font-medium">
+														<div className="mt-1 font-medium text-sm tabular-nums">
 															{formatEur(kp.budget)}
+															{kp.income > 0 && (
+																<span className="text-muted-foreground">
+																	{" "}
+																	· +{formatEur(kp.income)}
+																</span>
+															)}
 														</div>
-														{kp.income > 0 && (
-															<div className="text-muted-foreground text-xs">
-																+{formatEur(kp.income)}
+														{erhalten > 0 && (
+															<div className="text-emerald-600 text-xs dark:text-emerald-400">
+																Erhalten +{formatEur(erhalten)}
 															</div>
 														)}
-													</TableCell>
-													<TableCell className="w-[90px] text-right">
-														<div className="flex justify-end gap-1">
-															<Button
-																variant="ghost"
-																size="icon"
-																onClick={() => openEditKp(kp)}
+													</div>
+													<div className="flex shrink-0 gap-1">
+														<Button
+															variant="ghost"
+															size="icon"
+															onClick={() => openEditKp(kp)}
+														>
+															<Pencil className="h-4 w-4" />
+														</Button>
+														<Button
+															variant="ghost"
+															size="icon"
+															onClick={() => setDeleteId(kp.id)}
+														>
+															<Trash2 className="h-4 w-4" />
+														</Button>
+													</div>
+												</div>
+												{kp.positionen.length > 0 && (
+													<div className="mt-2 space-y-0.5 border-t pt-2">
+														{kp.positionen.map((p) => (
+															<div
+																key={p.id}
+																className="flex justify-between gap-3 text-muted-foreground text-xs"
 															>
-																<Pencil className="h-4 w-4" />
-															</Button>
-															<Button
-																variant="ghost"
-																size="icon"
-																onClick={() => setDeleteId(kp.id)}
+																<span className="min-w-0 truncate">
+																	{p.bemerkung ?? "—"}
+																</span>
+																<span className="shrink-0 whitespace-nowrap tabular-nums">
+																	{formatEur(p.ausgaben)}
+																	{p.einnahmen > 0 &&
+																		` / +${formatEur(p.einnahmen)}`}
+																</span>
+															</div>
+														))}
+													</div>
+												)}
+												{kpEinnahmen.length > 0 && (
+													<div className="mt-2 space-y-1 border-t pt-2">
+														{kpEinnahmen.map((e) => (
+															<div
+																key={e.id}
+																className="flex items-center justify-between gap-3 text-xs"
 															>
-																<Trash2 className="h-4 w-4" />
-															</Button>
-														</div>
-													</TableCell>
-												</TableRow>
-											))}
+																<span className="min-w-0 truncate text-muted-foreground">
+																	{new Date(e.incomeDate).toLocaleDateString(
+																		"de-DE",
+																	)}{" "}
+																	· {e.description}
+																</span>
+																<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
+																	+{formatEur(e.amount)}
+																	{isTreasury && (
+																		<>
+																			<Button
+																				variant="ghost"
+																				size="icon"
+																				className="size-6"
+																				onClick={() => openEditEinnahme(e)}
+																			>
+																				<Pencil className="h-3 w-3" />
+																			</Button>
+																			<Button
+																				variant="ghost"
+																				size="icon"
+																				className="size-6"
+																				onClick={() =>
+																					setDeleteEinnahmeId(e.id)
+																				}
+																			>
+																				<Trash2 className="h-3 w-3" />
+																			</Button>
+																		</>
+																	)}
+																</span>
+															</div>
+														))}
+													</div>
+												)}
+											</div>
+										);
+									})}
+								</div>
+
+								{/* Desktop: table */}
+								<div className="hidden sm:block">
+									<Table>
+										<TableBody>
+											{g.items.map((kp) => {
+												const kpEinnahmen = einnahmenByKp.get(kp.id) ?? [];
+												const erhalten = kpEinnahmen.reduce(
+													(s, e) => s + e.amount,
+													0,
+												);
+												return (
+													<TableRow key={kp.id} className="align-top">
+														<TableCell>
+															<div className="font-medium">{kp.name}</div>
+															{kp.event && (
+																<div className="text-muted-foreground text-xs">
+																	↳ {kp.event.title}
+																</div>
+															)}
+															<div className="mt-1 space-y-0.5">
+																{kp.positionen.map((p) => (
+																	<div
+																		key={p.id}
+																		className="flex justify-between gap-4 text-muted-foreground text-xs"
+																	>
+																		<span className="min-w-0 truncate">
+																			{p.bemerkung ?? "—"}
+																		</span>
+																		<span className="whitespace-nowrap">
+																			{formatEur(p.ausgaben)}
+																			{p.einnahmen > 0 &&
+																				` / +${formatEur(p.einnahmen)}`}
+																		</span>
+																	</div>
+																))}
+																{kpEinnahmen.map((e) => (
+																	<div
+																		key={e.id}
+																		className="flex items-center justify-between gap-4 text-xs"
+																	>
+																		<span className="min-w-0 truncate text-muted-foreground">
+																			{new Date(
+																				e.incomeDate,
+																			).toLocaleDateString("de-DE")}{" "}
+																			· {e.description}
+																		</span>
+																		<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
+																			+{formatEur(e.amount)}
+																			{isTreasury && (
+																				<>
+																					<Button
+																						variant="ghost"
+																						size="icon"
+																						className="size-6"
+																						onClick={() => openEditEinnahme(e)}
+																					>
+																						<Pencil className="h-3 w-3" />
+																					</Button>
+																					<Button
+																						variant="ghost"
+																						size="icon"
+																						className="size-6"
+																						onClick={() =>
+																							setDeleteEinnahmeId(e.id)
+																						}
+																					>
+																						<Trash2 className="h-3 w-3" />
+																					</Button>
+																				</>
+																			)}
+																		</span>
+																	</div>
+																))}
+															</div>
+														</TableCell>
+														<TableCell className="text-right">
+															<div className="font-medium">
+																{formatEur(kp.budget)}
+															</div>
+															{kp.income > 0 && (
+																<div className="text-muted-foreground text-xs">
+																	+{formatEur(kp.income)}
+																</div>
+															)}
+															{erhalten > 0 && (
+																<div className="text-emerald-600 text-xs dark:text-emerald-400">
+																	Erhalten +{formatEur(erhalten)}
+																</div>
+															)}
+														</TableCell>
+														<TableCell className="w-[90px] text-right">
+															<div className="flex justify-end gap-1">
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	onClick={() => openEditKp(kp)}
+																>
+																	<Pencil className="h-4 w-4" />
+																</Button>
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	onClick={() => setDeleteId(kp.id)}
+																>
+																	<Trash2 className="h-4 w-4" />
+																</Button>
+															</div>
+														</TableCell>
+													</TableRow>
+												);
+											})}
 										</TableBody>
 									</Table>
 								</div>
@@ -419,10 +572,34 @@ export function EtaplanEditorTab({
 						open={einnahmeOpen}
 						onOpenChange={setEinnahmeOpen}
 						kostenpunkte={bookableOptions}
+						editing={editingEinnahme}
 						onSaved={() => router.refresh()}
 					/>
 				</>
 			)}
+
+			<AlertDialog
+				open={deleteEinnahmeId !== null}
+				onOpenChange={(o) => {
+					if (!o) setDeleteEinnahmeId(null);
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Einnahme löschen?</AlertDialogTitle>
+						<AlertDialogDescription>
+							Die gebuchte Einnahme wird entfernt und aus den Ist-Einnahmen
+							herausgerechnet.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
+						<AlertDialogAction onClick={confirmDeleteEinnahme}>
+							Löschen
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 
 			<AlertDialog
 				open={deleteId !== null}
@@ -435,7 +612,7 @@ export function EtaplanEditorTab({
 						<AlertDialogTitle>Kostenpunkt löschen?</AlertDialogTitle>
 						<AlertDialogDescription>
 							Der Kostenpunkt und seine Positionen werden gelöscht. Das ist nur
-							möglich, wenn keine Erstattungen daran hängen.
+							möglich, wenn keine Erstattungen oder Einnahmen daran hängen.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>

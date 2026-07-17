@@ -26,7 +26,6 @@ import type {
 	ChargesForRun,
 } from "~/server/actions/members/semesterbeitrag";
 import { BeitraegeTab } from "./BeitraegeTab";
-import { EinnahmenTab } from "./EinnahmenTab";
 import { EtaplanDialog } from "./EtaplanDialog";
 import { EtaplanEditorTab } from "./EtaplanEditorTab";
 import { OverviewTab } from "./OverviewTab";
@@ -121,13 +120,13 @@ export function CcKassePage({
 							{isTreasury && (
 								<TabsTrigger value="beitraege">Beiträge</TabsTrigger>
 							)}
-							<TabsTrigger value="einnahmen">Einnahmen</TabsTrigger>
 							<TabsTrigger value="uebersicht">Übersicht</TabsTrigger>
 						</TabsList>
 						<TabsContent value="etaplan" className="mt-4">
 							<EtaplanEditorTab
 								etaplan={selectedEtaplan}
 								kostenpunkte={kostenpunkte}
+								einnahmen={einnahmen}
 								events={events}
 								isTreasury={isTreasury}
 							/>
@@ -150,14 +149,6 @@ export function CcKassePage({
 								/>
 							</TabsContent>
 						)}
-						<TabsContent value="einnahmen" className="mt-4">
-							<EinnahmenTab
-								overview={overview}
-								einnahmen={einnahmen}
-								isTreasury={isTreasury}
-								kostenpunktOptions={kostenpunktOptions}
-							/>
-						</TabsContent>
 						<TabsContent value="uebersicht" className="mt-4">
 							<OverviewTab overview={overview} />
 						</TabsContent>

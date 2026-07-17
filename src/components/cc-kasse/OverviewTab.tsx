@@ -257,7 +257,194 @@ export function OverviewTab({
 					</div>
 				</CardContent>
 			</Card>
+
+			<EinnahmenPlanCard overview={overview} />
 		</div>
+	);
+}
+
+// Income mirror of the Kostenpunkte table: how much of the planned income has
+// come in per Kostenpunkt, and how much is still missing.
+function EinnahmenPlanCard({ overview }: { overview: EtaplanOverview }) {
+	const rows = overview.kostenpunkte.filter(
+		(k) => k.income > 0 || k.istEinnahmen > 0,
+	);
+	if (rows.length === 0) return null;
+
+	const geplant = overview.geplanteEinnahmen;
+	const erhalten = overview.total.istEinnahmen;
+	const fehlt = Math.max(0, geplant - erhalten);
+	const totalPct = incomePct(geplant, erhalten);
+
+	return (
+		<Card>
+			<CardHeader className="flex flex-col gap-1 pb-2 sm:flex-row sm:items-center sm:justify-between">
+				<CardTitle className="text-base">Einnahmen</CardTitle>
+				<span className="text-muted-foreground text-sm">
+					<span className="font-semibold text-emerald-600 dark:text-emerald-400">
+						{formatEur(erhalten)}
+					</span>{" "}
+					von {formatEur(geplant)} erhalten ({totalPct}%)
+					{fehlt > 0 && (
+						<>
+							{" · "}
+							<span className="font-semibold text-amber-600 dark:text-amber-400">
+								{formatEur(fehlt)} fehlen
+							</span>
+						</>
+					)}
+				</span>
+			</CardHeader>
+			<CardContent>
+				{/* Mobile: stacked cards */}
+				<div className="space-y-2 sm:hidden">
+					{rows.map((k) => {
+						const rowFehlt = Math.max(0, k.income - k.istEinnahmen);
+						return (
+							<div key={k.id} className="rounded-lg border p-3">
+								<div className="flex items-center justify-between gap-2">
+									<div className="min-w-0">
+										<div className="truncate font-medium text-sm">{k.name}</div>
+										<div className="truncate text-muted-foreground text-xs">
+											{k.category}
+										</div>
+									</div>
+									<IncomePctLabel income={k.income} ist={k.istEinnahmen} />
+								</div>
+								<div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+									<MobileAmount label="Geplant" value={k.income} />
+									<MobileAmount label="Erhalten" value={k.istEinnahmen} />
+									<MobileAmount
+										label="Fehlt"
+										value={rowFehlt}
+										negative={rowFehlt > 0}
+									/>
+								</div>
+								<Progress
+									className="mt-2"
+									value={Math.min(incomePct(k.income, k.istEinnahmen), 100)}
+								/>
+							</div>
+						);
+					})}
+				</div>
+
+				{/* Desktop: table */}
+				<div className="hidden sm:block">
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead>Kostenpunkt</TableHead>
+								<TableHead className="text-right">Geplant</TableHead>
+								<TableHead className="text-right">Erhalten</TableHead>
+								<TableHead className="text-right">Fehlt</TableHead>
+								<TableHead className="w-[160px]">Fortschritt</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{rows.map((k) => {
+								const rowFehlt = Math.max(0, k.income - k.istEinnahmen);
+								return (
+									<TableRow key={k.id}>
+										<TableCell>
+											<div className="font-medium">{k.name}</div>
+											<div className="text-muted-foreground text-xs">
+												{k.category}
+											</div>
+										</TableCell>
+										<TableCell className="text-right">
+											{formatEur(k.income)}
+										</TableCell>
+										<TableCell
+											className={cn(
+												"text-right",
+												k.istEinnahmen > 0 &&
+													"text-emerald-600 dark:text-emerald-400",
+											)}
+										>
+											{formatEur(k.istEinnahmen)}
+										</TableCell>
+										<TableCell
+											className={cn(
+												"text-right",
+												rowFehlt > 0 && "text-amber-600 dark:text-amber-400",
+											)}
+										>
+											{formatEur(rowFehlt)}
+										</TableCell>
+										<TableCell>
+											<div className="flex items-center gap-2">
+												<Progress
+													className="flex-1"
+													value={Math.min(
+														incomePct(k.income, k.istEinnahmen),
+														100,
+													)}
+												/>
+												<IncomePctLabel
+													income={k.income}
+													ist={k.istEinnahmen}
+												/>
+											</div>
+										</TableCell>
+									</TableRow>
+								);
+							})}
+							<TableRow className="bg-muted/50 font-medium">
+								<TableCell>Gesamt</TableCell>
+								<TableCell className="text-right">
+									{formatEur(geplant)}
+								</TableCell>
+								<TableCell className="text-right text-emerald-600 dark:text-emerald-400">
+									{formatEur(erhalten)}
+								</TableCell>
+								<TableCell
+									className={cn(
+										"text-right",
+										fehlt > 0 && "text-amber-600 dark:text-amber-400",
+									)}
+								>
+									{formatEur(fehlt)}
+								</TableCell>
+								<TableCell>
+									<div className="flex items-center gap-2">
+										<Progress
+											className="flex-1"
+											value={Math.min(totalPct, 100)}
+										/>
+										<IncomePctLabel income={geplant} ist={erhalten} />
+									</div>
+								</TableCell>
+							</TableRow>
+						</TableBody>
+					</Table>
+				</div>
+				<p className="mt-3 text-muted-foreground text-xs">
+					Erhalten = gebuchte Einnahmen plus bezahlte Semesterbeiträge des
+					verknüpften Kostenpunkts.
+				</p>
+			</CardContent>
+		</Card>
+	);
+}
+
+function incomePct(income: number, ist: number): number {
+	return income > 0 ? Math.round((ist / income) * 100) : ist > 0 ? 100 : 0;
+}
+
+function IncomePctLabel({ income, ist }: { income: number; ist: number }) {
+	const pct = incomePct(income, ist);
+	return (
+		<span
+			className={cn(
+				"shrink-0 text-xs tabular-nums",
+				pct >= 100
+					? "font-medium text-emerald-600 dark:text-emerald-400"
+					: "text-muted-foreground",
+			)}
+		>
+			{pct}%
+		</span>
 	);
 }
 
