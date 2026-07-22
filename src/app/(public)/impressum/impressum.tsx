@@ -12,7 +12,7 @@ const Impressum = () => {
 				</p>
 				<Link
 					className="text-gray-500 dark:text-gray-400"
-					href="tel:+4971129738"
+					href="tel:+49711297308"
 				>
 					Telefon: +49 711 297308
 				</Link>

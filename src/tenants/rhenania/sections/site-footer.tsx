@@ -9,7 +9,7 @@ export function SiteFooter() {
 					<div className="mt-2 flex flex-col gap-1 text-sm">
 						<Link
 							className="transition-colors hover:text-[#b85d7c]"
-							href="tel:+4971129738"
+							href="tel:+49711297308"
 						>
 							Telefon: +49 711 297308
 						</Link>

@@ -13,7 +13,7 @@ const CONTACTS = [
 		label: "corps@rhenania-stuttgart.de",
 		href: "mailto:corps@rhenania-stuttgart.de",
 	},
-	{ Icon: Phone, label: "+49 711 297308", href: "tel:+4971129738" },
+	{ Icon: Phone, label: "+49 711 297308", href: "tel:+49711297308" },
 	{
 		Icon: MapPin,
 		label: "Relenbergstraße 8, 70174 Stuttgart",

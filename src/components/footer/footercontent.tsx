@@ -7,7 +7,7 @@ const Footercontent = () => {
 				<p className="font-bold">Kontakt</p>
 				<div className="flex space-x-1 md:space-x-2">
 					<p>Telefon:</p>
-					<Link className="hover:underline" href="tel:+4971129738">
+					<Link className="hover:underline" href="tel:+49711297308">
 						+49 711 297308
 					</Link>
 				</div>
