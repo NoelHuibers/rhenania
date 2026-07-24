@@ -560,10 +560,17 @@ function CollapsibleCard({
 
 type BillStatus = "Bezahlt" | "Unbezahlt" | "Gestundet";
 
-function memberStatusClass(status: string) {
-	return status === "Gestundet"
-		? "border-amber-300 text-amber-700 dark:text-amber-300"
-		: "border-red-300 text-red-700 dark:text-red-300";
+function billStatusClass(status: string) {
+	switch (status) {
+		case "Bezahlt":
+			return "border-emerald-300 text-emerald-700 dark:text-emerald-300";
+		case "Gestundet":
+			return "border-amber-300 text-amber-700 dark:text-amber-300";
+		case "Übertragen":
+			return "border-slate-300 text-slate-600 dark:text-slate-300";
+		default:
+			return "border-red-300 text-red-700 dark:text-red-300";
+	}
 }
 
 function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
@@ -632,7 +639,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 												variant="outline"
 												size="sm"
 												disabled={isPending && pendingId === b.id}
-												className={`h-7 ${memberStatusClass(b.status)}`}
+												className={`h-7 ${billStatusClass(b.status)}`}
 											>
 												{b.status}
 												<ChevronDown className="ml-1 size-3.5" />
@@ -679,7 +686,30 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 // ─── Entity Bills ─────────────────────────────────────────────────────────────
 
 function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
+	const router = useRouter();
 	const [downloading, setDownloading] = useState<string | null>(null);
+	const [pendingId, setPendingId] = useState<string | null>(null);
+	const [isPending, startTransition] = useTransition();
+
+	function setStatus(id: string, name: string, status: BillStatus) {
+		setPendingId(id);
+		startTransition(async () => {
+			const res = await updateBillStatus(id, status);
+			if (res.success) {
+				toast.success(
+					status === "Bezahlt"
+						? `${name} als bezahlt markiert`
+						: status === "Gestundet"
+							? `${name} gestundet`
+							: `${name} auf unbezahlt gesetzt`,
+				);
+				router.refresh();
+			} else {
+				toast.error("Status konnte nicht geändert werden");
+			}
+			setPendingId(null);
+		});
+	}
 
 	async function handleDownload(bill: EntityBill) {
 		setDownloading(bill.id);
@@ -744,13 +774,37 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 									{fmtDate(b.createdAt)}
 								</TableCell>
 								<TableCell>
-									<Badge
-										variant={
-											b.status === "Bezahlt" ? "secondary" : "destructive"
-										}
-									>
-										{b.status}
-									</Badge>
+									<DropdownMenu>
+										<DropdownMenuTrigger asChild>
+											<Button
+												variant="outline"
+												size="sm"
+												disabled={isPending && pendingId === b.id}
+												className={`h-7 ${billStatusClass(b.status)}`}
+											>
+												{b.status}
+												<ChevronDown className="ml-1 size-3.5" />
+											</Button>
+										</DropdownMenuTrigger>
+										<DropdownMenuContent align="start">
+											<DropdownMenuRadioGroup
+												value={b.status}
+												onValueChange={(value) =>
+													setStatus(b.id, b.userName, value as BillStatus)
+												}
+											>
+												<DropdownMenuRadioItem value="Bezahlt">
+													Bezahlt
+												</DropdownMenuRadioItem>
+												<DropdownMenuRadioItem value="Gestundet">
+													Gestundet
+												</DropdownMenuRadioItem>
+												<DropdownMenuRadioItem value="Unbezahlt">
+													Unbezahlt
+												</DropdownMenuRadioItem>
+											</DropdownMenuRadioGroup>
+										</DropdownMenuContent>
+									</DropdownMenu>
 								</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
 									{fmt(b.total)}
