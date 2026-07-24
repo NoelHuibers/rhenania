@@ -5,6 +5,7 @@ import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { and, eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { env } from "~/env";
+import { sendPasswordResetEmail } from "~/server/actions/newuser/email";
 import { controlDb } from "~/server/db/control";
 import {
 	accounts,
@@ -16,7 +17,7 @@ import {
 } from "~/server/db/control-schema";
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
-import { getTenantId } from "~/server/lib/tenant-context";
+import { getTenantId, TENANT_HEADER } from "~/server/lib/tenant-context";
 import {
 	mirrorUserToAllMemberTenants,
 	mirrorUserToTenant,
@@ -87,6 +88,31 @@ export const betterAuthInstance = betterAuth({
 		enabled: true,
 		requireEmailVerification: true,
 		autoSignIn: false,
+		resetPasswordTokenExpiresIn: 60 * 60,
+		revokeSessionsOnPasswordReset: true,
+		sendResetPassword: async ({ user, url }, request) => {
+			const tenantId =
+				request?.headers.get(TENANT_HEADER) ?? (await getTenantId());
+			if (!tenantId) return;
+
+			// Identity is global, but reset mails must only be sent from a tenant
+			// the user actually belongs to. Better Auth still returns the same
+			// generic response when no matching membership exists.
+			const [membership] = await controlDb
+				.select({ userId: tenantMemberships.userId })
+				.from(tenantMemberships)
+				.where(
+					and(
+						eq(tenantMemberships.userId, user.id),
+						eq(tenantMemberships.tenantId, tenantId),
+						eq(tenantMemberships.status, "active"),
+					),
+				)
+				.limit(1);
+			if (!membership) return;
+
+			await sendPasswordResetEmail(user.email, url);
+		},
 		password: {
 			hash: (password) => bcrypt.hash(password, 12),
 			verify: ({ hash, password }) => bcrypt.compare(password, hash),

@@ -8,6 +8,7 @@ import {
 	Lock,
 	Mail,
 } from "lucide-react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Alert, AlertDescription } from "~/components/ui/alert";
@@ -214,13 +215,8 @@ export default function SignInPage({ microsoftProviderId }: SignInPageProps) {
 					</form>
 
 					<div className="text-center">
-						<Button
-							variant="link"
-							size="sm"
-							onClick={() => router.push("/auth/forgot-password")}
-							className="text-sm"
-						>
-							Passwort vergessen?
+						<Button asChild variant="link" size="sm" className="text-sm">
+							<Link href="/auth/forgot-password">Passwort vergessen?</Link>
 						</Button>
 					</div>
 				</CardContent>

@@ -3,8 +3,9 @@
 // Tables here live in a separate Turso DB (env: CONTROL_DATABASE_URL):
 //   - Tenant registry, host->tenant mapping, cross-tenant memberships,
 //     per-tenant auth config.
-//   - Global identity: users (source of truth), accounts, sessions,
-//     verifications, passwordResetTokens. Better Auth is bound to this DB.
+//   - Global identity: users (source of truth), accounts, sessions and
+//     verifications. Better Auth is bound to this DB.
+//   - Legacy passwordResetTokens retained for migration compatibility.
 //
 // `users` is mirrored into each tenant DB the user belongs to (so tenant-side
 // joins on user keep working). The mirror is updated by Better Auth
@@ -210,6 +211,8 @@ export const verifications = createControlTable("verification", (d) => ({
 		.$onUpdate(() => new Date()),
 }));
 
+// Legacy custom reset table. New resets use Better Auth's `verifications`
+// table; keep this definition until old installations no longer need migration.
 export const passwordResetTokens = createControlTable(
 	"password_reset_token",
 	(d) => ({

@@ -209,12 +209,9 @@ ${tenantLabel}
 
 export async function sendPasswordResetEmail(
 	email: string,
-	token: string,
+	resetUrl: string,
 ): Promise<void> {
 	try {
-		const origin = await getCurrentRequestOrigin();
-		const resetUrl = `${origin}/auth/reset-password?token=${token}`;
-
 		const mailOptions = {
 			to: email,
 			subject: "Passwort zurücksetzen",
