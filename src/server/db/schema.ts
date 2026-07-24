@@ -1893,7 +1893,7 @@ export const semesterbeitragCharges = createTable(
 		baseAmount: d.real().notNull(),
 		mahnungAmount: d.real().notNull().default(0),
 		status: d
-			.text({ enum: ["Offen", "Bezahlt", "Gemahnt"] })
+			.text({ enum: ["Offen", "Bezahlt", "Gestundet", "Gemahnt"] })
 			.notNull()
 			.default("Offen"),
 		deliveryMethod: d.text({ enum: ["email", "letter"] }),

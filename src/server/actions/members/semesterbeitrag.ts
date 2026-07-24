@@ -218,6 +218,17 @@ export async function markChargePaid(chargeId: string) {
 	return { success: true as const };
 }
 
+export async function markChargeDeferred(chargeId: string) {
+	const guard = await requireRoles(BEITRAG_ROLES);
+	if (!guard.ok) return { success: false as const, error: guard.error };
+	await db
+		.update(semesterbeitragCharges)
+		.set({ status: "Gestundet", paidAt: null, paidBy: null })
+		.where(eq(semesterbeitragCharges.id, chargeId));
+	revalidatePath("/cc-kasse");
+	return { success: true as const };
+}
+
 export async function markChargeUnpaid(chargeId: string) {
 	const guard = await requireRoles(BEITRAG_ROLES);
 	if (!guard.ok) return { success: false as const, error: guard.error };
@@ -313,7 +324,7 @@ export async function sendMahnungen(runId: string) {
 		};
 	}
 
-	// Overdue + unpaid + not yet mahnt.
+	// Only open charges are reminded. Deferred charges are deliberately excluded.
 	const charges = await db.query.semesterbeitragCharges.findMany({
 		where: (t, { and, eq }) => and(eq(t.runId, runId), eq(t.status, "Offen")),
 		with: { member: { columns: { email: true } } },

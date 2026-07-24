@@ -3,6 +3,7 @@
 import {
 	BellRing,
 	Check,
+	Clock3,
 	FileText,
 	Mail,
 	Plus,
@@ -40,6 +41,7 @@ import {
 	type ChargesForRun,
 	deleteBeitragRun,
 	downloadChargePdf,
+	markChargeDeferred,
 	markChargePaid,
 	markChargeUnpaid,
 	regenerateCharges,
@@ -58,6 +60,15 @@ function chargeBadge(c: ChargeListItem) {
 				className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
 			>
 				Bezahlt
+			</Badge>
+		);
+	if (c.status === "Gestundet")
+		return (
+			<Badge
+				variant="outline"
+				className="border-yellow-200 bg-yellow-50 font-medium text-yellow-700 dark:border-yellow-500/25 dark:bg-yellow-500/10 dark:text-yellow-300"
+			>
+				Gestundet
 			</Badge>
 		);
 	if (c.status === "Gemahnt")
@@ -283,7 +294,7 @@ export function BeitraegeTab({
 									</div>
 									<div className="flex flex-wrap items-center justify-end gap-2">
 										{chargeBadge(c)}
-										{c.status === "Bezahlt" ? (
+										{c.status === "Bezahlt" || c.status === "Gestundet" ? (
 											<Button
 												variant="ghost"
 												size="sm"
@@ -292,7 +303,20 @@ export function BeitraegeTab({
 											>
 												Zurücksetzen
 											</Button>
-										) : (
+										) : null}
+										{c.status !== "Bezahlt" && c.status !== "Gestundet" && (
+											<Button
+												variant="ghost"
+												size="sm"
+												disabled={isPending}
+												onClick={() =>
+													runAction(() => markChargeDeferred(c.id))
+												}
+											>
+												<Clock3 className="mr-1 h-4 w-4" /> Gestundet
+											</Button>
+										)}
+										{c.status !== "Bezahlt" && (
 											<Button
 												variant="outline"
 												size="sm"
