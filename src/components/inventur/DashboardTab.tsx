@@ -50,6 +50,7 @@ import {
 	saveQuickAdjustments,
 } from "~/server/actions/inventur/inventur";
 import { NumericInput } from "../NumericInput";
+import { removeSavedItemIds } from "./changed-items";
 import type { StockStatusWithDetails } from "./utils";
 import { calculateLostValue, getStockStatus } from "./utils";
 
@@ -160,9 +161,10 @@ export default function DashboardTab({
 	};
 
 	const handleQuickSave = () => {
+		const savedItemIds = Array.from(changedItems);
 		startQuickSaving(async () => {
 			try {
-				const adjustments = Array.from(changedItems)
+				const adjustments = savedItemIds
 					.map((drinkId) => {
 						const item = stockItems.find((i) => i.drinkId === drinkId);
 						const purchaseValue = purchases[drinkId] || 0;
@@ -188,6 +190,9 @@ export default function DashboardTab({
 				}
 				const result = await saveQuickAdjustments(adjustments);
 				if (result.success) {
+					setChangedItems((currentItems) =>
+						removeSavedItemIds(currentItems, savedItemIds),
+					);
 					toast.success(`${adjustments.length} Artikel aktualisiert`);
 					router.refresh();
 				} else {
