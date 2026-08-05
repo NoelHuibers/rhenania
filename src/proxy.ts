@@ -18,6 +18,10 @@ const PUBLIC_PATHS = [
 	"/", // home
 	"/about", // example public page
 	"/contact", // contact page
+	"/studentenzimmer-stuttgart",
+	"/studentenverbindung-stuttgart",
+	"/robots.txt",
+	"/sitemap.xml",
 	"/datenschutz", // privacy policy
 	"/impressum", // imprint
 	"/api/auth/(.*)", // all Better Auth endpoints
@@ -31,6 +35,10 @@ const VALID_PATHS = [
 	"/",
 	"/about",
 	"/contact",
+	"/studentenzimmer-stuttgart",
+	"/studentenverbindung-stuttgart",
+	"/robots.txt",
+	"/sitemap.xml",
 	"/datenschutz",
 	"/impressum",
 	"/party",
@@ -281,5 +289,9 @@ export default async function middleware(request: NextRequest) {
 }
 
 export const config = {
-	matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+	matcher: [
+		"/robots.txt",
+		"/sitemap.xml",
+		"/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)",
+	],
 };

@@ -1,6 +1,24 @@
+import type { Metadata } from "next";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 import DefaultLandingPage from "~/tenants/default/landing-page";
 import RhenaniaLandingPage from "~/tenants/rhenania/landing-page";
+import {
+	createRhenaniaMetadata,
+	JsonLd,
+	RHENANIA_HOME_JSON_LD,
+} from "~/tenants/rhenania/seo";
+
+export async function generateMetadata(): Promise<Metadata> {
+	const tenant = await getCurrentTenant();
+	if (tenant?.slug !== "rhenania") return {};
+
+	return createRhenaniaMetadata({
+		title: "Corps Rhenania – Studentenverbindung in Stuttgart",
+		description:
+			"Corps Rhenania Stuttgart: studentische Gemeinschaft, Netzwerk und Wohnen im Corpshaus – zentral nahe Universität und Hauptbahnhof.",
+		path: "/",
+	});
+}
 
 // Public landing page dispatcher.
 //
@@ -12,7 +30,12 @@ export default async function HomePage() {
 
 	switch (tenant?.slug) {
 		case "rhenania":
-			return <RhenaniaLandingPage />;
+			return (
+				<>
+					<JsonLd id="rhenania-organization" data={RHENANIA_HOME_JSON_LD} />
+					<RhenaniaLandingPage />
+				</>
+			);
 		default:
 			return <DefaultLandingPage />;
 	}

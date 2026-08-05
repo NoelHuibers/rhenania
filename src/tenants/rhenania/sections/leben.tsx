@@ -45,7 +45,7 @@ export function Leben({ images }: { images: string[] }) {
 					data-animate
 					className="font-medium text-[#b85d7c] text-xs uppercase tracking-[0.4em]"
 				>
-					Aktivität
+					Gemeinschaft im Studium
 				</p>
 				<h2
 					data-animate

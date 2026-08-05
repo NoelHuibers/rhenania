@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useLayoutEffect, useRef } from "react";
 import { ensureGsap, prefersReducedMotion, useReveal } from "../motion";
 
@@ -45,7 +46,7 @@ export function Haus({ images }: { images: string[] }) {
 			<div ref={bg} className="absolute inset-0 -z-10 scale-125">
 				<Image
 					src={hero}
-					alt="Unser Haus"
+					alt="Corpshaus Rhenania in Stuttgart-Nord"
 					fill
 					sizes="100vw"
 					className="object-cover opacity-45"
@@ -59,24 +60,31 @@ export function Haus({ images }: { images: string[] }) {
 					data-animate
 					className="font-medium text-[#b85d7c] text-xs uppercase tracking-[0.4em]"
 				>
-					Stadtmitte · Halbhöhenlage
+					Studentenzimmer · Stuttgart-Nord
 				</p>
 				<h2
 					data-animate
 					className="mt-4 font-heading font-semibold text-4xl text-[#2c2630] tracking-tight sm:text-6xl"
 				>
-					Unser Haus
+					Wohnen im Corpshaus
 				</h2>
 				<p
 					data-animate
 					className="mt-6 text-balance text-[#2c2630]/80 text-lg leading-relaxed"
 				>
-					Unser Haus liegt in der Nähe des Universitätszentrums Stadtmitte in
-					schöner nördlicher Halbhöhenlage, etwa 10 Gehminuten vom Hauptbahnhof
-					entfernt. Die sehr gute Anbindung an die Campusuniversitäten Vaihingen
-					und Hohenheim ermöglicht das Wohnen und Feiern in der Landeshauptstadt
-					und das Studieren am Campus.
+					Unsere Studentenzimmer liegen im Corpshaus nahe dem
+					Universitätszentrum Stadtmitte in schöner nördlicher Halbhöhenlage,
+					etwa 10 Gehminuten vom Hauptbahnhof entfernt. Die sehr gute Anbindung
+					an die Campusuniversitäten Vaihingen und Hohenheim verbindet
+					studentisches Wohnen mit kurzen Wegen durch Stuttgart.
 				</p>
+				<Link
+					data-animate
+					href="/studentenzimmer-stuttgart"
+					className="mt-8 inline-flex items-center rounded-full border border-black/10 bg-white/80 px-7 py-3 font-medium text-[#2c2630] transition-colors hover:border-[#b85d7c]/40 hover:text-[#b85d7c]"
+				>
+					Mehr zu den Studentenzimmern
+				</Link>
 			</div>
 
 			{thumbs.length > 0 && (
@@ -88,7 +96,7 @@ export function Haus({ images }: { images: string[] }) {
 						>
 							<Image
 								src={src}
-								alt="Rhenanenhaus"
+								alt="Einblick in das Corpshaus Rhenania Stuttgart"
 								fill
 								sizes="(max-width: 768px) 50vw, 25vw"
 								className="object-cover transition-transform duration-700 hover:scale-110"

@@ -1,8 +1,13 @@
 // layout.tsx
+import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { TenantProvider } from "~/components/TenantProvider";
 import { ThemeProvider } from "~/components/theme-provider";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
+
+export const metadata: Metadata = {
+	robots: { index: false, follow: false },
+};
 
 export default async function RootLayout({
 	children,

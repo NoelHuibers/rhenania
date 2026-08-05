@@ -153,8 +153,8 @@ export function Hero({ heroImageUrl }: { heroImageUrl: string }) {
 					data-fade
 					className="mt-5 max-w-xl text-balance text-[#6f6675] text-base leading-relaxed sm:text-lg"
 				>
-					Eine tolerante Gemeinschaft von Studenten und Alumni — für ein
-					erfolgreiches, glückliches und einzigartiges Studium.
+					Studentenverbindung, Gemeinschaft und Wohnen im Corpshaus — für ein
+					erfolgreiches, glückliches und einzigartiges Studium in Stuttgart.
 				</p>
 
 				<div
@@ -195,7 +195,7 @@ export function Hero({ heroImageUrl }: { heroImageUrl: string }) {
 					<Image
 						data-photo
 						src={heroImageUrl}
-						alt="Corps Rhenania"
+						alt="Studentische Gemeinschaft des Corps Rhenania Stuttgart"
 						fill
 						priority
 						sizes="(max-width: 1152px) 100vw, 1152px"

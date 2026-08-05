@@ -1,11 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "~/server/auth";
 import { isSuperAdmin } from "~/server/lib/super-admin";
 
-export const metadata = {
+export const metadata: Metadata = {
 	title: "Superadmin",
+	robots: { index: false, follow: false },
 };
 
 // The whole /superadmin subtree depends on the request (auth/session via

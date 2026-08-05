@@ -1,11 +1,20 @@
 import { Mail, MapPin, Phone } from "lucide-react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Toaster } from "sonner";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 import { SiteFooter } from "~/tenants/rhenania/sections/site-footer";
 import { SiteHeader } from "~/tenants/rhenania/sections/site-header";
+import { createRhenaniaMetadata } from "~/tenants/rhenania/seo";
 import ContactForm from "./contactform";
+
+export const metadata: Metadata = createRhenaniaMetadata({
+	title: "Kontakt & Kennenlernen | Corps Rhenania Stuttgart",
+	description:
+		"Nimm Kontakt zum Corps Rhenania Stuttgart auf, lerne unsere Studentenverbindung kennen oder frage nach einem Studentenzimmer im Corpshaus.",
+	path: "/contact",
+});
 
 const CONTACTS = [
 	{

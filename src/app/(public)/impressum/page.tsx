@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import FooterColored from "~/components/footer/footercolored";
 import HeaderColored from "~/components/header/headercolored";
 import Impressum from "./impressum";
+
+export const metadata: Metadata = {
+	title: "Impressum",
+	robots: { index: false, follow: true },
+};
 
 export default function HomePage() {
 	return (

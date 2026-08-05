@@ -20,6 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 		title: { default: name, template: `%s – ${name}` },
 		description: name,
 		icons: [{ rel: "icon", url: "/favicon.ico" }],
+		formatDetection: { telephone: false },
 	};
 }
 
@@ -33,7 +34,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<html
-			lang="en"
+			lang="de"
 			className={cn(
 				geist.variable,
 				"font-sans",

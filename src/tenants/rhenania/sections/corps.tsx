@@ -1,6 +1,7 @@
 "use client";
 
 import { BookOpenIcon, ShieldCheck, Users } from "lucide-react";
+import Link from "next/link";
 import type { ComponentType } from "react";
 import { useReveal } from "../motion";
 import { CouleurDivider } from "./couleur-divider";
@@ -17,7 +18,7 @@ interface Pillar {
 const PILLARS: Pillar[] = [
 	{
 		Icon: BookOpenIcon,
-		title: "Erfolgreiches studieren",
+		title: "Erfolgreiches Studieren",
 		description:
 			"Gemeinschaft mit einem klaren Fokus auf akademischen Erfolg. Wir lernen und feiern gemeinsam!",
 		iconColor: "text-[#b85d7c]",
@@ -51,8 +52,11 @@ export function Corps() {
 		<section className="relative w-full px-6 py-16 md:py-32">
 			<CouleurDivider />
 			<div className="mx-auto max-w-3xl text-center">
-				<h2 className="font-heading font-semibold text-4xl text-[#2c2630] tracking-tight sm:text-6xl">
-					Das Corps
+				<p className="font-medium text-[#b85d7c] text-xs uppercase tracking-[0.4em]">
+					Corps Rhenania · seit 1859
+				</p>
+				<h2 className="mt-4 font-heading font-semibold text-4xl text-[#2c2630] tracking-tight sm:text-6xl">
+					Studentenverbindung in Stuttgart
 				</h2>
 			</div>
 
@@ -87,6 +91,14 @@ export function Corps() {
 				Schließe dich uns an, um ein Umfeld für ein erfolgreiches, glückliches
 				und einzigartiges Studium zu schaffen!
 			</p>
+			<div className="mt-8 text-center">
+				<Link
+					href="/studentenverbindung-stuttgart"
+					className="inline-flex items-center rounded-full border border-black/10 bg-white px-7 py-3 font-medium text-[#2c2630] transition-colors hover:border-[#b85d7c]/40 hover:text-[#b85d7c]"
+				>
+					Corps Rhenania kennenlernen
+				</Link>
+			</div>
 		</section>
 	);
 }
