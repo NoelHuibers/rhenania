@@ -19,17 +19,14 @@ import { downloadUserBillPDF } from "~/server/actions/profile/downloadUserBill";
 import {
 	type BillData,
 	type BillItem,
+	type BillPayment,
 	getUserBillingData,
 } from "~/server/actions/profile/getUserBill";
-
-const PAYPAL_BASE_URL = "https://paypal.me/CorpsRhenaniaBier/";
-const IBAN = "DE65 5002 4024 3386 7890 30";
-const IBAN_RAW = "DE65500240243386789030";
-const ACCOUNT_HOLDER = "Noel Huibers";
 
 export function BillingOverview() {
 	const [billData, setBillData] = useState<BillData | null>(null);
 	const [billItems, setBillItems] = useState<BillItem[]>([]);
+	const [payment, setPayment] = useState<BillPayment | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [downloadingPDF, setDownloadingPDF] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -45,6 +42,7 @@ export function BillingOverview() {
 				const data = await getUserBillingData();
 				setBillData(data.billData);
 				setBillItems(data.billItems);
+				setPayment(data.payment);
 			} catch (err) {
 				setError(
 					err instanceof Error ? err.message : "Failed to load billing data",
@@ -71,9 +69,9 @@ export function BillingOverview() {
 	};
 
 	const handlePayWithPayPal = () => {
-		if (!billData) return;
+		if (!billData || !payment) return;
 		window.open(
-			`${PAYPAL_BASE_URL}${billData.total.toFixed(2)}EUR`,
+			`${payment.paypalBaseUrl}/${billData.total.toFixed(2)}EUR`,
 			"_blank",
 			"noopener,noreferrer",
 		);
@@ -188,14 +186,16 @@ export function BillingOverview() {
 		);
 	}
 
+	// Payment target comes from the server (same source as the bill PDF) so the
+	// profile can never show a different account than the invoice.
 	const epcData = [
 		"BCD",
 		"002",
 		"1",
 		"SCT",
 		"",
-		ACCOUNT_HOLDER,
-		IBAN_RAW,
+		payment?.accountHolder ?? "",
+		payment?.ibanRaw ?? "",
 		`EUR${billData.total.toFixed(2)}`,
 		"",
 		"",
@@ -205,11 +205,16 @@ export function BillingOverview() {
 	const ibanRows = [
 		{
 			label: "Kontoinhaber",
-			value: ACCOUNT_HOLDER,
-			copy: ACCOUNT_HOLDER,
+			value: payment?.accountHolder ?? "",
+			copy: payment?.accountHolder ?? "",
 			mono: false,
 		},
-		{ label: "IBAN", value: IBAN, copy: IBAN_RAW, mono: true },
+		{
+			label: "IBAN",
+			value: payment?.iban ?? "",
+			copy: payment?.ibanRaw ?? "",
+			mono: true,
+		},
 		{
 			label: "Betrag",
 			value: `€${billData.total.toFixed(2)}`,
@@ -361,7 +366,7 @@ export function BillingOverview() {
 				</div>
 
 				{/* Payment section — only when unpaid */}
-				{billData.status === "Unbezahlt" && (
+				{billData.status === "Unbezahlt" && payment && (
 					<div className="space-y-2">
 						<Separator />
 						<p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">

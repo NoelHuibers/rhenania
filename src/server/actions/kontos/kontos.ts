@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { isValidIban, normalizeIban } from "~/lib/iban";
 import type { KasseType } from "~/lib/kasse-types";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -41,6 +42,11 @@ function isAdmin(roleNames: string[]) {
 	return roleNames.includes("Admin");
 }
 
+// Kontos are shown to members as payment targets (bill PDF, profile), so a
+// truncated or mistyped IBAN must be rejected before it is stored.
+const INVALID_IBAN_ERROR =
+	"Ungültige IBAN. Bitte Länge und Prüfziffer kontrollieren.";
+
 function canManageKonto(roleNames: string[], konto: Konto) {
 	if (isAdmin(roleNames)) return true;
 	const requiredRole = KASSE_ROLE_MAP[konto.kasseType];
@@ -76,12 +82,14 @@ export async function createKonto(
 	const roleNames = await getUserRoleNames(session.user.id);
 	if (!isAdmin(roleNames))
 		return { success: false, error: "Keine Berechtigung" };
+	if (!isValidIban(input.iban))
+		return { success: false, error: INVALID_IBAN_ERROR };
 
 	const [row] = await db
 		.insert(kontos)
 		.values({
 			kasseType: input.kasseType,
-			iban: input.iban,
+			iban: normalizeIban(input.iban),
 			bic: input.bic,
 			bankName: input.bankName,
 			paypalLink: input.paypalLink ?? null,
@@ -115,8 +123,11 @@ export async function updateKonto(
 	if (!canManageKonto(roleNames, existing))
 		return { success: false, error: "Keine Berechtigung" };
 
+	if (input.iban !== undefined && !isValidIban(input.iban))
+		return { success: false, error: INVALID_IBAN_ERROR };
+
 	const updateData: Partial<typeof kontos.$inferInsert> = {};
-	if (input.iban !== undefined) updateData.iban = input.iban;
+	if (input.iban !== undefined) updateData.iban = normalizeIban(input.iban);
 	if (input.bic !== undefined) updateData.bic = input.bic;
 	if (input.bankName !== undefined) updateData.bankName = input.bankName;
 	if (input.paypalLink !== undefined) updateData.paypalLink = input.paypalLink;
