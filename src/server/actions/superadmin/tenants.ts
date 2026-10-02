@@ -3,14 +3,21 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
+import {
+	type FeatureFlags,
+	isFeatureKey,
+	resolveFeatureFlags,
+} from "~/lib/features";
 import { controlDb } from "~/server/db/control";
 import {
 	tenantAuthConfig,
 	tenantDomains,
+	tenantFeatures,
 	tenantMemberships,
 	tenants,
 } from "~/server/db/control-schema";
 import { requireSuperAdmin } from "~/server/lib/super-admin";
+import { clearTenantCache } from "~/server/lib/tenant-context";
 import { provisionTenant } from "~/server/lib/tenant-provisioning";
 
 type ActionResult<T = void> = {
@@ -140,6 +147,7 @@ export type SuperadminTenantDetail = {
 		mailSenderEmail: string | null;
 	} | null;
 	memberCount: number;
+	features: FeatureFlags;
 };
 
 export async function getTenantDetailAction(
@@ -171,6 +179,11 @@ export async function getTenantDetailAction(
 			.from(tenantMemberships)
 			.where(eq(tenantMemberships.tenantId, tenantId));
 
+		const featureRows = await controlDb
+			.select({ key: tenantFeatures.key, enabled: tenantFeatures.enabled })
+			.from(tenantFeatures)
+			.where(eq(tenantFeatures.tenantId, tenantId));
+
 		return {
 			success: true,
 			data: {
@@ -200,10 +213,53 @@ export async function getTenantDetailAction(
 						}
 					: null,
 				memberCount: memberRows.length,
+				features: resolveFeatureFlags(featureRows),
 			},
 		};
 	} catch (e) {
 		console.error("getTenantDetailAction failed:", e);
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : "Unknown error",
+		};
+	}
+}
+
+// ─── Feature flags ────────────────────────────────────────────────────────────
+
+export async function setTenantFeatureAction(
+	tenantId: string,
+	key: string,
+	enabled: boolean,
+): Promise<ActionResult> {
+	try {
+		const { userId } = await requireSuperAdmin();
+		if (!isFeatureKey(key)) {
+			return { success: false, error: `Unknown feature: ${key}` };
+		}
+
+		const [tenant] = await controlDb
+			.select({ id: tenants.id })
+			.from(tenants)
+			.where(eq(tenants.id, tenantId))
+			.limit(1);
+		if (!tenant) return { success: false, error: "Tenant not found" };
+
+		await controlDb
+			.insert(tenantFeatures)
+			.values({ tenantId, key, enabled, updatedBy: userId })
+			.onConflictDoUpdate({
+				target: [tenantFeatures.tenantId, tenantFeatures.key],
+				set: { enabled, updatedBy: userId, updatedAt: new Date() },
+			});
+
+		// Other server instances pick the change up when their cached tenant
+		// expires (at most a minute).
+		clearTenantCache(tenantId);
+		revalidatePath(`/superadmin/tenants/${tenantId}`);
+		return { success: true };
+	} catch (e) {
+		console.error("setTenantFeatureAction failed:", e);
 		return {
 			success: false,
 			error: e instanceof Error ? e.message : "Unknown error",

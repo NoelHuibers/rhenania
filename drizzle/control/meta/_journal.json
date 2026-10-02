@@ -1,48 +1,55 @@
 {
-	"version": "7",
-	"dialect": "sqlite",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "6",
-			"when": 1777128385422,
-			"tag": "0000_closed_tarantula",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "6",
-			"when": 1777129486296,
-			"tag": "0001_complex_ezekiel_stane",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "6",
-			"when": 1777156284185,
-			"tag": "0002_public_doomsday",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "6",
-			"when": 1777670214760,
-			"tag": "0003_dusty_toad_men",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "6",
-			"when": 1778347062597,
-			"tag": "0005_cold_matthew_murdock",
-			"breakpoints": true
-		},
-		{
-			"idx": 6,
-			"version": "6",
-			"when": 1784058060377,
-			"tag": "0006_wonderful_major_mapleleaf",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1777128385422,
+      "tag": "0000_closed_tarantula",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1777129486296,
+      "tag": "0001_complex_ezekiel_stane",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777156284185,
+      "tag": "0002_public_doomsday",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1777670214760,
+      "tag": "0003_dusty_toad_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1778347062597,
+      "tag": "0005_cold_matthew_murdock",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784058060377,
+      "tag": "0006_wonderful_major_mapleleaf",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1790902125993,
+      "tag": "0007_tenant_features",
+      "breakpoints": true
+    }
+  ]
 }

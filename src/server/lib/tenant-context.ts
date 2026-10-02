@@ -11,10 +11,16 @@
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 
+import {
+	defaultFeatureFlags,
+	type FeatureFlags,
+	resolveFeatureFlags,
+} from "~/lib/features";
 import { controlDb } from "~/server/db/control";
 import {
 	type TenantBranding,
 	tenantDomains,
+	tenantFeatures,
 	tenantMemberships,
 	tenants,
 } from "~/server/db/control-schema";
@@ -77,6 +83,8 @@ export type TenantContext = {
 	slug: string;
 	displayName: string;
 	branding: TenantBranding | null;
+	/** Per-tenant feature flags; every flag is off unless switched on. */
+	features: FeatureFlags;
 };
 
 const tenantByIdCache = new Map<
@@ -84,6 +92,29 @@ const tenantByIdCache = new Map<
 	{ value: TenantContext; expiresAt: number }
 >();
 const TENANT_CACHE_TTL_MS = 60_000;
+
+// Flags ride along with the cached tenant, so checking one costs no extra
+// query. If the flag table can't be read (e.g. the control migration hasn't
+// run yet) every flag stays off — the app then behaves as it did before
+// flags existed instead of failing every request.
+async function loadFeatureFlags(tenantId: string): Promise<FeatureFlags> {
+	try {
+		const rows = await controlDb
+			.select({ key: tenantFeatures.key, enabled: tenantFeatures.enabled })
+			.from(tenantFeatures)
+			.where(eq(tenantFeatures.tenantId, tenantId));
+		return resolveFeatureFlags(rows);
+	} catch (error) {
+		console.error("Failed to load tenant feature flags:", error);
+		return defaultFeatureFlags();
+	}
+}
+
+/** Drops the cached tenant so a flag change is visible on the next request. */
+export function clearTenantCache(tenantId?: string) {
+	if (tenantId) tenantByIdCache.delete(tenantId);
+	else tenantByIdCache.clear();
+}
 
 export async function getTenantById(id: string): Promise<TenantContext | null> {
 	const cached = tenantByIdCache.get(id);
@@ -106,6 +137,7 @@ export async function getTenantById(id: string): Promise<TenantContext | null> {
 		slug: row.slug,
 		displayName: row.displayName,
 		branding: row.branding ?? null,
+		features: await loadFeatureFlags(row.id),
 	};
 	tenantByIdCache.set(id, {
 		value,

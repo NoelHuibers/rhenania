@@ -1,14 +1,17 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import type { FeatureFlags, FeatureKey } from "~/lib/features";
 
 // Carries the resolved tenant's identity to client components — primarily used
-// by upload helpers that need to prefix blob paths with `tenants/<slug>/`.
-// Populated from a server component (see (protected)/layout.tsx).
+// by upload helpers that need to prefix blob paths with `tenants/<slug>/` —
+// plus the tenant's feature flags. Populated from a server component (see
+// (protected)/layout.tsx).
 
 type TenantClientContext = {
 	slug: string;
 	displayName: string;
+	features: FeatureFlags;
 };
 
 const Ctx = createContext<TenantClientContext | null>(null);
@@ -35,4 +38,12 @@ export function useTenant(): TenantClientContext {
 
 export function useTenantSlug(): string {
 	return useTenant().slug;
+}
+
+/**
+ * Whether a feature is switched on for this tenant. Presentation only — the
+ * server action behind the UI must check `hasFeature()` itself.
+ */
+export function useFeature(key: FeatureKey): boolean {
+	return useTenant().features[key];
 }

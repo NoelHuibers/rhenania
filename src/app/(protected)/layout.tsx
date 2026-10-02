@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import { TenantProvider } from "~/components/TenantProvider";
 import { ThemeProvider } from "~/components/theme-provider";
+import { defaultFeatureFlags } from "~/lib/features";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default async function RootLayout({
 	const tenantValue = {
 		slug: tenant?.slug ?? "",
 		displayName: tenant?.displayName ?? "Corps",
+		features: tenant?.features ?? defaultFeatureFlags(),
 	};
 
 	return (

@@ -8,11 +8,19 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { Switch } from "~/components/ui/switch";
+import {
+	FEATURE_KEYS,
+	FEATURES,
+	type FeatureFlags,
+	type FeatureKey,
+} from "~/lib/features";
 import {
 	type AuthConfigPatch,
 	addTenantDomainAction,
 	removeTenantDomainAction,
 	type SuperadminTenantDetail,
+	setTenantFeatureAction,
 	setTenantStatusAction,
 	updateTenantAuthConfigAction,
 	updateTenantDisplayNameAction,
@@ -61,6 +69,14 @@ export function TenantDetail({ data }: { data: SuperadminTenantDetail }) {
 			<StatusSection
 				tenantId={data.tenant.id}
 				current={data.tenant.status}
+				disabled={isPending}
+				startTransition={startTransition}
+				onDone={refresh}
+			/>
+
+			<FeaturesSection
+				tenantId={data.tenant.id}
+				features={data.features}
 				disabled={isPending}
 				startTransition={startTransition}
 				onDone={refresh}
@@ -172,6 +188,58 @@ function StatusSection({
 					{isSuspending ? "Suspend" : "Reactivate"}
 				</Button>
 			</div>
+		</section>
+	);
+}
+
+function FeaturesSection({
+	tenantId,
+	features,
+	disabled,
+	startTransition,
+	onDone,
+}: SectionProps & { features: FeatureFlags }) {
+	const toggle = (key: FeatureKey, enabled: boolean) => {
+		startTransition(async () => {
+			const r = await setTenantFeatureAction(tenantId, key, enabled);
+			if (r.success) {
+				toast.success(
+					`${FEATURES[key].label} ${enabled ? "enabled" : "disabled"}`,
+				);
+				onDone();
+			} else {
+				toast.error(r.error ?? "Failed to update feature");
+			}
+		});
+	};
+
+	return (
+		<section className="rounded-md border bg-white p-6">
+			<h2 className="mb-1 font-medium">Features</h2>
+			<p className="mb-4 text-muted-foreground text-sm">
+				Off by default. Changes reach all server instances within a minute.
+			</p>
+			<ul className="divide-y">
+				{FEATURE_KEYS.map((key) => (
+					<li key={key} className="flex items-start justify-between gap-4 py-3">
+						<div className="min-w-0">
+							<Label htmlFor={`feature-${key}`} className="font-medium">
+								{FEATURES[key].label}
+							</Label>
+							<p className="text-muted-foreground text-sm">
+								{FEATURES[key].description}
+							</p>
+							<p className="font-mono text-muted-foreground text-xs">{key}</p>
+						</div>
+						<Switch
+							id={`feature-${key}`}
+							checked={features[key]}
+							disabled={disabled}
+							onCheckedChange={(checked) => toggle(key, checked)}
+						/>
+					</li>
+				))}
+			</ul>
 		</section>
 	);
 }

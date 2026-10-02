@@ -423,6 +423,29 @@ export const sessionsRelations = relations(sessions, ({ one }) => ({
 	user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }));
 
+// Per-tenant feature flags. A missing row means the flag is off; keys are
+// validated against the registry in `~/lib/features`. Lives in the control DB
+// so a superadmin decides which Corps gets which feature, with one migration
+// for all tenants.
+export const tenantFeatures = createControlTable(
+	"tenant_feature",
+	(d) => ({
+		tenantId: d
+			.text({ length: 255 })
+			.notNull()
+			.references(() => tenants.id, { onDelete: "cascade" }),
+		key: d.text({ length: 100 }).notNull(),
+		enabled: d.integer({ mode: "boolean" }).notNull().default(false),
+		updatedAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdate(() => new Date()),
+		updatedBy: d.text({ length: 255 }),
+	}),
+	(t) => [primaryKey({ columns: [t.tenantId, t.key] })],
+);
+
 export const tenantMembershipsRelations = relations(
 	tenantMemberships,
 	({ one }) => ({
@@ -445,3 +468,4 @@ export type User = typeof users.$inferSelect;
 export type Account = typeof accounts.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type SuperAdmin = typeof superAdmins.$inferSelect;
+export type TenantFeature = typeof tenantFeatures.$inferSelect;
