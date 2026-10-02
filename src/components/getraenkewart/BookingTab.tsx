@@ -19,8 +19,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { getAllUsers, type User } from "~/server/actions/game/getUsers";
-import { getAllDrinksForMenu } from "~/server/actions/menu";
+import {
+	getAllDrinksForMenu,
+	getDrinkMarkupPercent,
+} from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
 
 type Drink = {
@@ -33,6 +37,7 @@ type Drink = {
 export default function BookingTab() {
 	const [users, setUsers] = useState<User[]>([]);
 	const [drinks, setDrinks] = useState<Drink[]>([]);
+	const [markupPercent, setMarkupPercent] = useState(0);
 	const [loading, setLoading] = useState(true);
 
 	const [selectedUserId, setSelectedUserId] = useState<string>("");
@@ -45,12 +50,14 @@ export default function BookingTab() {
 	useEffect(() => {
 		const load = async () => {
 			try {
-				const [usersData, drinksData] = await Promise.all([
+				const [usersData, drinksData, markup] = await Promise.all([
 					getAllUsers(),
 					getAllDrinksForMenu(),
+					getDrinkMarkupPercent(),
 				]);
 				setUsers(usersData);
 				setDrinks(drinksData);
+				setMarkupPercent(markup);
 			} catch {
 				toast.error("Fehler beim Laden der Daten");
 			} finally {
@@ -62,7 +69,12 @@ export default function BookingTab() {
 
 	const selectedUser = users.find((u) => u.id === selectedUserId);
 	const selectedDrink = drinks.find((d) => d.id === selectedDrinkId);
-	const total = selectedDrink ? selectedDrink.price * quantity : 0;
+	// Display only — the server recomputes the price. Personal bookings carry
+	// the tenant's markup (if any), group bookings the plain price.
+	const priceFor = (drink: Drink) =>
+		unitPriceFor(drink.price, markupPercent, billing);
+	const unitPrice = selectedDrink ? priceFor(selectedDrink) : 0;
+	const total = orderTotal(unitPrice, quantity, markupPercent);
 
 	const handleSubmit = () => {
 		if (!selectedUserId || !selectedDrink) return;
@@ -72,7 +84,7 @@ export default function BookingTab() {
 				drinkId: selectedDrink.id,
 				drinkName: selectedDrink.name,
 				amount: quantity,
-				pricePerUnit: selectedDrink.price,
+				pricePerUnit: unitPrice,
 				total,
 				bookingFor: billing,
 				targetUserId: selectedUserId,
@@ -152,7 +164,7 @@ export default function BookingTab() {
 													: "text-muted-foreground"
 											}
 										>
-											{drink.name} — €{drink.price.toFixed(2)}
+											{drink.name} — €{priceFor(drink).toFixed(2)}
 											{!drink.isCurrentlyAvailable && " (nicht verfügbar)"}
 										</span>
 									</SelectItem>

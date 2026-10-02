@@ -176,6 +176,11 @@ export const orders = createTable(
 		drinkName: o.text({ length: 255 }).notNull(),
 		amount: o.integer().notNull(),
 		pricePerUnit: o.real().notNull(),
+		// Purchase price of the drink when the order was placed. Only set while
+		// the `drinks.markup` feature is on; `pricePerUnit - costPerUnit` is the
+		// profit per unit. NULL (all orders before the feature, and every tenant
+		// without it) means the order carries no markup.
+		costPerUnit: o.real(),
 		total: o.real().notNull(),
 		inBill: o.integer({ mode: "boolean" }).notNull().default(false),
 		bookingFor: o.text({ length: 255 }),
@@ -1052,6 +1057,15 @@ export const externalBills = createTable(
 export const kasseConfig = createTable("kasse_config", (d) => ({
 	id: d.text({ length: 50 }).notNull().primaryKey().default("singleton"),
 	pfandWert: d.real().notNull().default(0),
+	// Markup on personal orders in percent (feature `drinks.markup`).
+	markupPercent: d.real().notNull().default(0),
+	// Who receives new bills by mail (feature `billing.treasurerRecipient`):
+	// each member, or every bill individually to one treasurer address.
+	billRecipient: d
+		.text({ enum: ["members", "treasurer"] })
+		.notNull()
+		.default("members"),
+	treasurerEmail: d.text({ length: 255 }),
 	updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
 	updatedBy: d
 		.text({ length: 255 })

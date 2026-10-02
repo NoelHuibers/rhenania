@@ -9,12 +9,17 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
+import { applyMarkup } from "~/lib/pricing";
 import {
 	createChallenge,
 	type PaymentRule,
 } from "~/server/actions/game/challenge";
 import { getAllUsersExcept, type User } from "~/server/actions/game/getUsers";
-import { getAvailableDrinks, type MenuItem } from "~/server/actions/menu";
+import {
+	getAvailableDrinks,
+	getDrinkMarkupPercent,
+	type MenuItem,
+} from "~/server/actions/menu";
 
 interface CreateChallengeFormProps {
 	onCreated?: () => void;
@@ -58,12 +63,16 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 		let cancelled = false;
 		(async () => {
 			try {
-				const [d, u] = await Promise.all([
+				const [d, u, markup] = await Promise.all([
 					getAvailableDrinks(),
 					getAllUsersExcept(),
+					getDrinkMarkupPercent(),
 				]);
 				if (cancelled) return;
-				setDrinks(d);
+				// Challenge drinks are personal orders, so show the charged price.
+				setDrinks(
+					d.map((x) => ({ ...x, price: applyMarkup(x.price, markup) })),
+				);
 				setUsers(u);
 			} catch (err) {
 				console.error(err);

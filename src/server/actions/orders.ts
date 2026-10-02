@@ -3,9 +3,11 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { auth } from "~/server/auth"; // Import your NextAuth auth function
-import { orders } from "~/server/db/schema";
+import { drinks, orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
 import { hasRole } from "./admin/userRoles";
 import { getUserName } from "./getUserName";
@@ -14,6 +16,8 @@ export interface CreateOrderRequest {
 	drinkId: string;
 	drinkName: string;
 	amount: number;
+	// Display values from the menu. The server recomputes name, price and
+	// total from the drinks table, so these are never trusted.
 	pricePerUnit: number;
 	total: number;
 	bookingFor: string | null;
@@ -95,12 +99,29 @@ export async function createOrder(
 			};
 		}
 
-		if (orderData.total !== orderData.pricePerUnit * orderData.amount) {
-			return {
-				success: false,
-				error: "Total price calculation is incorrect",
-			};
+		// The server decides the price: purchase price from the drinks table,
+		// plus the tenant's markup on personal orders when that feature is on.
+		// Client-sent prices are ignored, so a stale menu can't book an old one.
+		const [drink] = await db
+			.select({ id: drinks.id, name: drinks.name, price: drinks.price })
+			.from(drinks)
+			.where(eq(drinks.id, orderData.drinkId))
+			.limit(1);
+		if (!drink) {
+			return { success: false, error: "Getränk nicht gefunden" };
 		}
+
+		const pricing = await getDrinkPricingConfig();
+		const pricePerUnit = unitPriceFor(
+			drink.price,
+			pricing.markupPercent,
+			orderData.bookingFor,
+		);
+		const total = orderTotal(
+			pricePerUnit,
+			orderData.amount,
+			pricing.markupPercent,
+		);
 
 		// Create the order
 		const [newOrder] = await db
@@ -108,11 +129,12 @@ export async function createOrder(
 			.values({
 				userId,
 				userName,
-				drinkId: orderData.drinkId,
-				drinkName: orderData.drinkName,
+				drinkId: drink.id,
+				drinkName: drink.name,
 				amount: orderData.amount,
-				pricePerUnit: orderData.pricePerUnit,
-				total: orderData.total,
+				pricePerUnit,
+				costPerUnit: pricing.enabled ? drink.price : null,
+				total,
 				bookingFor: orderData.bookingFor,
 				bookedByAdminId,
 				bookedByAdminName,
@@ -123,10 +145,10 @@ export async function createOrder(
 		revalidatePath("/rechnung");
 
 		void checkAndUnlockAchievements(userId, "order_created", {
-			drinkName: orderData.drinkName,
-			drinkId: orderData.drinkId,
+			drinkName: drink.name,
+			drinkId: drink.id,
 			amount: orderData.amount,
-			total: orderData.total,
+			total,
 			bookingFor: orderData.bookingFor,
 		});
 

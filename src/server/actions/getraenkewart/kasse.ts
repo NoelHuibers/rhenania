@@ -1,6 +1,8 @@
 "use server";
 
 import { desc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
+import { isValidMarkupPercent, MAX_MARKUP_PERCENT } from "~/lib/pricing";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -14,6 +16,8 @@ import {
 	roles,
 	userRoles,
 } from "~/server/db/schema";
+import { FeatureDisabledError, hasFeature } from "~/server/lib/features";
+import { updateBillStatus } from "../billings/billings";
 import { generateUserBillPDF } from "../billings/createUserPDF";
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
@@ -288,4 +292,142 @@ export async function downloadEntityBillPDF(billId: string): Promise<{
 		base64: result.pdfContent.toString("base64"),
 		fileName: result.fileName,
 	};
+}
+
+// ─── Feature settings (markup, bill recipient) ───────────────────────────────
+//
+// Values behind the `drinks.markup` and `billing.treasurerRecipient` features.
+// Every action checks the Getränkewart/Admin role AND the feature flag on the
+// server — hiding the card in the UI is not the gate.
+
+type ActionResult = { success: true } | { success: false; error: string };
+
+async function requireGetraenkewart(): Promise<
+	{ ok: true; userId: string } | { ok: false; error: string }
+> {
+	const session = await auth();
+	if (!session?.user?.id) return { ok: false, error: "Nicht angemeldet" };
+	if (!(await hasGetraenkewartRole(session.user.id)))
+		return { ok: false, error: "Keine Berechtigung" };
+	return { ok: true, userId: session.user.id };
+}
+
+export type GetraenkeSettings = {
+	markupPercent: number;
+	billRecipient: "members" | "treasurer";
+	treasurerEmail: string;
+};
+
+/** Current values, or null when the tenant has neither feature. */
+export async function getGetraenkeSettings(): Promise<GetraenkeSettings | null> {
+	const [markup, treasurer] = await Promise.all([
+		hasFeature("drinks.markup"),
+		hasFeature("billing.treasurerRecipient"),
+	]);
+	if (!markup && !treasurer) return null;
+
+	const [row] = await db
+		.select({
+			markupPercent: kasseConfig.markupPercent,
+			billRecipient: kasseConfig.billRecipient,
+			treasurerEmail: kasseConfig.treasurerEmail,
+		})
+		.from(kasseConfig)
+		.where(eq(kasseConfig.id, "singleton"));
+
+	return {
+		markupPercent: Number(row?.markupPercent ?? 0),
+		billRecipient: row?.billRecipient ?? "members",
+		treasurerEmail: row?.treasurerEmail ?? "",
+	};
+}
+
+export async function setMarkupPercent(value: number): Promise<ActionResult> {
+	const gate = await requireGetraenkewart();
+	if (!gate.ok) return { success: false, error: gate.error };
+	if (!(await hasFeature("drinks.markup")))
+		return {
+			success: false,
+			error: new FeatureDisabledError("drinks.markup").message,
+		};
+	if (!isValidMarkupPercent(value))
+		return {
+			success: false,
+			error: `Der Aufschlag muss zwischen 0 und ${MAX_MARKUP_PERCENT} % liegen.`,
+		};
+
+	await db
+		.insert(kasseConfig)
+		.values({ id: "singleton", markupPercent: value, updatedBy: gate.userId })
+		.onConflictDoUpdate({
+			target: kasseConfig.id,
+			set: { markupPercent: value, updatedBy: gate.userId },
+		});
+	return { success: true };
+}
+
+export async function setBillRecipient(
+	mode: "members" | "treasurer",
+	treasurerEmail: string,
+): Promise<ActionResult> {
+	const gate = await requireGetraenkewart();
+	if (!gate.ok) return { success: false, error: gate.error };
+	if (!(await hasFeature("billing.treasurerRecipient")))
+		return {
+			success: false,
+			error: new FeatureDisabledError("billing.treasurerRecipient").message,
+		};
+	if (mode !== "members" && mode !== "treasurer")
+		return { success: false, error: "Ungültiger Empfänger" };
+
+	const email = treasurerEmail.trim();
+	if (email && !z.string().email().safeParse(email).success)
+		return { success: false, error: "Ungültige E-Mail-Adresse" };
+	if (mode === "treasurer" && !email)
+		return {
+			success: false,
+			error: "Bitte die E-Mail-Adresse des Kassenwarts eintragen.",
+		};
+
+	const values = { billRecipient: mode, treasurerEmail: email || null };
+	await db
+		.insert(kasseConfig)
+		.values({ id: "singleton", ...values, updatedBy: gate.userId })
+		.onConflictDoUpdate({
+			target: kasseConfig.id,
+			set: { ...values, updatedBy: gate.userId },
+		});
+	return { success: true };
+}
+
+// ─── "Alle haben gezahlt" (feature `billing.markAllPaid`) ────────────────────
+
+export async function markAllMemberBillsPaid(): Promise<
+	{ success: true; count: number } | { success: false; error: string }
+> {
+	const gate = await requireGetraenkewart();
+	if (!gate.ok) return { success: false, error: gate.error };
+	if (!(await hasFeature("billing.markAllPaid")))
+		return {
+			success: false,
+			error: new FeatureDisabledError("billing.markAllPaid").message,
+		};
+
+	// Same set the Kasse lists as open: unpaid and deferred member bills.
+	// Group bills are settled separately and stay untouched.
+	const open = await getOpenMemberBills();
+	let count = 0;
+	for (const bill of open) {
+		// Reuse the single-bill path so carried-over predecessor bills are
+		// settled exactly as when the Getränkewart marks one bill paid.
+		const res = await updateBillStatus(bill.id, "Bezahlt");
+		if (res.success) count++;
+	}
+
+	if (count < open.length)
+		return {
+			success: false,
+			error: `${count} von ${open.length} Rechnungen als bezahlt markiert.`,
+		};
+	return { success: true, count };
 }

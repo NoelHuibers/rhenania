@@ -22,6 +22,19 @@ import {
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { GetraenkeSettingsCard } from "~/components/getraenkewart/GetraenkeSettingsCard";
+import { useFeature } from "~/components/TenantProvider";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -68,6 +81,8 @@ import {
 	deleteBankEntry,
 	deleteExternalBill,
 	downloadEntityBillPDF,
+	type GetraenkeSettings,
+	markAllMemberBillsPaid,
 	markExternalBillPaid,
 	setPfandWert,
 } from "~/server/actions/getraenkewart/kasse";
@@ -132,6 +147,8 @@ type Props = {
 	entityBills: EntityBill[];
 	memberBills: MemberBill[];
 	pfandWert: number;
+	/** Feature settings; null for tenants without markup / treasurer features. */
+	settings?: GetraenkeSettings | null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -577,6 +594,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
 	const [pendingId, setPendingId] = useState<string | null>(null);
+	const markAllPaidEnabled = useFeature("billing.markAllPaid");
 	const total = bills.reduce((s, b) => s + b.total, 0);
 
 	function setStatus(id: string, name: string, status: BillStatus) {
@@ -599,6 +617,18 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 		});
 	}
 
+	function markAllPaid() {
+		startTransition(async () => {
+			const res = await markAllMemberBillsPaid();
+			if (res.success) {
+				toast.success(`${res.count} Rechnungen als bezahlt markiert`);
+			} else {
+				toast.error(res.error);
+			}
+			router.refresh();
+		});
+	}
+
 	return (
 		<CollapsibleCard
 			title="Offene Mitgliederrechnungen"
@@ -607,6 +637,41 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 					<span className="text-muted-foreground text-xs">
 						{bills.length} • {fmt(total)}
 					</span>
+				) : undefined
+			}
+			action={
+				markAllPaidEnabled && bills.length > 0 ? (
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button
+								size="sm"
+								variant="outline"
+								disabled={isPending}
+								onClick={(e) => e.stopPropagation()}
+							>
+								<CheckCircle className="mr-1 size-4" />
+								Alle haben gezahlt
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent onClick={(e) => e.stopPropagation()}>
+							<AlertDialogHeader>
+								<AlertDialogTitle>
+									Alle Rechnungen als bezahlt markieren?
+								</AlertDialogTitle>
+								<AlertDialogDescription>
+									{bills.length} offene Mitgliederrechnungen über insgesamt{" "}
+									{fmt(total)} werden auf „Bezahlt" gesetzt, auch gestundete.
+									Gruppenrechnungen bleiben unverändert.
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Abbrechen</AlertDialogCancel>
+								<AlertDialogAction onClick={markAllPaid}>
+									Ja, alle bezahlt
+								</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
 				) : undefined
 			}
 		>
@@ -1103,10 +1168,12 @@ export default function KasseTab({
 	entityBills,
 	memberBills,
 	pfandWert,
+	settings = null,
 }: Props) {
 	return (
 		<div className="flex flex-col gap-6">
 			<SummarySection summary={summary} pfandWert={pfandWert} />
+			{settings && <GetraenkeSettingsCard settings={settings} />}
 			<NeueRechnungCard />
 			<BankLog entries={bankEntries} />
 			<MemberBillsCard bills={memberBills} />

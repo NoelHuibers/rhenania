@@ -3,8 +3,17 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { drinks, orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
 
 export type MenuItem = typeof drinks.$inferSelect;
+
+/**
+ * Markup the menu has to add to personal orders so it shows the price the
+ * member is actually charged. 0 for tenants without the markup feature.
+ */
+export async function getDrinkMarkupPercent(): Promise<number> {
+	return (await getDrinkPricingConfig()).markupPercent;
+}
 
 // Get all available drinks for customers, sorted by total consumption desc
 // — same ordering as the customer-facing drinks tab so the most-ordered

@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { getAllDrinksForMenu, type MenuItem } from "~/server/actions/menu";
+import { unitPriceFor } from "~/lib/pricing";
+import {
+	getAllDrinksForMenu,
+	getDrinkMarkupPercent,
+	type MenuItem,
+} from "~/server/actions/menu";
 
 import { SiteHeader } from "../SiteHeader";
 import { type BillingOption, BillingSelector } from "./Billingselector";
@@ -14,6 +19,7 @@ import { OrderDrawer } from "./OrderDrawer";
 
 export default function DrinksMenu() {
 	const [drinks, setDrinks] = useState<MenuItem[]>([]);
+	const [markupPercent, setMarkupPercent] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
 	const [selectedDrink, setSelectedDrink] = useState<MenuItem | null>(null);
 	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -28,8 +34,12 @@ export default function DrinksMenu() {
 	const loadDrinks = async () => {
 		try {
 			setIsLoading(true);
-			const fetchedDrinks = await getAllDrinksForMenu();
+			const [fetchedDrinks, markup] = await Promise.all([
+				getAllDrinksForMenu(),
+				getDrinkMarkupPercent(),
+			]);
 			setDrinks(fetchedDrinks);
+			setMarkupPercent(markup);
 		} catch (error) {
 			console.error("Error loading drinks:", error);
 			toast.error("Fehler beim Laden der Getränkekarte");
@@ -48,9 +58,19 @@ export default function DrinksMenu() {
 		setSelectedDrink(null);
 	};
 
+	// Show what the member is actually charged: personal orders carry the
+	// tenant's markup (if any), group bookings the plain price. The server
+	// recomputes the price on order, this is display only.
+	const pricedDrinks = drinks.map((drink) => ({
+		...drink,
+		price: unitPriceFor(drink.price, markupPercent, selectedBilling),
+	}));
+
 	// Group drinks by availability
-	const availableDrinks = drinks.filter((drink) => drink.isCurrentlyAvailable);
-	const unavailableDrinks = drinks.filter(
+	const availableDrinks = pricedDrinks.filter(
+		(drink) => drink.isCurrentlyAvailable,
+	);
+	const unavailableDrinks = pricedDrinks.filter(
 		(drink) => !drink.isCurrentlyAvailable,
 	);
 

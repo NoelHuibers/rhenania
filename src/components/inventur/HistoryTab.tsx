@@ -172,6 +172,14 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 												{itemsWithSurplus} Überschuss
 											</Badge>
 										)}
+										{record.profit !== null && (
+											<Badge
+												variant="outline"
+												className="border-green-300 text-green-600 text-xs"
+											>
+												Gewinn €{record.profit.toFixed(2)}
+											</Badge>
+										)}
 										<Badge
 											variant={
 												record.kind === "event" ? "outline" : "destructive"
@@ -199,7 +207,13 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 							<CollapsibleContent>
 								<div className="border-t px-4 py-4">
 									{/* Summary strip */}
-									<div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+									<div
+										className={`mb-4 grid grid-cols-2 gap-2 ${
+											record.profit !== null
+												? "sm:grid-cols-5"
+												: "sm:grid-cols-4"
+										}`}
+									>
 										{[
 											{
 												label: "Geprüfte Artikel",
@@ -221,6 +235,15 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 												value: `€${record.totalLosses.toFixed(2)}`,
 												cls: "text-destructive",
 											},
+											...(record.profit !== null
+												? [
+														{
+															label: "Gewinn aus Aufschlag",
+															value: `€${record.profit.toFixed(2)}`,
+															cls: "text-green-600",
+														},
+													]
+												: []),
 										].map((s) => (
 											<div
 												key={s.label}

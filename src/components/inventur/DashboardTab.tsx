@@ -59,6 +59,8 @@ interface DashboardTabProps {
 	activeEvent: ActiveEventInventory;
 	events: InventurEvent[];
 	etaplans: EtaplanWithKostenpunkte[];
+	/** Markup profit since the last inventory; null without the markup feature. */
+	profit?: number | null;
 }
 
 export default function DashboardTab({
@@ -66,6 +68,7 @@ export default function DashboardTab({
 	activeEvent,
 	events,
 	etaplans,
+	profit = null,
 }: DashboardTabProps) {
 	const router = useRouter();
 
@@ -418,6 +421,14 @@ export default function DashboardTab({
 								€{totalInventoryValue.toFixed(2)}
 							</span>
 						</span>
+						{profit !== null && (
+							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
+								<span className="text-muted-foreground">Gewinn</span>
+								<span className="font-semibold text-green-600">
+									€{profit.toFixed(2)}
+								</span>
+							</span>
+						)}
 						{totalLostValue > 0 && (
 							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 								<span className="text-muted-foreground">Verluste</span>

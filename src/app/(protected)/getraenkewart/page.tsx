@@ -9,6 +9,7 @@ import GetraenkePage from "~/components/trinken/getraenkewart/GetraenkePage";
 import {
 	getBankEntries,
 	getExternalBills,
+	getGetraenkeSettings,
 	getKasseSummary,
 	getOpenEntityBills,
 	getOpenMemberBills,
@@ -17,6 +18,7 @@ import {
 import {
 	getActiveEventInventory,
 	getInventoryHistory,
+	getInventoryProfit,
 	getStockData,
 	listEtaplansWithKostenpunkte,
 	listInventurEvents,
@@ -35,6 +37,8 @@ async function GetraenkewartData() {
 		activeEvent,
 		inventurEvents,
 		etaplansWithKp,
+		inventoryProfit,
+		getraenkeSettings,
 	] = await Promise.all([
 		getKasseSummary(),
 		getBankEntries(),
@@ -47,6 +51,8 @@ async function GetraenkewartData() {
 		getActiveEventInventory(),
 		listInventurEvents(),
 		listEtaplansWithKostenpunkte(),
+		getInventoryProfit(),
+		getGetraenkeSettings(),
 	]);
 
 	return (
@@ -58,6 +64,7 @@ async function GetraenkewartData() {
 					activeEvent={activeEvent}
 					events={inventurEvents}
 					etaplans={etaplansWithKp}
+					profit={inventoryProfit}
 				/>
 			}
 			verlaufTab={<HistoryTab history={inventoryHistory} />}
@@ -69,6 +76,7 @@ async function GetraenkewartData() {
 					entityBills={entityBills}
 					memberBills={memberBills}
 					pfandWert={pfandWert}
+					settings={getraenkeSettings}
 				/>
 			}
 			buchungTab={<BookingTab />}

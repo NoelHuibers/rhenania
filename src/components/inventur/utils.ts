@@ -19,6 +19,8 @@ export type InventoryWithItems = {
 	kind: "routine" | "event";
 	eventName: string | null;
 	eventDate: Date | null;
+	/** Markup profit earned during this inventory period; null without the feature. */
+	profit: number | null;
 	items: Array<{
 		drinkId: string;
 		drinkName: string;

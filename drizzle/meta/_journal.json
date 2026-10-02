@@ -78,6 +78,13 @@
       "when": 1784148302995,
       "tag": "0010_stiff_leopardon",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1790902125405,
+      "tag": "0011_feature_settings",
+      "breakpoints": true
     }
   ]
 }

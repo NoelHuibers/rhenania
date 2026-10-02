@@ -1,7 +1,7 @@
 // server/actions/inventur/inventur.ts
 "use server";
 
-import { and, desc, eq, gte, sql } from "drizzle-orm";
+import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -15,6 +15,7 @@ import {
 	kostenpunkte,
 	orders,
 } from "~/server/db/schema";
+import { hasFeature } from "~/server/lib/features";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -43,6 +44,8 @@ export type InventoryWithItems = {
 	kind: "routine" | "event";
 	eventName: string | null;
 	eventDate: Date | null;
+	/** Markup profit earned during this inventory period; null without the feature. */
+	profit: number | null;
 	items: Array<{
 		drinkId: string;
 		drinkName: string;
@@ -52,6 +55,45 @@ export type InventoryWithItems = {
 		lossValue: number;
 	}>;
 };
+
+// ─── Markup profit (feature `drinks.markup`) ──────────────────────────────────
+//
+// Profit is what members paid on top of the purchase price: for every order
+// that recorded its `costPerUnit`, amount × (pricePerUnit − costPerUnit).
+// Stock value and losses keep being valued at the purchase price.
+
+async function sumMarkupProfit(from: Date | null, to: Date | null) {
+	const [row] = await db
+		.select({
+			profit: sql<number>`COALESCE(SUM(${orders.amount} * (${orders.pricePerUnit} - ${orders.costPerUnit})), 0)`,
+		})
+		.from(orders)
+		.where(
+			and(
+				isNotNull(orders.costPerUnit),
+				from ? gte(orders.createdAt, from) : undefined,
+				to ? lt(orders.createdAt, to) : undefined,
+			),
+		);
+	return round2(Number(row?.profit ?? 0));
+}
+
+/**
+ * Markup profit since the running inventory started (all time if there is
+ * none yet). Returns null for tenants without the markup feature.
+ */
+export async function getInventoryProfit(): Promise<number | null> {
+	if (!(await hasFeature("drinks.markup"))) return null;
+
+	const [active] = await db
+		.select({ createdAt: inventories.createdAt })
+		.from(inventories)
+		.where(eq(inventories.status, "active"))
+		.orderBy(desc(inventories.createdAt))
+		.limit(1);
+
+	return sumMarkupProfit(active?.createdAt ?? null, null);
+}
 
 export async function getStockData(): Promise<StockStatusWithDetails[]> {
 	const allDrinks = await db
@@ -122,6 +164,7 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
 }
 
 export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
+	const markupEnabled = await hasFeature("drinks.markup");
 	const inventoriesData = await db
 		.select()
 		.from(inventories)
@@ -168,6 +211,9 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 				kind: inv.kind,
 				eventName: inv.eventName,
 				eventDate: inv.eventDate,
+				profit: markupEnabled
+					? await sumMarkupProfit(inv.createdAt, inv.closedAt)
+					: null,
 				items: itemsWithDetails,
 			};
 		}),

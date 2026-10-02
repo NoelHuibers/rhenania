@@ -2,9 +2,11 @@
 
 import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { db } from "~/server/db";
 import { challenges, drinks, games, orders, users } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
 import { applyEloOutcome } from "~/server/lib/user-stats";
 import { auth } from "../../auth";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
@@ -474,7 +476,10 @@ async function settleChallenge(
 		}
 	}
 
-	// Insert orders
+	// Insert orders. Challenge drinks are personal orders, so they carry the
+	// tenant's markup when that feature is on.
+	const pricing = await getDrinkPricingConfig();
+	const pricePerUnit = unitPriceFor(drink.price, pricing.markupPercent, null);
 	for (const o of ordersToCreate) {
 		if (o.amount <= 0) continue;
 		await db.insert(orders).values({
@@ -483,8 +488,9 @@ async function settleChallenge(
 			drinkId: drink.id,
 			drinkName: drink.name,
 			amount: o.amount,
-			pricePerUnit: drink.price,
-			total: drink.price * o.amount,
+			pricePerUnit,
+			costPerUnit: pricing.enabled ? drink.price : null,
+			total: orderTotal(pricePerUnit, o.amount, pricing.markupPercent),
 			bookingFor: null,
 		});
 	}

@@ -13,7 +13,11 @@ import {
 	userRoles,
 	users,
 } from "~/server/db/schema";
-import { sendBillNotificationEmail } from "../newuser/email";
+import { getBillRecipient } from "~/server/lib/getraenke-settings";
+import {
+	sendBillNotificationEmail,
+	sendTreasurerBillEmail,
+} from "../newuser/email";
 import { generateUserBillPDF } from "./createUserPDF";
 
 interface OrderWithDetails {
@@ -566,64 +570,19 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 
 		console.log("Billing process completed successfully:", result);
 
-		// Send email notifications to users who have bills and haven't opted out
+		// Send the new bills by mail: to the treasurer when the tenant chose that
+		// (feature `billing.treasurerRecipient`), otherwise to each member who
+		// hasn't opted out.
 		if (result.success && result.billPeriod) {
 			const billPeriodId = result.billPeriod.id;
 			const billNumber = result.billPeriod.billNumber;
 
 			try {
-				// Find users with bills in this period + their email + notification preference
-				// Left join on preferences so users without a row default to enabled (true)
-				const usersWithBills = await db
-					.select({
-						billId: bills.id,
-						userName: bills.userName,
-						total: bills.total,
-						email: users.email,
-						emailPref: userPreferences.value,
-					})
-					.from(bills)
-					.innerJoin(users, eq(bills.userId, users.id))
-					.leftJoin(
-						userPreferences,
-						and(
-							eq(userPreferences.userId, bills.userId),
-							eq(userPreferences.key, "notifications.emailEnabled"),
-						),
-					)
-					.where(eq(bills.billPeriodId, billPeriodId));
-
-				// Only notify users who haven't explicitly disabled notifications (default = enabled)
-				const toNotify = usersWithBills.filter(
-					(u) => u.emailPref === null || u.emailPref === "true",
-				);
-
-				console.log(
-					`Sending bill notification emails to ${toNotify.length} users...`,
-				);
-
-				for (const user of toNotify) {
-					try {
-						const pdfResult = await generateUserBillPDF(user.billId);
-						if (!pdfResult.success || !pdfResult.pdfContent) {
-							console.error(
-								`Failed to generate PDF for bill ${user.billId}:`,
-								pdfResult.error,
-							);
-							continue;
-						}
-						await sendBillNotificationEmail(
-							user.email,
-							user.userName,
-							billNumber,
-							user.total,
-							pdfResult.pdfContent,
-							pdfResult.fileName ?? `Rechnung_${billNumber}.pdf`,
-						);
-					} catch (emailError) {
-						// Log but don't fail the whole billing process
-						console.error(`Failed to send email to ${user.email}:`, emailError);
-					}
+				const recipient = await getBillRecipient();
+				if (recipient.mode === "treasurer") {
+					await sendBillsToTreasurer(billPeriodId, billNumber, recipient.email);
+				} else {
+					await sendBillsToMembers(billPeriodId, billNumber);
 				}
 			} catch (notifyError) {
 				console.error("Error during email notification phase:", notifyError);
@@ -641,6 +600,107 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 			billsCreated: 0,
 			totalAmount: 0,
 		};
+	}
+}
+
+// Mails every member their own bill, unless they disabled notifications.
+async function sendBillsToMembers(billPeriodId: string, billNumber: string) {
+	// Left join on preferences so users without a row default to enabled (true)
+	const usersWithBills = await db
+		.select({
+			billId: bills.id,
+			userName: bills.userName,
+			total: bills.total,
+			email: users.email,
+			emailPref: userPreferences.value,
+		})
+		.from(bills)
+		.innerJoin(users, eq(bills.userId, users.id))
+		.leftJoin(
+			userPreferences,
+			and(
+				eq(userPreferences.userId, bills.userId),
+				eq(userPreferences.key, "notifications.emailEnabled"),
+			),
+		)
+		.where(eq(bills.billPeriodId, billPeriodId));
+
+	// Only notify users who haven't explicitly disabled notifications (default = enabled)
+	const toNotify = usersWithBills.filter(
+		(u) => u.emailPref === null || u.emailPref === "true",
+	);
+
+	console.log(
+		`Sending bill notification emails to ${toNotify.length} users...`,
+	);
+
+	for (const user of toNotify) {
+		try {
+			const pdfResult = await generateUserBillPDF(user.billId);
+			if (!pdfResult.success || !pdfResult.pdfContent) {
+				console.error(
+					`Failed to generate PDF for bill ${user.billId}:`,
+					pdfResult.error,
+				);
+				continue;
+			}
+			await sendBillNotificationEmail(
+				user.email,
+				user.userName,
+				billNumber,
+				user.total,
+				pdfResult.pdfContent,
+				pdfResult.fileName ?? `Rechnung_${billNumber}.pdf`,
+			);
+		} catch (emailError) {
+			// Log but don't fail the whole billing process
+			console.error(`Failed to send email to ${user.email}:`, emailError);
+		}
+	}
+}
+
+// Mails every bill of the period — member and group bills alike — as its own
+// message to the treasurer. Members get no mail in this mode.
+async function sendBillsToTreasurer(
+	billPeriodId: string,
+	billNumber: string,
+	treasurerEmail: string,
+) {
+	const periodBills = await db
+		.select({ billId: bills.id, userName: bills.userName, total: bills.total })
+		.from(bills)
+		.where(eq(bills.billPeriodId, billPeriodId))
+		.orderBy(bills.userName);
+
+	console.log(
+		`Sending ${periodBills.length} bills to the treasurer (${treasurerEmail})...`,
+	);
+
+	for (const bill of periodBills) {
+		try {
+			const pdfResult = await generateUserBillPDF(bill.billId);
+			if (!pdfResult.success || !pdfResult.pdfContent) {
+				console.error(
+					`Failed to generate PDF for bill ${bill.billId}:`,
+					pdfResult.error,
+				);
+				continue;
+			}
+			await sendTreasurerBillEmail(
+				treasurerEmail,
+				bill.userName,
+				billNumber,
+				bill.total,
+				pdfResult.pdfContent,
+				pdfResult.fileName ?? `Rechnung_${billNumber}.pdf`,
+			);
+		} catch (emailError) {
+			// Log but don't fail the whole billing process
+			console.error(
+				`Failed to send bill of ${bill.userName} to the treasurer:`,
+				emailError,
+			);
+		}
 	}
 }
 
