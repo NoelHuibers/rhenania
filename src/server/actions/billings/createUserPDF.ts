@@ -1,12 +1,14 @@
 // createUserPDF.ts
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
-import { formatIban } from "~/lib/iban";
-import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db/index";
-import { billItems, billPeriods, bills, kontos } from "~/server/db/schema";
+import { billItems, billPeriods, bills } from "~/server/db/schema";
+import {
+	DEFAULT_GETRAENKEKASSE_PAYMENT,
+	getGetraenkekassePayment,
+} from "~/server/lib/getraenkekasse-payment";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 interface UserBillData {
@@ -56,8 +58,8 @@ type SenderInfo = {
 };
 
 // Default sender configuration used as a fallback. The bank/payment fields
-// (iban, paypalBaseUrl) are overridden from the active Getränkekasse `konto`
-// row when one exists, so they are no longer hard-coded; `website` comes from
+// (iban, paypalBaseUrl) are overridden by `getGetraenkekassePayment()` from
+// the active Getränkekasse `konto` row when one exists; `website` comes from
 // `tenants.branding`. The treasurer-specific address fields
 // (name/street/city/accountHolder) are not yet tenant-configurable — they need
 // their own per-tenant treasurer-config table before non-Rhenania tenants can
@@ -67,9 +69,9 @@ const DEFAULT_SENDER_INFO: SenderInfo = {
 	street: "Unterbibergerstraße 72",
 	city: "81737 München",
 	location: "München",
-	iban: "DE65 5002 4024 3386 7890 30",
-	accountHolder: "Noel Huibers",
-	paypalBaseUrl: "https://paypal.me/CorpsRhenaniaBier",
+	iban: DEFAULT_GETRAENKEKASSE_PAYMENT.iban,
+	accountHolder: DEFAULT_GETRAENKEKASSE_PAYMENT.accountHolder,
+	paypalBaseUrl: DEFAULT_GETRAENKEKASSE_PAYMENT.paypalBaseUrl,
 	website: "www.rhenania-stuttgart.de/trinken",
 	paymentDueDays: 14,
 	lateFeePercent: 20,
@@ -133,25 +135,18 @@ export async function generateUserBillPDF(
 			umlage,
 		};
 
-		// 6. Resolve sender overrides. Bank account (IBAN) and PayPal come from the
-		// active Getränkekasse konto when present; website from tenant branding.
-		const tenant = await getCurrentTenant();
-		const [gkKonto] = await db
-			.select()
-			.from(kontos)
-			.where(
-				and(eq(kontos.kasseType, "Getränkekasse"), eq(kontos.isActive, true)),
-			)
-			.limit(1);
-
-		const rawPaypal =
-			gkKonto?.paypalLink ??
-			tenant?.branding?.paypalUrl ??
-			DEFAULT_SENDER_INFO.paypalBaseUrl;
+		// 6. Resolve sender overrides. Bank account (IBAN) and PayPal come from
+		// the shared Getränkekasse resolver (same data the profile page shows);
+		// website from tenant branding.
+		const [tenant, payment] = await Promise.all([
+			getCurrentTenant(),
+			getGetraenkekassePayment(),
+		]);
 		const senderInfo: SenderInfo = {
 			...DEFAULT_SENDER_INFO,
-			iban: gkKonto?.iban ? formatIban(gkKonto.iban) : DEFAULT_SENDER_INFO.iban,
-			paypalBaseUrl: normalizePaypalLink(rawPaypal),
+			iban: payment.iban,
+			accountHolder: payment.accountHolder,
+			paypalBaseUrl: payment.paypalBaseUrl,
 			website: tenant?.branding?.billingWebsite ?? DEFAULT_SENDER_INFO.website,
 		};
 

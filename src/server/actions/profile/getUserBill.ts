@@ -4,6 +4,10 @@ import { and, desc, eq } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills } from "~/server/db/schema";
+import {
+	type GetraenkekassePayment,
+	getGetraenkekassePayment,
+} from "~/server/lib/getraenkekasse-payment";
 
 export type BillData = {
 	status: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen";
@@ -25,9 +29,13 @@ export type BillItem = {
 	total: number;
 };
 
+export type BillPayment = GetraenkekassePayment;
+
 export async function getUserBillingData(): Promise<{
 	billData: BillData | null;
 	billItems: BillItem[];
+	/** Where to pay: same account + PayPal link the bill PDF prints. */
+	payment: BillPayment | null;
 }> {
 	const session = await auth();
 	if (!session?.user?.id) {
@@ -51,6 +59,7 @@ export async function getUserBillingData(): Promise<{
 			return {
 				billData: null,
 				billItems: [],
+				payment: null,
 			};
 		}
 
@@ -60,10 +69,10 @@ export async function getUserBillingData(): Promise<{
 		const billPeriod = userBill.billPeriod;
 
 		// Get bill items for this bill
-		const items = await db
-			.select()
-			.from(billItems)
-			.where(eq(billItems.billId, bill.id));
+		const [items, payment] = await Promise.all([
+			db.select().from(billItems).where(eq(billItems.billId, bill.id)),
+			getGetraenkekassePayment(),
+		]);
 
 		// Transform data to match the component's expected format
 		const billData: BillData = {
@@ -101,6 +110,7 @@ export async function getUserBillingData(): Promise<{
 		return {
 			billData,
 			billItems: transformedBillItems,
+			payment,
 		};
 	} catch (error) {
 		console.error("Error fetching billing data:", error);
