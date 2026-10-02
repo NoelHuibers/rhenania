@@ -26,7 +26,6 @@ const PUBLIC_PATHS = [
 	"/impressum", // imprint
 	"/api/auth/(.*)", // all Better Auth endpoints
 	"/auth/(.*)", // all auth endpoints
-	"/party",
 	"/api/calendar(.*)",
 ];
 
@@ -41,7 +40,6 @@ const VALID_PATHS = [
 	"/sitemap.xml",
 	"/datenschutz",
 	"/impressum",
-	"/party",
 	"/api/(.*)",
 	"/auth/(.*)",
 	"/access-denied",
