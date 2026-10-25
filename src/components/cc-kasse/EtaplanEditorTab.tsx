@@ -1,7 +1,12 @@
 "use client";
 
 import {
+	CalendarDays,
+	ChevronDown,
 	Download,
+	FileSpreadsheet,
+	MoreHorizontal,
+	MoreVertical,
 	Pencil,
 	PiggyBank,
 	Plus,
@@ -22,10 +27,14 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { Table, TableBody, TableCell, TableRow } from "~/components/ui/table";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
 import { formatEur } from "~/lib/cc-kasse-format";
 import {
 	deleteEinnahme,
@@ -43,6 +52,7 @@ import {
 } from "~/server/actions/cc-kasse/kostenpunkte";
 import { type EditingEinnahme, EinnahmeDialog } from "./EinnahmeDialog";
 import { EtaplanDialog } from "./EtaplanDialog";
+import { EmptyState, formatDate } from "./KasseUi";
 import { KostenpunktDialog } from "./KostenpunktDialog";
 import { ReimbursementDialog } from "./ReimbursementDialog";
 
@@ -225,37 +235,40 @@ export function EtaplanEditorTab({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-				<div className="flex items-center gap-2">
-					<h2 className="font-semibold text-lg">{etaplan.name}</h2>
-					<Badge variant={etaplan.status === "Aktiv" ? "default" : "secondary"}>
-						{etaplan.status}
-					</Badge>
-				</div>
-				<div className="flex flex-wrap gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => setEditEtaplanOpen(true)}
-					>
-						<Pencil className="mr-1 h-4 w-4" /> Etatplan
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={onExport}
-						disabled={isPending}
-					>
-						<Download className="mr-1 h-4 w-4" /> Export
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => fileInputRef.current?.click()}
-						disabled={isPending}
-					>
-						<Upload className="mr-1 h-4 w-4" /> Import
-					</Button>
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex min-w-0 items-center gap-2">
+					<div className="min-w-0">
+						<h2 className="font-semibold text-base">Kostenpunkte</h2>
+						<p className="text-muted-foreground text-xs tabular-nums">
+							{kostenpunkte.length} Posten · Budget{" "}
+							{formatEur(kostenpunkte.reduce((s, k) => s + k.budget, 0))}
+						</p>
+					</div>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								className="ml-auto sm:ml-0"
+								disabled={isPending}
+								aria-label="Etatplan-Aktionen"
+							>
+								<MoreHorizontal />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={() => setEditEtaplanOpen(true)}>
+								<Pencil /> Etatplan bearbeiten
+							</DropdownMenuItem>
+							<DropdownMenuSeparator />
+							<DropdownMenuItem onClick={onExport}>
+								<Download /> Als Excel exportieren
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+								<Upload /> Excel importieren
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 					<input
 						ref={fileInputRef}
 						type="file"
@@ -263,283 +276,210 @@ export function EtaplanEditorTab({
 						className="hidden"
 						onChange={onImportFile}
 					/>
+				</div>
+				<div className="grid grid-cols-2 gap-2 sm:flex">
 					{isTreasury && (
-						<>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={() => setBookingOpen(true)}
-								disabled={kostenpunkte.length === 0}
-							>
-								<Receipt className="mr-1 h-4 w-4" /> Direktbuchung
-							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={openNewEinnahme}
-								disabled={kostenpunkte.length === 0}
-							>
-								<PiggyBank className="mr-1 h-4 w-4" /> Einnahme
-							</Button>
-						</>
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button variant="outline" disabled={kostenpunkte.length === 0}>
+									<Receipt /> Buchen
+									<ChevronDown className="opacity-60" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent align="end" className="w-56">
+								<DropdownMenuItem onClick={() => setBookingOpen(true)}>
+									<Receipt />
+									<div>
+										<div>Ausgabe</div>
+										<div className="text-muted-foreground text-xs">
+											Direkt bezahlte Rechnung
+										</div>
+									</div>
+								</DropdownMenuItem>
+								<DropdownMenuItem onClick={openNewEinnahme}>
+									<PiggyBank />
+									<div>
+										<div>Einnahme</div>
+										<div className="text-muted-foreground text-xs">
+											z. B. Bargeld vom Fest
+										</div>
+									</div>
+								</DropdownMenuItem>
+							</DropdownMenuContent>
+						</DropdownMenu>
 					)}
-					<Button size="sm" onClick={openNewKp}>
-						<Plus className="mr-1 h-4 w-4" /> Kostenpunkt
+					<Button
+						onClick={openNewKp}
+						className={isTreasury ? undefined : "col-span-2"}
+					>
+						<Plus /> Kostenpunkt
 					</Button>
 				</div>
 			</div>
 
 			{grouped.length === 0 ? (
-				<p className="rounded-md border border-dashed p-8 text-center text-muted-foreground text-sm">
-					Noch keine Kostenpunkte. Lege welche an oder importiere eine
-					Excel-Datei.
-				</p>
+				<EmptyState
+					icon={<FileSpreadsheet className="size-5" />}
+					title="Noch keine Kostenpunkte"
+				>
+					Lege den ersten Kostenpunkt an oder importiere eine Excel-Datei über
+					das <MoreHorizontal className="inline size-4" />
+					-Menü.
+				</EmptyState>
 			) : (
 				grouped.map((g) => {
 					const catBudget = g.items.reduce((s, k) => s + k.budget, 0);
 					const catIncome = g.items.reduce((s, k) => s + k.income, 0);
 					return (
-						<Card key={g.category}>
-							<CardHeader className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
-								<CardTitle className="text-base">{g.category}</CardTitle>
-								<span className="text-muted-foreground text-sm">
-									Budget {formatEur(catBudget)}
-									{catIncome > 0 && ` · Einnahmen ${formatEur(catIncome)}`}
-								</span>
-							</CardHeader>
-							<CardContent>
-								{/* Mobile: stacked cards */}
-								<div className="space-y-3 sm:hidden">
-									{g.items.map((kp) => {
-										const kpEinnahmen = einnahmenByKp.get(kp.id) ?? [];
-										const erhalten = kpEinnahmen.reduce(
-											(s, e) => s + e.amount,
-											0,
-										);
-										return (
-											<div key={kp.id} className="rounded-lg border p-3">
-												<div className="flex items-start justify-between gap-2">
-													<div className="min-w-0">
-														<div className="font-medium">{kp.name}</div>
-														{kp.event && (
-															<div className="text-muted-foreground text-xs">
-																↳ {kp.event.title}
-															</div>
-														)}
-														<div className="mt-1 font-medium text-sm tabular-nums">
-															{formatEur(kp.budget)}
-															{kp.income > 0 && (
-																<span className="text-muted-foreground">
-																	{" "}
-																	· +{formatEur(kp.income)}
-																</span>
-															)}
+						<section
+							key={g.category}
+							className="overflow-hidden rounded-xl border bg-card shadow-xs"
+						>
+							<div className="flex items-center justify-between gap-3 bg-muted/40 px-4 py-2.5">
+								<h3 className="min-w-0 truncate font-semibold text-sm">
+									{g.category}
+								</h3>
+								<div className="shrink-0 text-right text-xs tabular-nums">
+									<span className="font-semibold">{formatEur(catBudget)}</span>
+									{catIncome > 0 && (
+										<span className="text-muted-foreground">
+											{" "}
+											· +{formatEur(catIncome)}
+										</span>
+									)}
+								</div>
+							</div>
+							<ul className="divide-y">
+								{g.items.map((kp) => {
+									const kpEinnahmen = einnahmenByKp.get(kp.id) ?? [];
+									const erhalten = kpEinnahmen.reduce(
+										(s, e) => s + e.amount,
+										0,
+									);
+									return (
+										<li key={kp.id} className="px-4 py-3">
+											<div className="flex items-start justify-between gap-3">
+												<div className="min-w-0">
+													<div className="font-medium text-sm">{kp.name}</div>
+													{kp.event && (
+														<div className="flex items-center gap-1 text-muted-foreground text-xs">
+															<CalendarDays className="size-3" />
+															<span className="truncate">{kp.event.title}</span>
 														</div>
+													)}
+												</div>
+												<div className="flex shrink-0 items-start gap-1">
+													<div className="text-right">
+														<div className="font-semibold text-sm tabular-nums">
+															{formatEur(kp.budget)}
+														</div>
+														{kp.income > 0 && (
+															<div className="text-muted-foreground text-xs tabular-nums">
+																+{formatEur(kp.income)} geplant
+															</div>
+														)}
 														{erhalten > 0 && (
-															<div className="text-emerald-600 text-xs dark:text-emerald-400">
-																Erhalten +{formatEur(erhalten)}
+															<div className="text-emerald-600 text-xs tabular-nums dark:text-emerald-400">
+																+{formatEur(erhalten)} erhalten
 															</div>
 														)}
 													</div>
-													<div className="flex shrink-0 gap-1">
-														<Button
-															variant="ghost"
-															size="icon"
-															onClick={() => openEditKp(kp)}
-														>
-															<Pencil className="h-4 w-4" />
-														</Button>
-														<Button
-															variant="ghost"
-															size="icon"
-															onClick={() => setDeleteId(kp.id)}
-														>
-															<Trash2 className="h-4 w-4" />
-														</Button>
-													</div>
+													<DropdownMenu>
+														<DropdownMenuTrigger asChild>
+															<Button
+																variant="ghost"
+																size="icon-sm"
+																className="-mt-1 -mr-2"
+																aria-label={`Aktionen für ${kp.name}`}
+															>
+																<MoreVertical />
+															</Button>
+														</DropdownMenuTrigger>
+														<DropdownMenuContent align="end">
+															<DropdownMenuItem onClick={() => openEditKp(kp)}>
+																<Pencil /> Bearbeiten
+															</DropdownMenuItem>
+															<DropdownMenuItem
+																variant="destructive"
+																onClick={() => setDeleteId(kp.id)}
+															>
+																<Trash2 /> Löschen
+															</DropdownMenuItem>
+														</DropdownMenuContent>
+													</DropdownMenu>
 												</div>
-												{kp.positionen.length > 0 && (
-													<div className="mt-2 space-y-0.5 border-t pt-2">
-														{kp.positionen.map((p) => (
-															<div
-																key={p.id}
-																className="flex justify-between gap-3 text-muted-foreground text-xs"
-															>
-																<span className="min-w-0 truncate">
-																	{p.bemerkung ?? "—"}
-																</span>
-																<span className="shrink-0 whitespace-nowrap tabular-nums">
-																	{formatEur(p.ausgaben)}
-																	{p.einnahmen > 0 &&
-																		` / +${formatEur(p.einnahmen)}`}
-																</span>
-															</div>
-														))}
-													</div>
-												)}
-												{kpEinnahmen.length > 0 && (
-													<div className="mt-2 space-y-1 border-t pt-2">
-														{kpEinnahmen.map((e) => (
-															<div
-																key={e.id}
-																className="flex items-center justify-between gap-3 text-xs"
-															>
-																<span className="min-w-0 truncate text-muted-foreground">
-																	{new Date(e.incomeDate).toLocaleDateString(
-																		"de-DE",
-																	)}{" "}
-																	· {e.description}
-																</span>
-																<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
-																	+{formatEur(e.amount)}
-																	{isTreasury && (
-																		<>
+											</div>
+
+											{kp.positionen.length > 0 && (
+												<ul className="mt-2 space-y-0.5 border-l-2 pl-3">
+													{kp.positionen.map((p) => (
+														<li
+															key={p.id}
+															className="flex justify-between gap-3 text-muted-foreground text-xs"
+														>
+															<span className="min-w-0 truncate">
+																{p.bemerkung ?? "—"}
+															</span>
+															<span className="shrink-0 whitespace-nowrap tabular-nums">
+																{formatEur(p.ausgaben)}
+																{p.einnahmen > 0 &&
+																	` / +${formatEur(p.einnahmen)}`}
+															</span>
+														</li>
+													))}
+												</ul>
+											)}
+
+											{kpEinnahmen.length > 0 && (
+												<ul className="mt-2 space-y-0.5 border-emerald-500/50 border-l-2 pl-3">
+													{kpEinnahmen.map((e) => (
+														<li
+															key={e.id}
+															className="flex items-center justify-between gap-3 text-xs"
+														>
+															<span className="min-w-0 truncate text-muted-foreground">
+																{formatDate(e.incomeDate)} · {e.description}
+															</span>
+															<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
+																+{formatEur(e.amount)}
+																{isTreasury && (
+																	<DropdownMenu>
+																		<DropdownMenuTrigger asChild>
 																			<Button
 																				variant="ghost"
-																				size="icon"
-																				className="size-6"
+																				size="icon-xs"
+																				aria-label="Einnahme-Aktionen"
+																			>
+																				<MoreVertical />
+																			</Button>
+																		</DropdownMenuTrigger>
+																		<DropdownMenuContent align="end">
+																			<DropdownMenuItem
 																				onClick={() => openEditEinnahme(e)}
 																			>
-																				<Pencil className="h-3 w-3" />
-																			</Button>
-																			<Button
-																				variant="ghost"
-																				size="icon"
-																				className="size-6"
+																				<Pencil /> Bearbeiten
+																			</DropdownMenuItem>
+																			<DropdownMenuItem
+																				variant="destructive"
 																				onClick={() =>
 																					setDeleteEinnahmeId(e.id)
 																				}
 																			>
-																				<Trash2 className="h-3 w-3" />
-																			</Button>
-																		</>
-																	)}
-																</span>
-															</div>
-														))}
-													</div>
-												)}
-											</div>
-										);
-									})}
-								</div>
-
-								{/* Desktop: table */}
-								<div className="hidden sm:block">
-									<Table>
-										<TableBody>
-											{g.items.map((kp) => {
-												const kpEinnahmen = einnahmenByKp.get(kp.id) ?? [];
-												const erhalten = kpEinnahmen.reduce(
-													(s, e) => s + e.amount,
-													0,
-												);
-												return (
-													<TableRow key={kp.id} className="align-top">
-														<TableCell>
-															<div className="font-medium">{kp.name}</div>
-															{kp.event && (
-																<div className="text-muted-foreground text-xs">
-																	↳ {kp.event.title}
-																</div>
-															)}
-															<div className="mt-1 space-y-0.5">
-																{kp.positionen.map((p) => (
-																	<div
-																		key={p.id}
-																		className="flex justify-between gap-4 text-muted-foreground text-xs"
-																	>
-																		<span className="min-w-0 truncate">
-																			{p.bemerkung ?? "—"}
-																		</span>
-																		<span className="whitespace-nowrap">
-																			{formatEur(p.ausgaben)}
-																			{p.einnahmen > 0 &&
-																				` / +${formatEur(p.einnahmen)}`}
-																		</span>
-																	</div>
-																))}
-																{kpEinnahmen.map((e) => (
-																	<div
-																		key={e.id}
-																		className="flex items-center justify-between gap-4 text-xs"
-																	>
-																		<span className="min-w-0 truncate text-muted-foreground">
-																			{new Date(
-																				e.incomeDate,
-																			).toLocaleDateString("de-DE")}{" "}
-																			· {e.description}
-																		</span>
-																		<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
-																			+{formatEur(e.amount)}
-																			{isTreasury && (
-																				<>
-																					<Button
-																						variant="ghost"
-																						size="icon"
-																						className="size-6"
-																						onClick={() => openEditEinnahme(e)}
-																					>
-																						<Pencil className="h-3 w-3" />
-																					</Button>
-																					<Button
-																						variant="ghost"
-																						size="icon"
-																						className="size-6"
-																						onClick={() =>
-																							setDeleteEinnahmeId(e.id)
-																						}
-																					>
-																						<Trash2 className="h-3 w-3" />
-																					</Button>
-																				</>
-																			)}
-																		</span>
-																	</div>
-																))}
-															</div>
-														</TableCell>
-														<TableCell className="text-right">
-															<div className="font-medium">
-																{formatEur(kp.budget)}
-															</div>
-															{kp.income > 0 && (
-																<div className="text-muted-foreground text-xs">
-																	+{formatEur(kp.income)}
-																</div>
-															)}
-															{erhalten > 0 && (
-																<div className="text-emerald-600 text-xs dark:text-emerald-400">
-																	Erhalten +{formatEur(erhalten)}
-																</div>
-															)}
-														</TableCell>
-														<TableCell className="w-[90px] text-right">
-															<div className="flex justify-end gap-1">
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => openEditKp(kp)}
-																>
-																	<Pencil className="h-4 w-4" />
-																</Button>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => setDeleteId(kp.id)}
-																>
-																	<Trash2 className="h-4 w-4" />
-																</Button>
-															</div>
-														</TableCell>
-													</TableRow>
-												);
-											})}
-										</TableBody>
-									</Table>
-								</div>
-							</CardContent>
-						</Card>
+																				<Trash2 /> Löschen
+																			</DropdownMenuItem>
+																		</DropdownMenuContent>
+																	</DropdownMenu>
+																)}
+															</span>
+														</li>
+													))}
+												</ul>
+											)}
+										</li>
+									);
+								})}
+							</ul>
+						</section>
 					);
 				})
 			)}

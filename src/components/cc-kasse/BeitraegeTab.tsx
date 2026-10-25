@@ -6,9 +6,14 @@ import {
 	Clock3,
 	FileText,
 	Mail,
+	MoreHorizontal,
+	MoreVertical,
 	Plus,
 	RefreshCw,
+	Search,
 	Trash2,
+	Undo2,
+	Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -25,6 +30,15 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import { Input } from "~/components/ui/input";
+import { Progress } from "~/components/ui/progress";
 import {
 	Select,
 	SelectContent,
@@ -49,8 +63,10 @@ import {
 	sendMahnungen,
 } from "~/server/actions/members/semesterbeitrag";
 import { BeitragRunDialog } from "./BeitragRunDialog";
+import { EmptyState, FilterChips, formatDate } from "./KasseUi";
 
 type KpOption = { id: string; name: string; category: string };
+type ChargeFilter = "offen" | "Bezahlt" | "Gestundet" | "alle";
 
 function chargeBadge(c: ChargeListItem) {
 	if (c.status === "Bezahlt")
@@ -116,6 +132,21 @@ export function BeitraegeTab({
 	const totalPaid = charges
 		.filter((c) => c.status === "Bezahlt")
 		.reduce((s, c) => s + c.total, 0);
+	const totalExpected = charges.reduce((s, c) => s + c.total, 0);
+
+	const [filter, setFilter] = useState<ChargeFilter>("offen");
+	const [query, setQuery] = useState("");
+	const matchesFilter = (c: ChargeListItem, f: ChargeFilter) => {
+		if (f === "alle") return true;
+		if (f === "offen") return c.status === "Offen" || c.status === "Gemahnt";
+		return c.status === f;
+	};
+	const countBy = (f: ChargeFilter) =>
+		charges.filter((c) => matchesFilter(c, f)).length;
+	const q = query.trim().toLowerCase();
+	const visible = charges.filter(
+		(c) => matchesFilter(c, filter) && c.memberName.toLowerCase().includes(q),
+	);
 
 	const runAction = (
 		action: () => Promise<{ success: boolean; error?: string }>,
@@ -186,10 +217,10 @@ export function BeitraegeTab({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex gap-2">
 				{runs.length > 0 ? (
 					<Select value={run?.id ?? ""} onValueChange={onNavigateRun}>
-						<SelectTrigger className="w-full sm:w-[260px]">
+						<SelectTrigger className="min-w-0 flex-1 sm:w-[260px] sm:flex-none">
 							<SelectValue placeholder="Beitragslauf wählen" />
 						</SelectTrigger>
 						<SelectContent>
@@ -201,17 +232,16 @@ export function BeitraegeTab({
 						</SelectContent>
 					</Select>
 				) : (
-					<span className="text-muted-foreground text-sm">
-						Noch kein Beitragslauf.
-					</span>
+					<span className="flex-1" />
 				)}
 				<Button
-					size="sm"
 					onClick={() => setCreateOpen(true)}
 					disabled={!etaplan}
-					className="w-full sm:w-auto"
+					className="shrink-0 sm:ml-auto"
 				>
-					<Plus className="mr-1 h-4 w-4" /> Neuer Beitragslauf
+					<Plus />
+					<span className="hidden sm:inline">Neuer Beitragslauf</span>
+					<span className="sm:hidden">Neu</span>
 				</Button>
 			</div>
 
@@ -221,123 +251,208 @@ export function BeitraegeTab({
 				</p>
 			)}
 
+			{runs.length === 0 && etaplan && (
+				<EmptyState
+					icon={<Users className="size-5" />}
+					title="Noch kein Beitragslauf"
+				>
+					Ein Beitragslauf erstellt für alle beitragspflichtigen Mitglieder eine
+					Rechnung, die du per E-Mail oder Brief verschicken kannst.
+				</EmptyState>
+			)}
+
 			{run && (
 				<>
-					<div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-md border p-3 text-sm">
-						<span>
-							Fällig: <b>{new Date(run.dueDate).toLocaleDateString("de-DE")}</b>
-						</span>
-						<span>
-							{paid}/{charges.length} bezahlt
-						</span>
-						<span>
-							Eingenommen: <b>{formatEur(totalPaid)}</b>
-						</span>
-					</div>
-
-					<div className="flex flex-wrap gap-2">
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={sendEmails}
-							disabled={isPending || charges.length === 0}
-						>
-							<Mail className="mr-1 h-4 w-4" /> E-Mails senden
-						</Button>
-						<Button
-							variant="outline"
-							size="sm"
-							onClick={sendMahn}
-							disabled={isPending || charges.length === 0}
-						>
-							<BellRing className="mr-1 h-4 w-4" /> Mahnungen senden
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => runAction(() => regenerateCharges(run.id))}
-							disabled={isPending}
-						>
-							<RefreshCw className="mr-1 h-4 w-4" /> Mitglieder aktualisieren
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={() => setDeleteOpen(true)}
-							disabled={isPending}
-							className="text-destructive hover:text-destructive"
-						>
-							<Trash2 className="mr-1 h-4 w-4" /> Lauf löschen
-						</Button>
+					<div className="rounded-2xl border bg-card p-4 shadow-xs sm:p-5">
+						<div className="flex items-start justify-between gap-3">
+							<div>
+								<p className="text-muted-foreground text-sm">Eingenommen</p>
+								<p className="font-bold text-2xl tabular-nums tracking-tight sm:text-3xl">
+									{formatEur(totalPaid)}
+								</p>
+								<p className="text-muted-foreground text-xs tabular-nums">
+									von {formatEur(totalExpected)} · fällig{" "}
+									{formatDate(run.dueDate)}
+								</p>
+							</div>
+							<div className="text-right">
+								<p className="font-semibold text-lg tabular-nums">
+									{paid}/{charges.length}
+								</p>
+								<p className="text-muted-foreground text-xs">bezahlt</p>
+							</div>
+						</div>
+						<Progress
+							className="mt-4 h-2.5 [&>[data-slot=progress-indicator]]:bg-emerald-500"
+							value={charges.length ? (paid / charges.length) * 100 : 0}
+						/>
+						<div className="mt-4 flex flex-wrap gap-2">
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={sendEmails}
+								disabled={isPending || charges.length === 0}
+							>
+								<Mail /> E-Mails senden
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={sendMahn}
+								disabled={isPending || charges.length === 0}
+							>
+								<BellRing /> Mahnen
+							</Button>
+							<DropdownMenu>
+								<DropdownMenuTrigger asChild>
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										disabled={isPending}
+										aria-label="Weitere Aktionen"
+									>
+										<MoreHorizontal />
+									</Button>
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="end">
+									<DropdownMenuItem
+										onClick={() => runAction(() => regenerateCharges(run.id))}
+									>
+										<RefreshCw /> Mitglieder aktualisieren
+									</DropdownMenuItem>
+									<DropdownMenuSeparator />
+									<DropdownMenuItem
+										variant="destructive"
+										onClick={() => setDeleteOpen(true)}
+									>
+										<Trash2 /> Lauf löschen
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</div>
 					</div>
 
 					{charges.length === 0 ? (
-						<p className="rounded-md border border-dashed p-8 text-center text-muted-foreground text-sm">
+						<EmptyState
+							icon={<Users className="size-5" />}
+							title="Keine Mitglieder"
+						>
 							Keine beitragspflichtigen Mitglieder (Fuchs / CB / IaCB).
-						</p>
+						</EmptyState>
 					) : (
-						<div className="space-y-2">
-							{charges.map((c) => (
-								<div
-									key={c.id}
-									className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3"
-								>
-									<div className="min-w-0">
-										<div className="font-medium">{c.memberName}</div>
-										<div className="text-muted-foreground text-xs">
-											{formatEur(c.total)}
-											{c.mahnungAmount > 0 &&
-												` (inkl. ${formatEur(c.mahnungAmount)} Mahngebühr)`}
-											{!c.hasEmail && " · Brief nötig"}
-											{c.emailSentAt && " · Email gesendet"}
-										</div>
-									</div>
-									<div className="flex flex-wrap items-center justify-end gap-2">
-										{chargeBadge(c)}
-										{c.status === "Bezahlt" || c.status === "Gestundet" ? (
-											<Button
-												variant="ghost"
-												size="sm"
-												disabled={isPending}
-												onClick={() => runAction(() => markChargeUnpaid(c.id))}
-											>
-												Zurücksetzen
-											</Button>
-										) : null}
-										{c.status !== "Bezahlt" && c.status !== "Gestundet" && (
-											<Button
-												variant="ghost"
-												size="sm"
-												disabled={isPending}
-												onClick={() =>
-													runAction(() => markChargeDeferred(c.id))
-												}
-											>
-												<Clock3 className="mr-1 h-4 w-4" /> Gestundet
-											</Button>
-										)}
-										{c.status !== "Bezahlt" && (
-											<Button
-												variant="outline"
-												size="sm"
-												disabled={isPending}
-												onClick={() => runAction(() => markChargePaid(c.id))}
-											>
-												<Check className="mr-1 h-4 w-4" /> Bezahlt
-											</Button>
-										)}
-										<Button
-											variant="ghost"
-											size="icon"
-											disabled={isPending}
-											title="PDF herunterladen"
-											onClick={() => dlPdf(c.id, c.mahnungAmount > 0)}
+						<div className="space-y-3">
+							<div className="relative">
+								<Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+								<Input
+									value={query}
+									onChange={(e) => setQuery(e.target.value)}
+									placeholder="Mitglied suchen"
+									className="pl-9"
+								/>
+							</div>
+							<FilterChips<ChargeFilter>
+								value={filter}
+								onChange={setFilter}
+								options={[
+									{ value: "offen", label: "Offen", count: countBy("offen") },
+									{
+										value: "Bezahlt",
+										label: "Bezahlt",
+										count: countBy("Bezahlt"),
+									},
+									{
+										value: "Gestundet",
+										label: "Gestundet",
+										count: countBy("Gestundet"),
+									},
+									{ value: "alle", label: "Alle", count: charges.length },
+								]}
+							/>
+
+							{visible.length === 0 ? (
+								<p className="py-6 text-center text-muted-foreground text-sm">
+									Keine Treffer.
+								</p>
+							) : (
+								<ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
+									{visible.map((c) => (
+										<li
+											key={c.id}
+											className="flex items-center justify-between gap-3 px-4 py-3"
 										>
-											<FileText className="h-4 w-4" />
-										</Button>
-									</div>
-								</div>
-							))}
+											<div className="min-w-0">
+												<div className="flex items-center gap-2">
+													<span className="truncate font-medium text-sm">
+														{c.memberName}
+													</span>
+													{chargeBadge(c)}
+												</div>
+												<div className="text-muted-foreground text-xs tabular-nums">
+													{formatEur(c.total)}
+													{c.mahnungAmount > 0 &&
+														` (inkl. ${formatEur(c.mahnungAmount)} Mahngebühr)`}
+													{!c.hasEmail && " · Brief nötig"}
+													{c.emailSentAt && " · Email gesendet"}
+												</div>
+											</div>
+											<div className="flex shrink-0 items-center gap-1">
+												{c.status !== "Bezahlt" && (
+													<Button
+														variant="outline"
+														size="sm"
+														disabled={isPending}
+														onClick={() =>
+															runAction(() => markChargePaid(c.id))
+														}
+													>
+														<Check />
+														<span className="hidden sm:inline">Bezahlt</span>
+													</Button>
+												)}
+												<DropdownMenu>
+													<DropdownMenuTrigger asChild>
+														<Button
+															variant="ghost"
+															size="icon-sm"
+															disabled={isPending}
+															aria-label={`Aktionen für ${c.memberName}`}
+														>
+															<MoreVertical />
+														</Button>
+													</DropdownMenuTrigger>
+													<DropdownMenuContent align="end">
+														{c.status !== "Bezahlt" &&
+															c.status !== "Gestundet" && (
+																<DropdownMenuItem
+																	onClick={() =>
+																		runAction(() => markChargeDeferred(c.id))
+																	}
+																>
+																	<Clock3 /> Stunden
+																</DropdownMenuItem>
+															)}
+														{(c.status === "Bezahlt" ||
+															c.status === "Gestundet") && (
+															<DropdownMenuItem
+																onClick={() =>
+																	runAction(() => markChargeUnpaid(c.id))
+																}
+															>
+																<Undo2 /> Zurücksetzen
+															</DropdownMenuItem>
+														)}
+														<DropdownMenuItem
+															onClick={() => dlPdf(c.id, c.mahnungAmount > 0)}
+														>
+															<FileText /> PDF herunterladen
+														</DropdownMenuItem>
+													</DropdownMenuContent>
+												</DropdownMenu>
+											</div>
+										</li>
+									))}
+								</ul>
+							)}
 						</div>
 					)}
 				</>

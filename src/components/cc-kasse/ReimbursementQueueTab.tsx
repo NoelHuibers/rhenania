@@ -1,6 +1,14 @@
 "use client";
 
-import { Check, Pencil, Wallet, X } from "lucide-react";
+import {
+	Check,
+	Copy,
+	Inbox,
+	MoreHorizontal,
+	Pencil,
+	Wallet,
+	X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -12,14 +20,13 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
-import { Label } from "~/components/ui/label";
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "~/components/ui/select";
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "~/components/ui/dropdown-menu";
+import { Label } from "~/components/ui/label";
 import {
 	Table,
 	TableBody,
@@ -37,6 +44,7 @@ import {
 	type QueueReimbursement,
 	rejectReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
+import { EmptyState, FilterChips, formatDate } from "./KasseUi";
 import { ReceiptLinks } from "./ReceiptLinks";
 import {
 	type EditingReimbursement,
@@ -54,6 +62,15 @@ type Filter =
 	| "Abgelehnt"
 	| "alle";
 
+const isOpen = (r: QueueReimbursement) =>
+	r.status === "Eingereicht" || r.status === "Genehmigt";
+
+function submitterLabel(r: QueueReimbursement) {
+	return r.source === "Direktbuchung"
+		? "Direktbuchung"
+		: (r.submitter?.name ?? "—");
+}
+
 export function ReimbursementQueueTab({
 	queue,
 	isTreasury,
@@ -70,18 +87,23 @@ export function ReimbursementQueueTab({
 	const [rejectReason, setRejectReason] = useState("");
 	const [editing, setEditing] = useState<EditingReimbursement | null>(null);
 
-	const filtered = queue.filter((r) => {
-		if (filter === "alle") return true;
-		if (filter === "offen")
-			return r.status === "Eingereicht" || r.status === "Genehmigt";
-		return r.status === filter;
-	});
+	const matches = (r: QueueReimbursement, f: Filter) => {
+		if (f === "alle") return true;
+		if (f === "offen") return isOpen(r);
+		return r.status === f;
+	};
+	const count = (f: Filter) => queue.filter((r) => matches(r, f)).length;
+	const filtered = queue.filter((r) => matches(r, filter));
+	const filteredSum = filtered.reduce((s, r) => s + r.amount, 0);
 
-	const run = (action: () => Promise<{ success: boolean; error?: string }>) => {
+	const run = (
+		action: () => Promise<{ success: boolean; error?: string }>,
+		message = "Aktualisiert",
+	) => {
 		startTransition(async () => {
 			const res = await action();
 			if (res.success) {
-				toast.success("Aktualisiert");
+				toast.success(message);
 				router.refresh();
 			} else {
 				toast.error(res.error ?? "Fehler");
@@ -95,176 +117,244 @@ export function ReimbursementQueueTab({
 		const reason = rejectReason;
 		setRejectId(null);
 		setRejectReason("");
-		run(() => rejectReimbursement(id, reason));
+		run(() => rejectReimbursement(id, reason), "Antrag abgelehnt");
 	};
 
-	const rowActions = (r: QueueReimbursement) =>
-		isTreasury ? (
-			<div className="flex flex-wrap justify-end gap-1">
+	const copyIban = async (iban: string) => {
+		try {
+			await navigator.clipboard.writeText(iban.replace(/\s+/g, ""));
+			toast.success("IBAN kopiert");
+		} catch {
+			toast.error("Kopieren nicht möglich");
+		}
+	};
+
+	const openReject = (id: string) => {
+		setRejectId(id);
+		setRejectReason("");
+	};
+
+	// The one action that moves a request forward — big and obvious.
+	const primaryAction = (r: QueueReimbursement, full?: boolean) => {
+		if (!isTreasury) return null;
+		if (r.status === "Eingereicht")
+			return (
 				<Button
-					variant="ghost"
 					size="sm"
+					className={full ? "h-9 flex-1" : undefined}
 					disabled={isPending}
-					onClick={() => setEditing(toEditing(r))}
+					onClick={() => run(() => approveReimbursement(r.id), "Genehmigt")}
 				>
-					<Pencil className="h-4 w-4" />
+					<Check /> Genehmigen
 				</Button>
-				{r.status === "Eingereicht" && (
+			);
+		if (r.status === "Genehmigt")
+			return (
+				<Button
+					size="sm"
+					className={full ? "h-9 flex-1" : undefined}
+					disabled={isPending}
+					onClick={() =>
+						run(() => markReimbursementPaid(r.id), "Als ausgezahlt markiert")
+					}
+				>
+					<Wallet /> Ausgezahlt
+				</Button>
+			);
+		return null;
+	};
+
+	const moreMenu = (r: QueueReimbursement, size: "sm" | "default" = "sm") =>
+		isTreasury ? (
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
 					<Button
 						variant="outline"
-						size="sm"
+						size={size === "sm" ? "icon-sm" : "icon"}
 						disabled={isPending}
-						onClick={() => run(() => approveReimbursement(r.id))}
+						aria-label="Weitere Aktionen"
 					>
-						<Check className="mr-1 h-4 w-4" /> Genehmigen
+						<MoreHorizontal />
 					</Button>
-				)}
-				{r.status === "Genehmigt" && (
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={isPending}
-						onClick={() => run(() => markReimbursementPaid(r.id))}
-					>
-						<Wallet className="mr-1 h-4 w-4" /> Auszahlen
-					</Button>
-				)}
-				{(r.status === "Eingereicht" || r.status === "Genehmigt") && (
-					<Button
-						variant="ghost"
-						size="sm"
-						disabled={isPending}
-						onClick={() => {
-							setRejectId(r.id);
-							setRejectReason("");
-						}}
-					>
-						<X className="h-4 w-4" />
-					</Button>
-				)}
-			</div>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem onClick={() => setEditing(toEditing(r))}>
+						<Pencil /> Bearbeiten
+					</DropdownMenuItem>
+					{r.iban && (
+						<DropdownMenuItem onClick={() => copyIban(r.iban ?? "")}>
+							<Copy /> IBAN kopieren
+						</DropdownMenuItem>
+					)}
+					{isOpen(r) && (
+						<DropdownMenuItem
+							variant="destructive"
+							onClick={() => openReject(r.id)}
+						>
+							<X /> Ablehnen
+						</DropdownMenuItem>
+					)}
+				</DropdownMenuContent>
+			</DropdownMenu>
 		) : null;
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-				<Select value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-					<SelectTrigger className="w-full sm:w-[200px]">
-						<SelectValue />
-					</SelectTrigger>
-					<SelectContent>
-						<SelectItem value="offen">Offen (zu bearbeiten)</SelectItem>
-						<SelectItem value="Eingereicht">Eingereicht</SelectItem>
-						<SelectItem value="Genehmigt">Genehmigt</SelectItem>
-						<SelectItem value="Ausgezahlt">Ausgezahlt</SelectItem>
-						<SelectItem value="Abgelehnt">Abgelehnt</SelectItem>
-						<SelectItem value="alle">Alle</SelectItem>
-					</SelectContent>
-				</Select>
-				<span className="text-muted-foreground text-sm">
-					{filtered.length} Einträge
-				</span>
+			<div className="space-y-2">
+				<FilterChips<Filter>
+					value={filter}
+					onChange={setFilter}
+					options={[
+						{ value: "offen", label: "Offen", count: count("offen") },
+						{
+							value: "Eingereicht",
+							label: "Eingereicht",
+							count: count("Eingereicht"),
+						},
+						{
+							value: "Genehmigt",
+							label: "Genehmigt",
+							count: count("Genehmigt"),
+						},
+						{ value: "Ausgezahlt", label: "Ausgezahlt" },
+						{ value: "Abgelehnt", label: "Abgelehnt" },
+						{ value: "alle", label: "Alle", count: queue.length },
+					]}
+				/>
+				{filtered.length > 0 && (
+					<p className="text-muted-foreground text-xs tabular-nums">
+						{filtered.length} {filtered.length === 1 ? "Eintrag" : "Einträge"} ·
+						Summe{" "}
+						<span className="font-medium text-foreground">
+							{formatEur(filteredSum)}
+						</span>
+					</p>
+				)}
 			</div>
 
 			{filtered.length === 0 ? (
-				<p className="py-8 text-center text-muted-foreground text-sm">
-					Keine Einträge.
-				</p>
+				<EmptyState
+					icon={<Inbox className="size-5" />}
+					title={filter === "offen" ? "Alles erledigt" : "Keine Einträge"}
+				>
+					{filter === "offen"
+						? "Es warten keine Anträge auf Bearbeitung."
+						: "Für diesen Filter gibt es keine Anträge."}
+				</EmptyState>
 			) : (
 				<>
-					{/* Mobile: stacked cards */}
-					<div className="space-y-3 md:hidden">
+					{/* Mobile: cards */}
+					<ul className="space-y-3 md:hidden">
 						{filtered.map((r) => (
-							<div key={r.id} className="space-y-2 rounded-lg border p-3">
-								<div className="flex items-start justify-between gap-2">
-									<div className="min-w-0">
-										<div className="text-muted-foreground text-xs">
-											{r.kostenpunkt?.category}
+							<li
+								key={r.id}
+								className="overflow-hidden rounded-xl border bg-card shadow-xs"
+							>
+								<div className="space-y-2 p-4">
+									<div className="flex items-start justify-between gap-3">
+										<div className="font-bold text-xl tabular-nums tracking-tight">
+											{formatEur(r.amount)}
 										</div>
-										<div className="font-medium">
-											{r.kostenpunkt?.name ?? "—"}
-										</div>
+										<ReimbursementStatusBadge status={r.status} />
 									</div>
-									<ReimbursementStatusBadge status={r.status} />
-								</div>
-								<div className="flex items-center justify-between gap-2 text-sm">
-									<span className="text-muted-foreground">
-										{new Date(r.expenseDate).toLocaleDateString("de-DE")} ·{" "}
-										{r.source === "Direktbuchung"
-											? "Direktbuchung"
-											: (r.submitter?.name ?? "—")}
-									</span>
-									<span className="font-semibold">{formatEur(r.amount)}</span>
-								</div>
-								<p className="text-muted-foreground text-sm">{r.description}</p>
-								<div className="text-sm">
-									{r.recipientName}
-									{r.iban && (
-										<span className="block text-muted-foreground text-xs">
-											{formatIban(r.iban)}
+									<p className="text-sm leading-snug">{r.description}</p>
+									<p className="text-muted-foreground text-xs">
+										{r.kostenpunkt?.category}
+										{r.kostenpunkt?.category && " › "}
+										<span className="text-foreground">
+											{r.kostenpunkt?.name ?? "—"}
 										</span>
+									</p>
+									<p className="text-muted-foreground text-xs">
+										{formatDate(r.expenseDate)} · {submitterLabel(r)}
+									</p>
+
+									{r.status === "Abgelehnt" && r.rejectionReason && (
+										<p className="rounded-lg bg-red-50 px-3 py-2 text-red-700 text-xs dark:bg-red-500/10 dark:text-red-300">
+											{r.rejectionReason}
+										</p>
 									)}
-								</div>
-								<div className="flex items-center justify-between gap-2">
+
+									<div className="flex items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2">
+										<div className="min-w-0">
+											<div className="truncate text-sm">{r.recipientName}</div>
+											{r.iban && (
+												<div className="truncate font-mono text-muted-foreground text-xs">
+													{formatIban(r.iban)}
+												</div>
+											)}
+										</div>
+										{r.iban && (
+											<Button
+												variant="ghost"
+												size="icon-sm"
+												aria-label="IBAN kopieren"
+												onClick={() => copyIban(r.iban ?? "")}
+											>
+												<Copy />
+											</Button>
+										)}
+									</div>
+
 									<ReceiptLinks
 										receipts={r.receipts}
 										legacyUrl={r.receiptUrl}
 										legacyName={r.receiptName}
 									/>
-									{rowActions(r)}
 								</div>
-							</div>
+								{isTreasury && (
+									<div className="flex items-center gap-2 border-t bg-muted/20 px-4 py-2.5">
+										{primaryAction(r, true) ?? <span className="flex-1" />}
+										{moreMenu(r, "default")}
+									</div>
+								)}
+							</li>
 						))}
-					</div>
+					</ul>
 
 					{/* Desktop: table */}
-					<div className="hidden md:block">
+					<div className="hidden overflow-hidden rounded-xl border bg-card shadow-xs md:block">
 						<Table>
 							<TableHeader>
-								<TableRow>
-									<TableHead>Datum</TableHead>
-									<TableHead>Von</TableHead>
-									<TableHead>Kostenpunkt</TableHead>
+								<TableRow className="bg-muted/40 hover:bg-muted/40">
+									<TableHead className="pl-4">Antrag</TableHead>
 									<TableHead>Empfänger</TableHead>
-									<TableHead className="text-right">Betrag</TableHead>
 									<TableHead>Beleg</TableHead>
+									<TableHead className="text-right">Betrag</TableHead>
 									<TableHead>Status</TableHead>
-									{isTreasury && (
-										<TableHead className="text-right">Aktionen</TableHead>
-									)}
+									{isTreasury && <TableHead className="w-0" />}
 								</TableRow>
 							</TableHeader>
 							<TableBody>
 								{filtered.map((r) => (
-									<TableRow key={r.id}>
-										<TableCell className="whitespace-nowrap">
-											{new Date(r.expenseDate).toLocaleDateString("de-DE")}
-										</TableCell>
-										<TableCell>
-											{r.source === "Direktbuchung"
-												? "Direktbuchung"
-												: (r.submitter?.name ?? "—")}
-										</TableCell>
-										<TableCell>
-											<span className="text-muted-foreground text-xs">
-												{r.kostenpunkt?.category}
-											</span>
-											<br />
-											{r.kostenpunkt?.name ?? "—"}
-											<span className="block max-w-[200px] truncate text-muted-foreground text-xs">
-												{r.description}
-											</span>
-										</TableCell>
-										<TableCell>
-											{r.recipientName}
-											{r.iban && (
-												<span className="block text-muted-foreground text-xs">
-													{formatIban(r.iban)}
-												</span>
+									<TableRow key={r.id} className="align-top">
+										<TableCell className="max-w-[320px] whitespace-normal pl-4">
+											<div className="font-medium">{r.description}</div>
+											<div className="text-muted-foreground text-xs">
+												{r.kostenpunkt?.category} › {r.kostenpunkt?.name ?? "—"}
+											</div>
+											<div className="text-muted-foreground text-xs">
+												{formatDate(r.expenseDate)} · {submitterLabel(r)}
+											</div>
+											{r.status === "Abgelehnt" && r.rejectionReason && (
+												<div className="mt-1 text-red-600 text-xs dark:text-red-400">
+													{r.rejectionReason}
+												</div>
 											)}
 										</TableCell>
-										<TableCell className="text-right font-medium">
-											{formatEur(r.amount)}
+										<TableCell>
+											<div>{r.recipientName}</div>
+											{r.iban && (
+												<button
+													type="button"
+													onClick={() => copyIban(r.iban ?? "")}
+													className="group/iban inline-flex items-center gap-1 font-mono text-muted-foreground text-xs hover:text-foreground"
+													title="IBAN kopieren"
+												>
+													{formatIban(r.iban)}
+													<Copy className="size-3 opacity-0 transition-opacity group-hover/iban:opacity-100" />
+												</button>
+											)}
 										</TableCell>
 										<TableCell>
 											<ReceiptLinks
@@ -273,10 +363,20 @@ export function ReimbursementQueueTab({
 												legacyName={r.receiptName}
 											/>
 										</TableCell>
+										<TableCell className="text-right font-semibold tabular-nums">
+											{formatEur(r.amount)}
+										</TableCell>
 										<TableCell>
 											<ReimbursementStatusBadge status={r.status} />
 										</TableCell>
-										{isTreasury && <TableCell>{rowActions(r)}</TableCell>}
+										{isTreasury && (
+											<TableCell>
+												<div className="flex justify-end gap-1.5">
+													{primaryAction(r)}
+													{moreMenu(r)}
+												</div>
+											</TableCell>
+										)}
 									</TableRow>
 								))}
 							</TableBody>
