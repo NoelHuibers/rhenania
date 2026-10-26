@@ -298,8 +298,7 @@ describe("order achievements", () => {
 		expect(await unlockedKeys(user.id)).toContain("biergeburtstag");
 	});
 
-	// Definition has targetValue 1 while the tracker counts account age in days.
-	test.fails("the beer birthday needs a year, not a day (#140)", async () => {
+	test("the beer birthday needs a year, not a day (#140)", async () => {
 		const { user, pils } = await setup("2026-10-01T12:00:00Z");
 		advanceClock(2 * DAY);
 

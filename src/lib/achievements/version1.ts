@@ -448,7 +448,7 @@ export const defaultAchievements = [
 		description: "Nutze die App ein Jahr lang",
 		category: "special" as const,
 		icon: "🎂",
-		targetValue: 1,
+		targetValue: 365,
 		points: 200,
 		rarity: "uncommon" as const,
 	},
