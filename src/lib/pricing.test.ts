@@ -5,15 +5,8 @@ import {
 	isValidMarkupPercent,
 	MAX_MARKUP_PERCENT,
 	orderTotal,
-	roundToCent,
 	unitPriceFor,
 } from "./pricing";
-
-test("rounds to whole cents, half up", () => {
-	assert.equal(roundToCent(0.759), 0.76);
-	assert.equal(roundToCent(1.005), 1.01);
-	assert.equal(roundToCent(0.7245), 0.72);
-});
 
 test("adds the markup and rounds per unit", () => {
 	assert.equal(applyMarkup(0.69, 10), 0.76);
@@ -37,10 +30,12 @@ test("group bookings never carry a markup", () => {
 	assert.equal(unitPriceFor(0.69, 10, null), 0.76);
 });
 
-test("order total is rounded when a markup applies", () => {
+test("order totals are whole cents, with or without markup (#13)", () => {
 	assert.equal(orderTotal(0.76, 3, 10), 2.28);
-	// Without markup the total stays exactly what it was before the feature.
-	assert.equal(orderTotal(0.69, 3, 0), 0.69 * 3);
+	// 0.69 × 3 is 2.0699999999999998 and 0.1 × 3 is 0.30000000000000004 in
+	// floating point; stored totals are whole cents.
+	assert.equal(orderTotal(0.69, 3, 0), 2.07);
+	assert.equal(orderTotal(0.1, 3, 0), 0.3);
 });
 
 describe("pricing properties", () => {
@@ -94,13 +89,14 @@ describe("pricing properties", () => {
 		expect(applyMarkup(2, MAX_MARKUP_PERCENT + 1)).toBe(2);
 	});
 
-	// 1.9 × 1.15 = 2.1849999999999996 in floating point, so it rounds down.
-	test.fails("applyMarkup(1.90, 15) rounds the half cent up to 2.19 (#14)", () => {
+	// 1.9 × 1.15 = 2.1849999999999996 in floating point; computed in cents
+	// it is exactly 218.5 and rounds up.
+	test("applyMarkup(1.90, 15) rounds the half cent up to 2.19 (#14)", () => {
 		expect(applyMarkup(1.9, 15)).toBe(2.19);
 	});
 
 	// Exhaustive check against integer half-up rounding.
-	test.fails("matches exact half-up rounding for all prices and half-percent markups (#14)", () => {
+	test("matches exact half-up rounding for all prices and half-percent markups (#14)", () => {
 		const mismatches: string[] = [];
 		for (let twiceMarkup = 0; twiceMarkup <= 100; twiceMarkup++) {
 			const markup = twiceMarkup / 2;

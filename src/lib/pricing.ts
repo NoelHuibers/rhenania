@@ -5,23 +5,24 @@
 // feature, personal orders are charged purchase price + markup, rounded to
 // whole cents per unit. Group bookings (CC, AKN, …) never carry a markup.
 
-export const MAX_MARKUP_PERCENT = 500;
+import { addMoney, pctOf, roundToCent } from "./money";
 
-/** Rounds a euro amount to whole cents, half up, without float drift. */
-export function roundToCent(amount: number): number {
-	return Math.round((amount + Number.EPSILON) * 100) / 100;
-}
+export const MAX_MARKUP_PERCENT = 500;
 
 export function isValidMarkupPercent(value: number): boolean {
 	return Number.isFinite(value) && value >= 0 && value <= MAX_MARKUP_PERCENT;
 }
 
-/** Purchase price plus markup, rounded to whole cents. */
+/**
+ * Purchase price plus markup, rounded half up to whole cents. Computed in
+ * integer cents: 1.90 € + 15 % is exactly 2.185 € and becomes 2.19 €, where
+ * `1.9 * 1.15` in floating point (2.18499…) would round down.
+ */
 export function applyMarkup(price: number, markupPercent: number): number {
 	if (!isValidMarkupPercent(markupPercent) || markupPercent === 0) {
 		return price;
 	}
-	return roundToCent(price * (1 + markupPercent / 100));
+	return addMoney(price, pctOf(price, markupPercent));
 }
 
 /**
@@ -36,12 +37,14 @@ export function unitPriceFor(
 	return bookingFor ? price : applyMarkup(price, markupPercent);
 }
 
-/** Order total; rounded to cents only when a markup is in play. */
+/**
+ * Order total in whole cents. `markupPercent` no longer changes the result;
+ * the parameter stays so call sites keep reading naturally.
+ */
 export function orderTotal(
 	unitPrice: number,
 	amount: number,
-	markupPercent: number,
+	_markupPercent: number,
 ): number {
-	const total = unitPrice * amount;
-	return markupPercent > 0 ? roundToCent(total) : total;
+	return roundToCent(unitPrice * amount);
 }
