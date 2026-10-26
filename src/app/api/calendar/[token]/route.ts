@@ -9,33 +9,8 @@ import {
 	venues,
 } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
+import { escapeICalText, foldLine, formatICalDate } from "~/server/lib/ical";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
-
-function formatICalDate(date: Date): string {
-	return `${date.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
-}
-
-function escapeICalText(str: string): string {
-	return str
-		.replace(/\\/g, "\\\\")
-		.replace(/;/g, "\\;")
-		.replace(/,/g, "\\,")
-		.replace(/\n/g, "\\n");
-}
-
-function foldLine(line: string): string {
-	if (line.length <= 75) {
-		return line;
-	}
-	const chunks: string[] = [];
-	chunks.push(line.slice(0, 75));
-	let i = 75;
-	while (i < line.length) {
-		chunks.push(` ${line.slice(i, i + 74)}`);
-		i += 74;
-	}
-	return chunks.join("\r\n");
-}
 
 const STATUS_TO_PARTSTAT: Record<string, string> = {
 	yes: "ACCEPTED",
@@ -141,7 +116,9 @@ export async function GET(
 				`SEQUENCE:${sequence}`,
 				`LAST-MODIFIED:${lastModified}`,
 				foldLine(`SUMMARY:${escapeICalText(event.title)}`),
-				`ORGANIZER;CN=${escapeICalText(tenant.displayName)}:mailto:noreply@${tenant.slug}.invalid`,
+				foldLine(
+					`ORGANIZER;CN=${escapeICalText(tenant.displayName)}:mailto:noreply@${tenant.slug}.invalid`,
+				),
 			];
 			const currentUserRsvp = eventRsvpList.find(
 				(r) => r.userId === tokenRow.userId,
@@ -202,7 +179,7 @@ export async function GET(
 	const ical = [
 		"BEGIN:VCALENDAR",
 		"VERSION:2.0",
-		`PRODID:-//${tenant.displayName}//Semesterprogramm//DE`,
+		foldLine(`PRODID:-//${tenant.displayName}//Semesterprogramm//DE`),
 		"CALSCALE:GREGORIAN",
 		"METHOD:PUBLISH",
 		foldLine(`X-WR-CALNAME:${tenant.displayName} Semesterprogramm`),
