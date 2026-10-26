@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 import { removeSavedItemIds } from "./changed-items";
 
 test("removes every item included in a successful save", () => {
