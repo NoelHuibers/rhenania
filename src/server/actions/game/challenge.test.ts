@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
+import { auth } from "~/server/auth";
 import { challenges, games, orders } from "~/server/db/schema";
 import {
 	advanceClock,
@@ -15,6 +16,7 @@ import {
 	setUserStats,
 } from "../../../../test/factories/game";
 import {
+	countQueries,
 	createDrink,
 	createTenant,
 	setKasseConfig,
@@ -627,6 +629,37 @@ describe("getMyChallenges", () => {
 			opponentName: anna.name,
 			drinkName: "Pils",
 			drinkPrice: 1.5,
+		});
+	});
+
+	test("a poll with nothing due writes nothing and reads the feed in one query (#21)", async () => {
+		const { anna, bert, drink } = await setup();
+		const [carl] = await createPlayers(1);
+		signInAs(anna);
+		await createChallenge({
+			opponentId: bert.id,
+			drinkId: drink.id,
+			payment: "loser",
+		});
+		await playChallenge({
+			challenger: carl,
+			opponent: anna,
+			drink,
+			winner: carl,
+		});
+		signInAs(anna);
+		const session = await countQueries(() => auth());
+
+		const poll = await countQueries(() => getMyChallenges());
+
+		expect(poll.writes).toBe(0);
+		// Session lookup, one check for due challenges, one feed query.
+		expect(poll.total - session.total).toBe(2);
+		expect(poll.result.outgoingPending).toHaveLength(1);
+		expect(poll.result.awaitingMyConfirm[0]).toMatchObject({
+			challengerName: carl.name,
+			opponentName: anna.name,
+			drinkName: "Pils",
 		});
 	});
 

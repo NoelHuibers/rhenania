@@ -1,6 +1,7 @@
 "use server";
 
 import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
@@ -668,6 +669,9 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 
 	await sweepExpiredChallenges();
 
+	// Challenge, drink and both players in one query.
+	const challenger = alias(users, "challenger");
+	const opponent = alias(users, "opponent");
 	const rows = await db
 		.select({
 			id: challenges.id,
@@ -678,7 +682,11 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 			drinkName: drinks.name,
 			drinkPrice: drinks.price,
 			challengerId: challenges.challengerId,
+			challengerName: challenger.name,
+			challengerAvatar: challenger.image,
 			opponentId: challenges.opponentId,
+			opponentName: opponent.name,
+			opponentAvatar: opponent.image,
 			proposedWinnerId: challenges.proposedWinnerId,
 			proposedById: challenges.proposedById,
 			createdAt: challenges.createdAt,
@@ -690,6 +698,8 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 		})
 		.from(challenges)
 		.leftJoin(drinks, eq(challenges.drinkId, drinks.id))
+		.leftJoin(challenger, eq(challenges.challengerId, challenger.id))
+		.leftJoin(opponent, eq(challenges.opponentId, opponent.id))
 		.where(
 			or(
 				eq(challenges.challengerId, userId),
@@ -703,21 +713,7 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 		return empty;
 	}
 
-	// Fetch user info for challenger + opponent in one pass
-	const userIds = new Set<string>();
-	for (const r of rows) {
-		userIds.add(r.challengerId);
-		userIds.add(r.opponentId);
-	}
-	const userRows = await db
-		.select({ id: users.id, name: users.name, image: users.image })
-		.from(users)
-		.where(inArray(users.id, [...userIds]));
-	const usersById = new Map(userRows.map((u) => [u.id, u]));
-
 	const views: ChallengeView[] = rows.map((r) => {
-		const c = usersById.get(r.challengerId);
-		const o = usersById.get(r.opponentId);
 		return {
 			id: r.id,
 			status: r.status as ChallengeStatus,
@@ -727,11 +723,11 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 			drinkName: r.drinkName ?? "Unbekannt",
 			drinkPrice: r.drinkPrice ?? 0,
 			challengerId: r.challengerId,
-			challengerName: c?.name ?? null,
-			challengerAvatar: c?.image ?? null,
+			challengerName: r.challengerName ?? null,
+			challengerAvatar: r.challengerAvatar ?? null,
 			opponentId: r.opponentId,
-			opponentName: o?.name ?? null,
-			opponentAvatar: o?.image ?? null,
+			opponentName: r.opponentName ?? null,
+			opponentAvatar: r.opponentAvatar ?? null,
 			proposedWinnerId: r.proposedWinnerId,
 			proposedById: r.proposedById,
 			createdAt: r.createdAt,
@@ -784,42 +780,51 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 
 // ---------- Sweeper ----------
 
+/**
+ * Expires unanswered and unplayed challenges and auto-settles results nobody
+ * confirmed in time. Every open page polls the challenge feed, so the sweep
+ * first looks (one indexed read) and only writes when something is due: an
+ * UPDATE that matches nothing still takes the write lock on the primary.
+ */
 export async function sweepExpiredChallenges(): Promise<void> {
 	const now = new Date();
+	const respondMissed = and(
+		eq(challenges.status, "pending"),
+		lt(challenges.respondDeadline, now),
+	);
+	const playMissed = and(
+		eq(challenges.status, "accepted"),
+		lt(challenges.playDeadline, now),
+	);
+	const confirmMissed = and(
+		eq(challenges.status, "result_proposed"),
+		lt(challenges.confirmDeadline, now),
+	);
 
-	// pending past respondDeadline → expired
-	await db
-		.update(challenges)
-		.set({ status: "expired" })
-		.where(
-			and(
-				eq(challenges.status, "pending"),
-				lt(challenges.respondDeadline, now),
-			),
-		);
-
-	// accepted past playDeadline → expired
-	await db
-		.update(challenges)
-		.set({ status: "expired" })
-		.where(
-			and(eq(challenges.status, "accepted"), lt(challenges.playDeadline, now)),
-		);
-
-	// result_proposed past confirmDeadline → auto-settle
-	const autoConfirm = await db
-		.select({ id: challenges.id })
+	const due = await db
+		.select({ id: challenges.id, status: challenges.status })
 		.from(challenges)
-		.where(
-			and(
-				eq(challenges.status, "result_proposed"),
-				lt(challenges.confirmDeadline, now),
-			),
-		);
+		.where(or(respondMissed, playMissed, confirmMissed));
+	if (due.length === 0) {
+		return;
+	}
 
-	// Each settlement claims its row first, so concurrent sweeps (every open
-	// page polls this) book every challenge exactly once.
-	for (const { id } of autoConfirm) {
+	// pending past respondDeadline / accepted past playDeadline → expired.
+	// The UPDATE re-checks both, so a reply landing meanwhile is kept.
+	if (due.some((c) => c.status !== "result_proposed")) {
+		await db
+			.update(challenges)
+			.set({ status: "expired" })
+			.where(or(respondMissed, playMissed));
+	}
+
+	// result_proposed past confirmDeadline → auto-settle. Each settlement
+	// claims its row first, so concurrent sweeps (every open page polls this)
+	// book every challenge exactly once.
+	for (const { id, status } of due) {
+		if (status !== "result_proposed") {
+			continue;
+		}
 		try {
 			await settleChallenge(id);
 		} catch (error) {

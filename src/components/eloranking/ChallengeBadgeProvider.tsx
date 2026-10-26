@@ -8,12 +8,11 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { nextPollDelay, POLL_BASE_MS } from "~/lib/poll-backoff";
 import {
 	type ChallengeFeed,
 	getMyChallenges,
 } from "~/server/actions/game/challenge";
-
-const POLL_INTERVAL_MS = 20_000;
 
 const EMPTY_FEED: ChallengeFeed = {
 	incomingPending: [],
@@ -49,6 +48,15 @@ export function useChallengeBadge(): ChallengeBadgeValue {
 	return v;
 }
 
+/** A challenge is in flight: its deadlines are minutes, so poll at the base rate. */
+function isBusy(feed: ChallengeFeed): boolean {
+	return (
+		feed.incomingPending.length > 0 ||
+		feed.outgoingPending.length > 0 ||
+		feed.active.length > 0
+	);
+}
+
 export function ChallengeBadgeProvider({
 	children,
 	notificationsEnabled,
@@ -57,61 +65,92 @@ export function ChallengeBadgeProvider({
 	notificationsEnabled: boolean;
 }) {
 	const [feed, setFeed] = useState<ChallengeFeed>(EMPTY_FEED);
-	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 	const inFlightRef = useRef(false);
+	const signatureRef = useRef<string | null>(null);
+	const delayRef = useRef(POLL_BASE_MS);
+	const lastPollRef = useRef(0);
 
 	const refresh = useCallback(async () => {
 		if (inFlightRef.current) {
 			return;
 		}
 		inFlightRef.current = true;
+		lastPollRef.current = Date.now();
 		try {
 			const f = await getMyChallenges();
-			setFeed(f);
+			const signature = JSON.stringify(f);
+			const changed = signature !== signatureRef.current;
+			signatureRef.current = signature;
+			delayRef.current = nextPollDelay(delayRef.current, {
+				changed,
+				busy: isBusy(f),
+			});
+			if (changed) {
+				setFeed(f);
+			}
 		} catch (err) {
 			console.error("Challenge feed fetch failed:", err);
+			delayRef.current = nextPollDelay(delayRef.current, {
+				changed: false,
+				busy: false,
+			});
 		} finally {
 			inFlightRef.current = false;
 		}
 	}, []);
 
+	// Polls while the tab is visible, backing off while nothing changes
+	// (see nextPollDelay); hidden tabs do not poll at all.
 	useEffect(() => {
-		void refresh();
+		let timer: ReturnType<typeof setTimeout> | null = null;
+		let disposed = false;
 
-		const start = () => {
-			if (timerRef.current != null) {
+		const clear = () => {
+			if (timer != null) {
+				clearTimeout(timer);
+				timer = null;
+			}
+		};
+		const schedule = () => {
+			clear();
+			if (disposed || document.hidden) {
 				return;
 			}
-			timerRef.current = setInterval(() => {
-				if (!document.hidden) {
-					void refresh();
-				}
-			}, POLL_INTERVAL_MS);
+			timer = setTimeout(async () => {
+				timer = null;
+				await refresh();
+				schedule();
+			}, delayRef.current);
 		};
-		const stop = () => {
-			if (timerRef.current != null) {
-				clearInterval(timerRef.current);
-				timerRef.current = null;
-			}
+		const pollNow = async () => {
+			delayRef.current = POLL_BASE_MS;
+			await refresh();
+			schedule();
 		};
 
 		const onVisibility = () => {
 			if (document.hidden) {
-				stop();
+				clear();
 			} else {
-				void refresh();
-				start();
+				void pollNow();
+			}
+		};
+		// Back in a window that stayed visible: catch up if the last poll is old.
+		const onFocus = () => {
+			if (Date.now() - lastPollRef.current >= POLL_BASE_MS) {
+				void pollNow();
 			}
 		};
 
-		if (!document.hidden) {
-			start();
-		}
+		void pollNow();
 		document.addEventListener("visibilitychange", onVisibility);
+		window.addEventListener("focus", onFocus);
 
 		return () => {
-			stop();
+			disposed = true;
+			clear();
 			document.removeEventListener("visibilitychange", onVisibility);
+			window.removeEventListener("focus", onFocus);
 		};
 	}, [refresh]);
 
