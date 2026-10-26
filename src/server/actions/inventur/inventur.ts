@@ -448,6 +448,77 @@ export async function saveInventoryCount(
 	}
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Opens a routine inventory when none is running. Each drink's baseline is
+ * the stock it should have right now: its latest closed count minus what was
+ * sold since that count. Drinks never counted start at 0.
+ */
+async function openInventoryWithBaselines(
+	tx: Tx,
+	performedBy: string,
+): Promise<string> {
+	const [newInventory] = await tx
+		.insert(inventories)
+		.values({ status: "active", performedBy, totalLoss: 0 })
+		.returning({ id: inventories.id });
+
+	if (!newInventory) {
+		throw new Error("Inventur konnte nicht angelegt werden");
+	}
+
+	const allDrinks = await tx.select().from(drinks);
+	for (const drink of allDrinks) {
+		const [lastCount] = await tx
+			.select({
+				countedStock: inventoryItems.countedStock,
+				closedAt: inventories.closedAt,
+				createdAt: inventories.createdAt,
+			})
+			.from(inventoryItems)
+			.innerJoin(inventories, eq(inventoryItems.inventoryId, inventories.id))
+			.where(
+				and(
+					eq(inventoryItems.drinkId, drink.id),
+					eq(inventories.status, "closed"),
+				),
+			)
+			.orderBy(desc(inventories.createdAt))
+			.limit(1);
+
+		let baseline = 0;
+		if (lastCount) {
+			const [soldAgg] = await tx
+				.select({ total: sql<number>`COALESCE(SUM(${orders.amount}), 0)` })
+				.from(orders)
+				.where(
+					and(
+						eq(orders.drinkId, drink.id),
+						gte(orders.createdAt, lastCount.closedAt ?? lastCount.createdAt),
+					),
+				);
+			baseline = Math.max(
+				0,
+				lastCount.countedStock - Number(soldAgg?.total ?? 0),
+			);
+		}
+
+		await tx.insert(inventoryItems).values({
+			inventoryId: newInventory.id,
+			drinkId: drink.id,
+			countedStock: baseline,
+			previousStock: baseline,
+			purchasedSince: 0,
+			soldSince: 0,
+			priceAtCount: drink.price,
+			lossValue: 0,
+		});
+	}
+
+	return newInventory.id;
+}
+
 export async function saveQuickAdjustments(
 	adjustments: Array<{
 		drinkId: string;
@@ -462,46 +533,15 @@ export async function saveQuickAdjustments(
 
 	try {
 		await db.transaction(async (tx) => {
-			const activeInventory = await tx
-				.select()
+			const [activeInventory] = await tx
+				.select({ id: inventories.id })
 				.from(inventories)
 				.where(eq(inventories.status, "active"))
 				.limit(1);
 
-			if (!activeInventory[0]) {
-				const [newInventory] = await tx
-					.insert(inventories)
-					.values({
-						status: "active",
-						performedBy: session.user.id,
-						totalLoss: 0,
-					})
-					.returning();
-
-				if (!newInventory) {
-					throw new Error("Failed to create inventory");
-				}
-
-				const allDrinks = await tx.select().from(drinks);
-				for (const drink of allDrinks) {
-					await tx.insert(inventoryItems).values({
-						inventoryId: newInventory.id,
-						drinkId: drink.id,
-						countedStock: 0,
-						previousStock: 0,
-						purchasedSince: 0,
-						soldSince: 0,
-						priceAtCount: drink.price,
-						lossValue: 0,
-					});
-				}
-			}
-
-			const currentInventoryId = activeInventory[0]?.id;
-
-			if (!currentInventoryId) {
-				throw new Error("No active inventory found");
-			}
+			const currentInventoryId =
+				activeInventory?.id ??
+				(await openInventoryWithBaselines(tx, session.user.id));
 
 			for (const adjustment of adjustments) {
 				if (
@@ -572,7 +612,9 @@ export async function saveQuickAdjustments(
 		return {
 			success: false,
 			error:
-				error instanceof Error ? error.message : "Failed to save adjustments",
+				error instanceof Error
+					? error.message
+					: "Änderungen konnten nicht gespeichert werden",
 		};
 	}
 }
