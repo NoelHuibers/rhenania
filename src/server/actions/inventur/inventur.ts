@@ -4,6 +4,7 @@
 import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { addMoney, roundToCent } from "~/lib/money";
+import { createNewBilling } from "~/server/actions/billings/billings";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -223,20 +224,45 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 	return historyWithItems;
 }
 
+export type InventoryCountItem = {
+	drinkId: string;
+	countedStock: number;
+	purchasedSince: number;
+};
+
 export async function saveInventoryCount(
-	items: Array<{
-		drinkId: string;
-		countedStock: number;
-		purchasedSince: number;
-	}>,
+	items: InventoryCountItem[],
 	opts?: { startEvent?: EventInfo },
 ) {
+	const result = await countInventory(items, opts);
+	if (!result.success) {
+		return { success: false, error: result.error };
+	}
+	return { success: true, totalInventoryLoss: result.totalInventoryLoss };
+}
+
+/**
+ * Closes the running inventory with the given counts and opens the next one.
+ * Also reports which inventory was closed (null for the very first count).
+ */
+async function countInventory(
+	items: InventoryCountItem[],
+	opts?: { startEvent?: EventInfo },
+): Promise<
+	| {
+			success: true;
+			totalInventoryLoss: number;
+			closedInventoryId: string | null;
+	  }
+	| { success: false; error: string }
+> {
 	const session = await auth();
 	if (!session?.user) {
 		return { success: false, error: "Unauthorized" };
 	}
 
 	let totalInventoryLoss = 0;
+	let closedInventoryId: string | null = null;
 
 	try {
 		await db.transaction(async (tx) => {
@@ -358,6 +384,7 @@ export async function saveInventoryCount(
 						totalLoss: totalInventoryLoss,
 					})
 					.where(eq(inventories.id, activeInv.id));
+				closedInventoryId = activeInv.id;
 			}
 
 			const [newInventory] = await tx
@@ -437,7 +464,7 @@ export async function saveInventoryCount(
 			}
 		});
 
-		return { success: true, totalInventoryLoss: totalInventoryLoss };
+		return { success: true, totalInventoryLoss, closedInventoryId };
 	} catch (error) {
 		console.error("Failed to save inventory:", error);
 		return {
@@ -446,6 +473,81 @@ export async function saveInventoryCount(
 				error instanceof Error ? error.message : "Failed to save inventory",
 		};
 	}
+}
+
+export type CloseInventoryAndBillResult =
+	| {
+			success: true;
+			totalInventoryLoss: number;
+			billsCreated: number;
+			message: string;
+	  }
+	| { success: false; failedStep: "inventory"; error: string }
+	| {
+			success: false;
+			failedStep: "billing";
+			totalInventoryLoss: number;
+			error: string;
+	  };
+
+/**
+ * "Inventur + Rechnung": closes the running inventory and then starts a
+ * billing run. The Umlage is the loss of the inventory just closed, read from
+ * the database — never a value sent by the browser. Billing only runs when
+ * the inventory was saved, and a billing failure is reported as such.
+ */
+export async function closeInventoryAndBill(
+	items: InventoryCountItem[],
+): Promise<CloseInventoryAndBillResult> {
+	const counted = await countInventory(items);
+	if (!counted.success) {
+		return { success: false, failedStep: "inventory", error: counted.error };
+	}
+
+	let totalInventoryLoss = 0;
+	if (counted.closedInventoryId) {
+		const [closed] = await db
+			.select({ totalLoss: inventories.totalLoss })
+			.from(inventories)
+			.where(eq(inventories.id, counted.closedInventoryId))
+			.limit(1);
+		totalInventoryLoss = closed?.totalLoss ?? 0;
+	}
+
+	let billingError: string | null = null;
+	let billsCreated = 0;
+	let message = "";
+	try {
+		const billing = await createNewBilling(totalInventoryLoss);
+		if (billing.success) {
+			billsCreated =
+				billing.billsCreated +
+				("eventBillsCreated" in billing ? billing.eventBillsCreated : 0);
+			message = billing.message;
+		} else {
+			billingError =
+				"error" in billing && billing.error ? billing.error : billing.message;
+		}
+	} catch (error) {
+		console.error("Billing after inventory failed:", error);
+		billingError =
+			error instanceof Error ? error.message : "Unbekannter Fehler";
+	}
+
+	if (billingError !== null) {
+		const unbilledLoss =
+			totalInventoryLoss > 0
+				? ` Der Inventurverlust von €${totalInventoryLoss.toFixed(2)} wurde nicht abgerechnet.`
+				: "";
+		return {
+			success: false,
+			failedStep: "billing",
+			totalInventoryLoss,
+			error: `Inventur gespeichert, aber die Rechnung ist fehlgeschlagen: ${billingError}.${unbilledLoss}`,
+		};
+	}
+
+	return { success: true, totalInventoryLoss, billsCreated, message };
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
