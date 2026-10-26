@@ -1,0 +1,49 @@
+name: Mutation testing
+
+# Stryker mutates the money code (pricing, billing, inventory,
+# reimbursements, ELO) and checks that the tests catch each change.
+# Too slow for every PR; runs nightly and on demand.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TZ: Europe/Berlin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:mutation
+      - name: Mutation score summary
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            if (!fs.existsSync("reports/mutation/mutation.json")) process.exit(0);
+            const d = JSON.parse(fs.readFileSync("reports/mutation/mutation.json", "utf8"));
+            const rows = Object.entries(d.files).map(([f, v]) => {
+              const c = {}; for (const m of v.mutants) c[m.status] = (c[m.status] ?? 0) + 1;
+              const det = (c.Killed ?? 0) + (c.Timeout ?? 0);
+              const valid = det + (c.Survived ?? 0) + (c.NoCoverage ?? 0);
+              return `| ${f.replace(/.*src\//, "src/")} | ${valid ? Math.round(100 * det / valid) : 100}% | ${c.Survived ?? 0} |`;
+            });
+            console.log(["### Mutation score", "| File | Score | Survived |", "|---|---|---|", ...rows].join("\n"));
+          ' >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mutation-report
+          path: reports/mutation/
+          retention-days: 30
