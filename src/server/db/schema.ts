@@ -1312,7 +1312,11 @@ export const fuchsenBills = createTable(
 		userId: b.text({ length: 255 }).notNull(),
 		userName: b.text({ length: 255 }).notNull(),
 		status: b
-			.text({ enum: ["Bezahlt", "Unbezahlt", "Gestundet"] })
+			.text({
+				// "Übertragen" = carried into a later bill's Übertrag, settled there.
+				// TS-level enum only (no SQL CHECK), so adding it needs no migration.
+				enum: ["Bezahlt", "Unbezahlt", "Gestundet", "Übertragen"],
+			})
 			.notNull()
 			.default("Unbezahlt"),
 		oldBillingAmount: b.real().notNull().default(0),

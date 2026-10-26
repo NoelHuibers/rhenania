@@ -38,7 +38,10 @@ export function FuchsenBillDetailsDialog({
 }) {
 	const [downloading, setDownloading] = useState(false);
 	const isPaid = entry.status === "Bezahlt";
-	const canPayPal = !!config.paypalBaseUrl && !isPaid;
+	// A carried ("Übertragen") bill is paid through the later bill it was
+	// rolled into, never on its own.
+	const canPayPal =
+		!!config.paypalBaseUrl && !isPaid && entry.status !== "Übertragen";
 
 	const handleDownload = async () => {
 		setDownloading(true);

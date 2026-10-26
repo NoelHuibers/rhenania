@@ -200,6 +200,10 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 			doc.setTextColor(255, 165, 0);
 			doc.text("GESTUNDET", 20, yp);
 			doc.setTextColor(0, 0, 0);
+		} else if (bill.status === "Übertragen") {
+			doc.setTextColor(128, 128, 128);
+			doc.text("IN EINE SPÄTERE RECHNUNG ÜBERTRAGEN", 20, yp);
+			doc.setTextColor(0, 0, 0);
 		}
 
 		const base64 = doc.output("datauristring").split(",")[1] ?? "";

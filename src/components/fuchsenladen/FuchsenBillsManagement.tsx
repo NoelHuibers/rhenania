@@ -239,21 +239,29 @@ export function FuchsenBillsManagement() {
 																		</Badge>
 																	</TableCell>
 																	<TableCell className="text-right">
-																		<Button
-																			size="sm"
-																			variant="outline"
-																			onClick={() =>
-																				handleToggleStatus(
-																					order.id,
-																					bill.userId,
-																					order.status,
-																				)
-																			}
-																		>
-																			{order.status === "Offen"
-																				? "Als bezahlt"
-																				: "Als offen"}
-																		</Button>
+																		{order.billId ? (
+																			// Billed orders are settled via their
+																			// bill's status in the billing view.
+																			<span className="text-muted-foreground text-xs">
+																				Abgerechnet
+																			</span>
+																		) : (
+																			<Button
+																				size="sm"
+																				variant="outline"
+																				onClick={() =>
+																					handleToggleStatus(
+																						order.id,
+																						bill.userId,
+																						order.status,
+																					)
+																				}
+																			>
+																				{order.status === "Offen"
+																					? "Als bezahlt"
+																					: "Als offen"}
+																			</Button>
+																		)}
 																	</TableCell>
 																</TableRow>
 															))}
