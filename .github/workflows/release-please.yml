@@ -17,4 +17,7 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v5
         with:
-          release-type: node
+          # Version and options live in the manifest. Below 1.0, breaking
+          # changes bump the minor version instead of jumping to 1.0.0.
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
