@@ -21,6 +21,7 @@ import {
 	getYesAttendeePreviewForEvents,
 } from "~/server/actions/events/rsvp";
 import { getHiddenEventTypes } from "~/server/actions/profile/preferences";
+import { protocolForHost } from "~/server/lib/local-host";
 
 export const metadata = {
 	title: "Semesterprogramm",
@@ -50,7 +51,7 @@ export default async function SemesterprogrammPage() {
 		getYesAttendeePreviewForEvents(eventIds),
 	]);
 	const host = (await headers()).get("host") ?? "localhost:3000";
-	const protocol = host.startsWith("localhost") ? "http" : "https";
+	const protocol = protocolForHost(host);
 	const calendarToken = await getOrCreateCalendarToken();
 	const calendarUrl = calendarToken
 		? `${protocol}://${host}/api/calendar/${calendarToken}`

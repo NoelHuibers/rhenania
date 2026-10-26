@@ -13,6 +13,7 @@ import {
 	tenantDomains,
 	tenants,
 } from "~/server/db/control-schema";
+import { isLocalHost } from "~/server/lib/local-host";
 
 export type TenantOAuthProvider = {
 	providerId: string;
@@ -45,11 +46,7 @@ export function microsoftProviderIdForSlug(slug: string): string {
 }
 
 function originForHostname(hostname: string): string {
-	if (
-		hostname === "localhost" ||
-		hostname.endsWith(".localhost") ||
-		hostname.startsWith("127.")
-	) {
+	if (isLocalHost(hostname)) {
 		return `http://${hostname}:3000`;
 	}
 	return `https://${hostname}`;
