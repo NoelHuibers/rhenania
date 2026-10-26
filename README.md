@@ -12,6 +12,19 @@ Dies ist die rhenania-stuttgart.de Seite.
 
 ## Entwicklung & Qualität
 
+Lokal entwickeln, ohne die Produktionsdatenbanken anzufassen:
+
+```bash
+pnpm db:local:reset   # .data/*.db anlegen, migrieren, Demo-Daten (2 Corps)
+pnpm dev:local        # next dev gegen .data/, alle .env-Zugangsdaten ausgeblendet
+```
+
+`http://localhost:3000` ist Rhenania, `http://hassia.localhost:3000` ist Hassia.
+Alle Demo-Nutzer haben das Passwort `local-dev-password`, z. B.
+`admin@rhenania.test`, `member@rhenania.test`, `admin@hassia.test`. Mails landen
+als JSON in `.data/mail/`. `pnpm dev` ohne `:local` arbeitet weiterhin gegen die
+echten Datenbanken aus `.env`.
+
 ```bash
 pnpm check        # Biome (Lint + Format)
 pnpm typecheck    # TypeScript

@@ -12,7 +12,7 @@ export default defineConfig({
 	envDir: false,
 	test: {
 		environment: "node",
-		include: ["src/**/*.test.ts", "test/**/*.test.ts"],
+		include: ["src/**/*.test.ts", "test/**/*.test.ts", "scripts/**/*.test.ts"],
 		globalSetup: ["test/global-setup.ts"],
 		setupFiles: ["test/setup.ts"],
 		clearMocks: true,
