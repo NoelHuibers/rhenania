@@ -26,7 +26,7 @@ const currency = new Intl.NumberFormat("de-DE", {
 });
 const date = new Intl.DateTimeFormat("de-DE");
 
-export default function FuchsenOrdersPage() {
+export function FuchsenOrdersPage() {
 	const [orders, setOrders] = useState<FuchsenOrder[]>([]);
 	const [summary, setSummary] = useState({
 		openTotal: 0,

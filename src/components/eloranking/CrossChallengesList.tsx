@@ -205,7 +205,9 @@ function OutgoingPendingRow({
 }) {
 	const [isPending, startTransition] = useTransition();
 	const cancel = () => {
-		if (!confirm("Herausforderung zurückziehen?")) return;
+		if (!confirm("Herausforderung zurückziehen?")) {
+			return;
+		}
 		startTransition(async () => {
 			const r = await cancelCrossTenantChallenge(c.id);
 			if (r.success) {

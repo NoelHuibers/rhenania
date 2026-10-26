@@ -124,7 +124,9 @@ export function ReimbursementDialog({
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			return;
+		}
 		if (editing) {
 			setKostenpunktId(editing.kostenpunktId);
 			setAmount(String(editing.amount));
@@ -183,7 +185,9 @@ export function ReimbursementDialog({
 				);
 			}
 		}
-		if (valid.length) setFiles((prev) => [...prev, ...valid]);
+		if (valid.length) {
+			setFiles((prev) => [...prev, ...valid]);
+		}
 	};
 
 	const removeFile = (idx: number) =>

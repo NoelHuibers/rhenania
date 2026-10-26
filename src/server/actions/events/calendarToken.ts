@@ -13,7 +13,9 @@ function generateToken() {
 
 export async function getOrCreateCalendarToken() {
 	const session = await auth();
-	if (!session?.user?.id) return null;
+	if (!session?.user?.id) {
+		return null;
+	}
 	const userId = session.user.id;
 	const tenantId = await requireTenantId();
 	const tdb = await getTenantDb(tenantId);
@@ -24,7 +26,9 @@ export async function getOrCreateCalendarToken() {
 		.where(eq(calendarTokens.userId, userId))
 		.limit(1);
 
-	if (existing) return existing.token;
+	if (existing) {
+		return existing.token;
+	}
 
 	const token = generateToken();
 	await tdb.insert(calendarTokens).values({ userId, token });
@@ -33,7 +37,9 @@ export async function getOrCreateCalendarToken() {
 
 export async function rotateCalendarToken() {
 	const session = await auth();
-	if (!session?.user?.id) return null;
+	if (!session?.user?.id) {
+		return null;
+	}
 	const userId = session.user.id;
 	const tenantId = await requireTenantId();
 	const tdb = await getTenantDb(tenantId);

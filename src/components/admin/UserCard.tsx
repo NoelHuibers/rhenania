@@ -16,7 +16,9 @@ const getRoleBadgeVariant = (roleName: string) => {
 };
 
 const getInitials = (name: string | null) => {
-	if (!name) return "??";
+	if (!name) {
+		return "??";
+	}
 	return name
 		.split(" ")
 		.map((part) => part[0])
@@ -29,8 +31,12 @@ const sortRoles = (
 	roles: Array<{ id: string; name: string; description: string | null }>,
 ) => {
 	return [...roles].sort((a, b) => {
-		if (a.name === "Admin") return -1;
-		if (b.name === "Admin") return 1;
+		if (a.name === "Admin") {
+			return -1;
+		}
+		if (b.name === "Admin") {
+			return 1;
+		}
 		return a.name.localeCompare(b.name);
 	});
 };

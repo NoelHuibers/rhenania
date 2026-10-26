@@ -97,11 +97,17 @@ function generateMonthlyWednesdays(
 	let month = fromDate.getMonth();
 	while (true) {
 		const first = setTime(firstWednesdayOfMonth(year, month), time);
-		if (first > toDate) break;
-		if (first >= fromDate) items.push({ date: first });
+		if (first > toDate) {
+			break;
+		}
+		if (first >= fromDate) {
+			items.push({ date: first });
+		}
 		if (which === "1st_3rd") {
 			const third = setTime(thirdWednesdayOfMonth(year, month), time);
-			if (third <= toDate && third >= fromDate) items.push({ date: third });
+			if (third <= toDate && third >= fromDate) {
+				items.push({ date: third });
+			}
 		}
 		month++;
 		if (month > 11) {
@@ -127,7 +133,9 @@ function generateOCCSemester(startDate: Date, endDate: Date): OccurrenceItem[] {
 		current = new Date(current.getTime() + MS_2_WEEKS);
 	}
 
-	if (sundays.length === 0) return [];
+	if (sundays.length === 0) {
+		return [];
+	}
 
 	return sundays.map((sunday, i) => {
 		const isFirst = i === 0;
@@ -180,7 +188,9 @@ function generateOccurrences(
 				toDate,
 			);
 		case "occ_semester": {
-			if (!template.startDate || !template.endDate) return [];
+			if (!template.startDate || !template.endDate) {
+				return [];
+			}
 			return generateOCCSemester(template.startDate, template.endDate);
 		}
 		default:
@@ -268,7 +278,9 @@ export async function toggleRecurringEventActive(id: string) {
 			.from(recurringEvents)
 			.where(eq(recurringEvents.id, id))
 			.limit(1);
-		if (!current) return { success: false, error: "Nicht gefunden" };
+		if (!current) {
+			return { success: false, error: "Nicht gefunden" };
+		}
 		await db
 			.update(recurringEvents)
 			.set({ isActive: !current.isActive })
@@ -300,7 +312,9 @@ export async function generateInstances(recurringEventId: string) {
 			.where(eq(recurringEvents.id, recurringEventId))
 			.limit(1);
 
-		if (!template) return { success: false, error: "Vorlage nicht gefunden" };
+		if (!template) {
+			return { success: false, error: "Vorlage nicht gefunden" };
+		}
 
 		const existing = await db
 			.select({ date: events.date })
@@ -324,7 +338,9 @@ export async function generateInstances(recurringEventId: string) {
 			(item) => !existingDays.has(Math.floor(item.date.getTime() / MS_DAY)),
 		);
 
-		if (newItems.length === 0) return { success: true, created: 0 };
+		if (newItems.length === 0) {
+			return { success: true, created: 0 };
+		}
 
 		await db.insert(events).values(
 			newItems.map((item) => ({
@@ -358,7 +374,9 @@ export async function toggleEventCancelled(eventId: string) {
 			.from(events)
 			.where(eq(events.id, eventId))
 			.limit(1);
-		if (!current) return { success: false, error: "Nicht gefunden" };
+		if (!current) {
+			return { success: false, error: "Nicht gefunden" };
+		}
 		await db
 			.update(events)
 			.set({ isCancelled: !current.isCancelled })

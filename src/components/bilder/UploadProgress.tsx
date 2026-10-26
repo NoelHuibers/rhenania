@@ -13,7 +13,9 @@ export const UploadProgress = ({
 	uploading,
 	uploadProgress,
 }: UploadProgressProps) => {
-	if (!uploading) return null;
+	if (!uploading) {
+		return null;
+	}
 
 	return (
 		<div className="fixed top-4 right-4 z-50 min-w-[300px] rounded-lg border bg-background p-4 shadow-lg">

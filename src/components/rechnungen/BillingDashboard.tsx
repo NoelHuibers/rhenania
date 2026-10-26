@@ -40,7 +40,7 @@ interface BillPeriod {
 	totalAmount: number;
 }
 
-export default function BillingDashboard() {
+export function BillingDashboard() {
 	const { data: session, isPending } = useSession();
 	const [activeTab, setActiveTab] = useState("current-orders");
 
@@ -115,7 +115,9 @@ export default function BillingDashboard() {
 
 	useEffect(() => {
 		const fetchCurrentOrders = async () => {
-			if (!isAuthenticated) return;
+			if (!isAuthenticated) {
+				return;
+			}
 
 			try {
 				setIsLoadingOrders(true);
@@ -135,7 +137,9 @@ export default function BillingDashboard() {
 
 	useEffect(() => {
 		const fetchAllBillPeriods = async () => {
-			if (!isAuthenticated) return;
+			if (!isAuthenticated) {
+				return;
+			}
 
 			try {
 				const periods = await getAllBillPeriods();
@@ -154,7 +158,9 @@ export default function BillingDashboard() {
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: billPeriodsData intentionally excluded to avoid infinite loop
 	useEffect(() => {
-		if (!isAuthenticated) return;
+		if (!isAuthenticated) {
+			return;
+		}
 
 		if (activeTab === "current-billing") {
 			const fetchCurrentBilling = async () => {
@@ -189,7 +195,9 @@ export default function BillingDashboard() {
 					// Get the second most recent period (previous billing)
 					if (allBillPeriods.length > 1) {
 						const previousPeriod = allBillPeriods[1];
-						if (!previousPeriod) return;
+						if (!previousPeriod) {
+							return;
+						}
 						setPreviousBillPeriod(previousPeriod);
 						const bills = await getBillsForPeriod(previousPeriod.id);
 						setPreviousBilling(bills);
@@ -210,7 +218,7 @@ export default function BillingDashboard() {
 			// Load data for older periods (skip the first two periods)
 			const olderPeriods = allBillPeriods.slice(2);
 
-			olderPeriods.forEach((period) => {
+			for (const period of olderPeriods) {
 				if (!billPeriodsData.has(period.id)) {
 					const fetchPeriodData = async () => {
 						try {
@@ -225,7 +233,7 @@ export default function BillingDashboard() {
 					};
 					fetchPeriodData();
 				}
-			});
+			}
 		}
 	}, [activeTab, allBillPeriods, isAuthenticated]);
 
@@ -267,9 +275,6 @@ export default function BillingDashboard() {
 			const result = await updateBillStatus(entryId, newStatus);
 
 			if (result?.success) {
-				console.log(
-					`Status successfully changed for ${entryId} to ${newStatus}`,
-				);
 				toast.success("Status erfolgreich aktualisiert");
 
 				if (newStatus === "Bezahlt") {

@@ -11,6 +11,7 @@ import { auth } from "~/server/auth";
 import { getGraphAccessToken } from "~/server/auth/microsoft-tokens";
 import { db } from "~/server/db";
 import { roles, userRoles, users } from "~/server/db/schema";
+import { log } from "~/server/lib/log";
 
 // Microsoft Graph API integration
 class CustomAuthProvider implements AuthenticationProvider {
@@ -98,7 +99,7 @@ async function fetchUserPhoto(accessToken: string): Promise<string | null> {
 
 		return `data:${mimeType};base64,${base64String}`;
 	} catch (error) {
-		console.log("No photo available or error fetching photo:", error);
+		log.info("microsoft photo not synced", { reason: String(error) });
 		return null;
 	}
 }

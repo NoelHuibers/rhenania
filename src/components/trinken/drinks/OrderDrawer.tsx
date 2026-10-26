@@ -50,7 +50,9 @@ export function OrderDrawer({
 	};
 
 	const handleConfirm = () => {
-		if (!drink) return;
+		if (!drink) {
+			return;
+		}
 
 		startTransition(async () => {
 			try {
@@ -87,7 +89,9 @@ export function OrderDrawer({
 		setQuantity(1);
 	};
 
-	if (!drink) return null;
+	if (!drink) {
+		return null;
+	}
 
 	const totalPrice = drink.price * quantity;
 

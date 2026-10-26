@@ -61,18 +61,24 @@ export function AddFuchsenItemDialog({
 			isCurrentlyAvailable: "true",
 		});
 		setSelectedFile(null);
-		if (previewUrl) URL.revokeObjectURL(previewUrl);
+		if (previewUrl) {
+			URL.revokeObjectURL(previewUrl);
+		}
 		setPreviewUrl(null);
 		setUploadProgress(0);
 	};
 
 	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
-		if (!file) return;
+		if (!file) {
+			return;
+		}
 		try {
 			validateImageFile(file);
 			setSelectedFile(file);
-			if (previewUrl) URL.revokeObjectURL(previewUrl);
+			if (previewUrl) {
+				URL.revokeObjectURL(previewUrl);
+			}
 			setPreviewUrl(URL.createObjectURL(file));
 		} catch (error) {
 			toast.error(
@@ -82,13 +88,17 @@ export function AddFuchsenItemDialog({
 	};
 
 	const removeFile = () => {
-		if (previewUrl) URL.revokeObjectURL(previewUrl);
+		if (previewUrl) {
+			URL.revokeObjectURL(previewUrl);
+		}
 		setSelectedFile(null);
 		setPreviewUrl(null);
 		const fileInput = document.getElementById(
 			"fuchsen-picture",
 		) as HTMLInputElement;
-		if (fileInput) fileInput.value = "";
+		if (fileInput) {
+			fileInput.value = "";
+		}
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -167,7 +177,9 @@ export function AddFuchsenItemDialog({
 		<Dialog
 			open={isOpen}
 			onOpenChange={(open) => {
-				if (!open && !isSubmitting) resetForm();
+				if (!open && !isSubmitting) {
+					resetForm();
+				}
 				onOpenChange(open);
 			}}
 		>

@@ -44,11 +44,16 @@ async function main() {
 		const slug = slugById.get(m.tenantId) ?? m.tenantId;
 		perTenant.set(slug, (perTenant.get(slug) ?? 0) + 1);
 	}
-	for (const [slug, n] of perTenant) console.log(`${slug}: ${n} memberships`);
+	for (const [slug, n] of perTenant) {
+		console.log(`${slug}: ${n} memberships`);
+	}
 	const perStatus = new Map<string, number>();
-	for (const m of allMemberships)
+	for (const m of allMemberships) {
 		perStatus.set(m.status, (perStatus.get(m.status) ?? 0) + 1);
-	for (const [status, n] of perStatus) console.log(`status ${status}: ${n}`);
+	}
+	for (const [status, n] of perStatus) {
+		console.log(`status ${status}: ${n}`);
+	}
 	console.log(
 		orphans === 0
 			? "✅ every user has at least one membership"

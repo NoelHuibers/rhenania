@@ -22,7 +22,9 @@ import {
 } from "./dashboard";
 
 const getInitials = (name: string | null) => {
-	if (!name) return "??";
+	if (!name) {
+		return "??";
+	}
 	return name
 		.split(" ")
 		.map((part) => part[0])
@@ -66,8 +68,11 @@ export function BulkRoleDialog({
 	const toggle = (userId: string) => {
 		setSelected((prev) => {
 			const next = new Set(prev);
-			if (next.has(userId)) next.delete(userId);
-			else next.add(userId);
+			if (next.has(userId)) {
+				next.delete(userId);
+			} else {
+				next.add(userId);
+			}
 			return next;
 		});
 	};
@@ -84,16 +89,22 @@ export function BulkRoleDialog({
 		setSelected((prev) => {
 			const next = new Set(prev);
 			if (allFilteredSelected) {
-				for (const u of filteredUsers) next.delete(u.id);
+				for (const u of filteredUsers) {
+					next.delete(u.id);
+				}
 			} else {
-				for (const u of filteredUsers) next.add(u.id);
+				for (const u of filteredUsers) {
+					next.add(u.id);
+				}
 			}
 			return next;
 		});
 	};
 
 	const save = () => {
-		if (!role) return;
+		if (!role) {
+			return;
+		}
 		startTransition(async () => {
 			try {
 				const userIds = [...selected];
@@ -107,7 +118,9 @@ export function BulkRoleDialog({
 		});
 	};
 
-	if (!role) return null;
+	if (!role) {
+		return null;
+	}
 
 	const isSinglePerson = SECTIONED_ROLE_NAMES.includes(role.name);
 

@@ -59,7 +59,7 @@ function getChangeBadgeStyleOutline(change: string) {
 	}
 }
 
-export default function Leaderboard({ consumers }: LeaderboardProps) {
+export function Leaderboard({ consumers }: LeaderboardProps) {
 	const [showAll, setShowAll] = useState(false);
 	const topConsumers = consumers.slice(0, 5);
 	const remainingConsumers = consumers.slice(5);

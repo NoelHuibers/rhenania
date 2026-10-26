@@ -40,10 +40,14 @@ const IBAN_LENGTHS: Record<string, number> = {
  */
 export function isValidIban(raw: string): boolean {
 	const v = normalizeIban(raw);
-	if (!isValidIbanStructure(v)) return false;
+	if (!isValidIbanStructure(v)) {
+		return false;
+	}
 
 	const expectedLength = IBAN_LENGTHS[v.slice(0, 2)];
-	if (expectedLength !== undefined && v.length !== expectedLength) return false;
+	if (expectedLength !== undefined && v.length !== expectedLength) {
+		return false;
+	}
 
 	// Move the country code + check digits to the end, map letters to numbers
 	// (A=10 … Z=35) and reduce digit by digit to stay within safe integers.

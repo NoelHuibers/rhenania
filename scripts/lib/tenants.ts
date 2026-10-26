@@ -15,7 +15,9 @@ export async function findTenantBySlug(slug: string): Promise<TenantRow> {
 		.from(tenants)
 		.where(eq(tenants.slug, slug))
 		.limit(1);
-	if (!tenant) throw new Error(`No tenant '${slug}'`);
+	if (!tenant) {
+		throw new Error(`No tenant '${slug}'`);
+	}
 	return tenant;
 }
 

@@ -149,7 +149,9 @@ export async function insertGame(
 		.insert(games)
 		.values({ playedAt: new Date(), ...opts })
 		.returning();
-	if (!game) throw new Error("Could not create game");
+	if (!game) {
+		throw new Error("Could not create game");
+	}
 	return game;
 }
 
@@ -175,7 +177,9 @@ export async function createDrinkWith(
 			isCurrentlyAvailable: opts.available ?? true,
 		})
 		.returning();
-	if (!drink) throw new Error("Could not create drink");
+	if (!drink) {
+		throw new Error("Could not create drink");
+	}
 	return drink;
 }
 
@@ -208,7 +212,9 @@ export async function insertOrder(
 			createdAt: opts.createdAt ?? new Date(),
 		})
 		.returning();
-	if (!order) throw new Error("Could not create order");
+	if (!order) {
+		throw new Error("Could not create order");
+	}
 	return order;
 }
 
@@ -286,7 +292,9 @@ export async function playChallenge(opts: {
 		challengeId,
 		response: "accept",
 	});
-	if (!accepted.success) throw new Error(`accept failed: ${accepted.error}`);
+	if (!accepted.success) {
+		throw new Error(`accept failed: ${accepted.error}`);
+	}
 
 	const proposer = opts.proposedBy ?? opts.challenger;
 	signInAs(proposer);
@@ -294,14 +302,20 @@ export async function playChallenge(opts: {
 		challengeId,
 		winnerId: opts.winner.id,
 	});
-	if (!proposed.success) throw new Error(`propose failed: ${proposed.error}`);
+	if (!proposed.success) {
+		throw new Error(`propose failed: ${proposed.error}`);
+	}
 
 	const confirmer =
 		proposer.id === opts.challenger.id ? opts.opponent : opts.challenger;
 	signInAs(confirmer);
-	if (!opts.confirm) return { challengeId, gameId: undefined };
+	if (!opts.confirm) {
+		return { challengeId, gameId: undefined };
+	}
 
 	const confirmed = await confirmResult(challengeId);
-	if (!confirmed.success) throw new Error(`confirm failed: ${confirmed.error}`);
+	if (!confirmed.success) {
+		throw new Error(`confirm failed: ${confirmed.error}`);
+	}
 	return { challengeId, gameId: confirmed.gameId };
 }

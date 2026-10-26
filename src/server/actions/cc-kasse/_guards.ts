@@ -14,14 +14,18 @@ type GuardResult = { ok: true; userId: string } | { ok: false; error: string };
 export async function requireAuth(): Promise<GuardResult> {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return { ok: false, error: "Nicht angemeldet" };
+	if (!userId) {
+		return { ok: false, error: "Nicht angemeldet" };
+	}
 	return { ok: true, userId };
 }
 
 export async function requireRoles(roles: string[]): Promise<GuardResult> {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return { ok: false, error: "Nicht angemeldet" };
+	if (!userId) {
+		return { ok: false, error: "Nicht angemeldet" };
+	}
 	if (!(await hasAnyRole(userId, roles))) {
 		return { ok: false, error: "Keine Berechtigung" };
 	}

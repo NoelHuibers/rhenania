@@ -6,7 +6,9 @@ import { auth } from "~/server/auth";
 
 export default async function ChallengesPage() {
 	const session = await auth();
-	if (!session?.user?.id) redirect("/");
+	if (!session?.user?.id) {
+		redirect("/");
+	}
 
 	return (
 		<SidebarLayout>

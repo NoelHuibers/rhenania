@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import BookingTab from "~/components/getraenkewart/BookingTab";
-import GetraenkewartPage from "~/components/getraenkewart/GetraenkewartPage";
-import KasseTab from "~/components/getraenkewart/KasseTab";
-import DashboardTab from "~/components/inventur/DashboardTab";
-import HistoryTab from "~/components/inventur/HistoryTab";
+import { BookingTab } from "~/components/getraenkewart/BookingTab";
+import { GetraenkewartPage } from "~/components/getraenkewart/GetraenkewartPage";
+import { KasseTab } from "~/components/getraenkewart/KasseTab";
+import { DashboardTab } from "~/components/inventur/DashboardTab";
+import { HistoryTab } from "~/components/inventur/HistoryTab";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
-import GetraenkePage from "~/components/trinken/getraenkewart/GetraenkePage";
+import { GetraenkePage } from "~/components/trinken/getraenkewart/GetraenkePage";
 import {
 	getBankEntries,
 	getExternalBills,

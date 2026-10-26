@@ -21,7 +21,7 @@ interface AktivenbilderProps {
 	}[];
 }
 
-const Aktivenbilder = ({ images }: AktivenbilderProps) => {
+export const Aktivenbilder = ({ images }: AktivenbilderProps) => {
 	const plugin = React.useRef(
 		Autoplay({ delay: 2000, stopOnInteraction: true }),
 	);
@@ -93,5 +93,3 @@ const Aktivenbilder = ({ images }: AktivenbilderProps) => {
 		</div>
 	);
 };
-
-export default Aktivenbilder;

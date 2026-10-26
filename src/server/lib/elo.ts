@@ -11,8 +11,12 @@ function calculateExpectedScore(
 }
 
 function getKFactor(playerElo: number, totalGames: number): number {
-	if (playerElo >= 2400) return K_FACTOR_HIGH_RATED;
-	if (totalGames >= 30) return K_FACTOR_EXPERIENCED;
+	if (playerElo >= 2400) {
+		return K_FACTOR_HIGH_RATED;
+	}
+	if (totalGames >= 30) {
+		return K_FACTOR_EXPERIENCED;
+	}
 	return K_FACTOR;
 }
 

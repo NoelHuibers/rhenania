@@ -71,10 +71,12 @@ async function generateBillNumber(tx: any, date: Date): Promise<string> {
 		.from(fuchsenBillPeriods)
 		.where(sql`${fuchsenBillPeriods.billNumber} LIKE ${`${baseNumber}%`}`);
 
-	if (existingBills.length === 0) return baseNumber;
+	if (existingBills.length === 0) {
+		return baseNumber;
+	}
 
 	let maxSuffix = 1;
-	existingBills.forEach((bill: { billNumber: string }) => {
+	for (const bill of existingBills) {
 		const match = bill.billNumber.match(
 			new RegExp(`^${baseNumber}(?:-(\\d+))?$`),
 		);
@@ -82,7 +84,7 @@ async function generateBillNumber(tx: any, date: Date): Promise<string> {
 			const suffix = match[1] ? parseInt(match[1], 10) : 1;
 			maxSuffix = Math.max(maxSuffix, suffix);
 		}
-	});
+	}
 
 	return `${baseNumber}-${maxSuffix + 1}`;
 }
@@ -163,9 +165,9 @@ export async function createNewFuchsenBilling() {
 							),
 						),
 					);
-				outstanding.forEach((row) => {
+				for (const row of outstanding) {
 					oldBalanceMap.set(row.userId, Number(row.total) || 0);
-				});
+				}
 			}
 
 			// 5. Group unbilled orders by user.
@@ -385,7 +387,9 @@ export async function getUnbilledFuchsenOrdersGrouped(): Promise<
 
 export async function closeFuchsenBillPeriod(billPeriodId: string) {
 	const authCheck = await requireFuchsenwart();
-	if (!authCheck.ok) return { success: false, message: authCheck.error };
+	if (!authCheck.ok) {
+		return { success: false, message: authCheck.error };
+	}
 	try {
 		const now = new Date();
 		await db
@@ -404,7 +408,9 @@ export async function updateFuchsenBillStatus(
 	newStatus: "Bezahlt" | "Unbezahlt" | "Gestundet",
 ) {
 	const authCheck = await requireFuchsenwart();
-	if (!authCheck.ok) return { success: false, error: authCheck.error };
+	if (!authCheck.ok) {
+		return { success: false, error: authCheck.error };
+	}
 	try {
 		const now = new Date();
 		const paidAt = newStatus === "Bezahlt" ? now : null;
@@ -471,7 +477,9 @@ export async function getMyFuchsenBills(): Promise<
 > {
 	try {
 		const session = await auth();
-		if (!session?.user?.id) return [];
+		if (!session?.user?.id) {
+			return [];
+		}
 
 		const rows = await db
 			.select({ bill: fuchsenBills, period: fuchsenBillPeriods })
@@ -519,14 +527,18 @@ export async function getMyFuchsenBills(): Promise<
 /** On-demand CSV (semicolon-delimited) for a whole period; no blob storage. */
 export async function getFuchsenBillPeriodCSV(billPeriodId: string) {
 	const authCheck = await requireFuchsenwart();
-	if (!authCheck.ok) return { success: false, error: authCheck.error };
+	if (!authCheck.ok) {
+		return { success: false, error: authCheck.error };
+	}
 	try {
 		const [period] = await db
 			.select()
 			.from(fuchsenBillPeriods)
 			.where(eq(fuchsenBillPeriods.id, billPeriodId))
 			.limit(1);
-		if (!period) return { success: false, error: "Periode nicht gefunden" };
+		if (!period) {
+			return { success: false, error: "Periode nicht gefunden" };
+		}
 
 		const billsData = await db
 			.select()

@@ -12,7 +12,9 @@ export default async function TenantDetailPage({
 	const { id } = await params;
 	const result = await getTenantDetailAction(id);
 	if (!result.success || !result.data) {
-		if (result.error === "Tenant not found") notFound();
+		if (result.error === "Tenant not found") {
+			notFound();
+		}
 		return <div className="text-red-600">Failed to load: {result.error}</div>;
 	}
 

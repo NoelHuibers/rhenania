@@ -113,7 +113,9 @@ export async function loadTenantOAuthProviders(): Promise<LoadedProviders> {
 	const allowedHosts = new Set<string>();
 
 	for (const t of byTenant.values()) {
-		if (t.status === "suspended") continue;
+		if (t.status === "suspended") {
+			continue;
+		}
 
 		for (const h of t.hostnames) {
 			trustedOrigins.add(originForHostname(h.hostname));

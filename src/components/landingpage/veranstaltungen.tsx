@@ -21,16 +21,24 @@ function relativeLabel(d: Date) {
 		(startOfDayInTZ(d).getTime() - startOfDayInTZ(new Date()).getTime()) /
 			86_400_000,
 	);
-	if (diffDays === 0) return "Heute";
-	if (diffDays === 1) return "Morgen";
-	if (diffDays <= 7) return `In ${diffDays} Tagen`;
+	if (diffDays === 0) {
+		return "Heute";
+	}
+	if (diffDays === 1) {
+		return "Morgen";
+	}
+	if (diffDays <= 7) {
+		return `In ${diffDays} Tagen`;
+	}
 	return null;
 }
 
-const Veranstaltungen = async () => {
+export const Veranstaltungen = async () => {
 	const events = await getPublicUpcomingEvents(6);
 
-	if (events.length === 0) return null;
+	if (events.length === 0) {
+		return null;
+	}
 
 	return (
 		<section className="w-full bg-gray-100 py-12 md:py-24 lg:py-32">
@@ -109,5 +117,3 @@ const Veranstaltungen = async () => {
 		</section>
 	);
 };
-
-export default Veranstaltungen;

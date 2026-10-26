@@ -9,7 +9,7 @@ interface MetricsCardsProps {
 	activeCount: number;
 }
 
-export default function MetricsCards({
+export function MetricsCards({
 	totalConsumption,
 	growthRate,
 	activeCount,

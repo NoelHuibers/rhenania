@@ -20,11 +20,15 @@ const ALLOWED_ROLES = ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"];
 
 export default async function KontenRoute() {
 	const session = await auth();
-	if (!session?.user?.id) redirect("/auth/signin");
+	if (!session?.user?.id) {
+		redirect("/auth/signin");
+	}
 
 	const roleNames = await getUserRoleNames(session.user.id);
 	const hasAccess = roleNames.some((r) => ALLOWED_ROLES.includes(r));
-	if (!hasAccess) redirect("/access-denied");
+	if (!hasAccess) {
+		redirect("/access-denied");
+	}
 
 	const result = await getKontos();
 	const initialKontos = result.success ? result.kontos : [];

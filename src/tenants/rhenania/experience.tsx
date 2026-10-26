@@ -45,7 +45,7 @@ export type RhenaniaExperienceProps = {
 	eventsArePast: boolean;
 };
 
-export default function RhenaniaExperience({
+export function RhenaniaExperience({
 	displayName,
 	heroImageUrl,
 	ctaImageUrl,

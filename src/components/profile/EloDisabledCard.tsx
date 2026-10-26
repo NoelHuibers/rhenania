@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { setEloPreferenceAction } from "~/server/actions/profile/preferences";
 
-export default function EloDisabledCard() {
+export function EloDisabledCard() {
 	const [isPending, startTransition] = useTransition();
 
 	return (

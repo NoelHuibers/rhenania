@@ -38,7 +38,13 @@ export const VirtualImageGrid = ({
 
 	// Get visible items
 	const visibleItems = useMemo(() => {
-		const items = [];
+		const items: Array<{
+			image: ImageItem | undefined;
+			index: number;
+			rowIndex: number;
+			colIndex: number;
+			top: number;
+		}> = [];
 		for (let rowIndex = startRow; rowIndex < endRow; rowIndex++) {
 			for (let colIndex = 0; colIndex < itemsPerRow; colIndex++) {
 				const index = rowIndex * itemsPerRow + colIndex;

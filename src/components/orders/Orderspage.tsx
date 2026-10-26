@@ -536,7 +536,7 @@ const DesktopTransactionTable = ({
 );
 
 // Main Component
-export default function OrdersTracker() {
+export function OrdersTracker() {
 	const [transactions, setTransactions] = useState<Transaction[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [isLiveTracking, setIsLiveTracking] = useState(false);
@@ -549,7 +549,9 @@ export default function OrdersTracker() {
 
 	const fetchTransactions = useCallback(
 		async (showLoading = false) => {
-			if (showLoading) setLoading(true);
+			if (showLoading) {
+				setLoading(true);
+			}
 			setRefreshing(true);
 
 			try {
@@ -611,7 +613,9 @@ export default function OrdersTracker() {
 	}, [searchTerm, billStatusFilter, purposeFilter, fetchTransactions]);
 
 	useEffect(() => {
-		if (!isLiveTracking) return;
+		if (!isLiveTracking) {
+			return;
+		}
 
 		const interval = setInterval(() => {
 			fetchTransactions(false);

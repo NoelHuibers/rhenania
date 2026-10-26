@@ -17,7 +17,9 @@ const FALSE_JSON = JSON.stringify(false);
 
 export async function getAllUsers(): Promise<User[]> {
 	const session = await auth();
-	if (!session) throw new Error("Unauthorized");
+	if (!session) {
+		throw new Error("Unauthorized");
+	}
 
 	const allUsers = await db
 		.select({
@@ -34,7 +36,9 @@ export async function getAllUsers(): Promise<User[]> {
 
 export async function getAllUsersExcept(): Promise<User[]> {
 	const session = await auth();
-	if (!session) throw new Error("Unauthorized");
+	if (!session) {
+		throw new Error("Unauthorized");
+	}
 	const excludeUserId = session.user.id;
 
 	try {

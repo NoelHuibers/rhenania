@@ -27,7 +27,9 @@ export async function createEvent(
 			...opts,
 		})
 		.returning();
-	if (!event) throw new Error("Could not create event");
+	if (!event) {
+		throw new Error("Could not create event");
+	}
 	return event;
 }
 
@@ -60,7 +62,9 @@ export async function createVenue(
 		.db.insert(venues)
 		.values({ shortName, fullAddress })
 		.returning();
-	if (!venue) throw new Error("Could not create venue");
+	if (!venue) {
+		throw new Error("Could not create venue");
+	}
 	return venue;
 }
 

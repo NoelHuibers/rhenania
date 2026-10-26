@@ -63,7 +63,7 @@ interface DashboardTabProps {
 	profit?: number | null;
 }
 
-export default function DashboardTab({
+export function DashboardTab({
 	stockItems,
 	activeEvent,
 	events,
@@ -75,7 +75,9 @@ export default function DashboardTab({
 	const [purchases, setPurchases] = useState<{ [key: string]: number }>(() => {
 		const initial: { [key: string]: number } = {};
 		for (const item of stockItems) {
-			if (item.purchasedSince > 0) initial[item.drinkId] = item.purchasedSince;
+			if (item.purchasedSince > 0) {
+				initial[item.drinkId] = item.purchasedSince;
+			}
 		}
 		return initial;
 	});
@@ -106,8 +108,9 @@ export default function DashboardTab({
 		const initialPurchases: { [key: string]: number } = {};
 		for (const item of stockItems) {
 			initialStock[item.drinkId] = item.countedStock ?? item.calculatedStock;
-			if (item.purchasedSince > 0)
+			if (item.purchasedSince > 0) {
 				initialPurchases[item.drinkId] = item.purchasedSince;
+			}
 		}
 		setCountedStock(initialStock);
 		setPurchases(initialPurchases);
@@ -116,8 +119,11 @@ export default function DashboardTab({
 	const toggleItemExpansion = (drinkId: string) => {
 		setExpandedItems((prev) => {
 			const next = new Set(prev);
-			if (next.has(drinkId)) next.delete(drinkId);
-			else next.add(drinkId);
+			if (next.has(drinkId)) {
+				next.delete(drinkId);
+			} else {
+				next.add(drinkId);
+			}
 			return next;
 		});
 	};
@@ -125,7 +131,9 @@ export default function DashboardTab({
 	const handlePurchaseInput = (drinkId: string, value: number) => {
 		setPurchases((prev) => ({ ...prev, [drinkId]: value }));
 		const item = stockItems.find((i) => i.drinkId === drinkId);
-		if (!item) return;
+		if (!item) {
+			return;
+		}
 		const originalPurchase = item.purchasedSince || 0;
 		if (value !== originalPurchase) {
 			setChangedItems((prev) => new Set(prev).add(drinkId));
@@ -150,7 +158,9 @@ export default function DashboardTab({
 	const handleCountedStockInput = (drinkId: string, value: number) => {
 		setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
 		const item = stockItems.find((i) => i.drinkId === drinkId);
-		if (!item) return;
+		if (!item) {
+			return;
+		}
 		const expected = item.calculatedStock + (purchases[drinkId] || 0);
 		if (value !== expected) {
 			setChangedItems((prev) => new Set(prev).add(drinkId));
@@ -220,7 +230,9 @@ export default function DashboardTab({
 					purchasedSince: purchases[item.drinkId] || 0,
 				}));
 				const result = await saveInventoryCount(inventoryItems);
-				if (withInvoice) await createNewBilling(result.totalInventoryLoss);
+				if (withInvoice) {
+					await createNewBilling(result.totalInventoryLoss);
+				}
 				if (result.success) {
 					toast.success(
 						withInvoice
@@ -336,8 +348,12 @@ export default function DashboardTab({
 		etaplans.find((e) => e.id === etaplanId)?.kostenpunkte ?? [];
 
 	const diffClass = (diff: number) => {
-		if (diff < 0) return "text-red-600 font-semibold";
-		if (diff > 0) return "text-green-600 font-semibold";
+		if (diff < 0) {
+			return "text-red-600 font-semibold";
+		}
+		if (diff > 0) {
+			return "text-green-600 font-semibold";
+		}
 		return "text-muted-foreground";
 	};
 

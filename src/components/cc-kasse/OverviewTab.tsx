@@ -54,9 +54,12 @@ function StatusBadge({ status }: { status: BudgetStatus }) {
 }
 
 function remainingTone(verbleibend: number, budget: number) {
-	if (verbleibend < 0) return "text-red-600 dark:text-red-400";
-	if (budget > 0 && verbleibend / budget < 0.2)
+	if (verbleibend < 0) {
+		return "text-red-600 dark:text-red-400";
+	}
+	if (budget > 0 && verbleibend / budget < 0.2) {
 		return "text-amber-600 dark:text-amber-400";
+	}
 	return "text-emerald-600 dark:text-emerald-400";
 }
 
@@ -85,9 +88,14 @@ export function OverviewTab({
 				eingereicht: 0,
 				abgelehnt: 0,
 			};
-			if (r.status === "Abgelehnt") e.abgelehnt++;
-			else e.items.push(r);
-			if (r.status === "Eingereicht") e.eingereicht += r.amount;
+			if (r.status === "Abgelehnt") {
+				e.abgelehnt++;
+			} else {
+				e.items.push(r);
+			}
+			if (r.status === "Eingereicht") {
+				e.eingereicht += r.amount;
+			}
 			map.set(r.kostenpunktId, e);
 		}
 		for (const e of map.values()) {
@@ -120,8 +128,11 @@ export function OverviewTab({
 	const toggle = (id: string, next: boolean) =>
 		setOpen((prev) => {
 			const s = new Set(prev);
-			if (next) s.add(id);
-			else s.delete(id);
+			if (next) {
+				s.add(id);
+			} else {
+				s.delete(id);
+			}
 			return s;
 		});
 
@@ -525,7 +536,9 @@ function EinnahmenSection({ overview }: { overview: EtaplanOverview }) {
 	const rows = overview.kostenpunkte.filter(
 		(k) => k.income > 0 || k.istEinnahmen > 0,
 	);
-	if (rows.length === 0) return null;
+	if (rows.length === 0) {
+		return null;
+	}
 
 	const geplant = overview.geplanteEinnahmen;
 	const erhalten = overview.total.istEinnahmen;

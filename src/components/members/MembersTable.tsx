@@ -140,7 +140,9 @@ function TextCell({
 			disabled={disabled}
 			onBlur={(e) => {
 				const v = e.target.value;
-				if (v !== value) onSave(v);
+				if (v !== value) {
+					onSave(v);
+				}
 			}}
 			className={INPUT_CLS}
 		/>
@@ -167,11 +169,14 @@ function StatusCell({
 				onBlur={(e) => {
 					setEditing(false);
 					const v = e.target.value;
-					if (v !== value) onSave(v);
+					if (v !== value) {
+						onSave(v);
+					}
 				}}
 				onKeyDown={(e) => {
-					if (e.key === "Enter") e.currentTarget.blur();
-					else if (e.key === "Escape") {
+					if (e.key === "Enter") {
+						e.currentTarget.blur();
+					} else if (e.key === "Escape") {
 						e.currentTarget.value = value;
 						setEditing(false);
 					}
@@ -256,7 +261,9 @@ export function MembersTable({
 
 	const updateOverflow = useCallback(() => {
 		const el = scrollRef.current;
-		if (!el) return;
+		if (!el) {
+			return;
+		}
 		setOverflow({
 			left: el.scrollLeft > 1,
 			right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
@@ -265,8 +272,9 @@ export function MembersTable({
 
 	const scrollByX = (dir: 1 | -1) => {
 		const el = scrollRef.current;
-		if (el)
+		if (el) {
 			el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+		}
 	};
 
 	// Re-seed when the server data changes (import / add / delete refresh).
@@ -276,7 +284,9 @@ export function MembersTable({
 	// biome-ignore lint/correctness/useExhaustiveDependencies: deps trigger re-measure
 	useEffect(() => {
 		const el = scrollRef.current;
-		if (!el) return;
+		if (!el) {
+			return;
+		}
 		updateOverflow();
 		const ro = new ResizeObserver(updateOverflow);
 		ro.observe(el);
@@ -311,8 +321,12 @@ export function MembersTable({
 	const visibleRows = useMemo(() => {
 		const q = search.trim().toLowerCase();
 		return rows.filter((r) => {
-			if (statusFilter !== "alle" && r.status !== statusFilter) return false;
-			if (!q) return true;
+			if (statusFilter !== "alle" && r.status !== statusFilter) {
+				return false;
+			}
+			if (!q) {
+				return true;
+			}
 			return `${r.lastName} ${r.firstName} ${r.email ?? ""} ${r.city ?? ""} ${r.status}`
 				.toLowerCase()
 				.includes(q);

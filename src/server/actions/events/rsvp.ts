@@ -46,7 +46,9 @@ export async function setRsvp(
 ): Promise<SetRsvpResult> {
 	try {
 		const session = await auth();
-		if (!session?.user?.id) return fail("unauthenticated");
+		if (!session?.user?.id) {
+			return fail("unauthenticated");
+		}
 		const userId = session.user.id;
 
 		const [event] = await db
@@ -60,8 +62,12 @@ export async function setRsvp(
 			.where(eq(events.id, eventId))
 			.limit(1);
 
-		if (!event) return fail("event_not_found");
-		if (event.isCancelled) return fail("event_cancelled");
+		if (!event) {
+			return fail("event_not_found");
+		}
+		if (event.isCancelled) {
+			return fail("event_cancelled");
+		}
 
 		if (event.rsvpDeadline && event.rsvpDeadline.getTime() < Date.now()) {
 			return fail("deadline_passed");
@@ -119,7 +125,9 @@ export async function setRsvp(
 export async function removeRsvp(eventId: string): Promise<SetRsvpResult> {
 	try {
 		const session = await auth();
-		if (!session?.user?.id) return fail("unauthenticated");
+		if (!session?.user?.id) {
+			return fail("unauthenticated");
+		}
 
 		await db
 			.delete(eventRsvps)
@@ -141,7 +149,9 @@ export async function removeRsvp(eventId: string): Promise<SetRsvpResult> {
 
 export async function getUserRsvp(eventId: string) {
 	const session = await auth();
-	if (!session?.user?.id) return null;
+	if (!session?.user?.id) {
+		return null;
+	}
 
 	const [row] = await db
 		.select({
@@ -161,9 +171,13 @@ export async function getUserRsvp(eventId: string) {
 }
 
 export async function getUserRsvpsForEvents(eventIds: string[]) {
-	if (eventIds.length === 0) return new Map<string, RsvpStatus>();
+	if (eventIds.length === 0) {
+		return new Map<string, RsvpStatus>();
+	}
 	const session = await auth();
-	if (!session?.user?.id) return new Map<string, RsvpStatus>();
+	if (!session?.user?.id) {
+		return new Map<string, RsvpStatus>();
+	}
 
 	const rows = await db
 		.select({
@@ -183,7 +197,9 @@ export async function getUserRsvpsForEvents(eventIds: string[]) {
 
 export async function getRsvpCountsForEvents(eventIds: string[]) {
 	const empty: RsvpCounts = { yes: 0, no: 0, maybe: 0 };
-	if (eventIds.length === 0) return new Map<string, RsvpCounts>();
+	if (eventIds.length === 0) {
+		return new Map<string, RsvpCounts>();
+	}
 
 	const rows = await db
 		.select({
@@ -196,10 +212,14 @@ export async function getRsvpCountsForEvents(eventIds: string[]) {
 		.groupBy(eventRsvps.eventId, eventRsvps.status);
 
 	const map = new Map<string, RsvpCounts>();
-	for (const id of eventIds) map.set(id, { ...empty });
+	for (const id of eventIds) {
+		map.set(id, { ...empty });
+	}
 	for (const r of rows) {
 		const entry = map.get(r.eventId);
-		if (!entry) continue;
+		if (!entry) {
+			continue;
+		}
 		entry[r.status as RsvpStatus] = r.c;
 	}
 	return map;
@@ -232,7 +252,9 @@ export type AttendeePreview = {
 const PREVIEW_LIMIT = 4;
 
 export async function getYesAttendeePreviewForEvents(eventIds: string[]) {
-	if (eventIds.length === 0) return new Map<string, AttendeePreview[]>();
+	if (eventIds.length === 0) {
+		return new Map<string, AttendeePreview[]>();
+	}
 
 	const rows = await db
 		.select({
@@ -250,10 +272,14 @@ export async function getYesAttendeePreviewForEvents(eventIds: string[]) {
 		.orderBy(asc(eventRsvps.createdAt));
 
 	const map = new Map<string, AttendeePreview[]>();
-	for (const id of eventIds) map.set(id, []);
+	for (const id of eventIds) {
+		map.set(id, []);
+	}
 	for (const r of rows) {
 		const list = map.get(r.eventId);
-		if (!list || list.length >= PREVIEW_LIMIT) continue;
+		if (!list || list.length >= PREVIEW_LIMIT) {
+			continue;
+		}
 		list.push({ userId: r.userId, name: r.name, image: r.image });
 	}
 	return map;

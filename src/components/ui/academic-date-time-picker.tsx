@@ -25,10 +25,13 @@ const QUARTERS = [
 
 /** Parses a "YYYY-MM-DDTHH:MM" string into { date, hours, minutes } */
 function parseValue(value: string) {
-	if (!value) return { date: undefined, hours: 20, minutes: 0 };
-	const d = new Date(value);
-	if (Number.isNaN(d.getTime()))
+	if (!value) {
 		return { date: undefined, hours: 20, minutes: 0 };
+	}
+	const d = new Date(value);
+	if (Number.isNaN(d.getTime())) {
+		return { date: undefined, hours: 20, minutes: 0 };
+	}
 	return { date: d, hours: d.getHours(), minutes: d.getMinutes() };
 }
 
@@ -56,18 +59,24 @@ export function AcademicDateTimePicker({
 	const [localHours, setLocalHours] = useState(hours);
 
 	function handleDaySelect(selected: Date | undefined) {
-		if (!selected) return;
+		if (!selected) {
+			return;
+		}
 		onChange(toInputValue(selected, localHours, minutes));
 	}
 
 	function handleHourChange(h: number) {
 		setLocalHours(h);
-		if (!date) return;
+		if (!date) {
+			return;
+		}
 		onChange(toInputValue(date, h, minutes));
 	}
 
 	function handleQuarterSelect(mins: number) {
-		if (!date) return;
+		if (!date) {
+			return;
+		}
 		onChange(toInputValue(date, localHours, mins));
 		setOpen(false);
 	}

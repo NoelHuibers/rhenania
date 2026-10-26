@@ -64,7 +64,9 @@ export async function createKostenpunkt(input: {
 	positionen?: PositionInput[];
 }) {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = createSchema.parse(input);
@@ -120,7 +122,9 @@ export async function updateKostenpunkt(
 	},
 ) {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = updateSchema.parse(input);
@@ -171,7 +175,9 @@ export async function updateKostenpunkt(
 
 export async function deleteKostenpunkt(id: string) {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const [row] = await db

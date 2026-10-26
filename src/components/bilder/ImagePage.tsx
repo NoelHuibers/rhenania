@@ -32,7 +32,7 @@ const ImageSectionSkeleton = () => (
 	</div>
 );
 
-export default function AdminImageManager() {
+export function AdminImageManager() {
 	const {
 		images,
 		loading,

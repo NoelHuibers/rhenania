@@ -2,7 +2,7 @@ import { AccountSecurity } from "~/components/profile/AccountSecurity";
 import { Achievements } from "~/components/profile/Achievements";
 import { BillingOverview } from "~/components/profile/BillingOverview";
 import { FuchsenBillingOverview } from "~/components/profile/FuchsenBillingOverview";
-import GamesEloContainerDetailed from "~/components/profile/GamesEloContainer";
+import { GamesEloContainerDetailed } from "~/components/profile/GamesEloContainer";
 import { MemberAddressCard } from "~/components/profile/MemberAddressCard";
 import { PaymentInfo } from "~/components/profile/PaymentInfo";
 import { Preferences } from "~/components/profile/Preferences";

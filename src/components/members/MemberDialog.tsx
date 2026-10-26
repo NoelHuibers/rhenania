@@ -106,7 +106,9 @@ export function MemberDialog({
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			return;
+		}
 		if (member) {
 			setF({
 				status: member.status,

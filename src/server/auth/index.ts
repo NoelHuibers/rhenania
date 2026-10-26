@@ -93,7 +93,9 @@ export const betterAuthInstance = betterAuth({
 		sendResetPassword: async ({ user, url }, request) => {
 			const tenantId =
 				request?.headers.get(TENANT_HEADER) ?? (await getTenantId());
-			if (!tenantId) return;
+			if (!tenantId) {
+				return;
+			}
 
 			// Identity is global, but reset mails must only be sent from a tenant
 			// the user actually belongs to. Better Auth still returns the same
@@ -109,7 +111,9 @@ export const betterAuthInstance = betterAuth({
 					),
 				)
 				.limit(1);
-			if (!membership) return;
+			if (!membership) {
+				return;
+			}
 
 			await sendPasswordResetEmail(user.email, url);
 		},
@@ -152,7 +156,9 @@ export const betterAuthInstance = betterAuth({
 					} catch {
 						tenantId = null;
 					}
-					if (!tenantId) return;
+					if (!tenantId) {
+						return;
+					}
 
 					const mirrored = {
 						id: user.id,
@@ -196,10 +202,14 @@ export const betterAuthInstance = betterAuth({
 				// (The user.create hook only fires for brand-new users.)
 				after: async (account) => {
 					const tenantSlug = providerIdToTenantSlug.get(account.providerId);
-					if (!tenantSlug) return; // not one of our tenant-Microsoft providers
+					if (!tenantSlug) {
+						return; // not one of our tenant-Microsoft providers
+					}
 
 					const tenantId = await tenantIdFromSlug(tenantSlug);
-					if (!tenantId) return;
+					if (!tenantId) {
+						return;
+					}
 
 					await controlDb
 						.insert(tenantMemberships)
@@ -249,7 +259,9 @@ export async function auth() {
 		headers: await headers(),
 	});
 
-	if (!session) return null;
+	if (!session) {
+		return null;
+	}
 
 	const tenantId = await getTenantId();
 

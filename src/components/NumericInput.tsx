@@ -39,8 +39,12 @@ export function NumericInput({
 		if (Number.isNaN(parsed)) {
 			parsed = min;
 		} else {
-			if (parsed < min) parsed = min;
-			if (max !== undefined && parsed > max) parsed = max;
+			if (parsed < min) {
+				parsed = min;
+			}
+			if (max !== undefined && parsed > max) {
+				parsed = max;
+			}
 		}
 
 		onChange(parsed);

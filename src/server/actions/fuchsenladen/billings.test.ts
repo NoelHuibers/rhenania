@@ -152,7 +152,7 @@ describe("createNewFuchsenBilling", () => {
 		const member = await createUser();
 		const item = await createFuchsenItem();
 
-		const numbers = [];
+		const numbers: Array<string | undefined> = [];
 		for (const minutes of [0, 10, 20]) {
 			await createFuchsenOrder({ user: member, item });
 			const result = await runAt(new Date(RUN_1.getTime() + minutes * 60_000));

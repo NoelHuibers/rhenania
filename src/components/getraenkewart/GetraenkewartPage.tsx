@@ -12,7 +12,7 @@ type Props = {
 	buchungTab: React.ReactNode;
 };
 
-export default function GetraenkewartPage({
+export function GetraenkewartPage({
 	getraenkeTab,
 	inventurTab,
 	verlaufTab,

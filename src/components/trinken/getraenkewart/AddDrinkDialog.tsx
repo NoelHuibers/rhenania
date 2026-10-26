@@ -72,7 +72,9 @@ export function AddDrinkDialog({
 
 	const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
-		if (!file) return;
+		if (!file) {
+			return;
+		}
 
 		try {
 			validateImageFile(file);
@@ -99,7 +101,9 @@ export function AddDrinkDialog({
 		setPreviewUrl(null);
 		// Reset file input
 		const fileInput = document.getElementById("picture") as HTMLInputElement;
-		if (fileInput) fileInput.value = "";
+		if (fileInput) {
+			fileInput.value = "";
+		}
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -193,11 +197,11 @@ export function AddDrinkDialog({
 					} else {
 						toast.error(result.error || "Fehler beim Hinzufügen des Getränks");
 						if (result.details) {
-							result.details.forEach((detail) => {
+							for (const detail of result.details) {
 								toast.error(
 									`${detail.path.map(String).join(".")}: ${detail.message}`,
 								);
-							});
+							}
 						}
 					}
 				} catch (error) {

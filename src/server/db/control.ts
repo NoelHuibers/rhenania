@@ -15,7 +15,8 @@ export const controlClient =
 		url: env.CONTROL_DATABASE_URL,
 		authToken: env.CONTROL_DATABASE_AUTH_TOKEN,
 	});
-if (env.NODE_ENV !== "production")
+if (env.NODE_ENV !== "production") {
 	globalForControlDb.controlClient = controlClient;
+}
 
 export const controlDb = drizzle(controlClient, { schema: controlSchema });

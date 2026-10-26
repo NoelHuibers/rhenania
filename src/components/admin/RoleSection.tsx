@@ -3,7 +3,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import type { Role, UserWithRoles } from "./dashboard";
 
 const getInitials = (name: string | null) => {
-	if (!name) return "??";
+	if (!name) {
+		return "??";
+	}
 	return name
 		.split(" ")
 		.map((part) => part[0])
@@ -35,7 +37,9 @@ export function RoleSection({
 			(a, b) => orderedNames.indexOf(a.name) - orderedNames.indexOf(b.name),
 		);
 
-	if (sectionRoles.length === 0) return null;
+	if (sectionRoles.length === 0) {
+		return null;
+	}
 
 	return (
 		<div>

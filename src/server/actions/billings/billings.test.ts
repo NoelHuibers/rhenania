@@ -448,7 +448,9 @@ describe("createNewBilling", () => {
 			await createUser({ roles: ["Hausbewohner"] }),
 		];
 		const drink = await createDrink({ price: 2 });
-		for (const user of residents) await createOrderRow({ user, drink });
+		for (const user of residents) {
+			await createOrderRow({ user, drink });
+		}
 
 		const result = await createNewBilling(30);
 

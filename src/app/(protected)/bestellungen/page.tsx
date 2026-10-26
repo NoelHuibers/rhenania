@@ -1,4 +1,4 @@
-import OrdersTracker from "~/components/orders/Orderspage";
+import { OrdersTracker } from "~/components/orders/Orderspage";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 

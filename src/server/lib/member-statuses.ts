@@ -35,7 +35,9 @@ export async function getTenantMemberStatuses(): Promise<TenantMemberStatus[]> {
 		.orderBy(asc(memberStatuses.displayOrder));
 
 	const active = rows.filter((r) => r.isActive);
-	if (active.length > 0) return active;
+	if (active.length > 0) {
+		return active;
+	}
 	return DEFAULT_MEMBER_STATUSES.map((d) => ({
 		key: d.key,
 		label: d.label,
@@ -60,9 +62,13 @@ export function makeBeitragspflichtigMatcher(
 
 	return (status) => {
 		const s = normalize(status);
-		if (!s) return false;
+		if (!s) {
+			return false;
+		}
 		for (const { norm, flag } of byLongestKey) {
-			if (s.startsWith(norm)) return flag;
+			if (s.startsWith(norm)) {
+				return flag;
+			}
 		}
 		return false;
 	};

@@ -80,7 +80,9 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 
 	function scrollToEvent(eventId: string) {
 		const el = document.getElementById(`event-${eventId}`);
-		if (!el) return;
+		if (!el) {
+			return;
+		}
 		el.scrollIntoView({ behavior: "smooth", block: "center" });
 		el.classList.add("ring-2", "ring-primary", "ring-offset-2");
 		setTimeout(() => {

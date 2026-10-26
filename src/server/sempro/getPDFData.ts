@@ -60,7 +60,9 @@ export async function getPDFData(): Promise<PDFData | null> {
 		.where(eq(semesterConfig.id, "singleton"))
 		.limit(1);
 
-	if (!config?.startDate || !config?.endDate || !config.name) return null;
+	if (!config?.startDate || !config?.endDate || !config.name) {
+		return null;
+	}
 
 	// Leadership: users with Senior/Consenior/Subsenior/Fuchsmajor
 	const leaderRows = await db

@@ -17,7 +17,9 @@ import {
 type AttendeeRow = Awaited<ReturnType<typeof getEventAttendees>>[number];
 
 function initials(name: string | null | undefined) {
-	if (!name) return "?";
+	if (!name) {
+		return "?";
+	}
 	const parts = name.trim().split(/\s+/).slice(0, 2);
 	return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 }
@@ -37,7 +39,9 @@ export function RsvpAttendees({
 }) {
 	const [open, setOpen] = useState(false);
 
-	if (yesCount === 0 && maybeCount === 0) return null;
+	if (yesCount === 0 && maybeCount === 0) {
+		return null;
+	}
 
 	const overflow = Math.max(0, yesCount - preview.length);
 
@@ -100,15 +104,21 @@ function AttendeesDialog({
 	const [loading, setLoading] = useState(false);
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			return;
+		}
 		let cancelled = false;
 		setLoading(true);
 		getEventAttendees(eventId)
 			.then((data) => {
-				if (!cancelled) setRows(data);
+				if (!cancelled) {
+					setRows(data);
+				}
 			})
 			.finally(() => {
-				if (!cancelled) setLoading(false);
+				if (!cancelled) {
+					setLoading(false);
+				}
 			});
 		return () => {
 			cancelled = true;
@@ -162,7 +172,9 @@ function Group({
 	className: string;
 	rows: AttendeeRow[];
 }) {
-	if (rows.length === 0) return null;
+	if (rows.length === 0) {
+		return null;
+	}
 	return (
 		<div className="space-y-2">
 			<div className="flex items-center gap-2">

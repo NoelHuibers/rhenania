@@ -1,4 +1,5 @@
 "use server";
+import { log } from "~/server/lib/log";
 import { contactFormSchema } from "~/types/contactformschema";
 import { sendEmail } from "./sendEmail";
 
@@ -28,13 +29,13 @@ export async function onSubmitAction(
 	const currentTime = Date.now();
 
 	if (currentTime - formLoadTime < 3000) {
-		console.log("Suspicious fast form submission, ignoring.");
+		log.info("contact form rejected", { reason: "too-fast" });
 		return { message: "Success" };
 	}
 
 	const urlRegex = /(https?:\/\/[^\s]+)/g;
 	if (urlRegex.test(parsed.data.message)) {
-		console.log("Suspicious URL in message, ignoring.");
+		log.info("contact form rejected", { reason: "suspicious-url" });
 		return { message: "Success" };
 	}
 

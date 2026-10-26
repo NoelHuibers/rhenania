@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { FuchsenBillsManagement } from "./FuchsenBillsManagement";
 import { FuchsenItemsManagement } from "./FuchsenItemsManagement";
 
-export default function FuchsenwartPage() {
+export function FuchsenwartPage() {
 	return (
 		<>
 			<SiteHeader title="Fuchsenwart" />

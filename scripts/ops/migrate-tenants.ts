@@ -57,8 +57,9 @@ function parseArgs(argv: string[]) {
 
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
-	if (!args.dryRun)
+	if (!args.dryRun) {
 		guardOrExit(process.env.CONTROL_DATABASE_URL, "migrate tenant databases");
+	}
 
 	const rows = await controlDb
 		.select({
@@ -95,7 +96,9 @@ async function main() {
 		log,
 	});
 
-	if (args.json) console.log(JSON.stringify(results, null, 2));
+	if (args.json) {
+		console.log(JSON.stringify(results, null, 2));
+	}
 	if (process.env.GITHUB_STEP_SUMMARY) {
 		appendFileSync(
 			process.env.GITHUB_STEP_SUMMARY,

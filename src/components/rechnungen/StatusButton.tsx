@@ -11,7 +11,9 @@ export const StatusButton = ({
 }) => {
 	const cycleStatus = () => {
 		// "Übertragen" is system-set (rolled into a later bill) — not user-cyclable.
-		if (status === "Übertragen") return;
+		if (status === "Übertragen") {
+			return;
+		}
 		const statusOrder: BillingEntry["status"][] = [
 			"Unbezahlt",
 			"Bezahlt",

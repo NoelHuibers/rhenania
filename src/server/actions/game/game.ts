@@ -78,8 +78,12 @@ function calculateExpectedScore(
 }
 
 function getKFactor(playerElo: number, totalGames: number): number {
-	if (playerElo >= 2400) return K_FACTOR_HIGH_RATED;
-	if (totalGames >= 30) return K_FACTOR_EXPERIENCED;
+	if (playerElo >= 2400) {
+		return K_FACTOR_HIGH_RATED;
+	}
+	if (totalGames >= 30) {
+		return K_FACTOR_EXPERIENCED;
+	}
 	return K_FACTOR;
 }
 
@@ -304,16 +308,19 @@ export async function getRecentGames(
 			}),
 		);
 
-		const filtered = [];
-		for (let i = 0; i < recentGames.length; i++) {
-			// biome-ignore lint/style/noNonNullAssertion: within loop bounds
-			const g = recentGames[i]!;
+		const filtered: typeof gamesWithNames = [];
+		for (const [i, g] of recentGames.entries()) {
+			const withNames = gamesWithNames[i];
+			if (!withNames) {
+				continue;
+			}
 			const [p1, p2] = await Promise.all([
 				isEloEnabled(g.player1Id),
 				isEloEnabled(g.player2Id),
 			]);
-			// biome-ignore lint/style/noNonNullAssertion: within loop bounds
-			if (p1 && p2) filtered.push(gamesWithNames[i]!);
+			if (p1 && p2) {
+				filtered.push(withNames);
+			}
 		}
 
 		return filtered;
@@ -435,7 +442,9 @@ export async function getLeaderboard(
 			);
 
 		const memberIds = tenantMembers.map((m) => m.userId);
-		if (memberIds.length === 0) return [];
+		if (memberIds.length === 0) {
+			return [];
+		}
 
 		// 2. Control-side: stats for those members, ordered by ELO.
 		const stats = await controlDb

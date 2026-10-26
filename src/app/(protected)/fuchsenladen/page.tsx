@@ -1,4 +1,4 @@
-import FuchsenladenMenu from "~/components/fuchsenladen/FuchsenladenMenu";
+import { FuchsenladenMenu } from "~/components/fuchsenladen/FuchsenladenMenu";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 
 export default function Page() {

@@ -67,7 +67,9 @@ type Props = {
 function downloadBase64(base64: string, fileName: string, mime: string) {
 	const bytes = atob(base64);
 	const arr = new Uint8Array(bytes.length);
-	for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+	for (let i = 0; i < bytes.length; i++) {
+		arr[i] = bytes.charCodeAt(i);
+	}
 	const blob = new Blob([arr], { type: mime });
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement("a");
@@ -152,7 +154,9 @@ export function EtaplanEditorTab({
 		setEinnahmeOpen(true);
 	};
 	const confirmDeleteEinnahme = () => {
-		if (!deleteEinnahmeId) return;
+		if (!deleteEinnahmeId) {
+			return;
+		}
 		const id = deleteEinnahmeId;
 		setDeleteEinnahmeId(null);
 		startTransition(async () => {
@@ -199,7 +203,9 @@ export function EtaplanEditorTab({
 	const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		e.target.value = "";
-		if (!file) return;
+		if (!file) {
+			return;
+		}
 		const base64 = await fileToBase64(file);
 		startTransition(async () => {
 			const res = await importEtaplanXlsx({ etaplanId: etaplan.id, base64 });
@@ -207,7 +213,9 @@ export function EtaplanEditorTab({
 				toast.success(
 					`Import: ${res.created} neu, ${res.updated} aktualisiert, ${res.unchanged} unverändert`,
 				);
-				if (res.note) toast.message(res.note);
+				if (res.note) {
+					toast.message(res.note);
+				}
 				if (res.errors.length) {
 					toast.warning(`${res.errors.length} Zeilen übersprungen`);
 				}
@@ -219,7 +227,9 @@ export function EtaplanEditorTab({
 	};
 
 	const confirmDelete = () => {
-		if (!deleteId) return;
+		if (!deleteId) {
+			return;
+		}
 		const id = deleteId;
 		setDeleteId(null);
 		startTransition(async () => {
@@ -521,7 +531,9 @@ export function EtaplanEditorTab({
 			<AlertDialog
 				open={deleteEinnahmeId !== null}
 				onOpenChange={(o) => {
-					if (!o) setDeleteEinnahmeId(null);
+					if (!o) {
+						setDeleteEinnahmeId(null);
+					}
 				}}
 			>
 				<AlertDialogContent>
@@ -544,7 +556,9 @@ export function EtaplanEditorTab({
 			<AlertDialog
 				open={deleteId !== null}
 				onOpenChange={(o) => {
-					if (!o) setDeleteId(null);
+					if (!o) {
+						setDeleteId(null);
+					}
 				}}
 			>
 				<AlertDialogContent>

@@ -29,7 +29,9 @@ async function workbook(headers: string[], rows: (string | Date | number)[][]) {
 	const wb = new ExcelJS.Workbook();
 	const ws = wb.addWorksheet(SHEET_NAME);
 	ws.addRow(headers);
-	for (const r of rows) ws.addRow(r);
+	for (const r of rows) {
+		ws.addRow(r);
+	}
 	return Buffer.from(await wb.xlsx.writeBuffer()).toString("base64");
 }
 
@@ -95,7 +97,9 @@ describe("exportMembersXlsx", () => {
 			success: true,
 			fileName: "Adressliste.xlsx",
 		});
-		if (!result.success) return;
+		if (!result.success) {
+			return;
+		}
 		const wb = new ExcelJS.Workbook();
 		await wb.xlsx.load(
 			Buffer.from(result.base64, "base64") as unknown as Parameters<
@@ -103,7 +107,9 @@ describe("exportMembersXlsx", () => {
 			>[0],
 		);
 		const ws = wb.getWorksheet(SHEET_NAME);
-		if (!ws) throw new Error("sheet missing");
+		if (!ws) {
+			throw new Error("sheet missing");
+		}
 		const header = COLUMNS.map((_, i) => ws.getCell(1, i + 1).text);
 		expect(header).toEqual(COLUMNS.map((c) => c.header));
 		const col = (h: string) => COLUMNS.findIndex((c) => c.header === h) + 1;
@@ -123,7 +129,9 @@ describe("importMembersXlsx", () => {
 		await createMember({ ...fullMember });
 		await createMember({ firstName: "Anna", lastName: "Alt", status: "AH" });
 		const exported = await exportMembersXlsx();
-		if (!exported.success) throw new Error(exported.error);
+		if (!exported.success) {
+			throw new Error(exported.error);
+		}
 		const source = (await allMembers()).map(portable);
 
 		const target = await createTenant();
@@ -146,7 +154,9 @@ describe("importMembersXlsx", () => {
 		const { user } = await signInEditor();
 		const m = await createMember({ ...fullMember });
 		const exported = await exportMembersXlsx();
-		if (!exported.success) throw new Error(exported.error);
+		if (!exported.success) {
+			throw new Error(exported.error);
+		}
 		await tenantDb().update(members).set({ city: "Geändert" });
 
 		const result = await importMembersXlsx({ base64: exported.base64 });
@@ -290,7 +300,9 @@ describe("importMembersXlsx", () => {
 			extra: { ...fullMember.extra, Lieblingsbier: "Pils" },
 		});
 		const exported = await exportMembersXlsx();
-		if (!exported.success) throw new Error(exported.error);
+		if (!exported.success) {
+			throw new Error(exported.error);
+		}
 
 		await importMembersXlsx({ base64: exported.base64 });
 

@@ -13,7 +13,9 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 /** Hostname of a libSQL/HTTP database URL, or null for local files. */
 export function remoteHost(url: string): string | null {
-	if (url.startsWith("file:") || url === ":memory:") return null;
+	if (url.startsWith("file:") || url === ":memory:") {
+		return null;
+	}
 	const host = new URL(url.replace(/^libsql:/, "https:")).hostname;
 	return LOCAL_HOSTS.has(host) ? null : host;
 }
@@ -40,7 +42,9 @@ export function assertWriteAllowed(
 	what = "write",
 	env: Record<string, string | undefined> = process.env,
 ): string | null {
-	if (!url) throw new Error("No database URL configured.");
+	if (!url) {
+		throw new Error("No database URL configured.");
+	}
 	const host = remoteHost(url);
 	if (host && env.CONFIRM_PROD !== host) {
 		throw new ProductionWriteBlockedError(host, what);
@@ -52,8 +56,9 @@ export function assertWriteAllowed(
 export function guardOrExit(url: string | undefined, what: string) {
 	try {
 		const host = assertWriteAllowed(url, what);
-		if (host)
+		if (host) {
 			console.warn(`⚠ Writing to remote database ${host} (CONFIRM_PROD set).`);
+		}
 	} catch (error) {
 		console.error((error as Error).message);
 		process.exit(2);

@@ -93,7 +93,9 @@ const STATUS_CANON: Record<string, string> = {
 
 export function normalizeStatus(raw: string | null | undefined): string {
 	const s = (raw ?? "").trim();
-	if (!s) return "";
+	if (!s) {
+		return "";
+	}
 	const key = s.toLowerCase().replace(/[^a-z]/g, "");
 	return STATUS_CANON[key] ?? s;
 }
@@ -118,7 +120,9 @@ function fmtDMY(d: Date): string {
 // Geburtstag arrives as a Date (date-formatted cell), an Excel serial number, or
 // plain text. Normalize to a "DD.MM.YYYY" string for storage + round-trip.
 export function parseExcelDate(value: unknown, text: string): string | null {
-	if (value instanceof Date) return fmtDMY(value);
+	if (value instanceof Date) {
+		return fmtDMY(value);
+	}
 	if (typeof value === "number" && value > 0 && value < 100000) {
 		return fmtDMY(
 			new Date(Date.UTC(1899, 11, 30) + Math.round(value) * 86400000),

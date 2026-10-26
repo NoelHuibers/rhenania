@@ -73,7 +73,9 @@ export function calculateInventoryData(): InventoryItem[] {
 
 export function initializeSampleData(): void {
 	// Only initialize if no products exist
-	if (ProductStorage.getAll().length > 0) return;
+	if (ProductStorage.getAll().length > 0) {
+		return;
+	}
 
 	// Add sample products
 	const beer = ProductStorage.add({

@@ -326,7 +326,9 @@ export function KontenPage({
 	}
 
 	async function confirmDelete() {
-		if (!deleteId) return;
+		if (!deleteId) {
+			return;
+		}
 		await deleteKonto(deleteId);
 		setDeleteId(null);
 		router.refresh();

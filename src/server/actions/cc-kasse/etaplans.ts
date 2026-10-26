@@ -33,7 +33,9 @@ export async function createEtaplan(input: {
 	notes?: string | null;
 }) {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = baseSchema.parse(input);
@@ -92,7 +94,9 @@ export async function updateEtaplan(
 	},
 ) {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = baseSchema.partial().parse(input);
@@ -101,8 +105,9 @@ export async function updateEtaplan(
 			.set(parsed)
 			.where(eq(etaplans.id, id))
 			.returning();
-		if (!row)
+		if (!row) {
 			return { success: false as const, error: "Etatplan nicht gefunden" };
+		}
 
 		revalidatePath("/cc-kasse");
 		return { success: true as const, data: row };
@@ -127,7 +132,9 @@ export async function setEtaplanStatus(
 
 export async function deleteEtaplan(id: string) {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		// Refuse if any approved/paid reimbursements exist — prefer "Abschließen".

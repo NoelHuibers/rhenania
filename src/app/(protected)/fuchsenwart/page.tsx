@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import FuchsenwartPage from "~/components/fuchsenladen/FuchsenwartPage";
+import { FuchsenwartPage } from "~/components/fuchsenladen/FuchsenwartPage";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { hasAnyRole } from "~/server/actions/admin/userRoles";
 import { auth } from "~/server/auth";

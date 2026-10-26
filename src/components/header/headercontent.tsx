@@ -6,7 +6,7 @@ import { getCurrentTenant } from "~/server/lib/tenant-context";
 // Social links and email below are still Rhenania-hardcoded — they need a
 // per-tenant `branding` config (instagram URL, wikipedia URL, contact email)
 // before non-Rhenania tenants ship a public site. Tracked as MVP follow-up.
-const HeaderContent = async () => {
+export const HeaderContent = async () => {
 	const tenant = await getCurrentTenant();
 	const name = tenant?.displayName ?? "Corps";
 
@@ -40,5 +40,3 @@ const HeaderContent = async () => {
 		</>
 	);
 };
-
-export default HeaderContent;

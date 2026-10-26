@@ -63,7 +63,9 @@ export async function getGlobalPeakEloHolder(): Promise<GlobalPeakHolder | null>
 		.orderBy(desc(userStats.peakElo))
 		.limit(1);
 
-	if (!top) return null;
+	if (!top) {
+		return null;
+	}
 
 	const [userRow] = await controlDb
 		.select({ name: users.name })
@@ -102,7 +104,9 @@ export async function listChallengeableTenants(): Promise<
 	ChallengeableTenant[]
 > {
 	const session = await auth();
-	if (!session?.user?.id) return [];
+	if (!session?.user?.id) {
+		return [];
+	}
 
 	const currentTenantId = await getTenantId();
 
@@ -118,7 +122,9 @@ export async function listChallengeableTenants(): Promise<
 	const others = currentTenantId
 		? allActive.filter((t) => t.id !== currentTenantId)
 		: allActive;
-	if (others.length === 0) return [];
+	if (others.length === 0) {
+		return [];
+	}
 
 	const counts = await controlDb
 		.select({
@@ -155,7 +161,9 @@ export async function listChallengeableUsers(
 	tenantId: string,
 ): Promise<ChallengeableUser[]> {
 	const session = await auth();
-	if (!session?.user?.id) return [];
+	if (!session?.user?.id) {
+		return [];
+	}
 	const myUserId = session.user.id;
 
 	const memberships = await controlDb
@@ -168,7 +176,9 @@ export async function listChallengeableUsers(
 				ne(tenantMemberships.userId, myUserId),
 			),
 		);
-	if (memberships.length === 0) return [];
+	if (memberships.length === 0) {
+		return [];
+	}
 	const memberIds = memberships.map((m) => m.userId);
 
 	const [userRows, statsRows] = await Promise.all([
@@ -215,7 +225,9 @@ export async function getGlobalLeaderboard(
 		.limit(limit)
 		.offset(offset);
 
-	if (stats.length === 0) return [];
+	if (stats.length === 0) {
+		return [];
+	}
 
 	const userIds = stats.map((s) => s.userId);
 

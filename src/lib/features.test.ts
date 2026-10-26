@@ -11,7 +11,9 @@ import {
 test("every flag is off by default", () => {
 	const flags = defaultFeatureFlags();
 	assert.equal(FEATURE_KEYS.length > 0, true);
-	for (const key of FEATURE_KEYS) assert.equal(flags[key], false);
+	for (const key of FEATURE_KEYS) {
+		assert.equal(flags[key], false);
+	}
 });
 
 test("stored rows switch individual flags on", () => {
@@ -38,8 +40,9 @@ test("only registered keys are feature keys, not prototype members", () => {
 		"__proto__",
 		"",
 		"DRINKS.MARKUP",
-	])
+	]) {
 		assert.equal(isFeatureKey(key), false);
+	}
 });
 
 test("the last row for a key wins", () => {

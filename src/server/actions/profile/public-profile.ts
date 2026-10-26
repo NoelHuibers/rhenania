@@ -59,7 +59,9 @@ export async function getPublicProfile(
 	userId: string,
 ): Promise<PublicProfileResult> {
 	const session = await auth();
-	if (!session?.user?.id) throw new Error("Nicht angemeldet");
+	if (!session?.user?.id) {
+		throw new Error("Nicht angemeldet");
+	}
 
 	// The tenant DB is per-tenant, so a `user` row proves same-tenant membership.
 	const [targetUser] = await db
@@ -68,7 +70,9 @@ export async function getPublicProfile(
 		.where(eq(users.id, userId))
 		.limit(1);
 
-	if (!targetUser) return { status: "not_found" };
+	if (!targetUser) {
+		return { status: "not_found" };
+	}
 
 	if (!(await isPublicProfileEnabledForUser(userId))) {
 		return { status: "private", user: targetUser };

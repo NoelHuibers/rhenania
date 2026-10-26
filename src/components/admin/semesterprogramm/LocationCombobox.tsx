@@ -50,7 +50,9 @@ export function LocationCombobox({
 	}
 
 	function handleKeyDown(e: React.KeyboardEvent) {
-		if (e.key === "Escape") setOpen(false);
+		if (e.key === "Escape") {
+			setOpen(false);
+		}
 	}
 
 	const filtered = venues.filter((v) =>

@@ -247,7 +247,9 @@ export async function respondToCrossTenantChallenge(input: {
 		.from(crossTenantChallenges)
 		.where(eq(crossTenantChallenges.id, input.challengeId))
 		.limit(1);
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.opponentId !== userId) {
 		return { success: false, error: "Nur der Herausgeforderte kann antworten" };
 	}
@@ -306,7 +308,9 @@ export async function cancelCrossTenantChallenge(
 		.from(crossTenantChallenges)
 		.where(eq(crossTenantChallenges.id, challengeId))
 		.limit(1);
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.challengerId !== userId && row.opponentId !== userId) {
 		return { success: false, error: "Keine Berechtigung" };
 	}
@@ -343,7 +347,9 @@ export async function proposeCrossTenantResult(input: {
 		.from(crossTenantChallenges)
 		.where(eq(crossTenantChallenges.id, input.challengeId))
 		.limit(1);
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.challengerId !== userId && row.opponentId !== userId) {
 		return { success: false, error: "Keine Berechtigung" };
 	}
@@ -388,7 +394,9 @@ export async function confirmCrossTenantResult(
 		.from(crossTenantChallenges)
 		.where(eq(crossTenantChallenges.id, challengeId))
 		.limit(1);
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.status !== "result_proposed") {
 		return {
 			success: false,
@@ -435,7 +443,9 @@ export async function disputeCrossTenantResult(
 		.from(crossTenantChallenges)
 		.where(eq(crossTenantChallenges.id, challengeId))
 		.limit(1);
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.status !== "result_proposed") {
 		return { success: false, error: "Kein Ergebnisvorschlag offen" };
 	}
@@ -465,7 +475,9 @@ async function settleCrossTenantChallenge(
 		.from(crossTenantChallenges)
 		.where(eq(crossTenantChallenges.id, challengeId))
 		.limit(1);
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.proposedWinnerId == null) {
 		return { success: false, error: "Kein Gewinner vorgeschlagen" };
 	}
@@ -576,7 +588,9 @@ export async function getMyCrossTenantChallenges(): Promise<CrossChallengeFeed> 
 	};
 
 	const session = await auth();
-	if (!session?.user?.id) return empty;
+	if (!session?.user?.id) {
+		return empty;
+	}
 	const userId = session.user.id;
 
 	await sweepExpiredCrossTenantChallenges();
@@ -593,7 +607,9 @@ export async function getMyCrossTenantChallenges(): Promise<CrossChallengeFeed> 
 		.orderBy(desc(crossTenantChallenges.createdAt))
 		.limit(200);
 
-	if (rows.length === 0) return empty;
+	if (rows.length === 0) {
+		return empty;
+	}
 
 	// Resolve display names (control users + tenant slug/name).
 	const userIds = new Set<string>();
@@ -665,15 +681,21 @@ export async function getMyCrossTenantChallenges(): Promise<CrossChallengeFeed> 
 
 		switch (r.status) {
 			case "pending":
-				if (role === "challenger") feed.outgoingPending.push(view);
-				else feed.incomingPending.push(view);
+				if (role === "challenger") {
+					feed.outgoingPending.push(view);
+				} else {
+					feed.incomingPending.push(view);
+				}
 				break;
 			case "accepted":
 				feed.awaitingMyResult.push(view);
 				break;
 			case "result_proposed":
-				if (r.proposedById === userId) feed.active.push(view);
-				else feed.awaitingMyConfirm.push(view);
+				if (r.proposedById === userId) {
+					feed.active.push(view);
+				} else {
+					feed.awaitingMyConfirm.push(view);
+				}
 				break;
 			case "disputed":
 				feed.disputed.push(view);

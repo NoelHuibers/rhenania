@@ -20,7 +20,9 @@ import {
 
 export async function exportMembersXlsx() {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const rows = await db
@@ -69,7 +71,9 @@ export async function exportMembersXlsx() {
 
 export async function importMembersXlsx(input: { base64: string }) {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const wb = new ExcelJS.Workbook();
@@ -88,7 +92,9 @@ export async function importMembersXlsx(input: { base64: string }) {
 		const colCount = ws.columnCount;
 		for (let c = 1; c <= colCount; c++) {
 			const h = String(ws.getCell(HEADER_ROW, c).text ?? "").trim();
-			if (h) headerToCol.set(h, c);
+			if (h) {
+				headerToCol.set(h, c);
+			}
 		}
 		const mapped = COLUMNS.map((def) => ({
 			def,
@@ -99,7 +105,9 @@ export async function importMembersXlsx(input: { base64: string }) {
 		const knownCols = new Set(mapped.map((m) => m.col));
 		const extraCols: { header: string; col: number }[] = [];
 		for (const [h, c] of headerToCol) {
-			if (!knownCols.has(c)) extraCols.push({ header: h, col: c });
+			if (!knownCols.has(c)) {
+				extraCols.push({ header: h, col: c });
+			}
 		}
 
 		// Existing members for upsert matching.
@@ -108,8 +116,12 @@ export async function importMembersXlsx(input: { base64: string }) {
 		const byEmail = new Map<string, string>();
 		const byName = new Map<string, string>();
 		for (const m of existing) {
-			if (m.externalId) byExt.set(m.externalId, m.id);
-			if (m.email) byEmail.set(m.email.toLowerCase(), m.id);
+			if (m.externalId) {
+				byExt.set(m.externalId, m.id);
+			}
+			if (m.email) {
+				byEmail.set(m.email.toLowerCase(), m.id);
+			}
 			byName.set(
 				`${m.lastName.toLowerCase()}|${m.firstName.toLowerCase()}`,
 				m.id,
@@ -129,7 +141,9 @@ export async function importMembersXlsx(input: { base64: string }) {
 				const cell = ws.getCell(row, col);
 				const text = String(cell.text ?? "").trim();
 				if ("extraKey" in def) {
-					if (text) extra[def.extraKey] = text;
+					if (text) {
+						extra[def.extraKey] = text;
+					}
 				} else if (def.kind === "bool") {
 					v[def.field] = parseBool(text);
 				} else if (def.kind === "date") {
@@ -140,12 +154,16 @@ export async function importMembersXlsx(input: { base64: string }) {
 			}
 			for (const { header, col } of extraCols) {
 				const text = String(ws.getCell(row, col).text ?? "").trim();
-				if (text) extra[header] = text;
+				if (text) {
+					extra[header] = text;
+				}
 			}
 
 			const lastName = (v.lastName as string | null) ?? null;
 			const firstName = (v.firstName as string | null) ?? null;
-			if (!lastName && !firstName) continue; // empty row
+			if (!lastName && !firstName) {
+				continue; // empty row
+			}
 			if (!lastName || !firstName) {
 				errors.push(`Zeile ${row}: Name unvollständig`);
 				skipped++;
@@ -205,8 +223,12 @@ export async function importMembersXlsx(input: { base64: string }) {
 					})
 					.returning({ id: members.id });
 				if (ins) {
-					if (externalId) byExt.set(externalId, ins.id);
-					if (email) byEmail.set(email.toLowerCase(), ins.id);
+					if (externalId) {
+						byExt.set(externalId, ins.id);
+					}
+					if (email) {
+						byEmail.set(email.toLowerCase(), ins.id);
+					}
 					byName.set(
 						`${lastName.toLowerCase()}|${firstName.toLowerCase()}`,
 						ins.id,

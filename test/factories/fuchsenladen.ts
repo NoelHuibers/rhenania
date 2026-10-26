@@ -21,7 +21,9 @@ export async function createFuchsenItem(
 		.db.insert(fuchsenItems)
 		.values({ name: `Artikel ${next()}`, price: 1, ...opts })
 		.returning();
-	if (!item) throw new Error("Could not create fuchsen item");
+	if (!item) {
+		throw new Error("Could not create fuchsen item");
+	}
 	return item;
 }
 
@@ -53,7 +55,9 @@ export async function createFuchsenOrder(
 			...(opts.createdAt && { createdAt: opts.createdAt }),
 		})
 		.returning();
-	if (!order) throw new Error("Could not create fuchsen order");
+	if (!order) {
+		throw new Error("Could not create fuchsen order");
+	}
 	return order;
 }
 
@@ -85,8 +89,10 @@ export async function createFuchsenBillPeriod(
 			...(opts.createdAt && { createdAt: opts.createdAt }),
 		})
 		.returning();
-	if (!period) throw new Error("Could not create fuchsen bill period");
-	const created = [];
+	if (!period) {
+		throw new Error("Could not create fuchsen bill period");
+	}
+	const created: (typeof fuchsenBills.$inferSelect)[] = [];
 	for (const b of bills) {
 		const [bill] = await db
 			.insert(fuchsenBills)
@@ -101,7 +107,9 @@ export async function createFuchsenBillPeriod(
 				...(opts.createdAt && { createdAt: opts.createdAt }),
 			})
 			.returning();
-		if (!bill) throw new Error("Could not create fuchsen bill");
+		if (!bill) {
+			throw new Error("Could not create fuchsen bill");
+		}
 		created.push(bill);
 	}
 	return { period, bills: created };

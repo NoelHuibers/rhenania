@@ -52,7 +52,9 @@ export function resolveFeatureFlags(
 ): FeatureFlags {
 	const flags = defaultFeatureFlags();
 	for (const row of rows) {
-		if (isFeatureKey(row.key)) flags[row.key] = row.enabled;
+		if (isFeatureKey(row.key)) {
+			flags[row.key] = row.enabled;
+		}
 	}
 	return flags;
 }

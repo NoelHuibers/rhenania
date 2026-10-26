@@ -271,7 +271,9 @@ export function RecurringEventsManager({
 	}
 
 	async function confirmDelete() {
-		if (!deleteId) return;
+		if (!deleteId) {
+			return;
+		}
 		await deleteRecurringEvent(deleteId);
 		setDeleteId(null);
 		router.refresh();
@@ -558,7 +560,9 @@ export function RecurringEventsManager({
 				<Sheet
 					open={showCreateForm || editingId !== null}
 					onOpenChange={(open) => {
-						if (!open) closeForm();
+						if (!open) {
+							closeForm();
+						}
 					}}
 				>
 					<SheetContent

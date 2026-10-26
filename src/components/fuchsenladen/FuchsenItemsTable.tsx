@@ -60,7 +60,9 @@ export function FuchsenItemsTable({
 		input.accept = "image/jpeg,image/png,image/webp";
 		input.onchange = async (e) => {
 			const file = (e.target as HTMLInputElement).files?.[0];
-			if (!file) return;
+			if (!file) {
+				return;
+			}
 			startTransition(async () => {
 				await onImageUpdate(id, file);
 			});

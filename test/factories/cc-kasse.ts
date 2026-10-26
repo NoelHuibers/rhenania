@@ -29,7 +29,9 @@ export async function createEtaplan(
 			...opts,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create etaplan");
+	if (!row) {
+		throw new Error("Could not create etaplan");
+	}
 	return row;
 }
 
@@ -69,7 +71,9 @@ export async function createKostenpunkt(
 			income,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create kostenpunkt");
+	if (!row) {
+		throw new Error("Could not create kostenpunkt");
+	}
 	if (positionen?.length) {
 		await db.insert(kostenpunktPositionen).values(
 			positionen.map((p, i) => ({
@@ -105,7 +109,9 @@ export async function createReimbursement(
 			...opts,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create reimbursement");
+	if (!row) {
+		throw new Error("Could not create reimbursement");
+	}
 	return row;
 }
 
@@ -126,7 +132,9 @@ export async function createEinnahme(
 			...opts,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create einnahme");
+	if (!row) {
+		throw new Error("Could not create einnahme");
+	}
 	return row;
 }
 
@@ -145,6 +153,8 @@ export async function createKonto(
 			...opts,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create konto");
+	if (!row) {
+		throw new Error("Could not create konto");
+	}
 	return row;
 }

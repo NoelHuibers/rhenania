@@ -31,7 +31,9 @@ export async function createEinnahme(input: {
 	incomeDate: Date;
 }) {
 	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = einnahmeSchema.parse(input);
@@ -76,7 +78,9 @@ export async function updateEinnahme(
 	},
 ) {
 	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = einnahmeSchema.parse(input);
@@ -122,7 +126,9 @@ export async function updateEinnahme(
 
 export async function deleteEinnahme(id: string) {
 	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		await db.delete(einnahmen).where(eq(einnahmen.id, id));
@@ -137,7 +143,9 @@ export async function deleteEinnahme(id: string) {
 export async function listEinnahmen(etaplanId: string) {
 	// Read access for all Etaplan editors; booking/editing is treasury-only.
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return [];
+	if (!guard.ok) {
+		return [];
+	}
 
 	return db.query.einnahmen.findMany({
 		where: (t, { eq }) => eq(t.etaplanId, etaplanId),

@@ -11,13 +11,17 @@ import type {
 // biome-ignore lint/complexity/noStaticOnlyClass: utility class pattern for localStorage abstraction
 export class LocalStorage {
 	static get<T>(key: string): T[] {
-		if (typeof window === "undefined") return [];
+		if (typeof window === "undefined") {
+			return [];
+		}
 		const data = localStorage.getItem(key);
 		return data ? JSON.parse(data) : [];
 	}
 
 	static set<T>(key: string, data: T[]): void {
-		if (typeof window === "undefined") return;
+		if (typeof window === "undefined") {
+			return;
+		}
 		localStorage.setItem(key, JSON.stringify(data));
 	}
 
@@ -43,7 +47,9 @@ export class LocalStorage {
 	): T | null {
 		const items = LocalStorage.get<T>(key);
 		const index = items.findIndex((item) => item.id === id);
-		if (index === -1) return null;
+		if (index === -1) {
+			return null;
+		}
 
 		items[index] = {
 			...items[index],
@@ -57,7 +63,9 @@ export class LocalStorage {
 	static delete<T extends { id: string }>(key: string, id: string): boolean {
 		const items = LocalStorage.get<T>(key);
 		const filteredItems = items.filter((item) => item.id !== id);
-		if (filteredItems.length === items.length) return false;
+		if (filteredItems.length === items.length) {
+			return false;
+		}
 
 		LocalStorage.set(key, filteredItems);
 		return true;

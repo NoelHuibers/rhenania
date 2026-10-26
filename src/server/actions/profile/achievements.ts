@@ -29,7 +29,9 @@ export type UserAchievementData = {
 
 export async function getUserAchievements(): Promise<UserAchievementData[]> {
 	const session = await auth();
-	if (!session?.user?.id) throw new Error("Nicht angemeldet");
+	if (!session?.user?.id) {
+		throw new Error("Nicht angemeldet");
+	}
 
 	const userId = session.user.id;
 

@@ -40,7 +40,9 @@ export function setupTestDatabases() {
 		testState.control = createControlTestDb();
 	});
 	afterEach(() => {
-		for (const tenant of testState.tenants.values()) tenant.close();
+		for (const tenant of testState.tenants.values()) {
+			tenant.close();
+		}
 		testState.tenants.clear();
 		testState.control?.close();
 		testState.control = null;
@@ -107,7 +109,9 @@ export async function setFeature(
 	enabled: boolean,
 	tenantId = testState.tenantId,
 ) {
-	if (!tenantId) throw new Error("No tenant");
+	if (!tenantId) {
+		throw new Error("No tenant");
+	}
 	await requireControl()
 		.db.insert(tenantFeatures)
 		.values({ tenantId, key, enabled })
@@ -125,12 +129,16 @@ export async function ensureRole(name: string, tenantId = testState.tenantId) {
 		.from(roles)
 		.where(eq(roles.name, name))
 		.limit(1);
-	if (existing) return existing.id;
+	if (existing) {
+		return existing.id;
+	}
 	const [created] = await db
 		.insert(roles)
 		.values({ name })
 		.returning({ id: roles.id });
-	if (!created) throw new Error(`Could not create role ${name}`);
+	if (!created) {
+		throw new Error(`Could not create role ${name}`);
+	}
 	return created.id;
 }
 
@@ -200,7 +208,9 @@ export async function createDrink(
 			isCurrentlyAvailable: opts.available ?? true,
 		})
 		.returning();
-	if (!drink) throw new Error("Could not create drink");
+	if (!drink) {
+		throw new Error("Could not create drink");
+	}
 	return drink;
 }
 

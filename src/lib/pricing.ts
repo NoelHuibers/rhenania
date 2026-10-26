@@ -18,7 +18,9 @@ export function isValidMarkupPercent(value: number): boolean {
 
 /** Purchase price plus markup, rounded to whole cents. */
 export function applyMarkup(price: number, markupPercent: number): number {
-	if (!isValidMarkupPercent(markupPercent) || markupPercent === 0) return price;
+	if (!isValidMarkupPercent(markupPercent) || markupPercent === 0) {
+		return price;
+	}
 	return roundToCent(price * (1 + markupPercent / 100));
 }
 

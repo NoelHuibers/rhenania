@@ -99,8 +99,12 @@ export function RecentOrders() {
 			.filter((o) => (showOutOfBillOnly ? !o.inBill : true))
 			.filter((o) => {
 				const d = new Date(o.createdAt);
-				if (from && d < from) return false;
-				if (to && d > to) return false;
+				if (from && d < from) {
+					return false;
+				}
+				if (to && d > to) {
+					return false;
+				}
 				return true;
 			})
 			.sort(

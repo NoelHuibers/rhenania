@@ -1,6 +1,6 @@
 // bilder/page.tsx
 
-import ImagePage from "~/components/bilder/ImagePage";
+import { AdminImageManager as ImagePage } from "~/components/bilder/ImagePage";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 
 export default function HomePage() {

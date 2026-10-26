@@ -16,7 +16,9 @@ export function Haus({ images }: { images: string[] }) {
 	useLayoutEffect(() => {
 		const el = section.current;
 		const layer = bg.current;
-		if (!el || !layer || prefersReducedMotion()) return;
+		if (!el || !layer || prefersReducedMotion()) {
+			return;
+		}
 		const { gsap } = ensureGsap();
 		const ctx = gsap.context(() => {
 			gsap.fromTo(

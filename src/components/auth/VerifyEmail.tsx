@@ -27,7 +27,7 @@ interface VerifyEmailPageProps {
 	}>;
 }
 
-export default function VerifyEmailPage({
+export function VerifyEmailPage({
 	verifyEmailAndSetPassword,
 }: VerifyEmailPageProps) {
 	const router = useRouter();

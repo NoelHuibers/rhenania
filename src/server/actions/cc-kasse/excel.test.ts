@@ -56,7 +56,9 @@ async function sheet(rows: (string | number | null)[][]) {
 	ws.getRow(2).values = ["Kostenpunkt:", "Datum:", "Bemerkung:"];
 	rows.forEach((r, i) => {
 		r.forEach((v, c) => {
-			if (v !== null) ws.getCell(i + 3, c + 1).value = v;
+			if (v !== null) {
+				ws.getCell(i + 3, c + 1).value = v;
+			}
 		});
 	});
 	return toBase64(wb);
@@ -147,9 +149,13 @@ describe("exportEtaplanXlsx", () => {
 			success: true,
 			fileName: "Etatplan_SS2026.xlsx",
 		});
-		if (!result.success) return;
+		if (!result.success) {
+			return;
+		}
 		const ws = (await loadWorkbook(result.base64)).getWorksheet(SHEET_NAME);
-		if (!ws) throw new Error("sheet missing");
+		if (!ws) {
+			throw new Error("sheet missing");
+		}
 		const cell = (addr: string) => ws.getCell(addr).value;
 		expect(cell("A1")).toBe("Corps Rhenania Stuttgart Etatplan SS");
 		expect(cell("E1")).toBe(2026);
@@ -220,7 +226,9 @@ describe("importEtaplanXlsx", () => {
 		});
 		const target = await createEtaplan();
 		const exported = await exportEtaplanXlsx(source.id);
-		if (!exported.success) throw new Error(exported.error);
+		if (!exported.success) {
+			throw new Error(exported.error);
+		}
 
 		const result = await importEtaplanXlsx({
 			etaplanId: target.id,
@@ -251,7 +259,9 @@ describe("importEtaplanXlsx", () => {
 		});
 		const target = await createEtaplan();
 		const exported = await exportEtaplanXlsx(source.id);
-		if (!exported.success) throw new Error(exported.error);
+		if (!exported.success) {
+			throw new Error(exported.error);
+		}
 
 		await importEtaplanXlsx({ etaplanId: target.id, base64: exported.base64 });
 

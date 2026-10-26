@@ -82,9 +82,15 @@ export function CcKassePage({
 
 	const navigate = (next: { tab?: string; etaplan?: string; run?: string }) => {
 		const params = new URLSearchParams(sp.toString());
-		if (next.tab) params.set("tab", next.tab);
-		if (next.etaplan) params.set("etaplan", next.etaplan);
-		if (next.run) params.set("run", next.run);
+		if (next.tab) {
+			params.set("tab", next.tab);
+		}
+		if (next.etaplan) {
+			params.set("etaplan", next.etaplan);
+		}
+		if (next.run) {
+			params.set("run", next.run);
+		}
 		router.replace(`/cc-kasse?${params.toString()}`);
 	};
 
@@ -234,8 +240,11 @@ export function CcKassePage({
 				open={createOpen}
 				onOpenChange={setCreateOpen}
 				onSaved={(id) => {
-					if (id) navigate({ etaplan: id });
-					else router.refresh();
+					if (id) {
+						navigate({ etaplan: id });
+					} else {
+						router.refresh();
+					}
 				}}
 			/>
 		</div>

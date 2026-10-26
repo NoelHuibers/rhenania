@@ -10,6 +10,7 @@ import {
 	like,
 	ne,
 	or,
+	type SQL,
 	sql,
 } from "drizzle-orm";
 import { db } from "~/server/db";
@@ -34,7 +35,7 @@ export async function getTransactions(filters: TransactionFilters = {}) {
 		} = filters;
 
 		// Build where conditions
-		const conditions = [];
+		const conditions: Array<SQL | undefined> = [];
 
 		// Search filter
 		if (search?.trim()) {
@@ -120,7 +121,7 @@ export async function getTransactionCount(filters: TransactionFilters = {}) {
 		const { search = "", billStatus = "all", purposeFilter = "all" } = filters;
 
 		// Build where conditions (same as above)
-		const conditions = [];
+		const conditions: Array<SQL | undefined> = [];
 
 		if (search?.trim()) {
 			const searchTerm = `%${search.trim().toLowerCase()}%`;

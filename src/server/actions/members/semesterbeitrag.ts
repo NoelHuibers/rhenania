@@ -28,7 +28,9 @@ function round2(n: number) {
 
 export async function listBeitragRuns() {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return [];
+	if (!guard.ok) {
+		return [];
+	}
 	return db
 		.select()
 		.from(semesterbeitragRuns)
@@ -64,7 +66,9 @@ async function insertCharges(
 	const beitragMembers = allMembers.filter((m) =>
 		isBeitragspflichtig(m.status),
 	);
-	if (!beitragMembers.length) return 0;
+	if (!beitragMembers.length) {
+		return 0;
+	}
 	await db
 		.insert(semesterbeitragCharges)
 		.values(
@@ -88,7 +92,9 @@ export async function createBeitragRun(input: {
 	dueDate: Date;
 }) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	try {
 		const parsed = createRunSchema.parse(input);
 		const runId = crypto.randomUUID();
@@ -121,11 +127,15 @@ export async function createBeitragRun(input: {
 // member became beitragspflichtig after the run was created).
 export async function regenerateCharges(runId: string) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	const run = await db.query.semesterbeitragRuns.findFirst({
 		where: (t, { eq }) => eq(t.id, runId),
 	});
-	if (!run) return { success: false as const, error: "Lauf nicht gefunden" };
+	if (!run) {
+		return { success: false as const, error: "Lauf nicht gefunden" };
+	}
 	const added = await insertCharges(runId, run.amount);
 	revalidatePath("/cc-kasse");
 	return { success: true as const, data: { checked: added } };
@@ -136,12 +146,16 @@ export async function regenerateCharges(runId: string) {
 // overview). Open/gemahnte charges are removed with the run.
 export async function deleteBeitragRun(runId: string) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	try {
 		const run = await db.query.semesterbeitragRuns.findFirst({
 			where: (t, { eq }) => eq(t.id, runId),
 		});
-		if (!run) return { success: false as const, error: "Lauf nicht gefunden" };
+		if (!run) {
+			return { success: false as const, error: "Lauf nicht gefunden" };
+		}
 		const [row] = await db
 			.select({ c: sql<number>`count(*)` })
 			.from(semesterbeitragCharges)
@@ -177,11 +191,15 @@ export async function deleteBeitragRun(runId: string) {
 
 export async function listChargesForRun(runId: string) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return null;
+	if (!guard.ok) {
+		return null;
+	}
 	const run = await db.query.semesterbeitragRuns.findFirst({
 		where: (t, { eq }) => eq(t.id, runId),
 	});
-	if (!run) return null;
+	if (!run) {
+		return null;
+	}
 	const charges = await db.query.semesterbeitragCharges.findMany({
 		where: (t, { eq }) => eq(t.runId, runId),
 		orderBy: (t, { asc }) => [asc(t.memberName)],
@@ -209,7 +227,9 @@ export type ChargeListItem = ChargesForRun["charges"][number];
 
 export async function markChargePaid(chargeId: string) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	await db
 		.update(semesterbeitragCharges)
 		.set({ status: "Bezahlt", paidAt: new Date(), paidBy: guard.userId })
@@ -220,7 +240,9 @@ export async function markChargePaid(chargeId: string) {
 
 export async function markChargeDeferred(chargeId: string) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	await db
 		.update(semesterbeitragCharges)
 		.set({ status: "Gestundet", paidAt: null, paidBy: null })
@@ -231,12 +253,16 @@ export async function markChargeDeferred(chargeId: string) {
 
 export async function markChargeUnpaid(chargeId: string) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	const charge = await db.query.semesterbeitragCharges.findFirst({
 		where: (t, { eq }) => eq(t.id, chargeId),
 		columns: { id: true, mahnungSentAt: true },
 	});
-	if (!charge) return { success: false as const, error: "Nicht gefunden" };
+	if (!charge) {
+		return { success: false as const, error: "Nicht gefunden" };
+	}
 	await db
 		.update(semesterbeitragCharges)
 		.set({
@@ -256,12 +282,16 @@ export async function sendBeitragEmails(
 	opts?: { onlyUnsent?: boolean },
 ) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	const onlyUnsent = opts?.onlyUnsent ?? true;
 	const run = await db.query.semesterbeitragRuns.findFirst({
 		where: (t, { eq }) => eq(t.id, runId),
 	});
-	if (!run) return { success: false as const, error: "Lauf nicht gefunden" };
+	if (!run) {
+		return { success: false as const, error: "Lauf nicht gefunden" };
+	}
 
 	const charges = await db.query.semesterbeitragCharges.findMany({
 		where: (t, { eq }) => eq(t.runId, runId),
@@ -272,7 +302,9 @@ export async function sendBeitragEmails(
 	let lettersPending = 0;
 	let failed = 0;
 	for (const c of charges) {
-		if (onlyUnsent && c.emailSentAt) continue;
+		if (onlyUnsent && c.emailSentAt) {
+			continue;
+		}
 		try {
 			const pdf = await generateBeitragPDF(c.id, { isMahnung: false });
 			if (!pdf.success) {
@@ -312,11 +344,15 @@ export async function sendBeitragEmails(
 
 export async function sendMahnungen(runId: string) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	const run = await db.query.semesterbeitragRuns.findFirst({
 		where: (t, { eq }) => eq(t.id, runId),
 	});
-	if (!run) return { success: false as const, error: "Lauf nicht gefunden" };
+	if (!run) {
+		return { success: false as const, error: "Lauf nicht gefunden" };
+	}
 	if (run.dueDate.getTime() >= Date.now()) {
 		return {
 			success: false as const,
@@ -335,7 +371,9 @@ export async function sendMahnungen(runId: string) {
 	let failed = 0;
 	let processed = 0;
 	for (const c of charges) {
-		if (c.mahnungSentAt) continue;
+		if (c.mahnungSentAt) {
+			continue;
+		}
 		try {
 			await db
 				.update(semesterbeitragCharges)
@@ -388,11 +426,15 @@ export async function downloadChargePdf(
 	opts?: { isMahnung?: boolean },
 ) {
 	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	const pdf = await generateBeitragPDF(chargeId, {
 		isMahnung: opts?.isMahnung ?? false,
 	});
-	if (!pdf.success) return { success: false as const, error: pdf.error };
+	if (!pdf.success) {
+		return { success: false as const, error: pdf.error };
+	}
 	return {
 		success: true as const,
 		base64: pdf.pdfContent.toString("base64"),

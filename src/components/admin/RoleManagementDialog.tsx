@@ -35,7 +35,9 @@ export function RoleManagementDialog({
 	onRoleToggle,
 	isPending,
 }: RoleManagementDialogProps) {
-	if (!user) return null;
+	if (!user) {
+		return null;
+	}
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>

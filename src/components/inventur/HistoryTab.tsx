@@ -61,7 +61,7 @@ function DiffBadge({ difference }: { difference: number }) {
 	);
 }
 
-export default function HistoryTab({ history }: HistoryTabProps) {
+export function HistoryTab({ history }: HistoryTabProps) {
 	const [expandedRecords, setExpandedRecords] = useState<Set<string>>(
 		new Set(),
 	);
@@ -69,8 +69,11 @@ export default function HistoryTab({ history }: HistoryTabProps) {
 	const toggle = (id: string) => {
 		setExpandedRecords((prev) => {
 			const next = new Set(prev);
-			if (next.has(id)) next.delete(id);
-			else next.add(id);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
 			return next;
 		});
 	};

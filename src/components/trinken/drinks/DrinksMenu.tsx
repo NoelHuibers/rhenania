@@ -17,7 +17,7 @@ import { LoadingState } from "./Loadingstate";
 import { MenuFooter } from "./MenuFooter";
 import { OrderDrawer } from "./OrderDrawer";
 
-export default function DrinksMenu() {
+export function DrinksMenu() {
 	const [drinks, setDrinks] = useState<MenuItem[]>([]);
 	const [markupPercent, setMarkupPercent] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);

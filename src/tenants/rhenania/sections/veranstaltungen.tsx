@@ -26,7 +26,9 @@ export function Veranstaltungen({
 }) {
 	const reveal = useReveal<HTMLDivElement>({ start: "top 85%" });
 
-	if (events.length === 0) return null;
+	if (events.length === 0) {
+		return null;
+	}
 
 	return (
 		<section className="relative w-full px-6 py-16 md:py-32">

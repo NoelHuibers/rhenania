@@ -12,12 +12,14 @@ export async function uploadDrinkImage(
 	options: UploadImageOptions,
 ): Promise<string> {
 	const maxSize = 5 * 1024 * 1024;
-	if (file.size > maxSize)
+	if (file.size > maxSize) {
 		throw new Error("Bild ist zu groß. Maximale Größe: 5MB");
+	}
 
 	const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-	if (!validTypes.includes(file.type))
+	if (!validTypes.includes(file.type)) {
 		throw new Error("Ungültiger Dateityp. Erlaubt: JPG, PNG, WebP");
+	}
 
 	try {
 		const blob = await upload(
@@ -27,8 +29,9 @@ export async function uploadDrinkImage(
 				access: "public",
 				handleUploadUrl: "/api/upload",
 				onUploadProgress: (p) => {
-					if (options.onProgress)
+					if (options.onProgress) {
 						options.onProgress((p.loaded / p.total) * 100);
+					}
 				},
 			},
 		);

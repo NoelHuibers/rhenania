@@ -53,7 +53,9 @@ export async function postSignIn(
 			data: { email, password },
 			headers: { Origin: origin },
 		});
-		if (res.status() !== 429 || attempt >= 8) return res;
+		if (res.status() !== 429 || attempt >= 8) {
+			return res;
+		}
 		await new Promise((r) => setTimeout(r, 2_500));
 	}
 }
@@ -90,7 +92,9 @@ export async function latestMailTo(to: string): Promise<OutboxMail> {
 	await expect
 		.poll(
 			() => {
-				if (!existsSync(MAIL_DIR)) return undefined;
+				if (!existsSync(MAIL_DIR)) {
+					return undefined;
+				}
 				const mails = readdirSync(MAIL_DIR)
 					.sort()
 					.map(

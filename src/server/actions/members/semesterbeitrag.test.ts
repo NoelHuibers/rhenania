@@ -661,7 +661,9 @@ describe("downloadChargePdf", () => {
 			success: true,
 			fileName: "Mahnung_WS_2026_27_J_rg_M_ller.pdf",
 		});
-		if (!invoice.success) return;
+		if (!invoice.success) {
+			return;
+		}
 		expect(
 			Buffer.from(invoice.base64, "base64").subarray(0, 5).toString(),
 		).toBe("%PDF-");

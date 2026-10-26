@@ -57,7 +57,10 @@ export interface AdminDashboardProps {
 	initialRoles: Role[];
 }
 
-function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
+export function AdminDashboard({
+	initialUsers,
+	initialRoles,
+}: AdminDashboardProps) {
 	const [users, setUsers] = useState<UserWithRoles[]>(initialUsers);
 	const [roles] = useState<Role[]>(initialRoles);
 	const [searchTerm, setSearchTerm] = useState("");
@@ -90,9 +93,13 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 				>(
 					user: T,
 				): T => {
-					if (user.id !== userId) return user;
+					if (user.id !== userId) {
+						return user;
+					}
 					const role = roles.find((r) => r.id === roleId);
-					if (!role) return user;
+					if (!role) {
+						return user;
+					}
 					const hasRole = user.roles.some((r) => r.id === roleId);
 					return {
 						...user,
@@ -205,7 +212,9 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 					open={showEditModal}
 					onOpenChange={(open) => {
 						setShowEditModal(open);
-						if (!open) setUserToEdit(null);
+						if (!open) {
+							setUserToEdit(null);
+						}
 					}}
 					onUserUpdated={(userId, name, email) =>
 						setUsers((prev) =>
@@ -219,7 +228,9 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 					open={showDeleteModal}
 					onOpenChange={(open) => {
 						setShowDeleteModal(open);
-						if (!open) setUserToDelete(null);
+						if (!open) {
+							setUserToDelete(null);
+						}
 					}}
 					onUserDeleted={(userId) =>
 						setUsers((prev) => prev.filter((u) => u.id !== userId))
@@ -232,22 +243,28 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 					open={showBulkModal}
 					onOpenChange={(open) => {
 						setShowBulkModal(open);
-						if (!open) setBulkRole(null);
+						if (!open) {
+							setBulkRole(null);
+						}
 					}}
 					onSaved={(roleId, userIds) => {
 						setUsers((prev) =>
 							prev.map((u) => {
 								const role = roles.find((r) => r.id === roleId);
-								if (!role) return u;
+								if (!role) {
+									return u;
+								}
 								const hasRole = userIds.includes(u.id);
 								const alreadyHas = u.roles.some((r) => r.id === roleId);
-								if (hasRole && !alreadyHas)
+								if (hasRole && !alreadyHas) {
 									return { ...u, roles: [...u.roles, role] };
-								if (!hasRole && alreadyHas)
+								}
+								if (!hasRole && alreadyHas) {
 									return {
 										...u,
 										roles: u.roles.filter((r) => r.id !== roleId),
 									};
+								}
 								return u;
 							}),
 						);
@@ -260,7 +277,9 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 					users={users}
 					open={showRoleModal}
 					onOpenChange={(open) => {
-						if (!open) handleCloseRoleModal();
+						if (!open) {
+							handleCloseRoleModal();
+						}
 					}}
 					onRoleToggle={handleRoleToggle}
 					isPending={isPending}
@@ -269,5 +288,3 @@ function AdminDashboard({ initialUsers, initialRoles }: AdminDashboardProps) {
 		</div>
 	);
 }
-
-export default AdminDashboard;

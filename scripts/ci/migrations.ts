@@ -28,7 +28,9 @@ export function checkFolder(folder: MigrationFolder): string[] {
 	let expectedIdx = 0;
 	let previous: JournalEntry | undefined;
 	for (const entry of entries) {
-		while (gaps.has(expectedIdx) && entry.idx !== expectedIdx) expectedIdx++;
+		while (gaps.has(expectedIdx) && entry.idx !== expectedIdx) {
+			expectedIdx++;
+		}
 		if (entry.idx !== expectedIdx) {
 			errors.push(
 				`${name}: journal idx ${entry.idx} (${entry.tag}) should be ${expectedIdx}`,
@@ -57,7 +59,9 @@ export function checkFolder(folder: MigrationFolder): string[] {
 
 	const tags = new Set(entries.map((e) => `${e.tag}.sql`));
 	for (const file of folder.sqlFiles) {
-		if (!tags.has(file)) errors.push(`${name}: ${file} is not in the journal`);
+		if (!tags.has(file)) {
+			errors.push(`${name}: ${file} is not in the journal`);
+		}
 	}
 	return errors;
 }

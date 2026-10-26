@@ -29,5 +29,7 @@ export class FeatureDisabledError extends Error {
 }
 
 export async function requireFeature(key: FeatureKey): Promise<void> {
-	if (!(await hasFeature(key))) throw new FeatureDisabledError(key);
+	if (!(await hasFeature(key))) {
+		throw new FeatureDisabledError(key);
+	}
 }

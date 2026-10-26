@@ -35,7 +35,9 @@ describe("role constants", () => {
 	test("treasury roles are a strict subset of the Etatplan editors", () => {
 		expect(EDIT_ROLES).toEqual(["Senior", "CC-Kasse", "Admin"]);
 		expect(TREASURY_ROLES).toEqual(["CC-Kasse", "Admin"]);
-		for (const r of TREASURY_ROLES) expect(EDIT_ROLES).toContain(r);
+		for (const r of TREASURY_ROLES) {
+			expect(EDIT_ROLES).toContain(r);
+		}
 		expect(TREASURY_ROLES).not.toContain("Senior");
 	});
 
@@ -48,7 +50,9 @@ describe("role constants", () => {
 		]);
 		expect(MEMBER_EDIT_ROLES).toBe(ADRESSLISTE_ROLES);
 		expect(MEMBER_VIEW_ROLES).toBe(ADRESSLISTE_ROLES);
-		for (const r of AHV_VORSTAND_ROLES) expect(MEMBER_EDIT_ROLES).toContain(r);
+		for (const r of AHV_VORSTAND_ROLES) {
+			expect(MEMBER_EDIT_ROLES).toContain(r);
+		}
 		expect(BEITRAG_ROLES).toEqual(["CC-Kasse", "Admin"]);
 	});
 });

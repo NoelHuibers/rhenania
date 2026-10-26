@@ -20,7 +20,9 @@ export type MyPaymentInfo = { accountHolder: string; iban: string };
 export async function getMyPaymentInfo(): Promise<MyPaymentInfo | null> {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return null;
+	if (!userId) {
+		return null;
+	}
 
 	const row = await db.query.userPaymentInfo.findFirst({
 		where: (t, { eq }) => eq(t.userId, userId),
@@ -35,7 +37,9 @@ export async function setMyPaymentInfo(input: {
 }): Promise<{ success: true } | { success: false; error: string }> {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return { success: false, error: "Nicht angemeldet" };
+	if (!userId) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	try {
 		const parsed = paymentInfoSchema.parse(input);

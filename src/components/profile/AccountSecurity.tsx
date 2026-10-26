@@ -39,7 +39,9 @@ export function AccountSecurity() {
 	// Verbundene Konten beim Mount prüfen
 	useEffect(() => {
 		const fetchConnectedAccounts = async () => {
-			if (!session?.user?.id) return;
+			if (!session?.user?.id) {
+				return;
+			}
 
 			try {
 				const result = await getConnectedAccountsAction();
@@ -76,7 +78,9 @@ export function AccountSecurity() {
 		const account = connectedAccounts.find(
 			(acc) => acc.provider === providerName,
 		);
-		if (!account) return;
+		if (!account) {
+			return;
+		}
 
 		startTransition(async () => {
 			try {

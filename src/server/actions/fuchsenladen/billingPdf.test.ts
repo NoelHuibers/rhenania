@@ -22,7 +22,9 @@ async function billFor(user: TestUser, total = 12.5) {
 		bills: [{ user, itemsTotal: total - 2, oldBillingAmount: 2 }],
 	});
 	const bill = bills[0];
-	if (!bill) throw new Error("no bill");
+	if (!bill) {
+		throw new Error("no bill");
+	}
 	await tenantDb().insert(fuchsenBillItems).values({
 		billId: bill.id,
 		itemName: "Mars",

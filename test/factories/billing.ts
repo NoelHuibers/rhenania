@@ -53,7 +53,9 @@ export async function createOrderRow(opts: {
 			...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
 		})
 		.returning();
-	if (!row) throw new Error("Could not create order");
+	if (!row) {
+		throw new Error("Could not create order");
+	}
 	return row;
 }
 
@@ -68,7 +70,9 @@ export async function createBillPeriodRow(
 			closedAt: opts.closedAt ?? null,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create bill period");
+	if (!row) {
+		throw new Error("Could not create bill period");
+	}
 	return row;
 }
 
@@ -109,7 +113,9 @@ export async function createBillRow(opts: {
 			paidAt: opts.paidAt ?? null,
 		})
 		.returning();
-	if (!bill) throw new Error("Could not create bill");
+	if (!bill) {
+		throw new Error("Could not create bill");
+	}
 	for (const item of opts.items ?? []) {
 		await tenantDb()
 			.insert(billItems)
@@ -152,7 +158,9 @@ export async function createKontoRow(
 			...opts,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create konto");
+	if (!row) {
+		throw new Error("Could not create konto");
+	}
 	return row;
 }
 

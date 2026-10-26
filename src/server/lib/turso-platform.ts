@@ -102,7 +102,9 @@ export async function databaseExists(name: string): Promise<boolean> {
 		return true;
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
-		if (msg.includes("404")) return false;
+		if (msg.includes("404")) {
+			return false;
+		}
 		throw e;
 	}
 }

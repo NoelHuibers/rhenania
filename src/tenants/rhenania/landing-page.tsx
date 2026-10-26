@@ -12,17 +12,25 @@ import {
 	getPublicUpcomingEvents,
 } from "~/server/actions/events/events";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
-import RhenaniaExperience, { type LandingEvent } from "./experience";
+import { type LandingEvent, RhenaniaExperience } from "./experience";
 
 function relativeLabel(d: Date): string | null {
 	const diffDays = Math.round(
 		(startOfDayInTZ(d).getTime() - startOfDayInTZ(new Date()).getTime()) /
 			86_400_000,
 	);
-	if (diffDays === 0) return "Heute";
-	if (diffDays < 0) return null;
-	if (diffDays === 1) return "Morgen";
-	if (diffDays <= 7) return `In ${diffDays} Tagen`;
+	if (diffDays === 0) {
+		return "Heute";
+	}
+	if (diffDays < 0) {
+		return null;
+	}
+	if (diffDays === 1) {
+		return "Morgen";
+	}
+	if (diffDays <= 7) {
+		return `In ${diffDays} Tagen`;
+	}
 	return null;
 }
 
@@ -37,7 +45,7 @@ const HAUS_FALLBACK = [
 	"/Haus6.gif",
 ];
 
-export default async function RhenaniaLandingPage() {
+export async function RhenaniaLandingPage() {
 	const [
 		tenant,
 		headerImage,

@@ -9,7 +9,7 @@ interface PillarCardProps {
 	color: string;
 }
 
-const CorpsSection = () => {
+export const CorpsSection = () => {
 	return (
 		<section className="w-full bg-gradient-to-br bg-gray-100 py-12 md:py-24 lg:py-32">
 			<div className="container mx-auto px-4 md:px-6">
@@ -70,5 +70,3 @@ const PillarCard: React.FC<PillarCardProps> = ({
 		</div>
 	);
 };
-
-export default CorpsSection;

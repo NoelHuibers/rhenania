@@ -74,7 +74,9 @@ export async function pendingFor(
 	client: Client,
 	local: LocalMigration[],
 ): Promise<LocalMigration[]> {
-	if (!(await hasJournalTable(client))) return local;
+	if (!(await hasJournalTable(client))) {
+		return local;
+	}
 	const rs = await client.execute(
 		"SELECT max(created_at) AS last FROM __drizzle_migrations",
 	);
@@ -86,12 +88,16 @@ export async function journalHead(
 	client: Client,
 	local: LocalMigration[],
 ): Promise<string | null> {
-	if (!(await hasJournalTable(client))) return null;
+	if (!(await hasJournalTable(client))) {
+		return null;
+	}
 	const rs = await client.execute(
 		"SELECT hash, created_at FROM __drizzle_migrations ORDER BY created_at DESC LIMIT 1",
 	);
 	const row = rs.rows[0];
-	if (!row) return null;
+	if (!row) {
+		return null;
+	}
 	return (
 		local.find((m) => m.hash === row.hash)?.tag ??
 		`unknown (created_at=${String(row.created_at)})`
@@ -106,8 +112,9 @@ export async function verifyJournal(
 	client: Client,
 	local: LocalMigration[],
 ): Promise<string[]> {
-	if (!(await hasJournalTable(client)))
+	if (!(await hasJournalTable(client))) {
 		return ["no __drizzle_migrations table"];
+	}
 	const rs = await client.execute(
 		"SELECT hash, created_at FROM __drizzle_migrations",
 	);
@@ -119,9 +126,11 @@ export async function verifyJournal(
 	const problems: string[] = [];
 	for (const m of local.filter((l) => l.when <= last)) {
 		const row = applied.find((a) => a.when === m.when);
-		if (!row) problems.push(`${m.tag} is not recorded`);
-		else if (row.hash !== m.hash)
+		if (!row) {
+			problems.push(`${m.tag} is not recorded`);
+		} else if (row.hash !== m.hash) {
 			problems.push(`${m.tag} was recorded with a different hash`);
+		}
 	}
 	return problems;
 }
@@ -141,7 +150,9 @@ async function objectExists(
 }
 
 async function columnExists(client: Client, table: string, column: string) {
-	if (!(await objectExists(client, "table", table))) return false;
+	if (!(await objectExists(client, "table", table))) {
+		return false;
+	}
 	const rs = await client.execute(
 		`PRAGMA table_info(\`${table.replaceAll("`", "")}\`)`,
 	);
@@ -154,16 +165,21 @@ export async function alreadyApplied(
 	statement: string,
 ): Promise<boolean> {
 	const table = /^CREATE TABLE (?:IF NOT EXISTS )?`([^`]+)`/i.exec(statement);
-	if (table?.[1]) return objectExists(client, "table", table[1]);
+	if (table?.[1]) {
+		return objectExists(client, "table", table[1]);
+	}
 	const index = /^CREATE (?:UNIQUE )?INDEX (?:IF NOT EXISTS )?`([^`]+)`/i.exec(
 		statement,
 	);
-	if (index?.[1]) return objectExists(client, "index", index[1]);
+	if (index?.[1]) {
+		return objectExists(client, "index", index[1]);
+	}
 	const column = /^ALTER TABLE `([^`]+)` ADD (?:COLUMN )?`([^`]+)`/i.exec(
 		statement,
 	);
-	if (column?.[1] && column[2])
+	if (column?.[1] && column[2]) {
 		return columnExists(client, column[1], column[2]);
+	}
 	return false;
 }
 
@@ -181,8 +197,11 @@ export async function repairMigration(client: Client, m: LocalMigration) {
 	const toRun: InStatement[] = [];
 	let skipped = 0;
 	for (const statement of statements) {
-		if (await alreadyApplied(client, statement)) skipped++;
-		else toRun.push(statement);
+		if (await alreadyApplied(client, statement)) {
+			skipped++;
+		} else {
+			toRun.push(statement);
+		}
 	}
 	toRun.push(
 		"CREATE TABLE IF NOT EXISTS __drizzle_migrations (id INTEGER PRIMARY KEY AUTOINCREMENT, hash TEXT NOT NULL, created_at NUMERIC)",
@@ -283,17 +302,20 @@ export async function runTenantMigrations(
 
 			const problems = await verifyJournal(client, local);
 			result.after = await journalHead(client, local);
-			if (problems.length > 0)
+			if (problems.length > 0) {
 				throw new Error(`journal verification failed: ${problems.join("; ")}`);
+			}
 			result.outcome = "migrated";
 			log(`✓ ${target.slug}: migrated to ${result.after}`);
 		} catch (error) {
 			result.outcome = "failed";
 			result.error = error instanceof Error ? error.message : String(error);
 			log(`✗ ${target.slug}: ${result.error}`);
-			if (canary.includes(target.slug)) halted = `canary ${target.slug} failed`;
-			else if (opts.haltOnError)
+			if (canary.includes(target.slug)) {
+				halted = `canary ${target.slug} failed`;
+			} else if (opts.haltOnError) {
 				halted = `${target.slug} failed (halt on error)`;
+			}
 		} finally {
 			client?.close();
 			result.durationMs = Date.now() - started;

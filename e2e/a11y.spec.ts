@@ -64,7 +64,9 @@ async function violationsFor(page: Page) {
 		.analyze();
 	const counts: Record<string, number> = {};
 	for (const v of result.violations) {
-		if (v.impact !== "serious" && v.impact !== "critical") continue;
+		if (v.impact !== "serious" && v.impact !== "critical") {
+			continue;
+		}
 		counts[v.id] = v.nodes.length;
 	}
 	return { counts, violations: result.violations };
@@ -75,15 +77,18 @@ test.describe("accessibility @a11y", () => {
 		test(`${screen.name} has no new serious axe violations`, async ({
 			page,
 		}) => {
-			if (screen.user)
+			if (screen.user) {
 				await signIn(page, screen.user, screen.origin ?? RHENANIA);
+			}
 			// Scan the settled page: no GSAP/framer intro animations mid-flight.
 			await page.emulateMedia({ reducedMotion: "reduce" });
 			await page.goto(screen.url, { waitUntil: "networkidle" });
 			const { counts, violations } = await violationsFor(page);
 			updated[screen.name] = counts;
 
-			if (process.env.A11Y_UPDATE) return;
+			if (process.env.A11Y_UPDATE) {
+				return;
+			}
 			const known = baseline[screen.name] ?? {};
 			const regressions = Object.entries(counts)
 				.filter(([rule, n]) => n > (known[rule] ?? 0))
@@ -99,7 +104,9 @@ test.describe("accessibility @a11y", () => {
 	}
 
 	test.afterAll(() => {
-		if (!process.env.A11Y_UPDATE) return;
+		if (!process.env.A11Y_UPDATE) {
+			return;
+		}
 		const merged = { ...baseline, ...updated };
 		const sorted = Object.fromEntries(Object.entries(merged).sort());
 		writeFileSync(BASELINE_FILE, `${JSON.stringify(sorted, null, "\t")}\n`);

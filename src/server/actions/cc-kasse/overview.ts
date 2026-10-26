@@ -64,15 +64,23 @@ function round2(n: number) {
 }
 
 function ratioPct(ausgegeben: number, budget: number): number {
-	if (budget <= 0) return ausgegeben > 0 ? 100 : 0;
+	if (budget <= 0) {
+		return ausgegeben > 0 ? 100 : 0;
+	}
 	return round2((ausgegeben / budget) * 100);
 }
 
 function statusFor(ausgegeben: number, budget: number): BudgetStatus {
-	if (budget <= 0) return ausgegeben > 0 ? "over-budget" : "on-track";
+	if (budget <= 0) {
+		return ausgegeben > 0 ? "over-budget" : "on-track";
+	}
 	const ratio = ausgegeben / budget;
-	if (ratio > 1.0001) return "over-budget";
-	if (ratio >= 0.8) return "warning";
+	if (ratio > 1.0001) {
+		return "over-budget";
+	}
+	if (ratio >= 0.8) {
+		return "warning";
+	}
 	return "on-track";
 }
 
@@ -80,7 +88,9 @@ export async function getEtaplanOverview(
 	etaplanId: string,
 ): Promise<EtaplanOverview | null> {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return null;
+	if (!guard.ok) {
+		return null;
+	}
 
 	try {
 		const kps = await db

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import FooterColored from "~/components/footer/footercolored";
-import HeaderColored from "~/components/header/headercolored";
+import { Footer as FooterColored } from "~/components/footer/footercolored";
+import { HeaderColored } from "~/components/header/headercolored";
 import Datenschutz from "./datenschutz";
 
 export const metadata: Metadata = {

@@ -10,7 +10,9 @@ export function SemProQRCode({ url }: { url: string }) {
 
 	function handleDownload() {
 		const canvas = canvasRef.current?.querySelector("canvas");
-		if (!canvas) return;
+		if (!canvas) {
+			return;
+		}
 		const link = document.createElement("a");
 		link.download = "semesterprogramm-qrcode.png";
 		link.href = canvas.toDataURL("image/png");

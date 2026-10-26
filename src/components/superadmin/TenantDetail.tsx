@@ -161,7 +161,9 @@ function StatusSection({
 		const msg = isSuspending
 			? `Suspend tenant? Existing users will be locked out until reactivated.`
 			: `Reactivate tenant?`;
-		if (!confirm(msg)) return;
+		if (!confirm(msg)) {
+			return;
+		}
 		startTransition(async () => {
 			const r = await setTenantStatusAction(tenantId, next);
 			if (r.success) {
@@ -273,7 +275,9 @@ function DomainsSection({
 	};
 
 	const remove = (id: string, host: string) => {
-		if (!confirm(`Remove domain ${host}?`)) return;
+		if (!confirm(`Remove domain ${host}?`)) {
+			return;
+		}
 		startTransition(async () => {
 			const r = await removeTenantDomainAction(tenantId, id);
 			if (r.success) {

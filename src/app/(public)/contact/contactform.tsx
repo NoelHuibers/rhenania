@@ -49,7 +49,9 @@ const ContactForm = () => {
 	}, []);
 
 	useEffect(() => {
-		if (form === null) return;
+		if (form === null) {
+			return;
+		}
 		if (state?.message === "Success") {
 			toast.success("E-Mail wurde versandt.", { duration: 5000 });
 			form.reset();
@@ -64,7 +66,9 @@ const ContactForm = () => {
 	const handleSubmit = (evt: React.FormEvent) => {
 		evt.preventDefault();
 
-		if (!formRef.current) return;
+		if (!formRef.current) {
+			return;
+		}
 		const formData = new FormData(formRef.current);
 		formData.append("formLoadTime", formLoadTime.toString());
 

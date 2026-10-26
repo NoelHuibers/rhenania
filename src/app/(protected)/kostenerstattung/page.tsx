@@ -8,7 +8,9 @@ import { auth } from "~/server/auth";
 
 export default async function KostenerstattungRoute() {
 	const session = await auth();
-	if (!session?.user?.id) redirect("/auth/signin");
+	if (!session?.user?.id) {
+		redirect("/auth/signin");
+	}
 
 	const [reimbursements, paymentInfo, kostenpunkte] = await Promise.all([
 		listMyReimbursements(),

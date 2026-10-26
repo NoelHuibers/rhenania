@@ -46,10 +46,14 @@ export function CrossChallengeDialog() {
 
 	// Load tenant list when the dialog opens.
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			return;
+		}
 		let cancelled = false;
 		listChallengeableTenants().then((rows) => {
-			if (!cancelled) setTenants(rows);
+			if (!cancelled) {
+				setTenants(rows);
+			}
 		});
 		return () => {
 			cancelled = true;
@@ -110,7 +114,9 @@ export function CrossChallengeDialog() {
 		<Dialog
 			open={open}
 			onOpenChange={(o) => {
-				if (!o && !isPending) reset();
+				if (!o && !isPending) {
+					reset();
+				}
 				setOpen(o);
 			}}
 		>

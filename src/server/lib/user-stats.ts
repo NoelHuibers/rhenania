@@ -55,7 +55,9 @@ export async function getOrCreateUserStatsBatch(
 	userIds: string[],
 ): Promise<Map<string, UserStats>> {
 	const out = new Map<string, UserStats>();
-	if (userIds.length === 0) return out;
+	if (userIds.length === 0) {
+		return out;
+	}
 
 	const existing = await controlDb
 		.select()
@@ -87,7 +89,9 @@ export async function getOrCreateUserStatsBatch(
 			.insert(userStats)
 			.values(seeds)
 			.onConflictDoNothing({ target: userStats.userId });
-		for (const seed of seeds) out.set(seed.userId, seed);
+		for (const seed of seeds) {
+			out.set(seed.userId, seed);
+		}
 	}
 
 	return out;

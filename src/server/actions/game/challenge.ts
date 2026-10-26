@@ -111,7 +111,9 @@ export async function createChallenge(input: {
 		where: (t, { eq }) => eq(t.id, input.drinkId),
 		columns: { id: true, isCurrentlyAvailable: true },
 	});
-	if (!drink) return { success: false, error: "Getränk nicht gefunden" };
+	if (!drink) {
+		return { success: false, error: "Getränk nicht gefunden" };
+	}
 	if (!drink.isCurrentlyAvailable) {
 		return { success: false, error: "Getränk ist nicht verfügbar" };
 	}
@@ -191,7 +193,9 @@ export async function respondToChallenge(input: {
 	const row = await db.query.challenges.findFirst({
 		where: (t, { eq }) => eq(t.id, input.challengeId),
 	});
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.opponentId !== userId) {
 		return { success: false, error: "Nur der Herausgeforderte kann antworten" };
 	}
@@ -250,7 +254,9 @@ export async function cancelChallenge(
 			status: true,
 		},
 	});
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.challengerId !== userId && row.opponentId !== userId) {
 		return { success: false, error: "Keine Berechtigung" };
 	}
@@ -283,7 +289,9 @@ export async function proposeResult(input: {
 	const row = await db.query.challenges.findFirst({
 		where: (t, { eq }) => eq(t.id, input.challengeId),
 	});
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.challengerId !== userId && row.opponentId !== userId) {
 		return { success: false, error: "Keine Berechtigung" };
 	}
@@ -330,7 +338,9 @@ export async function confirmResult(
 	const row = await db.query.challenges.findFirst({
 		where: (t, { eq }) => eq(t.id, challengeId),
 	});
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.status !== "result_proposed") {
 		return { success: false, error: "Kein Ergebnis zum Bestätigen" };
 	}
@@ -369,7 +379,9 @@ export async function disputeResult(
 			status: true,
 		},
 	});
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.status !== "result_proposed") {
 		return { success: false, error: "Nichts anzufechten" };
 	}
@@ -401,7 +413,9 @@ async function settleChallenge(
 	const row = await db.query.challenges.findFirst({
 		where: (t, { eq }) => eq(t.id, challengeId),
 	});
-	if (!row) return { success: false, error: "Herausforderung nicht gefunden" };
+	if (!row) {
+		return { success: false, error: "Herausforderung nicht gefunden" };
+	}
 	if (row.proposedWinnerId == null) {
 		return { success: false, error: "Kein Gewinner vorgeschlagen" };
 	}
@@ -426,7 +440,9 @@ async function settleChallenge(
 		}),
 	]);
 
-	if (!drink) return { success: false, error: "Getränk nicht gefunden" };
+	if (!drink) {
+		return { success: false, error: "Getränk nicht gefunden" };
+	}
 	if (!winner || !loser) {
 		return { success: false, error: "Spieler nicht gefunden" };
 	}
@@ -481,7 +497,9 @@ async function settleChallenge(
 	const pricing = await getDrinkPricingConfig();
 	const pricePerUnit = unitPriceFor(drink.price, pricing.markupPercent, null);
 	for (const o of ordersToCreate) {
-		if (o.amount <= 0) continue;
+		if (o.amount <= 0) {
+			continue;
+		}
 		await db.insert(orders).values({
 			userId: o.userId,
 			userName: o.userName,
@@ -569,7 +587,9 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 	};
 
 	const session = await auth();
-	if (!session?.user?.id) return empty;
+	if (!session?.user?.id) {
+		return empty;
+	}
 	const userId = session.user.id;
 
 	await sweepExpiredChallenges();
@@ -605,7 +625,9 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 		.orderBy(desc(challenges.createdAt))
 		.limit(100);
 
-	if (rows.length === 0) return empty;
+	if (rows.length === 0) {
+		return empty;
+	}
 
 	// Fetch user info for challenger + opponent in one pass
 	const userIds = new Set<string>();
@@ -662,14 +684,19 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 		const isMine = v.role === "challenger";
 
 		if (v.status === "pending") {
-			if (isMine) feed.outgoingPending.push(v);
-			else feed.incomingPending.push(v);
+			if (isMine) {
+				feed.outgoingPending.push(v);
+			} else {
+				feed.incomingPending.push(v);
+			}
 		} else if (v.status === "accepted") {
 			feed.active.push(v);
 			feed.awaitingMyResult.push(v);
 		} else if (v.status === "result_proposed") {
 			feed.active.push(v);
-			if (v.proposedById !== userId) feed.awaitingMyConfirm.push(v);
+			if (v.proposedById !== userId) {
+				feed.awaitingMyConfirm.push(v);
+			}
 		} else if (v.status === "disputed") {
 			feed.disputed.push(v);
 			feed.active.push(v);

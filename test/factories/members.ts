@@ -27,7 +27,9 @@ export async function createMember(
 			...opts,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create member");
+	if (!row) {
+		throw new Error("Could not create member");
+	}
 	return row;
 }
 
@@ -72,7 +74,9 @@ export async function createBeitragRun(
 			...opts,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create beitrag run");
+	if (!row) {
+		throw new Error("Could not create beitrag run");
+	}
 	return row;
 }
 
@@ -94,6 +98,8 @@ export async function createCharge(
 			...opts,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create charge");
+	if (!row) {
+		throw new Error("Could not create charge");
+	}
 	return row;
 }

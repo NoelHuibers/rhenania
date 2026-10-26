@@ -41,8 +41,10 @@ async function seedOrders() {
 			createdAt: daysAgo(5),
 		},
 	];
-	const created = [];
-	for (const row of rows) created.push(await createOrderRow(row));
+	const created: Awaited<ReturnType<typeof createOrderRow>>[] = [];
+	for (const row of rows) {
+		created.push(await createOrderRow(row));
+	}
 	return created;
 }
 
