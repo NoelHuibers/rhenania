@@ -23,12 +23,13 @@ import {
 
 setupTestDatabases();
 
-// Occurrences are computed with the server's local clock (setHours/getDay),
-// so every test pins the process time zone explicitly. Production runs in
-// UTC; the "happy path" tests use Europe/Berlin (what the admins mean) and
-// summer-semester dates without a DST change.
+// Occurrences are Europe/Berlin calendar days and wall-clock times and must
+// not depend on the server's clock. Every test pins the process time zone
+// explicitly: the "happy path" tests use Europe/Berlin, the DST and server
+// tests below also run under UTC (what production uses).
 const ORIGINAL_TZ = process.env.TZ;
-function serverTimeZone(tz: "UTC" | "Europe/Berlin") {
+const SERVER_TZS = ["Europe/Berlin", "UTC"] as const;
+function serverTimeZone(tz: (typeof SERVER_TZS)[number]) {
 	process.env.TZ = tz;
 }
 
@@ -338,9 +339,9 @@ describe("generateInstances", () => {
 		});
 	});
 
-	// Production runs with TZ=UTC: setHours("20:00") is UTC wall-clock time
-	// (22:00 in Berlin) and an end-day occurrence falls outside the range.
-	test.fails("biweekly times are Berlin wall-clock on a UTC server (#15)", async () => {
+	// Production runs with TZ=UTC: "20:00" must still mean 20:00 in Berlin,
+	// and the occurrence on the end day must be included.
+	test("biweekly times are Berlin wall-clock on a UTC server (#15)", async () => {
 		await setup();
 		serverTimeZone("UTC");
 		const t = await template({
@@ -358,9 +359,9 @@ describe("generateInstances", () => {
 		]);
 	});
 
-	// On a UTC server the AnCC day (Berlin midnight = 22:00 UTC the day
-	// before) is truncated to the previous day, shifting every oCC by a day.
-	test.fails("oCC dates keep their weekdays on a UTC server (#15)", async () => {
+	// The AnCC day is stored as Berlin midnight (22:00 UTC the day before);
+	// a UTC server must not truncate it to the previous day.
+	test("oCC dates keep their weekdays on a UTC server (#15)", async () => {
 		await setup();
 		serverTimeZone("UTC");
 		const t = await template({
@@ -380,10 +381,13 @@ describe("generateInstances", () => {
 		]);
 	});
 
-	// Steps of 14 × 24h from local midnight land on 23:00 the previous day
-	// once DST ends (last Sunday in October), so later dates move a day early.
-	test.fails("biweekly dates keep their weekday across the end of DST (#144)", async () => {
+	// Steps of 14 × 24 h from midnight would land on 23:00 the previous day
+	// once DST ends (last Sunday in October); steps are calendar days.
+	test.each(
+		SERVER_TZS,
+	)("biweekly dates keep their weekday across the end of DST on a %s server (#144)", async (tz) => {
 		await setup();
+		serverTimeZone(tz);
 		const t = await template({
 			dayOfWeek: 1,
 			start: "2026-10-12",
@@ -400,8 +404,11 @@ describe("generateInstances", () => {
 		]);
 	});
 
-	test.fails("winter oCC dates keep their weekdays across the end of DST (#144)", async () => {
+	test.each(
+		SERVER_TZS,
+	)("winter oCC dates keep their weekdays across the end of DST on a %s server (#144)", async (tz) => {
 		await setup();
+		serverTimeZone(tz);
 		const t = await template({
 			recurrenceType: "occ_semester",
 			start: "2026-10-18",
@@ -417,6 +424,126 @@ describe("generateInstances", () => {
 			"2. oCC Mo., 02.11., 20:00",
 			"3. oCC Mo., 16.11., 20:00",
 			"AbCC So., 29.11., 18:00",
+		]);
+	});
+
+	test.each(
+		SERVER_TZS,
+	)("summer oCC dates keep their weekdays across the start of DST on a %s server (#144)", async (tz) => {
+		await setup();
+		serverTimeZone(tz);
+		const t = await template({
+			recurrenceType: "occ_semester",
+			start: "2026-03-15",
+			end: "2026-04-26",
+		});
+
+		await generateInstances(t.id);
+
+		expect(
+			(await instances(t.id)).map((e) => `${e.title} ${shown(e.date)}`),
+		).toEqual([
+			"AnCC So., 15.03., 18:00",
+			"2. oCC Mo., 30.03., 20:00",
+			"3. oCC Mo., 13.04., 20:00",
+			"AbCC So., 26.04., 18:00",
+		]);
+	});
+
+	test.each(
+		SERVER_TZS,
+	)("biweekly late-evening dates across both DST switches on a %s server (#144)", async (tz) => {
+		await setup();
+		serverTimeZone(tz);
+		// 23:30 Berlin is already the next day in UTC half of the year.
+		const t = await template({
+			dayOfWeek: 0,
+			time: "23:30",
+			start: "2026-03-29",
+			end: "2026-11-08",
+		});
+
+		await generateInstances(t.id);
+
+		const rows = (await instances(t.id)).map((e) => shown(e.date));
+		expect(rows).toHaveLength(17);
+		expect(rows.every((s) => /^So\., .*, 23:30$/.test(s))).toBe(true);
+		expect(rows.slice(0, 2)).toEqual([
+			"So., 29.03., 23:30",
+			"So., 12.04., 23:30",
+		]);
+		expect(rows.slice(-2)).toEqual([
+			"So., 25.10., 23:30",
+			"So., 08.11., 23:30",
+		]);
+	});
+
+	test.each(
+		SERVER_TZS,
+	)("monthly Wednesdays are Berlin wall-clock across DST on a %s server (#15)", async (tz) => {
+		await setup();
+		serverTimeZone(tz);
+		const t = await template({
+			recurrenceType: "monthly_1st_wednesday",
+			time: "19:30",
+			start: "2026-09-01",
+			end: "2027-01-31",
+		});
+
+		await generateInstances(t.id);
+
+		expect((await instances(t.id)).map((e) => shown(e.date))).toEqual([
+			"Mi., 02.09., 19:30",
+			"Mi., 07.10., 19:30",
+			"Mi., 04.11., 19:30",
+			"Mi., 02.12., 19:30",
+			"Mi., 06.01., 19:30",
+		]);
+	});
+
+	test("without dates a UTC server starts on today's Berlin date (#15)", async () => {
+		await setup();
+		serverTimeZone("UTC");
+		// Wednesday 2026-06-03 00:30 in Berlin, still Tuesday in UTC.
+		vi.setSystemTime(new Date("2026-06-02T22:30:00Z"));
+		const t = await template({ recurrenceType: "monthly_1st_wednesday" });
+
+		await generateInstances(t.id);
+
+		expect((await instances(t.id)).map((e) => shown(e.date))[0]).toBe(
+			"Mi., 03.06., 20:00",
+		);
+	});
+
+	test("deduplicates by Berlin day, including events stored at the old UTC times (#15)", async () => {
+		await setup();
+		serverTimeZone("UTC");
+		const t = await template({
+			dayOfWeek: 1,
+			start: "2026-06-22",
+			end: "2026-07-06",
+		});
+		// Generated before the fix on a UTC server: 20:00Z = 22:00 in Berlin.
+		await tenantDb()
+			.insert(events)
+			.values({
+				title: "Stammtisch",
+				type: "Stammtisch",
+				date: new Date("2026-06-22T20:00:00Z"),
+				recurringEventId: t.id,
+			});
+
+		expect(await generateInstances(t.id)).toEqual({
+			success: true,
+			created: 1,
+		});
+		expect(await generateInstances(t.id)).toEqual({
+			success: true,
+			created: 0,
+		});
+		expect((await instances(t.id)).map((e) => shown(e.date))).toEqual([
+			"Mo., 22.06., 22:00",
+			"Mo., 06.07., 20:00",
 		]);
 	});
 });

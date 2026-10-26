@@ -2,6 +2,13 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import {
+	addDaysInTZ,
+	dayKeyInTZ,
+	getZonedParts,
+	startOfDayInTZ,
+	wallClockToUTC,
+} from "~/lib/time";
 import { db } from "~/server/db";
 import { events, recurringEvents } from "~/server/db/schema";
 
@@ -28,32 +35,33 @@ export type RecurringEventInput = {
 };
 
 // --- Date helpers ---
+//
+// Days are Europe/Berlin calendar days, represented by the instant of their
+// Berlin midnight and stepped with addDaysInTZ, so DST days (23 h or 25 h)
+// still count as one day. Times are Berlin wall-clock times. Nothing here
+// depends on the server's time zone.
 
-const MS_DAY = 24 * 60 * 60 * 1000;
-const MS_2_WEEKS = 14 * MS_DAY;
-
-function setTime(date: Date, time: string): Date {
+/** The Berlin wall-clock `time` ("HH:MM") on the Berlin day containing `day`. */
+function setTime(day: Date, time: string): Date {
 	const [h, m] = time.split(":").map(Number);
-	const d = new Date(date);
-	d.setHours(h ?? 0, m ?? 0, 0, 0);
-	return d;
+	const pad = (n: number) => String(n).padStart(2, "0");
+	return wallClockToUTC(`${dayKeyInTZ(day)}T${pad(h ?? 0)}:${pad(m ?? 0)}`);
 }
 
+/** Start of the first Berlin day on or after `from` that falls on `dow`. */
 function nextDayOfWeek(from: Date, dow: number): Date {
-	const d = new Date(from);
-	d.setHours(0, 0, 0, 0);
-	const diff = (dow - d.getDay() + 7) % 7;
-	d.setDate(d.getDate() + diff);
-	return d;
+	const { weekday } = getZonedParts(from);
+	return addDaysInTZ(from, (dow - weekday + 7) % 7);
 }
 
+/** `month` is 0-based, like Date#getMonth. */
 function firstWednesdayOfMonth(year: number, month: number): Date {
-	return nextDayOfWeek(new Date(year, month, 1), 3);
+	const first = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+	return nextDayOfWeek(wallClockToUTC(first), 3);
 }
 
 function thirdWednesdayOfMonth(year: number, month: number): Date {
-	const first = firstWednesdayOfMonth(year, month);
-	return new Date(first.getTime() + 14 * MS_DAY);
+	return addDaysInTZ(firstWednesdayOfMonth(year, month), 14);
 }
 
 // --- Generation per recurrence type ---
@@ -71,17 +79,17 @@ function generateBiweekly(
 	let start = nextDayOfWeek(anchor, dow);
 	// Walk back until start <= fromDate
 	while (start > fromDate) {
-		start = new Date(start.getTime() - MS_2_WEEKS);
+		start = addDaysInTZ(start, -14);
 	}
 	// Walk forward to first occurrence >= fromDate
 	while (start < fromDate) {
-		start = new Date(start.getTime() + MS_2_WEEKS);
+		start = addDaysInTZ(start, 14);
 	}
 	const items: OccurrenceItem[] = [];
-	let current = new Date(start);
+	let current = start;
 	while (current <= toDate) {
 		items.push({ date: setTime(current, time) });
-		current = new Date(current.getTime() + MS_2_WEEKS);
+		current = addDaysInTZ(current, 14);
 	}
 	return items;
 }
@@ -93,8 +101,9 @@ function generateMonthlyWednesdays(
 	toDate: Date,
 ): OccurrenceItem[] {
 	const items: OccurrenceItem[] = [];
-	let year = fromDate.getFullYear();
-	let month = fromDate.getMonth();
+	const from = getZonedParts(fromDate);
+	let year = from.year;
+	let month = from.month - 1;
 	while (true) {
 		const first = setTime(firstWednesdayOfMonth(year, month), time);
 		if (first > toDate) {
@@ -126,11 +135,10 @@ function generateMonthlyWednesdays(
 function generateOCCSemester(startDate: Date, endDate: Date): OccurrenceItem[] {
 	// Collect biweekly Sundays from startDate to endDate
 	const sundays: Date[] = [];
-	let current = new Date(startDate);
-	current.setHours(0, 0, 0, 0);
+	let current = startOfDayInTZ(startDate);
 	while (current <= endDate) {
-		sundays.push(new Date(current));
-		current = new Date(current.getTime() + MS_2_WEEKS);
+		sundays.push(current);
+		current = addDaysInTZ(current, 14);
 	}
 
 	if (sundays.length === 0) {
@@ -148,7 +156,7 @@ function generateOCCSemester(startDate: Date, endDate: Date): OccurrenceItem[] {
 			return { date: setTime(sunday, "18:00"), title: "AbCC" };
 		}
 		// Middle: shift to Monday 20:00
-		const monday = new Date(sunday.getTime() + MS_DAY);
+		const monday = addDaysInTZ(sunday, 1);
 		return { date: setTime(monday, "20:00"), title: `${i + 1}. oCC` };
 	});
 }
@@ -321,21 +329,19 @@ export async function generateInstances(recurringEventId: string) {
 			.from(events)
 			.where(eq(events.recurringEventId, recurringEventId));
 
-		// Deduplicate by day (allow ±0 day tolerance)
-		const existingDays = new Set(
-			existing.map((e) => Math.floor(e.date.getTime() / MS_DAY)),
-		);
+		// Deduplicate by Berlin calendar day
+		const existingDays = new Set(existing.map((e) => dayKeyInTZ(e.date)));
 
 		// Default range: today → +6 months (fallback if no startDate/endDate)
-		const defaultFrom = new Date();
-		defaultFrom.setHours(0, 0, 0, 0);
-		const defaultTo = new Date();
+		const now = new Date();
+		const defaultFrom = startOfDayInTZ(now);
+		const defaultTo = new Date(now);
 		defaultTo.setMonth(defaultTo.getMonth() + 6);
 
 		const items = generateOccurrences(template, defaultFrom, defaultTo);
 
 		const newItems = items.filter(
-			(item) => !existingDays.has(Math.floor(item.date.getTime() / MS_DAY)),
+			(item) => !existingDays.has(dayKeyInTZ(item.date)),
 		);
 
 		if (newItems.length === 0) {
