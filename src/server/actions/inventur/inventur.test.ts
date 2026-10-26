@@ -124,17 +124,20 @@ describe("getStockData", () => {
 		const pils = await createDrink({ name: "Pils" });
 		const weizen = await createDrink({ name: "Weizen" });
 		await createDrink({ name: "Neu" });
+		// One instant for both uses: two daysAgo(10) calls can straddle a
+		// second boundary, and stored timestamps have whole seconds.
+		const lastCount = daysAgo(10);
 		await createInventory({
 			status: "closed",
 			createdAt: daysAgo(20),
-			closedAt: daysAgo(10),
+			closedAt: lastCount,
 			items: [
 				{ drink: pils, countedStock: 10 },
 				{ drink: weizen, countedStock: 10 },
 			],
 		});
 		await createInventory({
-			createdAt: daysAgo(10),
+			createdAt: lastCount,
 			items: [{ drink: pils, countedStock: 8 }],
 		});
 		await createOrderRow({ drink: pils, amount: 4, createdAt: daysAgo(15) });
@@ -150,7 +153,7 @@ describe("getStockData", () => {
 			["Weizen", 3, 7],
 			["Neu", 0, 0],
 		]);
-		expect(stock[0]?.lastInventoryDate).toEqual(daysAgo(10));
+		expect(stock[0]?.lastInventoryDate).toEqual(lastCount);
 	});
 
 	test("uses the latest inventory and never reports negative stock", async () => {
