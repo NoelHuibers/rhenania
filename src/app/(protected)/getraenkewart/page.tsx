@@ -8,6 +8,7 @@ import { GetraenkePage } from "~/components/trinken/getraenkewart/GetraenkePage"
 import {
 	getBankEntries,
 	getExternalBills,
+	getGetraenkeBillingSettings,
 	getGetraenkeSettings,
 	getKasseSummary,
 	getOpenEntityBills,
@@ -59,6 +60,7 @@ async function KasseTabData() {
 		memberBills,
 		pfandWert,
 		getraenkeSettings,
+		getraenkeBilling,
 	] = await Promise.all([
 		getKasseSummary(),
 		getBankEntries(),
@@ -67,6 +69,7 @@ async function KasseTabData() {
 		getOpenMemberBills(),
 		getPfandWert(),
 		getGetraenkeSettings(),
+		getGetraenkeBillingSettings(),
 	]);
 	return (
 		<KasseTab
@@ -77,6 +80,7 @@ async function KasseTabData() {
 			memberBills={memberBills}
 			pfandWert={pfandWert}
 			settings={getraenkeSettings}
+			billing={getraenkeBilling}
 		/>
 	);
 }

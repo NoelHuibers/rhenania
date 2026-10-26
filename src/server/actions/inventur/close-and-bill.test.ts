@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { createNewBilling } from "~/server/actions/billings/billings";
 import { billPeriods, inventories, orders } from "~/server/db/schema";
-import { billsOf } from "../../../../test/factories/billing";
+import {
+	billsOf,
+	setGetraenkeBillingProfile,
+	setUpGetraenkeBilling,
+} from "../../../../test/factories/billing";
 import {
 	createInventory,
 	createOrderRow,
@@ -36,6 +40,7 @@ beforeEach(async () => {
 	vi.spyOn(console, "error").mockImplementation(() => {});
 	vi.spyOn(console, "log").mockImplementation(() => {});
 	await createTenant();
+	await setUpGetraenkeBilling();
 	signInAs(await createUser({ roles: ["Getränkewart"] }));
 });
 
@@ -123,6 +128,26 @@ describe("closeInventoryAndBill", () => {
 		expect(result).toMatchObject({ success: false, failedStep: "inventory" });
 		expect(billing).not.toHaveBeenCalled();
 		expect(await tenantDb().select().from(billPeriods)).toEqual([]);
+		expect(await allInventories()).toEqual([
+			expect.objectContaining({ id: running.id, status: "active" }),
+		]);
+	});
+
+	test("keeps the inventory open while billing is not set up (#9)", async () => {
+		const { pils, running } = await seedRunningInventory();
+		await setGetraenkeBillingProfile({ senderStreet: "" });
+
+		const result = await closeInventoryAndBill([
+			{ drinkId: pils.id, countedStock: 15, purchasedSince: 0 },
+		]);
+
+		expect(result).toEqual({
+			success: false,
+			failedStep: "inventory",
+			error:
+				"Bitte Absender und Konto in der Kasse hinterlegen (fehlt: Straße).",
+		});
+		expect(billing).not.toHaveBeenCalled();
 		expect(await allInventories()).toEqual([
 			expect.objectContaining({ id: running.id, status: "active" }),
 		]);

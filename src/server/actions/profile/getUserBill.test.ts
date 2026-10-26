@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 
 import { tenants } from "~/server/db/control-schema";
+import { setGetraenkeBillingProfile } from "../../../../test/factories/billing";
 import { createBill, createKonto } from "../../../../test/factories/platform";
 import {
 	controlDb,
@@ -29,6 +30,7 @@ async function member() {
 describe("getUserBillingData", () => {
 	test("returns the latest bill with items, a fee line and where to pay", async () => {
 		const { user } = await member();
+		await setGetraenkeBillingProfile({ accountHolder: "Corps Hassia e.V." });
 		await createKonto({
 			kasseType: "Getränkekasse",
 			iban: "DE89370400440532013000",
@@ -79,9 +81,10 @@ describe("getUserBillingData", () => {
 			price: 2,
 			total: 2,
 		});
-		expect(data.payment).toMatchObject({
+		expect(data.payment).toEqual({
 			iban: "DE89 3704 0044 0532 0130 00",
 			ibanRaw: "DE89370400440532013000",
+			accountHolder: "Corps Hassia e.V.",
 			paypalBaseUrl: "https://paypal.me/HassiaBier",
 		});
 	});
@@ -92,6 +95,7 @@ describe("getUserBillingData", () => {
 			.update(tenants)
 			.set({ branding: { paypalUrl: "@CorpsKasse" } })
 			.where(eq(tenants.id, tenant.id));
+		await setGetraenkeBillingProfile();
 		await createKonto({ kasseType: "Getränkekasse" });
 		await createBill({ userId: user.id });
 
@@ -120,10 +124,14 @@ describe("getUserBillingData", () => {
 		expect(await getAllUserBills()).toEqual([]);
 	});
 
-	test.fails("a tenant without a Getränkekasse konto shows no payment target (#9)", async () => {
+	test("a tenant without a Getränkekasse konto shows no payment target (#9)", async () => {
 		const { user } = await member();
 		await createBill({ userId: user.id });
 
+		expect((await getUserBillingData()).payment).toBeNull();
+
+		// A konto alone is not enough: the holder goes into the GiroCode.
+		await createKonto({ kasseType: "Getränkekasse" });
 		expect((await getUserBillingData()).payment).toBeNull();
 	});
 

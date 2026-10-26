@@ -6,6 +6,7 @@ import {
 	createBillPeriodRow,
 	createBillRow,
 	eventUser,
+	setUpGetraenkeBilling,
 } from "../../../../test/factories/billing";
 import {
 	createDrink,
@@ -149,8 +150,26 @@ describe("generateBillPeriodCSV", () => {
 
 		const lines = (result.csvContent ?? "").split("\n");
 		expect(lines[0]?.startsWith("Name,Rechnungsbetrag,")).toBe(true);
+		// No PayPal configured: no link, and never a placeholder handle (#9).
 		expect(lines[1]).toBe(
-			'Solo,"4,50 EUR","0,00 EUR","0,00 EUR","0,00 EUR","4,50 EUR",Solo,"0,00 %",https://paypal.me/YourHandle/4.50EUR,',
+			'Solo,"4,50 EUR","0,00 EUR","0,00 EUR","0,00 EUR","4,50 EUR",Solo,"0,00 %",,',
+		);
+	});
+
+	test("links the tenant's own PayPal by default (#9)", async () => {
+		await createTenant();
+		await setUpGetraenkeBilling();
+		const period = await createBillPeriodRow();
+		await createBillRow({
+			periodId: period.id,
+			user: { id: "u1", name: "Solo" },
+			drinksTotal: 4.5,
+		});
+
+		const result = await generateBillPeriodCSV(period.id);
+
+		expect(result.csvContent?.split("\n")[1]).toMatch(
+			/,https:\/\/paypal\.me\/corpskasse\/4\.50EUR,$/,
 		);
 	});
 

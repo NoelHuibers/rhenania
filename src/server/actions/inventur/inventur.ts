@@ -18,6 +18,10 @@ import {
 	orders,
 } from "~/server/db/schema";
 import { hasFeature } from "~/server/lib/features";
+import {
+	incompleteBillingMessage,
+	resolveGetraenkeBillSender,
+} from "~/server/lib/getraenkekasse-payment";
 
 export type EventInfo = {
 	eventId?: string | null;
@@ -533,6 +537,19 @@ export type CloseInventoryAndBillResult =
 export async function closeInventoryAndBill(
 	items: InventoryCountItem[],
 ): Promise<CloseInventoryAndBillResult> {
+	// Billing would refuse without the tenant's sender and account; check
+	// first so the inventory is not closed with its loss left unbilled.
+	if ((await auth())?.user) {
+		const sender = await resolveGetraenkeBillSender();
+		if (!sender.ok) {
+			return {
+				success: false,
+				failedStep: "inventory",
+				error: incompleteBillingMessage(sender.missing),
+			};
+		}
+	}
+
 	const counted = await countInventory(items);
 	if (!counted.success) {
 		return { success: false, failedStep: "inventory", error: counted.error };

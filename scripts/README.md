@@ -17,6 +17,12 @@ pnpm exec tsx scripts/dev/run.ts pnpm diag:tenant-health hassia
 pnpm exec tsx scripts/dev/run.ts pnpm db:migrate-tenants --dry-run
 ```
 
+## Pending one-off backfills
+
+| Command | Purpose |
+|---|---|
+| `pnpm db:backfill-billing-profile [--apply]` | #9: copy the formerly hard-coded Getränke bill sender, holder, IBAN and PayPal into Rhenania's tenant DB. Run after `db:migrate-tenants` (0012) and before deploying. Dry run by default; `--apply` needs `CONFIRM_PROD=<host>`. |
+
 ## Diagnostics
 
 | Command | What it shows |

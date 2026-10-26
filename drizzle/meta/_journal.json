@@ -85,6 +85,13 @@
       "when": 1790902125405,
       "tag": "0011_feature_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793016683183,
+      "tag": "0012_getraenke_billing_config",
+      "breakpoints": true
     }
   ]
 }

@@ -25,6 +25,7 @@
 		"grant-superadmin": "tsx scripts/ops/grant-superadmin.ts",
 		"grant-tenant-admin": "tsx scripts/ops/grant-tenant-admin.ts",
 		"db:backfill-tenant-config": "tsx scripts/ops/backfill-tenant-config.ts",
+		"db:backfill-billing-profile": "tsx scripts/ops/backfill-billing-profile.ts",
 		"db:control:studio": "drizzle-kit studio --config=drizzle.control.config.ts",
 		"dev": "next dev --turbo",
 		"dev:local": "tsx scripts/dev/run.ts next dev --turbo",

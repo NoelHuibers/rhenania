@@ -71,7 +71,7 @@ export function BillingOverview() {
 	};
 
 	const handlePayWithPayPal = () => {
-		if (!billData || !payment) {
+		if (!billData || !payment?.paypalBaseUrl) {
 			return;
 		}
 		window.open(
@@ -367,6 +367,17 @@ export function BillingOverview() {
 				</div>
 
 				{/* Payment section — only when unpaid */}
+				{/* The tenant has not set up its Getränkekasse: never guess a payee. */}
+				{billData.status === "Unbezahlt" && !payment && (
+					<div className="space-y-2">
+						<Separator />
+						<p className="text-muted-foreground text-sm">
+							Zahlungsdaten nicht hinterlegt. Bitte wende dich an den
+							Getränkewart.
+						</p>
+					</div>
+				)}
+
 				{billData.status === "Unbezahlt" && payment && (
 					<div className="space-y-2">
 						<Separator />
@@ -376,26 +387,28 @@ export function BillingOverview() {
 
 						{/* Method selector */}
 						<div className="grid grid-cols-3 gap-2">
-							<Button
-								variant="outline"
-								onClick={() =>
-									setSelectedPayment(
-										selectedPayment === "paypal" ? null : "paypal",
-									)
-								}
-								className={`h-auto flex-col items-start gap-0 px-3 py-2 ${
-									selectedPayment === "paypal"
-										? "border-[#0070ba] bg-[#0070ba]/10 hover:bg-[#0070ba]/15"
-										: ""
-								}`}
-							>
-								<span className="font-semibold text-[#0070ba] text-xs">
-									PayPal
-								</span>
-								<span className="text-[10px] text-muted-foreground">
-									Freunde &amp; Familie
-								</span>
-							</Button>
+							{payment.paypalBaseUrl && (
+								<Button
+									variant="outline"
+									onClick={() =>
+										setSelectedPayment(
+											selectedPayment === "paypal" ? null : "paypal",
+										)
+									}
+									className={`h-auto flex-col items-start gap-0 px-3 py-2 ${
+										selectedPayment === "paypal"
+											? "border-[#0070ba] bg-[#0070ba]/10 hover:bg-[#0070ba]/15"
+											: ""
+									}`}
+								>
+									<span className="font-semibold text-[#0070ba] text-xs">
+										PayPal
+									</span>
+									<span className="text-[10px] text-muted-foreground">
+										Freunde &amp; Familie
+									</span>
+								</Button>
+							)}
 
 							<Button
 								variant="outline"
@@ -432,7 +445,7 @@ export function BillingOverview() {
 						</div>
 
 						{/* PayPal detail panel */}
-						{selectedPayment === "paypal" && (
+						{selectedPayment === "paypal" && payment.paypalBaseUrl && (
 							<div className="space-y-2 rounded-lg border border-[#0070ba]/25 bg-[#0070ba]/5 p-3">
 								<div className="flex items-center justify-between">
 									<span className="text-muted-foreground text-xs">Betrag</span>

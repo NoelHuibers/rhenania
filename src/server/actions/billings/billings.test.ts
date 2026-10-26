@@ -10,6 +10,7 @@ import {
 	createOrderRow,
 	eventUser,
 	itemsOf,
+	setUpGetraenkeBilling,
 	setUserPreference,
 } from "../../../../test/factories/billing";
 import {
@@ -64,6 +65,7 @@ afterEach(() => {
 
 async function setupKasse(features: Parameters<typeof createTenant>[0] = {}) {
 	await createTenant(features);
+	await setUpGetraenkeBilling();
 	const wart = await createUser({ name: "Wart", roles: ["Getränkewart"] });
 	signInAs(wart);
 	return wart;
@@ -97,6 +99,22 @@ async function periodByNumber(billNumber: string) {
 }
 
 describe("createNewBilling", () => {
+	test("refuses without the tenant's sender and account, creating nothing (#9)", async () => {
+		await createTenant();
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
+		await createOrderRow({ user: await createUser() });
+
+		const result = await createNewBilling();
+
+		expect(result).toMatchObject({ success: false, billsCreated: 0 });
+		expect(result.message).toMatch(
+			/^Bitte Absender und Konto in der Kasse hinterlegen \(fehlt: Absender, .*Getränkekasse-Konto mit gültiger IBAN\)\.$/,
+		);
+		expect(await tenantDb().select().from(billPeriods)).toHaveLength(0);
+		expect(await tenantDb().select().from(bills)).toHaveLength(0);
+		expect(mail).not.toHaveBeenCalled();
+	});
+
 	test("throws for anonymous callers and writes nothing", async () => {
 		await createTenant();
 		const member = await createUser();

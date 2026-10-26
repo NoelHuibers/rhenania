@@ -22,6 +22,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { GetraenkeBillingCard } from "~/components/getraenkewart/GetraenkeBillingCard";
 import { GetraenkeSettingsCard } from "~/components/getraenkewart/GetraenkeSettingsCard";
 import { useFeature } from "~/components/TenantProvider";
 import {
@@ -85,6 +86,7 @@ import {
 	deleteBankEntry,
 	deleteExternalBill,
 	downloadEntityBillPDF,
+	type GetraenkeBillingSettings,
 	type GetraenkeSettings,
 	markAllMemberBillsPaid,
 	markExternalBillPaid,
@@ -153,6 +155,8 @@ type Props = {
 	pfandWert: number;
 	/** Feature settings; null for tenants without markup / treasurer features. */
 	settings?: GetraenkeSettings | null;
+	/** Sender and account of the bills; null for non-Getränkewarte. */
+	billing?: GetraenkeBillingSettings | null;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -1103,7 +1107,7 @@ function NeueRechnungCard() {
 				toast.success("Neue Rechnung erfolgreich erstellt");
 				router.refresh();
 			} else {
-				toast.error("Fehler beim Erstellen der Rechnung");
+				toast.error(result?.message ?? "Fehler beim Erstellen der Rechnung");
 			}
 		});
 	}
@@ -1168,10 +1172,12 @@ export function KasseTab({
 	memberBills,
 	pfandWert,
 	settings = null,
+	billing = null,
 }: Props) {
 	return (
 		<div className="flex flex-col gap-6">
 			<SummarySection summary={summary} pfandWert={pfandWert} />
+			{billing && <GetraenkeBillingCard settings={billing} />}
 			{settings && <GetraenkeSettingsCard settings={settings} />}
 			<NeueRechnungCard />
 			<BankLog entries={bankEntries} />

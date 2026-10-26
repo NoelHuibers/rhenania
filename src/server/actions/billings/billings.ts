@@ -16,6 +16,10 @@ import {
 	users,
 } from "~/server/db/schema";
 import { getBillRecipient } from "~/server/lib/getraenke-settings";
+import {
+	incompleteBillingMessage,
+	resolveGetraenkeBillSender,
+} from "~/server/lib/getraenkekasse-payment";
 import { groupBy } from "~/server/lib/group-by";
 import { log } from "~/server/lib/log";
 import {
@@ -70,6 +74,20 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 	}
 
 	const createdByUserId = session.user.id;
+
+	// Bills print the tenant's sender and account. Without them, refuse
+	// before any bill exists rather than mailing bills without a payee.
+	const sender = await resolveGetraenkeBillSender();
+	if (!sender.ok) {
+		const message = incompleteBillingMessage(sender.missing);
+		return {
+			success: false,
+			message,
+			error: message,
+			billsCreated: 0,
+			totalAmount: 0,
+		};
+	}
 
 	try {
 		const result = await db.transaction(async (tx) => {

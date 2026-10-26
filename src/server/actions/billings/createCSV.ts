@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { sumMoney } from "~/lib/money";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills, drinks } from "~/server/db/schema";
+import { getGetraenkekassePayment } from "~/server/lib/getraenkekasse-payment";
 
 interface BillWithItems {
 	id: string;
@@ -75,8 +76,11 @@ export async function generateBillPeriodCSV(
 	},
 ): Promise<CSVGenerationResult> {
 	try {
+		// The tenant's own PayPal (same as on the bill PDF); no link without one.
 		const paypalBaseUrl =
-			options?.paypalBaseUrl || "https://paypal.me/YourHandle";
+			options?.paypalBaseUrl ||
+			(await getGetraenkekassePayment())?.paypalBaseUrl ||
+			null;
 		const delimiter = options?.delimiter || ",";
 
 		// 1. Get the bill period information
@@ -210,7 +214,7 @@ function generateCSVContent(
 	drinkPrices: Record<string, number>,
 	_billNumber: string,
 	options: {
-		paypalBaseUrl: string;
+		paypalBaseUrl: string | null;
 		delimiter: string;
 	},
 ): string {
@@ -287,11 +291,13 @@ function generateCSVContent(
 		row.push(escapeCSVField(bill.userName, delimiter)); // nix (using userName as identifier)
 		row.push(escapeCSVField(formatPercentage(mahnfaktor), delimiter)); // Mahnfaktor
 
-		// Generate PayPal link if amount > 0 and not paid
-		const paypalLink =
-			bill.total > 0 && bill.status !== "Bezahlt"
+		// PayPal link if amount > 0 and not paid (empty without a PayPal)
+		const due = bill.total > 0 && bill.status !== "Bezahlt";
+		const paypalLink = !due
+			? "#####"
+			: paypalBaseUrl
 				? `${paypalBaseUrl}/${bill.total.toFixed(2)}EUR`
-				: "#####";
+				: "";
 		row.push(escapeCSVField(paypalLink, delimiter));
 
 		// Payment status
