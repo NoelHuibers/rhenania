@@ -42,7 +42,7 @@ export function NewTenantForm() {
 	return (
 		<form
 			onSubmit={handleSubmit}
-			className="max-w-lg space-y-4 rounded-md border bg-white p-6"
+			className="max-w-lg space-y-4 rounded-md border bg-card p-6"
 		>
 			<div className="space-y-1">
 				<Label htmlFor="slug">Slug</Label>

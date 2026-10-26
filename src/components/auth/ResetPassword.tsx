@@ -92,7 +92,7 @@ export function ResetPassword() {
 
 	if (invalidLink) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+			<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
 						<XCircle className="mx-auto mb-4 h-12 w-12 text-red-600" />
@@ -118,7 +118,7 @@ export function ResetPassword() {
 	}
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+		<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader className="text-center">
 					<CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-primary" />

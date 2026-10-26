@@ -28,7 +28,7 @@ export default async function AccessDeniedPage({
 	const attemptedPath = params.path || "/getraenkewart";
 
 	return (
-		<div className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6 lg:px-8">
+		<div className="min-h-screen bg-muted/40 px-4 py-8 sm:px-6 lg:px-8">
 			<div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-lg flex-col items-center justify-center space-y-6">
 				{/* Warning Icon */}
 				<div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-50">
@@ -37,28 +37,30 @@ export default async function AccessDeniedPage({
 
 				{/* Main Heading */}
 				<div className="text-center">
-					<h1 className="mb-2 font-bold text-3xl text-gray-900">
+					<h1 className="mb-2 font-bold text-3xl text-foreground">
 						Access Denied
 					</h1>
-					<p className="text-gray-600">
+					<p className="text-muted-foreground">
 						You don't have permission to access this page.
 					</p>
 				</div>
 
 				{/* Main Information Card */}
-				<Card className="w-full border-gray-200 shadow-sm">
+				<Card className="w-full shadow-sm">
 					<CardContent className="space-y-6 p-6">
 						{/* User Info */}
 						<div>
-							<p className="mb-2 text-gray-500 text-sm">Signed in as</p>
-							<p className="font-medium text-gray-900">
+							<p className="mb-2 text-muted-foreground text-sm">Signed in as</p>
+							<p className="font-medium text-foreground">
 								{session.user.email || "noel.huibers@rhenania-stuttgart.de"}
 							</p>
 						</div>
 
 						{/* Required Roles */}
 						<div>
-							<p className="mb-3 text-gray-500 text-sm">Required roles</p>
+							<p className="mb-3 text-muted-foreground text-sm">
+								Required roles
+							</p>
 							<div className="flex flex-wrap gap-2">
 								{requiredRoles.map((role) => (
 									<Badge
@@ -73,8 +75,10 @@ export default async function AccessDeniedPage({
 
 						{/* Attempted Path */}
 						<div>
-							<p className="mb-2 text-gray-500 text-sm">Attempted to access</p>
-							<code className="font-mono text-gray-900 text-sm">
+							<p className="mb-2 text-muted-foreground text-sm">
+								Attempted to access
+							</p>
+							<code className="font-mono text-foreground text-sm">
 								{attemptedPath}
 							</code>
 						</div>

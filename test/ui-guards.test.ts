@@ -70,3 +70,29 @@ describe("money and dates go through src/lib/format.ts (#83)", () => {
 		).toEqual([]);
 	});
 });
+
+describe("one document root, one toaster, one theme (#86)", () => {
+	const ROOT_LAYOUT = path.join("src", "app", "layout.tsx");
+	const APP_FILES = sourceFiles("src/app");
+	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
+
+	test("only the root layout renders <html> and <body>", () => {
+		const roots = APP_FILES.filter((f) => /<(html|body)[\s>]/.test(read(f)));
+		expect(roots).toEqual([ROOT_LAYOUT]);
+	});
+
+	test("the toaster is mounted once, in the root layout", () => {
+		const mounts = [...UI_FILES, ...sourceFiles("src/components/ui")].filter(
+			(f) => /<Toaster[\s/>]/.test(read(f)),
+		);
+		expect(mounts).toEqual([ROOT_LAYOUT]);
+	});
+
+	test("the theme provider wraps every route from the root layout", () => {
+		expect(read(ROOT_LAYOUT)).toMatch(/<AppThemeProvider[\s>]/);
+		const others = APP_FILES.filter(
+			(f) => f !== ROOT_LAYOUT && /ThemeProvider/.test(read(f)),
+		);
+		expect(others).toEqual([]);
+	});
+});

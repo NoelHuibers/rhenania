@@ -10,9 +10,9 @@ export async function TenantHealthTable() {
 			<p className="text-muted-foreground text-sm">
 				Expected tenant schema: <code>{EXPECTED_HEADS.tenant.tag}</code>
 			</p>
-			<div className="overflow-hidden rounded-md border bg-white">
+			<div className="overflow-hidden rounded-md border bg-card">
 				<table className="w-full text-sm">
-					<thead className="border-b bg-gray-50 text-left text-muted-foreground">
+					<thead className="border-b bg-muted/40 text-left text-muted-foreground">
 						<tr>
 							<th className="px-4 py-3 font-medium">Tenant</th>
 							<th className="px-4 py-3 font-medium">Database</th>

@@ -132,7 +132,7 @@ function DisplayNameSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-4 font-medium">Display name</h2>
 			<div className="flex max-w-lg gap-2">
 				<Input
@@ -177,7 +177,7 @@ function StatusSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-4 font-medium">Status</h2>
 			<div className="flex items-center gap-3">
 				<span className="text-muted-foreground text-sm">
@@ -217,7 +217,7 @@ function FeaturesSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-1 font-medium">Features</h2>
 			<p className="mb-4 text-muted-foreground text-sm">
 				Off by default. Changes reach all server instances within a minute.
@@ -291,7 +291,7 @@ function DomainsSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-4 font-medium">Domains</h2>
 			<ul className="mb-4 divide-y rounded border">
 				{domains.length === 0 && (
@@ -396,7 +396,7 @@ function AuthConfigSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-1 font-medium">Microsoft (Azure AD) sign-in</h2>
 			<p className="mb-4 text-muted-foreground text-xs">
 				Provider id: <code>microsoft-{slug}</code>. Register this redirect URI

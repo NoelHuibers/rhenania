@@ -106,7 +106,7 @@ export function SignInPage({ microsoftProviderId }: SignInPageProps) {
 	};
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+		<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader className="pb-4 text-center">
 					<CardTitle className="text-2xl">Anmelden</CardTitle>
@@ -150,7 +150,7 @@ export function SignInPage({ microsoftProviderId }: SignInPageProps) {
 									<span className="w-full border-t" />
 								</div>
 								<div className="relative flex justify-center text-xs uppercase">
-									<span className="bg-white px-2 text-muted-foreground">
+									<span className="bg-card px-2 text-muted-foreground">
 										oder
 									</span>
 								</div>
