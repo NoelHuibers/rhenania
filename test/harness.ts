@@ -232,3 +232,5 @@ export function tenantDb(tenantId = testState.tenantId) {
 export function controlDb() {
 	return requireControl().db;
 }
+
+export { countQueries } from "./query-count";

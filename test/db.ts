@@ -9,6 +9,7 @@ import { inject } from "vitest";
 
 import * as controlSchema from "~/server/db/control-schema";
 import * as tenantSchema from "~/server/db/schema";
+import { instrumentClient, type QueryDb } from "./query-count";
 
 export type TenantTestDb = {
 	url: string;
@@ -24,14 +25,15 @@ export type ControlTestDb = {
 	close: () => void;
 };
 
-function copyTemplate(kind: "tenant" | "control") {
+function copyTemplate(kind: QueryDb) {
 	const templates = inject("testDbTemplates");
 	const file = path.join(templates.dir, `${kind}-${randomUUID()}.db`);
 	copyFileSync(templates[kind], file);
 	const url = `file:${file}`;
-	const client = createClient({ url });
+	const raw = createClient({ url });
+	const client = instrumentClient(raw, kind);
 	const close = () => {
-		client.close();
+		raw.close();
 		rmSync(file, { force: true });
 	};
 	return { url, client, close };
