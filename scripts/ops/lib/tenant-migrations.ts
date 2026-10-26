@@ -57,7 +57,7 @@ export function readLocalMigrations(folder: string): LocalMigration[] {
 		return {
 			...entry,
 			sql,
-			hash: createHash("sha256").update(sql).digest("hex"),
+			hash: sha256(sql),
 		};
 	});
 }
@@ -104,9 +104,23 @@ export async function journalHead(
 	);
 }
 
+const sha256 = (text: string) =>
+	createHash("sha256").update(text).digest("hex");
+
+/**
+ * Hashes a recorded row may carry for this file. Early tenants were migrated
+ * from a checkout with Windows line endings, so their rows hold the hash of
+ * the CRLF copy of the same SQL.
+ */
+function acceptedHashes(m: LocalMigration): Set<string> {
+	return new Set([m.hash, sha256(m.sql.replace(/\r?\n/g, "\r\n"))]);
+}
+
 /**
  * After a run, every local migration up to the newest applied one must be
- * recorded with the hash of the file we ship. Returns the problems found.
+ * recorded with the hash of the file we ship. Rows are matched by hash first:
+ * migrations applied by older scripts carry their own timestamps, not the
+ * journal's. Returns the problems found.
  */
 export async function verifyJournal(
 	client: Client,
@@ -125,6 +139,10 @@ export async function verifyJournal(
 	const last = Math.max(0, ...applied.map((a) => a.when));
 	const problems: string[] = [];
 	for (const m of local.filter((l) => l.when <= last)) {
+		const hashes = acceptedHashes(m);
+		if (applied.some((a) => hashes.has(a.hash))) {
+			continue;
+		}
 		const row = applied.find((a) => a.when === m.when);
 		if (!row) {
 			problems.push(`${m.tag} is not recorded`);

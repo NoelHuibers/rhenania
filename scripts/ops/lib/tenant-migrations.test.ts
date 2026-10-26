@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -293,6 +294,58 @@ describe("verifyJournal", () => {
 		expect(await verifyJournal(client, readLocalMigrations(folder))).toEqual([
 			"0000_init was recorded with a different hash",
 		]);
+		client.close();
+	});
+
+	test("accepts rows from older scripts with their own timestamps", async () => {
+		const folder = fixtureFolder(BASE);
+		const t = target("legacy-times");
+		await runTenantMigrations([t], {
+			migrationsFolder: folder,
+			openClient: open,
+			log: quiet,
+		});
+		const client = open(t);
+		// Applied by an old one-off script: same SQL, its own created_at.
+		await client.execute(
+			"UPDATE __drizzle_migrations SET created_at = 90 WHERE created_at = 100",
+		);
+		// Plus a row for a migration that is not in the repo any more.
+		await client.execute(
+			"INSERT INTO __drizzle_migrations (hash, created_at) VALUES ('old-one-off', 95)",
+		);
+
+		expect(await verifyJournal(client, readLocalMigrations(folder))).toEqual(
+			[],
+		);
+		client.close();
+	});
+
+	test("accepts the hash of the same SQL with Windows line endings", async () => {
+		const folder = fixtureFolder(BASE);
+		const t = target("crlf");
+		await runTenantMigrations([t], {
+			migrationsFolder: folder,
+			openClient: open,
+			log: quiet,
+		});
+		// The multi-statement migration, so the SQL really has line breaks.
+		const more = readLocalMigrations(folder).find((m) => m.when === 200);
+		if (!more?.sql.includes("\n")) {
+			throw new Error("fixture migration without line breaks");
+		}
+		const crlf = createHash("sha256")
+			.update(more.sql.replace(/\r?\n/g, "\r\n"))
+			.digest("hex");
+		const client = open(t);
+		await client.execute({
+			sql: "UPDATE __drizzle_migrations SET hash = ? WHERE created_at = ?",
+			args: [crlf, more.when],
+		});
+
+		expect(await verifyJournal(client, readLocalMigrations(folder))).toEqual(
+			[],
+		);
 		client.close();
 	});
 });
