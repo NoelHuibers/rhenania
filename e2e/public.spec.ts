@@ -24,4 +24,10 @@ test.describe("public pages per tenant", () => {
 		await expect(page.locator("#email")).toBeVisible();
 		await expect(page.locator("#password")).toBeVisible();
 	});
+
+	test("health endpoint answers without a session", async ({ request }) => {
+		const res = await request.get(`${RHENANIA}/api/health`);
+		expect(res.status()).toBe(200);
+		expect(await res.json()).toMatchObject({ ok: true });
+	});
 });

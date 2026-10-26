@@ -25,6 +25,8 @@ export const env = createEnv({
 		// Local dev / E2E only: write outgoing mail as JSON files into this
 		// directory instead of sending it. Refused on Vercel production.
 		MAIL_OUTBOX_DIR: z.string().optional(),
+		// Bearer token for /api/health/tenants (scheduled drift checks).
+		HEALTH_TOKEN: z.string().min(24).optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -55,6 +57,7 @@ export const env = createEnv({
 		TURSO_ORG_SLUG: process.env.TURSO_ORG_SLUG,
 		TURSO_GROUP: process.env.TURSO_GROUP,
 		MAIL_OUTBOX_DIR: process.env.MAIL_OUTBOX_DIR,
+		HEALTH_TOKEN: process.env.HEALTH_TOKEN,
 		NODE_ENV: process.env.NODE_ENV,
 	},
 	/**
