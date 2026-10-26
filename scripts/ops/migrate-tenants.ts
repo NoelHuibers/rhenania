@@ -1,4 +1,4 @@
-// scripts/migrate-tenants.ts
+// scripts/ops/migrate-tenants.ts
 //
 // Brings every tenant DB up to date with the migrations in ./drizzle — the
 // same folder `pnpm db:migrate` applies to the Rhenania DB and that

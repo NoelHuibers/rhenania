@@ -1,4 +1,4 @@
-// scripts/backfill-tenant-config.ts
+// scripts/ops/backfill-tenant-config.ts
 //
 // Seeds (or repairs) the per-tenant config tables — kasseTypes, eventTypes,
 // homepageSections — for an existing tenant DB. Idempotent: uses

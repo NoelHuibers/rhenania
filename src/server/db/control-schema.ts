@@ -235,7 +235,7 @@ export const passwordResetTokens = createControlTable(
 // Platform-level superadmins (operators of the SaaS). Stored as a separate
 // table — NOT a flag on `users` — so user-update code paths physically cannot
 // grant superadmin (defense-in-depth against mass-assignment privilege
-// escalation). Bootstrap via `scripts/grant-superadmin.ts`; further grants
+// escalation). Bootstrap via `scripts/ops/grant-superadmin.ts`; further grants
 // only via the superadmin UI.
 export const superAdmins = createControlTable("super_admin", (d) => ({
 	userId: d.text({ length: 255 }).notNull().primaryKey(),
@@ -251,7 +251,7 @@ export const superAdmins = createControlTable("super_admin", (d) => ({
 // intentionally omitted so this migration can run without ordering hazards
 // against the existing memberships seeded in step 1 (which were inserted
 // before control-DB users existed). Add the FK in a later cleanup migration
-// once `migrate-identity.ts` has populated control `users`.
+// once `migrate-identity.ts` (one-off, removed) has populated control `users`.
 export const tenantMemberships = createControlTable(
 	"tenant_membership",
 	(d) => ({

@@ -1,4 +1,4 @@
-// scripts/check-memberships.ts — read-only: list control-DB users and their
+// scripts/diag/check-memberships.ts — read-only: list control-DB users and their
 // tenant memberships, flagging users with no membership anywhere (they would
 // be blocked by the middleware membership gate).
 

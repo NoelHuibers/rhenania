@@ -1,17 +1,14 @@
-// scripts/inspect-migration-journal.ts — read-only: compare a tenant's
+// scripts/diag/inspect-migration-journal.ts — read-only: compare a tenant's
 // __drizzle_migrations rows against the local drizzle journal + file hashes.
-// Usage: pnpm tsx scripts/inspect-migration-journal.ts [slug]
+// Usage: pnpm diag:migration-journal [slug]
 
 import "dotenv/config";
 
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { eq } from "drizzle-orm";
 
-import { controlDb } from "~/server/db/control";
-import { tenants } from "~/server/db/control-schema";
-import { createClient } from "~/server/db/libsql";
+import { openTenant } from "../lib/tenants";
 
 const slug = process.argv[2] ?? "hassia";
 const FOLDER = path.join(process.cwd(), "drizzle");
@@ -29,16 +26,7 @@ async function main() {
 			.digest("hex"),
 	}));
 
-	const [tenant] = await controlDb
-		.select()
-		.from(tenants)
-		.where(eq(tenants.slug, slug))
-		.limit(1);
-	if (!tenant) throw new Error(`No tenant '${slug}'`);
-	const client = createClient({
-		url: tenant.dbUrl,
-		authToken: tenant.dbAuthToken ?? undefined,
-	});
+	const { client } = await openTenant(slug);
 	const rs = await client.execute(
 		"SELECT id, hash, created_at FROM __drizzle_migrations ORDER BY id",
 	);

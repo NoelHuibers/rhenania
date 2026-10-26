@@ -1,25 +1,12 @@
-// scripts/diff-tenant-tables.ts — read-only: diff table lists of two tenant DBs.
-// Usage: pnpm tsx scripts/diff-tenant-tables.ts [slugA] [slugB]
+// scripts/diag/diff-tenant-tables.ts — read-only: diff table lists of two tenant DBs.
+// Usage: pnpm diag:diff-tables [slugA] [slugB]
 
 import "dotenv/config";
 
-import { eq } from "drizzle-orm";
-
-import { controlDb } from "~/server/db/control";
-import { tenants } from "~/server/db/control-schema";
-import { createClient } from "~/server/db/libsql";
+import { openTenant } from "../lib/tenants";
 
 async function tablesOf(slug: string): Promise<Set<string>> {
-	const [tenant] = await controlDb
-		.select()
-		.from(tenants)
-		.where(eq(tenants.slug, slug))
-		.limit(1);
-	if (!tenant) throw new Error(`No tenant '${slug}'`);
-	const client = createClient({
-		url: tenant.dbUrl,
-		authToken: tenant.dbAuthToken ?? undefined,
-	});
+	const { client } = await openTenant(slug);
 	const rs = await client.execute(
 		"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
 	);

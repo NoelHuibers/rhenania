@@ -1,4 +1,4 @@
-// scripts/inspect-control-journal.ts — read-only: compare the control DB's
+// scripts/diag/inspect-control-journal.ts — read-only: compare the control DB's
 // __drizzle_migrations rows against drizzle/control journal + file hashes.
 
 import "dotenv/config";

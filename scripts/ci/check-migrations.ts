@@ -21,7 +21,7 @@ import {
 
 const FOLDERS = [
 	{ name: "drizzle", allowedIdxGaps: [] },
-	// 0004 was applied by hand (scripts/apply-control-migration-0005.ts) and
+	// 0004 was applied by hand (one-off script, removed; see git history) and
 	// never existed as a file.
 	{ name: "drizzle/control", allowedIdxGaps: [4] },
 ];

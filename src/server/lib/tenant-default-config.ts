@@ -2,7 +2,7 @@
 //
 // Used by:
 //   - `tenant-provisioning.ts` to seed defaults when creating a new tenant.
-//   - `scripts/backfill-tenant-config.ts` to seed/repair the existing
+//   - `scripts/ops/backfill-tenant-config.ts` to seed/repair the existing
 //     Rhenania tenant DB.
 //
 // `key` is the value stored in the referencing column (kontos.kasseType,

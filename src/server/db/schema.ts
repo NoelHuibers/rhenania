@@ -11,7 +11,7 @@ import {
 
 // No prefix — each tenant has its own DB so per-tenant namespacing is
 // implicit. The legacy `rhenania_` prefix on the existing tenant DB is
-// stripped by `scripts/apply-prefix-rename.ts`.
+// stripped by `scripts/apply-prefix-rename.ts` (one-off, removed; see git history).
 export const createTable = sqliteTableCreator((name) => name);
 
 // MIRROR of control-DB `users` (source of truth lives in control DB).
