@@ -126,6 +126,7 @@ describe.each(Object.entries(themes))("%s theme", (_name, vars) => {
 		"success",
 		"info",
 		"destructive",
+		"primary",
 	])("solid %s doubles as text colour on page, card and popover", (status) => {
 		for (const s of ["background", "card", "popover"]) {
 			const bg = over(color(s), color("background"));
