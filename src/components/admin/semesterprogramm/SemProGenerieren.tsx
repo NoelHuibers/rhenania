@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { DatePicker } from "~/components/ui/date-picker";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { fileNameFromDisposition } from "~/lib/content-disposition";
 import type { SemesterConfig } from "~/server/actions/semesterprogramm/semesterConfig";
 import { upsertSemesterConfig } from "~/server/actions/semesterprogramm/semesterConfig";
 import { SemProQRCode } from "./SemProQRCode";
@@ -68,10 +69,8 @@ export function SemProGenerieren({
 			const a = document.createElement("a");
 			a.href = url;
 			a.download =
-				res.headers
-					.get("Content-Disposition")
-					?.split('filename="')[1]
-					?.replace('"', "") ?? "Semesterprogramm.pdf";
+				fileNameFromDisposition(res.headers.get("Content-Disposition")) ??
+				"Semesterprogramm.pdf";
 			a.click();
 			URL.revokeObjectURL(url);
 		} catch {

@@ -131,7 +131,7 @@ describe("getPDFData", () => {
 
 	// endDate is the picked last day at 00:00, and the query uses
 	// `date <= endDate`, so anything later on the last day is dropped.
-	test.fails("includes events on the semester's last day (#145)", async () => {
+	test("includes events on the semester's last day (#145)", async () => {
 		await createTenant();
 		await setSemesterConfig(SEMESTER);
 		await createEvent({
@@ -142,5 +142,27 @@ describe("getPDFData", () => {
 		const data = await getPDFData();
 
 		expect(data?.events.map((e) => e.title)).toEqual(["AbCC"]);
+	});
+
+	test("the last day ends at the following Berlin midnight, also on DST days", async () => {
+		// 2026-10-25 has 25 hours (clocks go back at 03:00).
+		await createTenant();
+		await setSemesterConfig({
+			name: "Sommersemester 2026",
+			startDate: wallClockToUTC("2026-04-13"),
+			endDate: wallClockToUTC("2026-10-25"),
+		});
+		await createEvent({
+			title: "Spät am letzten Tag",
+			date: wallClockToUTC("2026-10-25T23:30"),
+		});
+		await createEvent({
+			title: "Am Tag danach",
+			date: wallClockToUTC("2026-10-26T00:00"),
+		});
+
+		const data = await getPDFData();
+
+		expect(data?.events.map((e) => e.title)).toEqual(["Spät am letzten Tag"]);
 	});
 });
