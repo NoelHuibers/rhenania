@@ -40,8 +40,10 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
-		"test:e2e": "playwright test",
-		"test:e2e:dev": "E2E_DEV=1 playwright test"
+		"test:e2e": "playwright test --project=desktop --project=mobile",
+		"test:e2e:dev": "E2E_DEV=1 playwright test",
+		"test:visual": "bash scripts/dev/visual.sh",
+		"test:visual:update": "bash scripts/dev/visual.sh --update-snapshots"
 	},
 	"dependencies": {
 		"@dnd-kit/core": "^6.3.1",
