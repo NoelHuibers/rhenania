@@ -1,4 +1,5 @@
-import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
+import { dayKeyInTZ, wallClockToUTC } from "~/lib/time";
 import { db } from "~/server/db";
 import {
 	events,
@@ -52,6 +53,16 @@ const RECURRENCE_LABELS: Record<string, string> = {
 	occ_semester: "nach Semesterplan",
 };
 
+/**
+ * Berlin midnight of the calendar day after `date`. Goes through the date key
+ * instead of adding 24 hours, so DST days (23 or 25 hours) land correctly.
+ */
+function startOfNextBerlinDay(date: Date): Date {
+	const next = new Date(`${dayKeyInTZ(date)}T00:00:00Z`);
+	next.setUTCDate(next.getUTCDate() + 1);
+	return wallClockToUTC(next.toISOString().slice(0, 10));
+}
+
 export async function getPDFData(): Promise<PDFData | null> {
 	// Semester config
 	const [config] = await db
@@ -92,12 +103,16 @@ export async function getPDFData(): Promise<PDFData | null> {
 	const jourFixe = recurring.find((r) => r.type === "Jour Fix");
 	const stammtisch = recurring.find((r) => r.type === "Stammtisch");
 
-	// Events within semester range, not cancelled
+	// Events within the semester. The end date is the picked last day at
+	// Berlin midnight, so everything before the following midnight belongs in.
 	const semEvents = await db
 		.select()
 		.from(events)
 		.where(
-			and(gte(events.date, config.startDate), lte(events.date, config.endDate)),
+			and(
+				gte(events.date, config.startDate),
+				lt(events.date, startOfNextBerlinDay(config.endDate)),
+			),
 		)
 		.orderBy(asc(events.date));
 

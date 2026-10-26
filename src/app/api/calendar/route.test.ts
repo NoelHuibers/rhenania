@@ -30,7 +30,7 @@ function vevents(ics: string) {
 
 describe("GET /api/calendar", () => {
 	test("serves a VCALENDAR with one VEVENT per event in date order", async () => {
-		await createTenant();
+		const tenant = await createTenant();
 		const later = await createEvent({
 			title: "Stiftungsfest",
 			date: new Date("2026-11-14T18:15:00Z"),
@@ -53,7 +53,7 @@ describe("GET /api/calendar", () => {
 		expect(ics).not.toMatch(/[^\r]\n/);
 		const [first, second] = vevents(ics);
 		expect(first).toEqual([
-			`UID:${sooner.id}@rhenania`,
+			`UID:${sooner.id}@${tenant.slug}`,
 			"DTSTAMP:20261026T120000Z",
 			"DTSTART:20261104T190000Z",
 			"DTEND:20261104T210000Z",
@@ -62,7 +62,7 @@ describe("GET /api/calendar", () => {
 		]);
 		expect(second).toEqual(
 			expect.arrayContaining([
-				`UID:${later.id}@rhenania`,
+				`UID:${later.id}@${tenant.slug}`,
 				"DTSTART:20261114T181500Z",
 				"DTEND:20261115T110000Z",
 			]),
@@ -103,9 +103,9 @@ describe("GET /api/calendar", () => {
 		expect(contentLines(ics)).toContain(`SUMMARY:${title}`);
 	});
 
-	// Folding counts UTF-16 code units: lines with umlauts exceed the 75-octet
-	// limit and an emoji at the fold point is split into lone surrogates.
-	test.fails("folds by octets without splitting characters (#146)", async () => {
+	// Folding counts UTF-8 octets: lines with umlauts must not exceed the
+	// 75-octet limit and an emoji at the fold point must stay in one piece.
+	test("folds by octets without splitting characters (#146)", async () => {
 		await createTenant();
 		// "SUMMARY:" + 66 characters puts the emoji's two code units at 74/75.
 		const title = `${"Fuchsenprüfung ".repeat(4)}Grill 🍺 und mehr`;
@@ -121,9 +121,8 @@ describe("GET /api/calendar", () => {
 		).toBe(true);
 	});
 
-	// The public feed still hard-codes the original tenant in UID and
-	// calendar name, unlike the per-member feed.
-	test.fails("names the calendar after the tenant (#36)", async () => {
+	// Like the per-member feed, UIDs and calendar name belong to the tenant.
+	test("names the calendar after the tenant (#36)", async () => {
 		await createTenant({ slug: "hassia", displayName: "Corps Hassia" });
 		const event = await createEvent();
 
@@ -132,6 +131,16 @@ describe("GET /api/calendar", () => {
 		expect(contentLines(ics)).toContain(
 			"X-WR-CALNAME:Corps Hassia Semesterprogramm",
 		);
+		expect(contentLines(ics)).toContain(
+			"PRODID:-//Corps Hassia//Semesterprogramm//DE",
+		);
 		expect(ics).toContain(`UID:${event.id}@hassia`);
+		expect(ics).not.toContain("Rhenania");
+	});
+
+	test("is 404 on a host without a tenant", async () => {
+		const res = await GET();
+
+		expect(res.status).toBe(404);
 	});
 });

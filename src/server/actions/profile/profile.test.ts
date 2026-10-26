@@ -129,7 +129,7 @@ describe("updateUserName", () => {
 		expect((await mirrorOf(member.id))?.name).toBe("Alt");
 	});
 
-	test.fails("a new name is stored on the global identity (#153)", async () => {
+	test("a new name is stored on the global identity (#153)", async () => {
 		// The control DB is the source of truth; the next mirror fan-out
 		// (e.g. verifying an e-mail) would otherwise restore the old name.
 		await createTenant();
@@ -304,7 +304,7 @@ describe("syncFromMicrosoft", () => {
 		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
-	test.fails("syncs a large Microsoft photo (#154)", async () => {
+	test("syncs a large Microsoft photo (#154)", async () => {
 		// Graph returns the largest stored photo; base64-encoding it via
 		// String.fromCharCode(...bytes) overflows the call stack above ~120 KB
 		// and the photo is silently dropped.

@@ -10,6 +10,7 @@ import { getAllEvents } from "~/server/actions/events/events";
 import { getAllRecurringEvents } from "~/server/actions/events/recurring";
 import { getSemesterConfig } from "~/server/actions/semesterprogramm/semesterConfig";
 import { getVenues } from "~/server/actions/venues";
+import { protocolForHost } from "~/server/lib/local-host";
 
 export const metadata = {
 	title: "Veranstaltungen",
@@ -24,7 +25,7 @@ export default async function AdminSemesterprogrammPage() {
 	]);
 
 	const host = (await headers()).get("host") ?? "localhost:3000";
-	const protocol = host.startsWith("localhost") ? "http" : "https";
+	const protocol = protocolForHost(host);
 	const semproUrl = `${protocol}://${host}/api/calendar`;
 
 	return (

@@ -2,34 +2,15 @@ import { asc } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { events, venues } from "~/server/db/schema";
-
-function formatICalDate(date: Date): string {
-	return `${date.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
-}
-
-function escapeICalText(str: string): string {
-	return str
-		.replace(/\\/g, "\\\\")
-		.replace(/;/g, "\\;")
-		.replace(/,/g, "\\,")
-		.replace(/\n/g, "\\n");
-}
-
-function foldLine(line: string): string {
-	if (line.length <= 75) {
-		return line;
-	}
-	const chunks: string[] = [];
-	chunks.push(line.slice(0, 75));
-	let i = 75;
-	while (i < line.length) {
-		chunks.push(` ${line.slice(i, i + 74)}`);
-		i += 74;
-	}
-	return chunks.join("\r\n");
-}
+import { escapeICalText, foldLine, formatICalDate } from "~/server/lib/ical";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 export async function GET() {
+	const tenant = await getCurrentTenant();
+	if (!tenant) {
+		return new NextResponse("Not Found", { status: 404 });
+	}
+
 	const now = new Date();
 	const [rows, venueRows] = await Promise.all([
 		db.select().from(events).orderBy(asc(events.date)),
@@ -46,7 +27,7 @@ export async function GET() {
 
 			const lines = [
 				"BEGIN:VEVENT",
-				`UID:${event.id}@rhenania`,
+				`UID:${event.id}@${tenant.slug}`,
 				`DTSTAMP:${formatICalDate(now)}`,
 				`DTSTART:${dtstart}`,
 				`DTEND:${dtend}`,
@@ -74,10 +55,12 @@ export async function GET() {
 	const ical = [
 		"BEGIN:VCALENDAR",
 		"VERSION:2.0",
-		"PRODID:-//Rhenania//Semesterprogramm//DE",
+		foldLine(`PRODID:-//${tenant.displayName}//Semesterprogramm//DE`),
 		"CALSCALE:GREGORIAN",
 		"METHOD:PUBLISH",
-		foldLine("X-WR-CALNAME:Rhenania Semesterprogramm"),
+		foldLine(
+			`X-WR-CALNAME:${escapeICalText(`${tenant.displayName} Semesterprogramm`)}`,
+		),
 		"X-WR-TIMEZONE:Europe/Berlin",
 		vevents,
 		"END:VCALENDAR",

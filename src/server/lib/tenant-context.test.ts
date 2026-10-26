@@ -253,7 +253,7 @@ describe("getCurrentRequestOrigin", () => {
 		expect(await getCurrentRequestOrigin()).toBe("http://127.0.0.1:3000");
 	});
 
-	test.fails("uses http for tenant subdomains of localhost (#155)", async () => {
+	test("uses http for tenant subdomains of localhost (#155)", async () => {
 		// load-providers.ts treats `*.localhost` as a local http origin; the
 		// request origin used in invitation links should agree.
 		testState.headers = { host: "hassia.localhost:3000" };

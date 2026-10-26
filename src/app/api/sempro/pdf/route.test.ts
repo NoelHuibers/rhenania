@@ -68,9 +68,9 @@ describe("GET /api/sempro/pdf", () => {
 		expect(bytes.subarray(0, 5).toString("latin1")).toBe("%PDF-");
 	}, 30_000);
 
-	// The semester name goes verbatim into the Content-Disposition header;
-	// characters above U+00FF (e.g. an en dash) make `new Response` throw.
-	test.fails("handles typographic characters in the semester name (#145)", async () => {
+	// Characters above U+00FF (e.g. an en dash) cannot go verbatim into the
+	// Content-Disposition header; `new Response` would throw.
+	test("handles typographic characters in the semester name (#145)", async () => {
 		await createTenant();
 		signInAs(await createUser());
 		await setSemesterConfig({
@@ -82,5 +82,8 @@ describe("GET /api/sempro/pdf", () => {
 		const res = await GET(request());
 
 		expect(res.status).toBe(200);
+		expect(res.headers.get("Content-Disposition")).toBe(
+			"attachment; filename=\"Semesterprogramm_SoSe_2027_-_Jubilaeum.pdf\"; filename*=UTF-8''Semesterprogramm_SoSe_2027_%E2%80%93_Jubil%C3%A4um.pdf",
+		);
 	}, 30_000);
 });

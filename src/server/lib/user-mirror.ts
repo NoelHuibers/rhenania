@@ -7,12 +7,17 @@
 // Usage:
 //   - On user create: call `mirrorUserToTenant(user, currentTenantId)`.
 //   - On user update: call `mirrorUserToAllMemberTenants(user)` — fans out.
+//   - Profile edits (name, avatar): `updateUserIdentity(userId, patch)`
+//     writes the control DB and fans out in one step.
 //   - On membership create: call `mirrorUserToTenant(user, newTenantId)`.
 
 import { eq } from "drizzle-orm";
 
 import { controlDb } from "~/server/db/control";
-import { tenantMemberships } from "~/server/db/control-schema";
+import {
+	users as controlUsers,
+	tenantMemberships,
+} from "~/server/db/control-schema";
 import { users as tenantUsers } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 
@@ -73,4 +78,34 @@ export async function mirrorUserToAllMemberTenants(
 			}),
 		),
 	);
+}
+
+/**
+ * Changes profile fields on the global identity (the source of truth) and
+ * fans the result out to every tenant mirror. Writing only a mirror would be
+ * undone by the next fan-out. Returns null if the identity does not exist.
+ */
+export async function updateUserIdentity(
+	userId: string,
+	patch: { name?: string | null; image?: string | null },
+): Promise<MirroredUser | null> {
+	const [user] = await controlDb
+		.update(controlUsers)
+		.set({ ...patch, updatedAt: new Date() })
+		.where(eq(controlUsers.id, userId))
+		.returning();
+	if (!user) {
+		return null;
+	}
+	const mirrored: MirroredUser = {
+		id: user.id,
+		name: user.name,
+		email: user.email,
+		emailVerified: user.emailVerified,
+		image: user.image,
+		createdAt: user.createdAt,
+		updatedAt: user.updatedAt,
+	};
+	await mirrorUserToAllMemberTenants(mirrored);
+	return mirrored;
 }

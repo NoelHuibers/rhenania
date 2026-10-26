@@ -5,6 +5,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import QRCode from "qrcode";
 import type { ReactElement } from "react";
 import { createElement } from "react";
+import { attachmentDisposition } from "~/lib/content-disposition";
 import { auth } from "~/server/auth";
 import { getPDFData } from "~/server/sempro/getPDFData";
 import { SemProPDFDocument } from "~/server/sempro/SemProPDF";
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
 	return new Response(new Uint8Array(buffer), {
 		headers: {
 			"Content-Type": "application/pdf",
-			"Content-Disposition": `attachment; filename="${filename}"`,
+			"Content-Disposition": attachmentDisposition(filename),
 		},
 	});
 }

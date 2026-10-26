@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 
-import { tenantMemberships } from "~/server/db/control-schema";
+import {
+	users as controlUsers,
+	tenantMemberships,
+} from "~/server/db/control-schema";
 import { users } from "~/server/db/schema";
 import {
 	controlDb,
@@ -16,6 +19,7 @@ import {
 	type MirroredUser,
 	mirrorUserToAllMemberTenants,
 	mirrorUserToTenant,
+	updateUserIdentity,
 } from "./user-mirror";
 
 setupTestDatabases();
@@ -118,5 +122,55 @@ describe("mirrorUserToAllMemberTenants", () => {
 			mirrorUserToAllMemberTenants(identity()),
 		).resolves.toBeUndefined();
 		expect(await tenantDb().select().from(users)).toHaveLength(0);
+	});
+});
+
+describe("updateUserIdentity", () => {
+	test("writes the global identity and every member tenant's mirror", async () => {
+		const a = await createTenant();
+		const b = await createTenant();
+		const user = await createUser({ name: "Alt", tenantId: a.id });
+		await controlDb()
+			.insert(tenantMemberships)
+			.values({ userId: user.id, tenantId: b.id });
+
+		const updated = await updateUserIdentity(user.id, {
+			name: "Neu",
+			image: "https://img.example/neu.png",
+		});
+
+		expect(updated).toMatchObject({ id: user.id, name: "Neu" });
+		const [stored] = await controlDb()
+			.select()
+			.from(controlUsers)
+			.where(eq(controlUsers.id, user.id));
+		expect(stored).toMatchObject({
+			name: "Neu",
+			image: "https://img.example/neu.png",
+		});
+		for (const tenantId of [a.id, b.id]) {
+			expect(await mirrorOf(user.id, tenantId)).toMatchObject({
+				name: "Neu",
+				image: "https://img.example/neu.png",
+			});
+		}
+	});
+
+	test("leaves fields outside the patch alone", async () => {
+		await createTenant();
+		const user = await createUser({ name: "Max" });
+
+		await updateUserIdentity(user.id, { image: "https://img.example/x.png" });
+
+		expect(await mirrorOf(user.id)).toMatchObject({
+			name: "Max",
+			email: user.email,
+			image: "https://img.example/x.png",
+		});
+	});
+
+	test("returns null for an unknown identity", async () => {
+		await createTenant();
+		expect(await updateUserIdentity(randomUUID(), { name: "x" })).toBeNull();
 	});
 });

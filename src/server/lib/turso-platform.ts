@@ -7,6 +7,7 @@
 // Docs: https://docs.turso.tech/api-reference
 
 import { env } from "~/env";
+import { readErrorBody } from "~/server/lib/http";
 
 const API_BASE = "https://api.turso.tech/v1";
 
@@ -28,6 +29,16 @@ function requireConfig(): { token: string; org: string; group: string } {
 	};
 }
 
+class TursoApiError extends Error {
+	constructor(
+		message: string,
+		readonly status: number,
+	) {
+		super(message);
+		this.name = "TursoApiError";
+	}
+}
+
 async function tursoFetch<T>(
 	path: string,
 	init: RequestInit & { method: string },
@@ -42,14 +53,10 @@ async function tursoFetch<T>(
 		},
 	});
 	if (!res.ok) {
-		let body: unknown;
-		try {
-			body = await res.json();
-		} catch {
-			body = await res.text();
-		}
-		throw new Error(
+		const body = await readErrorBody(res);
+		throw new TursoApiError(
 			`Turso API ${init.method} ${path} failed: ${res.status} ${JSON.stringify(body)}`,
+			res.status,
 		);
 	}
 	return (await res.json()) as T;
@@ -101,8 +108,7 @@ export async function databaseExists(name: string): Promise<boolean> {
 		});
 		return true;
 	} catch (e) {
-		const msg = e instanceof Error ? e.message : String(e);
-		if (msg.includes("404")) {
+		if (e instanceof TursoApiError && e.status === 404) {
 			return false;
 		}
 		throw e;

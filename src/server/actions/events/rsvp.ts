@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -39,6 +39,38 @@ function fail(error: RsvpError): SetRsvpResult {
 	return { success: false, error, message: ERROR_MESSAGES[error] };
 }
 
+/**
+ * The row for a "yes" answer, selected from the event only while other
+ * members' yes answers are still below its attendee limit. An existing yes
+ * of the same member is not counted, so re-confirming always succeeds.
+ */
+function capacityCheckedYes(eventId: string, userId: string, note?: string) {
+	const othersYes = db
+		.select({ c: count() })
+		.from(eventRsvps)
+		.where(
+			and(
+				eq(eventRsvps.eventId, eventId),
+				eq(eventRsvps.status, "yes"),
+				ne(eventRsvps.userId, userId),
+			),
+		);
+	return db
+		.select({
+			id: sql`${crypto.randomUUID()}`.as("id"),
+			eventId: events.id,
+			userId: sql`${userId}`.as("user_id"),
+			status: sql`'yes'`.as("status"),
+			note: sql`${note ?? null}`.as("note"),
+			createdAt: sql`(unixepoch())`.as("created_at"),
+			updatedAt: sql`${sql.param(new Date(), eventRsvps.updatedAt)}`.as(
+				"updated_at",
+			),
+		})
+		.from(events)
+		.where(and(eq(events.id, eventId), lt(othersYes, events.maxAttendees)));
+}
+
 export async function setRsvp(
 	eventId: string,
 	status: RsvpStatus,
@@ -73,45 +105,37 @@ export async function setRsvp(
 			return fail("deadline_passed");
 		}
 
-		if (status === "yes" && event.maxAttendees != null) {
-			const [existing] = await db
-				.select({ status: eventRsvps.status })
-				.from(eventRsvps)
-				.where(
-					and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.userId, userId)),
-				)
-				.limit(1);
-
-			const wouldAddYes = existing?.status !== "yes";
-			if (wouldAddYes) {
-				const [yesCount] = await db
-					.select({ c: count() })
-					.from(eventRsvps)
-					.where(
-						and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.status, "yes")),
-					);
-				if ((yesCount?.c ?? 0) >= event.maxAttendees) {
-					return fail("capacity_full");
-				}
-			}
-		}
-
-		await db
-			.insert(eventRsvps)
-			.values({
-				eventId,
-				userId,
+		const onConflict = {
+			target: [eventRsvps.eventId, eventRsvps.userId],
+			set: {
 				status,
 				note: note ?? null,
-			})
-			.onConflictDoUpdate({
-				target: [eventRsvps.eventId, eventRsvps.userId],
-				set: {
+				updatedAt: new Date(),
+			},
+		};
+
+		if (status === "yes" && event.maxAttendees != null) {
+			// Capacity check and write in ONE statement, so simultaneous yes
+			// answers cannot both pass the check before either is stored.
+			const saved = await db
+				.insert(eventRsvps)
+				.select(capacityCheckedYes(eventId, userId, note))
+				.onConflictDoUpdate(onConflict)
+				.returning({ id: eventRsvps.id });
+			if (saved.length === 0) {
+				return fail("capacity_full");
+			}
+		} else {
+			await db
+				.insert(eventRsvps)
+				.values({
+					eventId,
+					userId,
 					status,
 					note: note ?? null,
-					updatedAt: new Date(),
-				},
-			});
+				})
+				.onConflictDoUpdate(onConflict);
+		}
 
 		revalidatePath("/semesterprogramm");
 		revalidatePath("/admin/semesterprogramm");

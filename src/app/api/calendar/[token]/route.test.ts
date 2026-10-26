@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { calendarTokens } from "~/server/db/schema";
+import { calendarTokens, users } from "~/server/db/schema";
 import {
 	createCalendarToken,
 	createEvent,
@@ -186,5 +186,44 @@ describe("GET /api/calendar/[token]", () => {
 
 		const [row] = await tenantDb().select().from(calendarTokens);
 		expect(row?.lastUsedAt).toEqual(NOW);
+	});
+
+	test("is 404 on a host without a tenant", async () => {
+		expect((await fetchFeed("any")).status).toBe(404);
+	});
+
+	test("long lines with umlauts stay within 75 octets; unnamed members show their e-mail", async () => {
+		await createTenant({
+			slug: "hassia",
+			displayName: "Corps Hassia Gießen zu Mainz – Fröhliche Brüder",
+		});
+		const me = await createUser({ email: "me@example.test" });
+		const other = await createUser({ email: "other@example.test" });
+		await tenantDb().update(users).set({ name: null });
+		const token = await createCalendarToken(me);
+		const event = await createEvent({
+			title: "Ökumenische Grillfeier 🍺 am Schloßgarten ".repeat(3).trim(),
+			date: new Date("2026-11-14T18:15:00Z"),
+			endDate: new Date("2026-11-15T11:00:00Z"),
+			location: "Schloßgarten",
+		});
+		await createRsvp({ event, user: other, status: "yes" });
+
+		const ics = new TextDecoder().decode(
+			await (await fetchFeed(token)).arrayBuffer(),
+		);
+
+		expect(
+			ics.split("\r\n").every((line) => Buffer.byteLength(line) <= 75),
+		).toBe(true);
+		const [vevent] = vevents(ics);
+		expect(vevent).toEqual(
+			expect.arrayContaining([
+				"DTEND:20261115T110000Z",
+				"LOCATION:Schloßgarten",
+				"ATTENDEE;CN=me@example.test;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:me@example.test",
+				`ATTENDEE;CN=other@example.test;PARTSTAT=ACCEPTED;ROLE=OPT-PARTICIPANT:mailto:noreply+${other.id}@hassia.invalid`,
+			]),
+		);
 	});
 });

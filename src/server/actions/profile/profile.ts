@@ -12,6 +12,7 @@ import { getGraphAccessToken } from "~/server/auth/microsoft-tokens";
 import { db } from "~/server/db";
 import { roles, userRoles, users } from "~/server/db/schema";
 import { log } from "~/server/lib/log";
+import { updateUserIdentity } from "~/server/lib/user-mirror";
 
 // Microsoft Graph API integration
 class CustomAuthProvider implements AuthenticationProvider {
@@ -89,18 +90,27 @@ async function fetchUserPhoto(accessToken: string): Promise<string | null> {
 			return null;
 		}
 
-		// Get the photo as ArrayBuffer
+		// Spreading the bytes into String.fromCharCode overflows the call
+		// stack for large photos; Buffer encodes any size.
 		const arrayBuffer = await photoResponse.arrayBuffer();
-
-		// Convert ArrayBuffer to base64 data URL
-		const uint8Array = new Uint8Array(arrayBuffer);
-		const base64String = btoa(String.fromCharCode(...uint8Array));
+		const base64String = Buffer.from(arrayBuffer).toString("base64");
 		const mimeType = photoMetadata["@odata.mediaContentType"] || "image/jpeg";
 
 		return `data:${mimeType};base64,${base64String}`;
 	} catch (error) {
 		log.info("microsoft photo not synced", { reason: String(error) });
 		return null;
+	}
+}
+
+// Profile fields live on the global identity; tenant rows are mirrors.
+async function updateIdentityOrThrow(
+	userId: string,
+	patch: { name?: string | null; image?: string | null },
+): Promise<void> {
+	const updated = await updateUserIdentity(userId, patch);
+	if (!updated) {
+		throw new Error("User not found");
 	}
 }
 
@@ -166,12 +176,7 @@ export async function updateUserName(formData: FormData) {
 	}
 
 	try {
-		await db
-			.update(users)
-			.set({
-				name: name.trim(),
-			})
-			.where(eq(users.id, session.user.id));
+		await updateIdentityOrThrow(session.user.id, { name: name.trim() });
 
 		revalidatePath("/profile");
 		return { success: true, message: "Name updated successfully" };
@@ -203,12 +208,7 @@ export async function updateUserAvatar(formData: FormData) {
 	}
 
 	try {
-		await db
-			.update(users)
-			.set({
-				image: imageUrl.trim(),
-			})
-			.where(eq(users.id, session.user.id));
+		await updateIdentityOrThrow(session.user.id, { image: imageUrl.trim() });
 
 		revalidatePath("/profile");
 		return { success: true, message: "Profile picture updated successfully" };
@@ -257,10 +257,7 @@ export async function syncFromMicrosoft() {
 
 		// Only update if we have data to update
 		if (Object.keys(updateData).length > 0) {
-			await db
-				.update(users)
-				.set(updateData)
-				.where(eq(users.id, session.user.id));
+			await updateIdentityOrThrow(session.user.id, updateData);
 		}
 
 		revalidatePath("/profile");
@@ -326,10 +323,7 @@ export async function syncFromMicrosoftExtended() {
 		}
 
 		if (Object.keys(updateData).length > 0) {
-			await db
-				.update(users)
-				.set(updateData)
-				.where(eq(users.id, session.user.id));
+			await updateIdentityOrThrow(session.user.id, updateData);
 		}
 
 		revalidatePath("/profile");
