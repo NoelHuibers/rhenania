@@ -541,3 +541,39 @@ describe("markAllMemberBillsPaid", () => {
 		expect(await markAllMemberBillsPaid()).toEqual({ success: true, count: 0 });
 	});
 });
+
+describe("signed-out visitors", () => {
+	test("cannot change the Kasse", async () => {
+		await createTenant({
+			features: ["drinks.markup", "billing.treasurerRecipient"],
+		});
+		const notSignedIn = { success: false, error: "Nicht angemeldet" };
+
+		expect(
+			await addBankEntry({ amount: 1, description: "x", date: NOW }),
+		).toEqual(notSignedIn);
+		expect(await deleteBankEntry("x")).toEqual(notSignedIn);
+		expect(
+			await addExternalBill({ creditor: "x", description: "x", amount: 1 }),
+		).toEqual(notSignedIn);
+		expect(await markExternalBillPaid("x")).toEqual(notSignedIn);
+		expect(await deleteExternalBill("x")).toEqual(notSignedIn);
+		expect(await setPfandWert(1)).toEqual(notSignedIn);
+		expect(await downloadEntityBillPDF("x")).toEqual(notSignedIn);
+		expect(await setMarkupPercent(10)).toEqual(notSignedIn);
+		expect(await setBillRecipient("members", "")).toEqual(notSignedIn);
+		expect(await markAllMemberBillsPaid()).toEqual(notSignedIn);
+	});
+});
+
+describe("group bills without items", () => {
+	test("are listed with an empty item list", async () => {
+		await signInWart();
+		const period = await createBillPeriodRow();
+		await createBillRow({ periodId: period.id, user: eventUser("CC") });
+
+		const [bill] = await getOpenEntityBills();
+
+		expect(bill).toMatchObject({ userName: "CC", items: [] });
+	});
+});

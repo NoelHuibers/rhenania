@@ -17,6 +17,7 @@ import {
 	userRoles,
 } from "~/server/db/schema";
 import { FeatureDisabledError, hasFeature } from "~/server/lib/features";
+import { groupBy } from "~/server/lib/group-by";
 import { updateBillStatus } from "../billings/billings";
 import { generateUserBillPDF } from "../billings/createUserPDF";
 
@@ -223,30 +224,37 @@ export async function setPfandWert(value: number) {
 
 // ─── Open entity bills (for PDF download) ────────────────────────────────────
 
+// All group bills (paid ones are listed too), with their items: one round trip.
 export async function getOpenEntityBills() {
-	const openBills = await db
-		.select({
-			id: bills.id,
-			userName: bills.userName,
-			total: bills.total,
-			status: bills.status,
-			createdAt: bills.createdAt,
-		})
-		.from(bills)
-		.where(sql`${bills.userId} LIKE 'event-%'`)
-		.orderBy(desc(bills.createdAt));
+	const isGroupBill = sql`${bills.userId} LIKE 'event-%'`;
+	const [groupBills, items] = await db.batch([
+		db
+			.select({
+				id: bills.id,
+				userName: bills.userName,
+				total: bills.total,
+				status: bills.status,
+				createdAt: bills.createdAt,
+			})
+			.from(bills)
+			.where(isGroupBill)
+			.orderBy(desc(bills.createdAt)),
+		db
+			.select({ item: billItems })
+			.from(billItems)
+			.innerJoin(bills, eq(billItems.billId, bills.id))
+			.where(isGroupBill)
+			.orderBy(sql`${billItems}.rowid`),
+	]);
 
-	const withItems = await Promise.all(
-		openBills.map(async (bill) => {
-			const items = await db
-				.select()
-				.from(billItems)
-				.where(eq(billItems.billId, bill.id));
-			return { ...bill, items };
-		}),
+	const itemsByBill = groupBy(
+		items.map((r) => r.item),
+		(item) => item.billId,
 	);
-
-	return withItems;
+	return groupBills.map((bill) => ({
+		...bill,
+		items: itemsByBill.get(bill.id) ?? [],
+	}));
 }
 
 // ─── Open member bills ────────────────────────────────────────────────────────

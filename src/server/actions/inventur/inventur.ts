@@ -1,7 +1,7 @@
 // server/actions/inventur/inventur.ts
 "use server";
 
-import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { addMoney, roundToCent } from "~/lib/money";
 import { createNewBilling } from "~/server/actions/billings/billings";
@@ -62,8 +62,8 @@ export type InventoryWithItems = {
 // that recorded its `costPerUnit`, amount × (pricePerUnit − costPerUnit).
 // Stock value and losses keep being valued at the purchase price.
 
-async function sumMarkupProfit(from: Date | null, to: Date | null) {
-	const [row] = await db
+function markupProfitQuery(from: Date | null, to: Date | null) {
+	return db
 		.select({
 			profit: sql<number>`COALESCE(SUM(${orders.amount} * (${orders.pricePerUnit} - ${orders.costPerUnit})), 0)`,
 		})
@@ -75,7 +75,16 @@ async function sumMarkupProfit(from: Date | null, to: Date | null) {
 				to ? lt(orders.createdAt, to) : undefined,
 			),
 		);
-	return roundToCent(Number(row?.profit ?? 0));
+}
+
+type ProfitRows = Array<{ profit: number }>;
+
+function markupProfitOf(rows: ProfitRows) {
+	return roundToCent(Number(rows[0]?.profit ?? 0));
+}
+
+async function sumMarkupProfit(from: Date | null, to: Date | null) {
+	return markupProfitOf(await markupProfitQuery(from, to));
 }
 
 /**
@@ -97,74 +106,98 @@ export async function getInventoryProfit(): Promise<number | null> {
 	return sumMarkupProfit(active?.createdAt ?? null, null);
 }
 
+/**
+ * Each available drink's latest count (running or closed inventory) and what
+ * was sold since. Two queries in one round trip, however many drinks.
+ */
 export async function getStockData(): Promise<StockStatusWithDetails[]> {
-	const allDrinks = await db
-		.select()
-		.from(drinks)
-		.where(eq(drinks.isCurrentlyAvailable, true));
+	// Latest inventory item per drink, ranked by the inventory's start.
+	const ranked = db
+		.select({
+			drinkId: inventoryItems.drinkId,
+			previousStock: inventoryItems.previousStock,
+			purchasedSince: inventoryItems.purchasedSince,
+			countedStock: inventoryItems.countedStock,
+			inventoryCreatedAt: sql<number>`${inventories.createdAt}`.as(
+				"inventory_created_at",
+			),
+			rank: sql<number>`row_number() over (partition by ${inventoryItems.drinkId} order by ${inventories.createdAt} desc)`.as(
+				"rank",
+			),
+		})
+		.from(inventoryItems)
+		.innerJoin(inventories, eq(inventoryItems.inventoryId, inventories.id))
+		.where(
+			inArray(
+				inventoryItems.drinkId,
+				db
+					.select({ id: drinks.id })
+					.from(drinks)
+					.where(eq(drinks.isCurrentlyAvailable, true)),
+			),
+		)
+		.as("ranked");
 
-	const stockData = await Promise.all(
-		allDrinks.map(async (drink) => {
-			const lastInventoryItem = await db
-				.select()
-				.from(inventoryItems)
-				.innerJoin(inventories, eq(inventoryItems.inventoryId, inventories.id))
-				.where(eq(inventoryItems.drinkId, drink.id))
-				.orderBy(desc(inventories.createdAt))
-				.limit(1);
+	const [allDrinks, latest] = await db.batch([
+		db.select().from(drinks).where(eq(drinks.isCurrentlyAvailable, true)),
+		db
+			.select({
+				drinkId: ranked.drinkId,
+				previousStock: ranked.previousStock,
+				purchasedSince: ranked.purchasedSince,
+				countedStock: ranked.countedStock,
+				inventoryCreatedAt: ranked.inventoryCreatedAt,
+				soldSince: sql<number>`coalesce(sum(${orders.amount}), 0)`,
+			})
+			.from(ranked)
+			// Orders of that drink since its latest count.
+			.leftJoin(
+				orders,
+				sql`${orders.drinkId} = "ranked"."drinkId" and ${orders.createdAt} >= "ranked"."inventory_created_at"`,
+			)
+			.where(eq(ranked.rank, 1))
+			.groupBy(sql`"ranked"."drinkId"`),
+	]);
+	const latestByDrink = new Map(latest.map((l) => [l.drinkId, l]));
 
-			if (!lastInventoryItem[0]) {
-				return {
-					drinkId: drink.id,
-					drinkName: drink.name,
-					lastInventoryStock: 0,
-					purchasedSince: 0,
-					soldSince: 0,
-					calculatedStock: 0,
-					currentPrice: drink.price,
-					lastInventoryDate: null,
-				};
-			}
-
-			const inventoryItem = lastInventoryItem[0].inventory_item;
-			const lastInventoryDate = lastInventoryItem[0].inventory.createdAt;
-
-			const soldSinceDrizzle = await db
-				.select({
-					totalamount: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
-				})
-				.from(orders)
-				.where(
-					and(
-						eq(orders.drinkId, drink.id),
-						gte(orders.createdAt, lastInventoryDate),
-					),
-				);
-
-			const soldCount = Number(soldSinceDrizzle[0]?.totalamount || 0);
-
+	return allDrinks.map((drink) => {
+		const item = latestByDrink.get(drink.id);
+		if (!item) {
 			return {
 				drinkId: drink.id,
 				drinkName: drink.name,
-				lastInventoryStock: inventoryItem.previousStock,
-				purchasedSince: inventoryItem.purchasedSince,
-				soldSince: soldCount,
-				calculatedStock: Math.max(
-					0,
-					inventoryItem.previousStock +
-						inventoryItem.purchasedSince -
-						soldCount,
-				),
-				countedStock: inventoryItem.countedStock,
+				lastInventoryStock: 0,
+				purchasedSince: 0,
+				soldSince: 0,
+				calculatedStock: 0,
 				currentPrice: drink.price,
-				lastInventoryDate,
+				lastInventoryDate: null,
 			};
-		}),
-	);
+		}
 
-	return stockData;
+		const soldCount = Number(item.soldSince || 0);
+		return {
+			drinkId: drink.id,
+			drinkName: drink.name,
+			lastInventoryStock: item.previousStock,
+			purchasedSince: item.purchasedSince,
+			soldSince: soldCount,
+			calculatedStock: Math.max(
+				0,
+				item.previousStock + item.purchasedSince - soldCount,
+			),
+			countedStock: item.countedStock,
+			currentPrice: drink.price,
+			// Timestamps are stored in seconds.
+			lastInventoryDate: new Date(item.inventoryCreatedAt * 1000),
+		};
+	});
 }
 
+/**
+ * The last ten closed inventories with their items and, with the markup
+ * feature, each period's profit. Constant round trips, however many.
+ */
 export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 	const markupEnabled = await hasFeature("drinks.markup");
 	const inventoriesData = await db
@@ -173,19 +206,44 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 		.where(eq(inventories.status, "closed"))
 		.orderBy(desc(inventories.createdAt))
 		.limit(10);
+	if (inventoriesData.length === 0) {
+		return [];
+	}
 
-	const historyWithItems = await Promise.all(
-		inventoriesData.map(async (inv) => {
-			const items = await db
-				.select({
-					inventoryItem: inventoryItems,
-					drinkName: drinks.name,
-				})
-				.from(inventoryItems)
-				.innerJoin(drinks, eq(inventoryItems.drinkId, drinks.id))
-				.where(eq(inventoryItems.inventoryId, inv.id));
+	const itemsQuery = db
+		.select({
+			inventoryItem: inventoryItems,
+			drinkName: drinks.name,
+		})
+		.from(inventoryItems)
+		.innerJoin(drinks, eq(inventoryItems.drinkId, drinks.id))
+		.where(
+			inArray(
+				inventoryItems.inventoryId,
+				inventoriesData.map((inv) => inv.id),
+			),
+		)
+		.orderBy(sql`${inventoryItems}.rowid`);
+	// The same profit query as getInventoryProfit, once per period, batched.
+	const [items, ...profits] = markupEnabled
+		? await db.batch([
+				itemsQuery,
+				...inventoriesData.map((inv) =>
+					markupProfitQuery(inv.createdAt, inv.closedAt),
+				),
+			])
+		: [await itemsQuery];
 
-			const itemsWithDetails = items.map((item) => {
+	const itemsByInventory = new Map<string, typeof items>();
+	for (const item of items) {
+		const list = itemsByInventory.get(item.inventoryItem.inventoryId) ?? [];
+		list.push(item);
+		itemsByInventory.set(item.inventoryItem.inventoryId, list);
+	}
+
+	return inventoriesData.map((inv, i) => {
+		const itemsWithDetails = (itemsByInventory.get(inv.id) ?? []).map(
+			(item) => {
 				const expectedStock = Math.max(
 					0,
 					item.inventoryItem.previousStock +
@@ -203,25 +261,22 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 					difference,
 					lossValue: item.inventoryItem.lossValue,
 				};
-			});
+			},
+		);
 
-			return {
-				id: inv.id,
-				inventoryDate: inv.closedAt ?? inv.createdAt,
-				status: inv.status,
-				totalLosses: inv.totalLoss,
-				kind: inv.kind,
-				eventName: inv.eventName,
-				eventDate: inv.eventDate,
-				profit: markupEnabled
-					? await sumMarkupProfit(inv.createdAt, inv.closedAt)
-					: null,
-				items: itemsWithDetails,
-			};
-		}),
-	);
-
-	return historyWithItems;
+		const profitRows = profits[i] as ProfitRows | undefined;
+		return {
+			id: inv.id,
+			inventoryDate: inv.closedAt ?? inv.createdAt,
+			status: inv.status,
+			totalLosses: inv.totalLoss,
+			kind: inv.kind,
+			eventName: inv.eventName,
+			eventDate: inv.eventDate,
+			profit: profitRows ? markupProfitOf(profitRows) : null,
+			items: itemsWithDetails,
+		};
+	});
 }
 
 export type InventoryCountItem = {
@@ -275,57 +330,71 @@ async function countInventory(
 
 			const activeInv = lastActive[0] ?? null;
 
+			// Drinks and sales since the running inventory, read once for all
+			// items instead of once per drink.
+			const drinkIds = [...new Set(items.map((item) => item.drinkId))];
+			const drinksById = new Map(
+				(drinkIds.length > 0
+					? await tx.select().from(drinks).where(inArray(drinks.id, drinkIds))
+					: []
+				).map((d) => [d.id, d]),
+			);
+
 			if (activeInv) {
+				const soldByDrink = new Map(
+					(drinkIds.length > 0
+						? await tx
+								.select({
+									drinkId: orders.drinkId,
+									total: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
+								})
+								.from(orders)
+								.where(
+									and(
+										inArray(orders.drinkId, drinkIds),
+										gte(orders.createdAt, activeInv.createdAt),
+									),
+								)
+								.groupBy(orders.drinkId)
+						: []
+					).map((r) => [r.drinkId, r.total]),
+				);
+				// The running inventory's item per drink (unique per drink).
+				const activeItems = new Map(
+					(
+						await tx
+							.select({
+								id: inventoryItems.id,
+								drinkId: inventoryItems.drinkId,
+								previousStock: inventoryItems.previousStock,
+							})
+							.from(inventoryItems)
+							.where(eq(inventoryItems.inventoryId, activeInv.id))
+					).map((row) => [row.drinkId, row]),
+				);
+
 				for (const item of items) {
 					const validatedCountedStock = Math.max(0, item.countedStock);
 					const validatedPurchasedSince = Math.max(0, item.purchasedSince);
 
-					const drink = await tx
-						.select()
-						.from(drinks)
-						.where(eq(drinks.id, item.drinkId))
-						.limit(1);
-
-					if (!drink[0]) {
+					const drink = drinksById.get(item.drinkId);
+					if (!drink) {
 						continue;
 					}
 
-					const soldSinceAgg = await tx
-						.select({
-							total: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
-						})
-						.from(orders)
-						.where(
-							and(
-								eq(orders.drinkId, item.drinkId),
-								gte(orders.createdAt, activeInv.createdAt),
-							),
-						);
+					const soldSinceFinal = Number(soldByDrink.get(item.drinkId) || 0);
 
-					const soldSinceFinal = Number(soldSinceAgg[0]?.total || 0);
-
-					const existingActiveItem = await tx
-						.select()
-						.from(inventoryItems)
-						.where(
-							and(
-								eq(inventoryItems.inventoryId, activeInv.id),
-								eq(inventoryItems.drinkId, item.drinkId),
-							),
-						)
-						.limit(1);
+					const existing = activeItems.get(item.drinkId);
 
 					let itemLoss = 0;
-					if (existingActiveItem[0]) {
+					if (existing) {
 						const expectedStock = Math.max(
 							0,
-							existingActiveItem[0].previousStock +
-								validatedPurchasedSince -
-								soldSinceFinal,
+							existing.previousStock + validatedPurchasedSince - soldSinceFinal,
 						);
 						const difference = validatedCountedStock - expectedStock;
 						if (difference < 0) {
-							itemLoss = roundToCent(Math.abs(difference) * drink[0].price);
+							itemLoss = roundToCent(Math.abs(difference) * drink.price);
 						}
 						totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
 
@@ -337,7 +406,7 @@ async function countInventory(
 								soldSince: soldSinceFinal,
 								lossValue: itemLoss,
 							})
-							.where(eq(inventoryItems.id, existingActiveItem[0].id));
+							.where(eq(inventoryItems.id, existing.id));
 					} else {
 						const priorForBaseline = await tx
 							.select()
@@ -359,7 +428,7 @@ async function countInventory(
 						);
 						const difference = validatedCountedStock - expectedStock;
 						if (difference < 0) {
-							itemLoss = roundToCent(Math.abs(difference) * drink[0].price);
+							itemLoss = roundToCent(Math.abs(difference) * drink.price);
 						}
 						totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
 
@@ -370,7 +439,7 @@ async function countInventory(
 							countedStock: validatedCountedStock,
 							purchasedSince: validatedPurchasedSince,
 							soldSince: soldSinceFinal,
-							priceAtCount: drink[0].price,
+							priceAtCount: drink.price,
 							lossValue: itemLoss,
 						});
 					}
@@ -404,63 +473,28 @@ async function countInventory(
 				throw new Error("Failed to create inventory");
 			}
 
-			for (const item of items) {
-				const drink = await tx
-					.select()
-					.from(drinks)
-					.where(eq(drinks.id, item.drinkId))
-					.limit(1);
-
-				if (!drink[0]) {
-					continue;
+			// Each counted stock is the opening stock of the next inventory.
+			const openingItems = items.flatMap((item) => {
+				const drink = drinksById.get(item.drinkId);
+				if (!drink) {
+					return [];
 				}
-
-				let closingCounted: number | null = null;
-
-				if (activeInv) {
-					const justClosedItem = await tx
-						.select()
-						.from(inventoryItems)
-						.where(
-							and(
-								eq(inventoryItems.inventoryId, activeInv.id),
-								eq(inventoryItems.drinkId, item.drinkId),
-							),
-						)
-						.limit(1);
-
-					if (justClosedItem[0]) {
-						closingCounted = justClosedItem[0].countedStock;
-					}
-				}
-
-				if (closingCounted === null) {
-					const latestAny = await tx
-						.select()
-						.from(inventoryItems)
-						.innerJoin(
-							inventories,
-							eq(inventoryItems.inventoryId, inventories.id),
-						)
-						.where(eq(inventoryItems.drinkId, item.drinkId))
-						.orderBy(desc(inventories.createdAt))
-						.limit(1);
-
-					closingCounted = latestAny[0]?.inventory_item.countedStock ?? 0;
-				}
-
 				const validatedCountedStock = Math.max(0, item.countedStock);
-
-				await tx.insert(inventoryItems).values({
-					inventoryId: newInventory.id,
-					drinkId: item.drinkId,
-					previousStock: validatedCountedStock,
-					countedStock: validatedCountedStock,
-					purchasedSince: 0,
-					soldSince: 0,
-					priceAtCount: drink[0].price,
-					lossValue: 0,
-				});
+				return [
+					{
+						inventoryId: newInventory.id,
+						drinkId: item.drinkId,
+						previousStock: validatedCountedStock,
+						countedStock: validatedCountedStock,
+						purchasedSince: 0,
+						soldSince: 0,
+						priceAtCount: drink.price,
+						lossValue: 0,
+					},
+				];
+			});
+			if (openingItems.length > 0) {
+				await tx.insert(inventoryItems).values(openingItems);
 			}
 		});
 

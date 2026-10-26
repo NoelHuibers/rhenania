@@ -24,7 +24,34 @@ import {
 	listInventurEvents,
 } from "~/server/actions/inventur/inventur";
 
-async function GetraenkewartData() {
+// Each tab loads its own data inside its own Suspense boundary, so the header
+// and tab bar render at once and one slow tab does not hold back the others.
+
+async function InventurTabData() {
+	const [stockData, activeEvent, inventurEvents, etaplansWithKp, profit] =
+		await Promise.all([
+			getStockData(),
+			getActiveEventInventory(),
+			listInventurEvents(),
+			listEtaplansWithKostenpunkte(),
+			getInventoryProfit(),
+		]);
+	return (
+		<DashboardTab
+			stockItems={stockData}
+			activeEvent={activeEvent}
+			events={inventurEvents}
+			etaplans={etaplansWithKp}
+			profit={profit}
+		/>
+	);
+}
+
+async function VerlaufTabData() {
+	return <HistoryTab history={await getInventoryHistory()} />;
+}
+
+async function KasseTabData() {
 	const [
 		kasseSummary,
 		bankEntriesData,
@@ -32,12 +59,6 @@ async function GetraenkewartData() {
 		entityBills,
 		memberBills,
 		pfandWert,
-		stockData,
-		inventoryHistory,
-		activeEvent,
-		inventurEvents,
-		etaplansWithKp,
-		inventoryProfit,
 		getraenkeSettings,
 	] = await Promise.all([
 		getKasseSummary(),
@@ -46,49 +67,48 @@ async function GetraenkewartData() {
 		getOpenEntityBills(),
 		getOpenMemberBills(),
 		getPfandWert(),
-		getStockData(),
-		getInventoryHistory(),
-		getActiveEventInventory(),
-		listInventurEvents(),
-		listEtaplansWithKostenpunkte(),
-		getInventoryProfit(),
 		getGetraenkeSettings(),
 	]);
-
 	return (
-		<GetraenkewartPage
-			getraenkeTab={<GetraenkePage />}
-			inventurTab={
-				<DashboardTab
-					stockItems={stockData}
-					activeEvent={activeEvent}
-					events={inventurEvents}
-					etaplans={etaplansWithKp}
-					profit={inventoryProfit}
-				/>
-			}
-			verlaufTab={<HistoryTab history={inventoryHistory} />}
-			kasseTab={
-				<KasseTab
-					summary={kasseSummary}
-					bankEntries={bankEntriesData}
-					externalBills={externalBillsData}
-					entityBills={entityBills}
-					memberBills={memberBills}
-					pfandWert={pfandWert}
-					settings={getraenkeSettings}
-				/>
-			}
-			buchungTab={<BookingTab />}
+		<KasseTab
+			summary={kasseSummary}
+			bankEntries={bankEntriesData}
+			externalBills={externalBillsData}
+			entityBills={entityBills}
+			memberBills={memberBills}
+			pfandWert={pfandWert}
+			settings={getraenkeSettings}
 		/>
 	);
+}
+
+function Loading() {
+	return <div className="p-6">Laden...</div>;
 }
 
 export default function Page() {
 	return (
 		<SidebarLayout>
-			<Suspense fallback={<div className="p-6">Laden...</div>}>
-				<GetraenkewartData />
+			<Suspense fallback={<Loading />}>
+				<GetraenkewartPage
+					getraenkeTab={<GetraenkePage />}
+					inventurTab={
+						<Suspense fallback={<Loading />}>
+							<InventurTabData />
+						</Suspense>
+					}
+					verlaufTab={
+						<Suspense fallback={<Loading />}>
+							<VerlaufTabData />
+						</Suspense>
+					}
+					kasseTab={
+						<Suspense fallback={<Loading />}>
+							<KasseTabData />
+						</Suspense>
+					}
+					buchungTab={<BookingTab />}
+				/>
 			</Suspense>
 		</SidebarLayout>
 	);
