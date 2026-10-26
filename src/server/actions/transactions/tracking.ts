@@ -7,7 +7,6 @@ import {
 	eq,
 	isNotNull,
 	isNull,
-	like,
 	ne,
 	or,
 	type SQL,
@@ -15,6 +14,41 @@ import {
 } from "drizzle-orm";
 import { db } from "~/server/db";
 import { orders } from "~/server/db/schema";
+
+/**
+ * A case-insensitive GLOB pattern for "contains `term`". SQLite's LIKE and
+ * lower() only fold ASCII, so "özdemir" would never match "Özdemir"; GLOB is
+ * case-sensitive but supports character classes, so every letter becomes
+ * `[öÖ]`. GLOB's own wildcards in the term are matched literally.
+ */
+function containsPattern(term: string): string {
+	let pattern = "";
+	for (const char of term.normalize("NFC")) {
+		const lower = char.toLowerCase();
+		const upper = char.toUpperCase();
+		if ("*?[".includes(char)) {
+			pattern += `[${char}]`;
+		} else if (
+			lower !== upper &&
+			[...lower].length === 1 &&
+			[...upper].length === 1
+		) {
+			pattern += `[${lower}${upper}]`;
+		} else {
+			pattern += char;
+		}
+	}
+	return `*${pattern}*`;
+}
+
+function searchCondition(search: string) {
+	const pattern = containsPattern(search.trim());
+	return or(
+		sql`${orders.userName} GLOB ${pattern}`,
+		sql`${orders.drinkName} GLOB ${pattern}`,
+		sql`${orders.bookingFor} GLOB ${pattern}`,
+	);
+}
 
 export interface TransactionFilters {
 	search?: string;
@@ -39,14 +73,7 @@ export async function getTransactions(filters: TransactionFilters = {}) {
 
 		// Search filter
 		if (search?.trim()) {
-			const searchTerm = `%${search.trim().toLowerCase()}%`;
-			conditions.push(
-				or(
-					like(orders.userName, searchTerm),
-					like(orders.drinkName, searchTerm),
-					like(orders.bookingFor, searchTerm),
-				),
-			);
+			conditions.push(searchCondition(search));
 		}
 
 		// Bill status filter
@@ -124,14 +151,7 @@ export async function getTransactionCount(filters: TransactionFilters = {}) {
 		const conditions: Array<SQL | undefined> = [];
 
 		if (search?.trim()) {
-			const searchTerm = `%${search.trim().toLowerCase()}%`;
-			conditions.push(
-				or(
-					like(orders.userName, searchTerm),
-					like(orders.drinkName, searchTerm),
-					like(orders.bookingFor, searchTerm),
-				),
-			);
+			conditions.push(searchCondition(search));
 		}
 
 		if (billStatus === "billed") {

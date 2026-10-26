@@ -393,8 +393,7 @@ describe("saveQuickAdjustments", () => {
 		]);
 	});
 
-	// The new inventory's id is never read back, so the transaction throws.
-	test.fails("starts an inventory when none is running and keeps the adjustment (#18)", async () => {
+	test("starts an inventory when none is running and keeps the adjustment (#18)", async () => {
 		const pils = await createDrink();
 		await createInventory({
 			status: "closed",
@@ -413,6 +412,54 @@ describe("saveQuickAdjustments", () => {
 		expect(await itemsOf(running?.id ?? "")).toEqual([
 			expect.objectContaining({ previousStock: 12, purchasedSince: 24 }),
 		]);
+	});
+
+	test("a new inventory's baseline is the last count minus later sales; uncounted drinks start at 0", async () => {
+		const pils = await createDrink({ name: "Pils", price: 1.4 });
+		const cola = await createDrink({ name: "Cola" });
+		const neu = await createDrink({ name: "Neu" });
+		await createInventory({
+			status: "closed",
+			createdAt: daysAgo(60),
+			closedAt: daysAgo(40),
+			items: [{ drink: pils, countedStock: 99 }],
+		});
+		await createInventory({
+			status: "closed",
+			createdAt: daysAgo(40),
+			closedAt: daysAgo(10),
+			items: [
+				{ drink: pils, countedStock: 12 },
+				{ drink: cola, countedStock: 3 },
+			],
+		});
+		// Before the count: already reflected in it.
+		await createOrderRow({ drink: pils, amount: 7, createdAt: daysAgo(20) });
+		// After the count.
+		await createOrderRow({ drink: pils, amount: 5, createdAt: daysAgo(4) });
+		await createOrderRow({ drink: cola, amount: 9, createdAt: daysAgo(2) });
+
+		const result = await saveQuickAdjustments([
+			{ drinkId: cola.id, countedStock: 1 },
+		]);
+
+		expect(result).toEqual({ success: true });
+		const running = await activeInventory();
+		expect(running).toMatchObject({
+			kind: "routine",
+			performedBy: getraenkewart.id,
+		});
+		const byDrink = new Map(
+			(await itemsOf(running?.id ?? "")).map((i) => [
+				i.drinkId,
+				[i.previousStock, i.countedStock, i.priceAtCount],
+			]),
+		);
+		expect(byDrink.get(pils.id)).toEqual([7, 7, 1.4]);
+		// 3 − 9 is clamped to 0; the counted 1 is kept.
+		expect(byDrink.get(cola.id)?.slice(0, 2)).toEqual([0, 1]);
+		expect(byDrink.get(neu.id)?.slice(0, 2)).toEqual([0, 0]);
+		expect(await allInventories()).toHaveLength(3);
 	});
 });
 

@@ -3,7 +3,10 @@ import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { drinks } from "~/server/db/schema";
-import { createOrderRow } from "../../../test/factories/inventory";
+import {
+	createInventory,
+	createOrderRow,
+} from "../../../test/factories/inventory";
 import {
 	createDrink,
 	createTenant,
@@ -27,6 +30,8 @@ setupTestDatabases();
 
 const OLD_PICTURE = "https://blob.example.test/drinks/old.webp";
 const NEW_PICTURE = "https://blob.example.test/drinks/new.webp";
+const IN_USE =
+	"Das Getränk wurde schon bestellt oder gezählt und kann deshalb nicht gelöscht werden. Setze es stattdessen auf „Nicht verfügbar“.";
 
 beforeEach(async () => {
 	vi.spyOn(console, "error").mockImplementation(() => {});
@@ -240,25 +245,54 @@ describe("deleteDrink", () => {
 		expect(await drinkRow(drink.id)).toBeUndefined();
 	});
 
-	test("refuses to delete a drink that has orders", async () => {
+	test("refuses to delete a drink that has orders and suggests deactivating it", async () => {
 		const drink = await createDrink();
 		await createOrderRow({ drink });
 
 		expect(await deleteDrink(drink.id)).toEqual({
 			success: false,
-			error: "Fehler beim Löschen des Getränks",
+			error: IN_USE,
 		});
 		expect(await drinkRow(drink.id)).toBeDefined();
 	});
 
-	// The blob is deleted before the DB delete that the order FK then rejects.
-	test.fails("keeps the picture of a drink it could not delete (#137)", async () => {
+	test("refuses to delete a drink that was counted in an inventory", async () => {
+		const drink = await createDrink();
+		await createInventory({ items: [{ drink, countedStock: 3 }] });
+
+		expect(await deleteDrink(drink.id)).toEqual({
+			success: false,
+			error: IN_USE,
+		});
+		expect(await drinkRow(drink.id)).toBeDefined();
+	});
+
+	test("keeps the picture of a drink it could not delete (#137)", async () => {
 		const drink = await createDrinkWithPicture();
 		await createOrderRow({ drink });
 
 		await deleteDrink(drink.id);
 
 		expect((await drinkRow(drink.id))?.picture).toBe(OLD_PICTURE);
+		expect(del).not.toHaveBeenCalled();
+	});
+
+	test("reports other database errors generically and keeps the picture", async () => {
+		const drink = await createDrinkWithPicture();
+		vi.spyOn(tenantDb(), "delete").mockImplementationOnce(() => {
+			throw new Error("database is locked");
+		});
+
+		expect(await deleteDrink(drink.id)).toEqual({
+			success: false,
+			error: "Fehler beim Löschen des Getränks",
+		});
+		expect(del).not.toHaveBeenCalled();
+		expect((await drinkRow(drink.id))?.picture).toBe(OLD_PICTURE);
+	});
+
+	test("succeeds without touching blob storage for an unknown drink", async () => {
+		expect((await deleteDrink("deleted-drink")).success).toBe(true);
 		expect(del).not.toHaveBeenCalled();
 	});
 });

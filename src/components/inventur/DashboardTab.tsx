@@ -39,20 +39,117 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
-import { createNewBilling } from "~/server/actions/billings/billings";
 import {
 	type ActiveEventInventory,
+	type CloseInventoryAndBillResult,
 	cancelEventInventory,
+	closeInventoryAndBill,
 	type EtaplanWithKostenpunkte,
 	finishEventInventory,
+	type InventoryCountItem,
 	type InventurEvent,
 	saveInventoryCount,
 	saveQuickAdjustments,
 } from "~/server/actions/inventur/inventur";
 import { NumericInput } from "../NumericInput";
 import { removeSavedItemIds } from "./changed-items";
+import {
+	buildInventoryCount,
+	buildQuickAdjustments,
+	findUncountedDrinks,
+	isBlockedByUncounted,
+} from "./inventory-count";
 import type { StockStatusWithDetails } from "./utils";
 import { calculateLostValue, getStockStatus } from "./utils";
+
+/** Toasts the outcome of a full inventory; true when it was saved. */
+function notifyInventory(
+	result: Awaited<ReturnType<typeof saveInventoryCount>>,
+): boolean {
+	if (!result.success) {
+		toast.error(result.error ?? "Inventur konnte nicht erstellt werden");
+		return false;
+	}
+	toast.success("Inventur erfolgreich erstellt");
+	return true;
+}
+
+/** Toasts which step of "Inventur + Rechnung" failed; true when the inventory was saved. */
+function notifyInventoryAndBilling(
+	result: CloseInventoryAndBillResult,
+): boolean {
+	if (result.success) {
+		if (result.billsCreated > 0) {
+			toast.success("Inventur und Rechnung erfolgreich erstellt");
+		} else {
+			toast.warning(
+				`Inventur gespeichert, keine Rechnung erstellt: ${result.message}`,
+			);
+		}
+		return true;
+	}
+	// A billing failure leaves the inventory closed: only billing is missing.
+	toast.error(result.error);
+	return result.failedStep === "billing";
+}
+
+/**
+ * Saves a full inventory, with billing when asked, and toasts the outcome.
+ * True when the inventory was saved (even if the billing then failed).
+ */
+async function submitInventory(
+	items: InventoryCountItem[],
+	withInvoice: boolean,
+): Promise<boolean> {
+	if (withInvoice) {
+		return notifyInventoryAndBilling(await closeInventoryAndBill(items));
+	}
+	return notifyInventory(await saveInventoryCount(items));
+}
+
+function withId(ids: Set<string>, id: string): Set<string> {
+	return ids.has(id) ? ids : new Set(ids).add(id);
+}
+
+/** Lists the drinks nobody counted and asks before taking their shown "Ist". */
+function UncountedWarning({
+	uncounted,
+	total,
+	accepted,
+	onAcceptedChange,
+}: {
+	uncounted: StockStatusWithDetails[];
+	total: number;
+	accepted: boolean;
+	onAcceptedChange: (accepted: boolean) => void;
+}) {
+	if (uncounted.length === 0) {
+		return null;
+	}
+	return (
+		<div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+			<p className="font-medium">
+				{uncounted.length} von {total} Getränken wurden nicht gezählt:
+			</p>
+			<p className="mt-1 max-h-24 overflow-y-auto text-muted-foreground">
+				{uncounted.map((item) => item.drinkName).join(", ")}
+			</p>
+			<div className="mt-3 flex items-start space-x-2">
+				<Checkbox
+					id="accept-uncounted"
+					checked={accepted}
+					onCheckedChange={(checked) => onAcceptedChange(checked === true)}
+				/>
+				<Label
+					htmlFor="accept-uncounted"
+					className="font-normal text-sm leading-snug"
+				>
+					Für nicht gezählte Getränke den angezeigten Ist-Wert übernehmen
+				</Label>
+			</div>
+		</div>
+	);
+}
 
 interface DashboardTabProps {
 	stockItems: StockStatusWithDetails[];
@@ -85,6 +182,9 @@ export function DashboardTab({
 		{},
 	);
 	const [changedItems, setChangedItems] = useState<Set<string>>(new Set());
+	// Drinks whose "Ist" was entered; the others only show a pre-filled value.
+	const [countedIds, setCountedIds] = useState<Set<string>>(new Set());
+	const [acceptUncounted, setAcceptUncounted] = useState(false);
 	const [isSaving, startSaving] = useTransition();
 	const [isQuickSaving, startQuickSaving] = useTransition();
 	const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -157,6 +257,7 @@ export function DashboardTab({
 
 	const handleCountedStockInput = (drinkId: string, value: number) => {
 		setCountedStock((prev) => ({ ...prev, [drinkId]: value }));
+		setCountedIds((prev) => withId(prev, drinkId));
 		const item = stockItems.find((i) => i.drinkId === drinkId);
 		if (!item) {
 			return;
@@ -177,25 +278,11 @@ export function DashboardTab({
 		const savedItemIds = Array.from(changedItems);
 		startQuickSaving(async () => {
 			try {
-				const adjustments = savedItemIds
-					.map((drinkId) => {
-						const item = stockItems.find((i) => i.drinkId === drinkId);
-						const purchaseValue = purchases[drinkId] || 0;
-						const currentCount = countedStock[drinkId];
-						const originalPurchase = item?.purchasedSince || 0;
-						const purchaseChanged = originalPurchase !== purchaseValue;
-						return {
-							drinkId,
-							countedStock:
-								currentCount !== undefined ? currentCount : undefined,
-							purchasedQuantity: purchaseChanged ? purchaseValue : undefined,
-						};
-					})
-					.filter(
-						(adj) =>
-							adj.countedStock !== undefined ||
-							adj.purchasedQuantity !== undefined,
-					);
+				const adjustments = buildQuickAdjustments(savedItemIds, stockItems, {
+					countedStock,
+					purchases,
+					countedIds,
+				});
 
 				if (adjustments.length === 0) {
 					toast.info("Keine Änderungen zum Speichern");
@@ -221,29 +308,28 @@ export function DashboardTab({
 		});
 	};
 
+	const buildItems = () =>
+		buildInventoryCount(stockItems, { countedStock, purchases });
+
+	const uncountedDrinks = findUncountedDrinks(stockItems, countedIds);
+	const blockedByUncounted = isBlockedByUncounted(
+		uncountedDrinks,
+		acceptUncounted,
+	);
+
+	const finishInventory = () => {
+		setCountedIds(new Set());
+		setAcceptUncounted(false);
+		setShowInventoryDialog(false);
+		setCreateInvoice(false);
+		router.refresh();
+	};
+
 	const handleCreateInventory = (withInvoice = false) => {
 		startSaving(async () => {
 			try {
-				const inventoryItems = stockItems.map((item) => ({
-					drinkId: item.drinkId,
-					countedStock: countedStock[item.drinkId] ?? item.calculatedStock,
-					purchasedSince: purchases[item.drinkId] || 0,
-				}));
-				const result = await saveInventoryCount(inventoryItems);
-				if (withInvoice) {
-					await createNewBilling(result.totalInventoryLoss);
-				}
-				if (result.success) {
-					toast.success(
-						withInvoice
-							? "Inventur und Rechnung erfolgreich erstellt"
-							: "Inventur erfolgreich erstellt",
-					);
-					router.refresh();
-					setShowInventoryDialog(false);
-					setCreateInvoice(false);
-				} else {
-					throw new Error(result.error);
+				if (await submitInventory(buildItems(), withInvoice)) {
+					finishInventory();
 				}
 			} catch (error) {
 				toast.error(
@@ -254,13 +340,6 @@ export function DashboardTab({
 			}
 		});
 	};
-
-	const buildItems = () =>
-		stockItems.map((item) => ({
-			drinkId: item.drinkId,
-			countedStock: countedStock[item.drinkId] ?? item.calculatedStock,
-			purchasedSince: purchases[item.drinkId] || 0,
-		}));
 
 	const handleStartEvent = () => {
 		let info: {
@@ -291,6 +370,7 @@ export function DashboardTab({
 				toast.success(
 					"Veranstaltungs-Inventur gestartet — Anfangsbestand gespeichert",
 				);
+				setCountedIds(new Set());
 				setShowStartEvent(false);
 				router.refresh();
 			} else {
@@ -309,6 +389,7 @@ export function DashboardTab({
 				toast.success(
 					`Veranstaltung abgeschlossen — ${r.totalQty} Fl., €${r.totalValue.toFixed(2)} Verbrauch${r.booked ? " · in CC-Kasse gebucht" : ""}`,
 				);
+				setCountedIds(new Set());
 				setShowFinishEvent(false);
 				router.refresh();
 			} else {
@@ -481,7 +562,10 @@ export function DashboardTab({
 								Veranstaltung
 							</Button>
 							<Button
-								onClick={() => setShowInventoryDialog(true)}
+								onClick={() => {
+									setAcceptUncounted(false);
+									setShowInventoryDialog(true);
+								}}
 								disabled={isSaving}
 								variant="secondary"
 								size="sm"
@@ -761,6 +845,12 @@ export function DashboardTab({
 							)}
 						</DialogDescription>
 					</DialogHeader>
+					<UncountedWarning
+						uncounted={uncountedDrinks}
+						total={stockItems.length}
+						accepted={acceptUncounted}
+						onAcceptedChange={setAcceptUncounted}
+					/>
 					<div className="flex items-center space-x-2 py-4">
 						<Checkbox
 							id="create-invoice"
@@ -785,7 +875,7 @@ export function DashboardTab({
 						</Button>
 						<Button
 							onClick={() => handleCreateInventory(createInvoice)}
-							disabled={isSaving}
+							disabled={isSaving || blockedByUncounted}
 						>
 							{isSaving ? (
 								"Erstelle..."

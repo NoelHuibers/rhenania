@@ -4,6 +4,7 @@
 import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { addMoney, roundToCent } from "~/lib/money";
+import { createNewBilling } from "~/server/actions/billings/billings";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -223,20 +224,45 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 	return historyWithItems;
 }
 
+export type InventoryCountItem = {
+	drinkId: string;
+	countedStock: number;
+	purchasedSince: number;
+};
+
 export async function saveInventoryCount(
-	items: Array<{
-		drinkId: string;
-		countedStock: number;
-		purchasedSince: number;
-	}>,
+	items: InventoryCountItem[],
 	opts?: { startEvent?: EventInfo },
 ) {
+	const result = await countInventory(items, opts);
+	if (!result.success) {
+		return { success: false, error: result.error };
+	}
+	return { success: true, totalInventoryLoss: result.totalInventoryLoss };
+}
+
+/**
+ * Closes the running inventory with the given counts and opens the next one.
+ * Also reports which inventory was closed (null for the very first count).
+ */
+async function countInventory(
+	items: InventoryCountItem[],
+	opts?: { startEvent?: EventInfo },
+): Promise<
+	| {
+			success: true;
+			totalInventoryLoss: number;
+			closedInventoryId: string | null;
+	  }
+	| { success: false; error: string }
+> {
 	const session = await auth();
 	if (!session?.user) {
 		return { success: false, error: "Unauthorized" };
 	}
 
 	let totalInventoryLoss = 0;
+	let closedInventoryId: string | null = null;
 
 	try {
 		await db.transaction(async (tx) => {
@@ -358,6 +384,7 @@ export async function saveInventoryCount(
 						totalLoss: totalInventoryLoss,
 					})
 					.where(eq(inventories.id, activeInv.id));
+				closedInventoryId = activeInv.id;
 			}
 
 			const [newInventory] = await tx
@@ -437,7 +464,7 @@ export async function saveInventoryCount(
 			}
 		});
 
-		return { success: true, totalInventoryLoss: totalInventoryLoss };
+		return { success: true, totalInventoryLoss, closedInventoryId };
 	} catch (error) {
 		console.error("Failed to save inventory:", error);
 		return {
@@ -446,6 +473,152 @@ export async function saveInventoryCount(
 				error instanceof Error ? error.message : "Failed to save inventory",
 		};
 	}
+}
+
+export type CloseInventoryAndBillResult =
+	| {
+			success: true;
+			totalInventoryLoss: number;
+			billsCreated: number;
+			message: string;
+	  }
+	| { success: false; failedStep: "inventory"; error: string }
+	| {
+			success: false;
+			failedStep: "billing";
+			totalInventoryLoss: number;
+			error: string;
+	  };
+
+/**
+ * "Inventur + Rechnung": closes the running inventory and then starts a
+ * billing run. The Umlage is the loss of the inventory just closed, read from
+ * the database — never a value sent by the browser. Billing only runs when
+ * the inventory was saved, and a billing failure is reported as such.
+ */
+export async function closeInventoryAndBill(
+	items: InventoryCountItem[],
+): Promise<CloseInventoryAndBillResult> {
+	const counted = await countInventory(items);
+	if (!counted.success) {
+		return { success: false, failedStep: "inventory", error: counted.error };
+	}
+
+	let totalInventoryLoss = 0;
+	if (counted.closedInventoryId) {
+		const [closed] = await db
+			.select({ totalLoss: inventories.totalLoss })
+			.from(inventories)
+			.where(eq(inventories.id, counted.closedInventoryId))
+			.limit(1);
+		totalInventoryLoss = closed?.totalLoss ?? 0;
+	}
+
+	let billingError: string | null = null;
+	let billsCreated = 0;
+	let message = "";
+	try {
+		const billing = await createNewBilling(totalInventoryLoss);
+		if (billing.success) {
+			billsCreated =
+				billing.billsCreated +
+				("eventBillsCreated" in billing ? billing.eventBillsCreated : 0);
+			message = billing.message;
+		} else {
+			billingError =
+				"error" in billing && billing.error ? billing.error : billing.message;
+		}
+	} catch (error) {
+		console.error("Billing after inventory failed:", error);
+		billingError =
+			error instanceof Error ? error.message : "Unbekannter Fehler";
+	}
+
+	if (billingError !== null) {
+		const unbilledLoss =
+			totalInventoryLoss > 0
+				? ` Der Inventurverlust von €${totalInventoryLoss.toFixed(2)} wurde nicht abgerechnet.`
+				: "";
+		return {
+			success: false,
+			failedStep: "billing",
+			totalInventoryLoss,
+			error: `Inventur gespeichert, aber die Rechnung ist fehlgeschlagen: ${billingError}.${unbilledLoss}`,
+		};
+	}
+
+	return { success: true, totalInventoryLoss, billsCreated, message };
+}
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Opens a routine inventory when none is running. Each drink's baseline is
+ * the stock it should have right now: its latest closed count minus what was
+ * sold since that count. Drinks never counted start at 0.
+ */
+async function openInventoryWithBaselines(
+	tx: Tx,
+	performedBy: string,
+): Promise<string> {
+	const [newInventory] = await tx
+		.insert(inventories)
+		.values({ status: "active", performedBy, totalLoss: 0 })
+		.returning({ id: inventories.id });
+
+	if (!newInventory) {
+		throw new Error("Inventur konnte nicht angelegt werden");
+	}
+
+	const allDrinks = await tx.select().from(drinks);
+	for (const drink of allDrinks) {
+		const [lastCount] = await tx
+			.select({
+				countedStock: inventoryItems.countedStock,
+				closedAt: inventories.closedAt,
+				createdAt: inventories.createdAt,
+			})
+			.from(inventoryItems)
+			.innerJoin(inventories, eq(inventoryItems.inventoryId, inventories.id))
+			.where(
+				and(
+					eq(inventoryItems.drinkId, drink.id),
+					eq(inventories.status, "closed"),
+				),
+			)
+			.orderBy(desc(inventories.createdAt))
+			.limit(1);
+
+		let baseline = 0;
+		if (lastCount) {
+			const [soldAgg] = await tx
+				.select({ total: sql<number>`COALESCE(SUM(${orders.amount}), 0)` })
+				.from(orders)
+				.where(
+					and(
+						eq(orders.drinkId, drink.id),
+						gte(orders.createdAt, lastCount.closedAt ?? lastCount.createdAt),
+					),
+				);
+			baseline = Math.max(
+				0,
+				lastCount.countedStock - Number(soldAgg?.total ?? 0),
+			);
+		}
+
+		await tx.insert(inventoryItems).values({
+			inventoryId: newInventory.id,
+			drinkId: drink.id,
+			countedStock: baseline,
+			previousStock: baseline,
+			purchasedSince: 0,
+			soldSince: 0,
+			priceAtCount: drink.price,
+			lossValue: 0,
+		});
+	}
+
+	return newInventory.id;
 }
 
 export async function saveQuickAdjustments(
@@ -462,46 +635,15 @@ export async function saveQuickAdjustments(
 
 	try {
 		await db.transaction(async (tx) => {
-			const activeInventory = await tx
-				.select()
+			const [activeInventory] = await tx
+				.select({ id: inventories.id })
 				.from(inventories)
 				.where(eq(inventories.status, "active"))
 				.limit(1);
 
-			if (!activeInventory[0]) {
-				const [newInventory] = await tx
-					.insert(inventories)
-					.values({
-						status: "active",
-						performedBy: session.user.id,
-						totalLoss: 0,
-					})
-					.returning();
-
-				if (!newInventory) {
-					throw new Error("Failed to create inventory");
-				}
-
-				const allDrinks = await tx.select().from(drinks);
-				for (const drink of allDrinks) {
-					await tx.insert(inventoryItems).values({
-						inventoryId: newInventory.id,
-						drinkId: drink.id,
-						countedStock: 0,
-						previousStock: 0,
-						purchasedSince: 0,
-						soldSince: 0,
-						priceAtCount: drink.price,
-						lossValue: 0,
-					});
-				}
-			}
-
-			const currentInventoryId = activeInventory[0]?.id;
-
-			if (!currentInventoryId) {
-				throw new Error("No active inventory found");
-			}
+			const currentInventoryId =
+				activeInventory?.id ??
+				(await openInventoryWithBaselines(tx, session.user.id));
 
 			for (const adjustment of adjustments) {
 				if (
@@ -572,7 +714,9 @@ export async function saveQuickAdjustments(
 		return {
 			success: false,
 			error:
-				error instanceof Error ? error.message : "Failed to save adjustments",
+				error instanceof Error
+					? error.message
+					: "Änderungen konnten nicht gespeichert werden",
 		};
 	}
 }

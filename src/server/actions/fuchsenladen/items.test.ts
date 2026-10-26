@@ -177,9 +177,7 @@ describe("deleteFuchsenItem", () => {
 		expect(await itemRow(item.id)).toBeUndefined();
 	});
 
-	// The picture is deleted before the row; the FK from fuchsen_order then
-	// blocks the row delete and the item survives with a dead picture URL.
-	test.fails("keeps the picture of an item that has orders (#137)", async () => {
+	test("keeps the picture of an item that has orders (#137)", async () => {
 		await asFuchsenwart();
 		const member = await createUser();
 		const item = await createFuchsenItem({ picture: OLD_PIC });
@@ -190,6 +188,35 @@ describe("deleteFuchsenItem", () => {
 
 		expect(await itemRow(item.id)).toBeDefined();
 		expect(del).not.toHaveBeenCalled();
+	});
+
+	test("suggests deactivating an item that has orders", async () => {
+		await asFuchsenwart();
+		const item = await createFuchsenItem({ picture: OLD_PIC });
+		await createFuchsenOrder({ user: await createUser(), item });
+
+		expect(await deleteFuchsenItem(item.id)).toEqual({
+			success: false,
+			error:
+				"Der Artikel wurde schon bestellt und kann deshalb nicht gelöscht werden. Setze ihn stattdessen auf „Nicht verfügbar“.",
+		});
+		expect((await itemRow(item.id))?.picture).toBe(OLD_PIC);
+	});
+
+	test("reports other database errors generically", async () => {
+		await asFuchsenwart();
+		const item = await createFuchsenItem({ picture: OLD_PIC });
+		vi.spyOn(console, "error").mockImplementation(() => {});
+		vi.spyOn(tenantDb(), "delete").mockImplementationOnce(() => {
+			throw new Error("database is locked");
+		});
+
+		expect(await deleteFuchsenItem(item.id)).toEqual({
+			success: false,
+			error: "Fehler beim Löschen des Artikels",
+		});
+		expect(del).not.toHaveBeenCalled();
+		expect(await itemRow(item.id)).toBeDefined();
 	});
 });
 

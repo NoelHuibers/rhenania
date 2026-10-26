@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { fuchsenItems, fuchsenOrders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { isForeignKeyViolation } from "~/server/lib/db-errors";
 
 const addItemSchema = z.object({
 	name: z.string().min(1, "Name ist erforderlich").max(255, "Name ist zu lang"),
@@ -162,13 +163,17 @@ export async function updateFuchsenItem(
 	}
 }
 
+const FUCHSEN_ITEM_IN_USE_ERROR =
+	"Der Artikel wurde schon bestellt und kann deshalb nicht gelöscht werden. Setze ihn stattdessen auf „Nicht verfügbar“.";
+
 export async function deleteFuchsenItem(id: string) {
 	try {
+		// Delete the row first: orders reference it, and the picture must
+		// survive when the database refuses the delete.
 		const [item] = await db
-			.select()
-			.from(fuchsenItems)
+			.delete(fuchsenItems)
 			.where(eq(fuchsenItems.id, id))
-			.limit(1);
+			.returning({ picture: fuchsenItems.picture });
 
 		if (item?.picture) {
 			try {
@@ -178,13 +183,14 @@ export async function deleteFuchsenItem(id: string) {
 			}
 		}
 
-		await db.delete(fuchsenItems).where(eq(fuchsenItems.id, id));
-
 		revalidatePath("/fuchsenwart");
 		revalidatePath("/fuchsenladen");
 
 		return { success: true, message: "Artikel erfolgreich gelöscht" };
 	} catch (error) {
+		if (isForeignKeyViolation(error)) {
+			return { success: false, error: FUCHSEN_ITEM_IN_USE_ERROR };
+		}
 		console.error("Error deleting fuchsen item:", error);
 		return { success: false, error: "Fehler beim Löschen des Artikels" };
 	}
