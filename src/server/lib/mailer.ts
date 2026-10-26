@@ -15,12 +15,13 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { eq } from "drizzle-orm";
 import { createTransport } from "nodemailer";
 
 import { env } from "~/env";
-import { controlDb } from "~/server/db/control";
-import { tenantAuthConfig } from "~/server/db/control-schema";
+import {
+	type GraphMailConfig,
+	getTenantConfig,
+} from "~/server/lib/tenant-config";
 import {
 	getCurrentTenant,
 	type TenantContext,
@@ -41,52 +42,12 @@ export type TenantMail = {
 	attachments?: TenantMailAttachment[];
 };
 
-type GraphMailConfig = {
-	clientId: string;
-	clientSecret: string;
-	azureTenantId: string;
-	senderEmail: string;
-};
-
-const CONFIG_CACHE_TTL_MS = 60_000;
-const configCache = new Map<
-	string,
-	{ value: GraphMailConfig | null; expiresAt: number }
->();
-
+// The Graph config rides along with the cached tenant config, so it follows
+// the same invalidation as everything else in tenant-config.ts.
 async function getGraphMailConfig(
 	tenantId: string,
 ): Promise<GraphMailConfig | null> {
-	const cached = configCache.get(tenantId);
-	if (cached && cached.expiresAt > Date.now()) {
-		return cached.value;
-	}
-
-	const [row] = await controlDb
-		.select({
-			clientId: tenantAuthConfig.azureClientId,
-			clientSecret: tenantAuthConfig.azureClientSecret,
-			azureTenantId: tenantAuthConfig.azureTenantId,
-			senderEmail: tenantAuthConfig.mailSenderEmail,
-		})
-		.from(tenantAuthConfig)
-		.where(eq(tenantAuthConfig.tenantId, tenantId))
-		.limit(1);
-
-	const value =
-		row?.clientId && row.clientSecret && row.azureTenantId && row.senderEmail
-			? {
-					clientId: row.clientId,
-					clientSecret: row.clientSecret,
-					azureTenantId: row.azureTenantId,
-					senderEmail: row.senderEmail,
-				}
-			: null;
-	configCache.set(tenantId, {
-		value,
-		expiresAt: Date.now() + CONFIG_CACHE_TTL_MS,
-	});
-	return value;
+	return (await getTenantConfig(tenantId))?.graphMail ?? null;
 }
 
 // App-only Graph tokens are valid ~1h; cache per Azure app until shortly

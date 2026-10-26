@@ -25,10 +25,13 @@ import {
 	setupTestDatabases,
 	signInAs,
 } from "../../../../test/harness";
+import { requireControl } from "../../../../test/state";
 import {
+	abandonTenantProvisioningAction,
 	addTenantDomainAction,
 	createTenantAction,
 	getTenantDetailAction,
+	listTenantProvisioningsAction,
 	listTenantsAction,
 	removeTenantDomainAction,
 	setTenantFeatureAction,
@@ -40,6 +43,8 @@ import {
 // Provisioning talks to Turso; it has its own test file.
 vi.mock("~/server/lib/tenant-provisioning", () => ({
 	provisionTenant: vi.fn(),
+	listUnfinishedProvisionings: vi.fn(async () => []),
+	abandonTenantProvisioning: vi.fn(),
 }));
 
 setupTestDatabases();
@@ -66,6 +71,8 @@ describe("superadmin gate", () => {
 		const results = [
 			await listTenantsAction(),
 			await createTenantAction({ slug: "neu", displayName: "Neu" }),
+			await listTenantProvisioningsAction(),
+			await abandonTenantProvisioningAction("neu"),
 			await getTenantDetailAction(tenant.id),
 			await setTenantFeatureAction(tenant.id, "drinks.markup", true),
 			await setTenantStatusAction(tenant.id, "suspended"),
@@ -127,6 +134,42 @@ describe("listTenantsAction", () => {
 			memberCount: 1,
 			microsoftEnabled: false,
 		});
+	});
+
+	test("needs the same three queries for any number of tenants (#26)", async () => {
+		await signInAsSuperAdmin();
+		const { client } = requireControl();
+		const execute = vi.spyOn(client, "execute");
+		const batch = vi.spyOn(client, "batch");
+		const listingStatements = async () => {
+			execute.mockClear();
+			batch.mockClear();
+			const result = await listTenantsAction();
+			expect(result.success).toBe(true);
+			const batched = batch.mock.calls.reduce(
+				(sum, [statements]) => sum + statements.length,
+				0,
+			);
+			return {
+				roundTrips: execute.mock.calls.length + batch.mock.calls.length,
+				batched,
+				rows: result.data?.length,
+			};
+		};
+
+		await createTenant();
+		const few = await listingStatements();
+		for (let i = 0; i < 5; i++) {
+			const tenant = await createTenant();
+			await addDomain(tenant.id, `extra-${i}.example`);
+			await createUser({ tenantId: tenant.id });
+		}
+		const many = await listingStatements();
+
+		expect(few.rows).toBe(1);
+		expect(many.rows).toBe(6);
+		expect(many.roundTrips).toBe(few.roundTrips);
+		expect(many.batched).toBe(3);
 	});
 });
 
@@ -243,7 +286,7 @@ describe("tenant status and name", () => {
 		expect(await status()).toBe("active");
 	});
 
-	test.fails("suspending a tenant takes effect on the next host lookup (#30)", async () => {
+	test("suspending a tenant takes effect on the next host lookup (#30)", async () => {
 		const tenant = await createTenant({ slug: "hassia" });
 		expect(await resolveTenantByHost("hassia.test.localhost")).toBe(tenant.id);
 		await signInAsSuperAdmin();
@@ -325,7 +368,7 @@ describe("domains", () => {
 		expect(await domainsOf(b.id)).toHaveLength(1);
 	});
 
-	test.fails("a new domain resolves right after a failed lookup (#30)", async () => {
+	test("a new domain resolves right after a failed lookup (#30)", async () => {
 		const tenant = await createTenant({ slug: "hassia" });
 		await signInAsSuperAdmin();
 		expect(await resolveTenantByHost("hassia.de")).toBeNull();

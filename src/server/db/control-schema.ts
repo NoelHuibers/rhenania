@@ -42,6 +42,11 @@ export const tenants = createControlTable("tenant", (d) => ({
 	dbUrl: d.text().notNull(),
 	dbAuthToken: d.text(),
 	branding: d.text({ mode: "json" }).$type<TenantBranding>(),
+	// Bumped (to the current maximum + 1) by every write that changes what
+	// the tenant-config service caches: status, domains, flags, auth config,
+	// name, DB credentials. Instances compare `max(configVersion)` and the
+	// tenant count to notice changes made elsewhere (see tenant-config.ts).
+	configVersion: d.integer().notNull().default(0),
 	createdAt: d
 		.integer({ mode: "timestamp" })
 		.notNull()
@@ -52,6 +57,56 @@ export const tenants = createControlTable("tenant", (d) => ({
 		.$defaultFn(() => new Date())
 		.$onUpdate(() => new Date()),
 }));
+
+// ─── Tenant provisioning ──────────────────────────────────────────────────────
+//
+// One row per provisioning run, keyed by slug. `step` is the last step that
+// completed; a failed or interrupted run is resumed from the next one (see
+// tenant-provisioning.ts). The row stays behind as a record once `active`.
+
+export const PROVISIONING_STEPS = [
+	"requested",
+	"db_requested",
+	"db_created",
+	"token",
+	"migrated",
+	"seeded",
+	"control_rows",
+	"domain",
+	"first_admin",
+	"active",
+] as const;
+export type ProvisioningStep = (typeof PROVISIONING_STEPS)[number];
+
+export const tenantProvisioning = createControlTable(
+	"tenant_provisioning",
+	(d) => ({
+		slug: d.text({ length: 100 }).notNull().primaryKey(),
+		displayName: d.text({ length: 255 }).notNull(),
+		dbName: d.text({ length: 64 }).notNull(),
+		primaryHostname: d.text({ length: 255 }),
+		firstAdminEmail: d.text({ length: 255 }),
+		step: d.text({ enum: PROVISIONING_STEPS }).notNull().default("requested"),
+		dbUrl: d.text(),
+		// Held only until the tenant is active; the tenant row keeps its own copy.
+		dbAuthToken: d.text(),
+		tenantId: d.text({ length: 255 }),
+		lastError: d.text(),
+		attempts: d.integer().notNull().default(0),
+		// A run holds the lease while it works, so two clicks cannot race.
+		leaseUntil: d.integer({ mode: "timestamp" }),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date()),
+		updatedAt: d
+			.integer({ mode: "timestamp" })
+			.notNull()
+			.$defaultFn(() => new Date())
+			.$onUpdate(() => new Date()),
+		completedAt: d.integer({ mode: "timestamp" }),
+	}),
+);
 
 export const tenantDomains = createControlTable(
 	"tenant_domain",

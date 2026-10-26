@@ -1,12 +1,19 @@
 import Link from "next/link";
+import { ProvisioningRuns } from "~/components/superadmin/ProvisioningRuns";
 import { TenantHealthTable } from "~/components/superadmin/TenantHealthTable";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { formatDate } from "~/lib/format";
-import { listTenantsAction } from "~/server/actions/superadmin/tenants";
+import {
+	listTenantProvisioningsAction,
+	listTenantsAction,
+} from "~/server/actions/superadmin/tenants";
 
 export default async function SuperadminHomePage() {
-	const result = await listTenantsAction();
+	const [result, provisionings] = await Promise.all([
+		listTenantsAction(),
+		listTenantProvisioningsAction(),
+	]);
 
 	if (!result.success || !result.data) {
 		return (
@@ -84,6 +91,7 @@ export default async function SuperadminHomePage() {
 					</table>
 				</div>
 			)}
+			<ProvisioningRuns runs={provisionings.data ?? []} />
 			<TenantHealthTable />
 		</div>
 	);

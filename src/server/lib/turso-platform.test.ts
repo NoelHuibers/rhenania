@@ -5,6 +5,7 @@ import {
 	createDatabaseToken,
 	databaseExists,
 	deleteDatabase,
+	getDatabase,
 	tursoDatabaseNameForSlug,
 } from "./turso-platform";
 
@@ -151,6 +152,27 @@ describe("databaseExists", () => {
 	test("a 404 with a plain-text body counts as missing (#152)", async () => {
 		fetchMock.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
 		expect(await databaseExists("corps-nope")).toBe(false);
+	});
+});
+
+describe("getDatabase", () => {
+	test("returns name and libsql URL of an existing DB, null for 404", async () => {
+		fetchMock.mockResolvedValueOnce(
+			json({
+				database: { Name: "corps-hassia", Hostname: "corps-hassia.turso.io" },
+			}),
+		);
+		expect(await getDatabase("corps-hassia")).toEqual({
+			name: "corps-hassia",
+			hostname: "corps-hassia.turso.io",
+			url: "libsql://corps-hassia.turso.io",
+		});
+		expect(lastRequest().url).toBe(
+			"https://api.turso.tech/v1/organizations/rhenania-org/databases/corps-hassia",
+		);
+
+		fetchMock.mockResolvedValueOnce(json({ error: "not found" }, 404));
+		expect(await getDatabase("corps-nope")).toBeNull();
 	});
 });
 

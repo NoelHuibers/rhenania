@@ -72,3 +72,28 @@ export const DEFAULT_MEMBER_STATUSES: MemberStatusDefault[] = [
 	},
 	{ key: "AHEB", label: "AHEB", beitragspflichtig: false, displayOrder: 5 },
 ];
+
+export type RoleDefault = { name: string; description: string };
+
+// The one list of roles every tenant starts with. Seeded at provisioning
+// (tenant-seed.ts) and topped up by `initializeRoles` in the admin area.
+export const DEFAULT_ROLES: RoleDefault[] = [
+	{ name: "Admin", description: "Systemadministration" },
+	{ name: "Getränkewart", description: "Getränkeversorgung" },
+	{ name: "Fuchs", description: "Fuchsenladen Management" },
+	{ name: "Fotowart", description: "Fotos der Website verwalten" },
+	{ name: "Faxe", description: "Faxe, Hausmeister, Putzfirma" },
+	{ name: "Hausbewohner", description: "Aktive" },
+	{ name: "Senior", description: "Senior des Corps (x)" },
+	{ name: "Consenior", description: "Consenior des Corps (xx)" },
+	{ name: "Subsenior", description: "Subsenior des Corps (xxx)" },
+	{ name: "Fuchsmajor", description: "Fuchsmajor des Corps (FM)" },
+	{ name: "CC-Kasse", description: "CC-Kassenwart" },
+	{ name: "Aktivenkasse", description: "Aktivenkassenwart" },
+	{ name: "AHV 1. Vorstand", description: "Altherrenverein – 1. Vorstand" },
+	{ name: "AHV 2. Vorstand", description: "Altherrenverein – 2. Vorstand" },
+	{ name: "AHV 3. Vorstand", description: "Altherrenverein – 3. Vorstand" },
+	{ name: "Hausverein 1. Vorstand", description: "Hausverein – 1. Vorstand" },
+	{ name: "Hausverein 2. Vorstand", description: "Hausverein – 2. Vorstand" },
+	{ name: "Hausverein 3. Vorstand", description: "Hausverein – 3. Vorstand" },
+];

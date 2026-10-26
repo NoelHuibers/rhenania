@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import {
@@ -17,8 +17,13 @@ import {
 	tenants,
 } from "~/server/db/control-schema";
 import { requireSuperAdmin } from "~/server/lib/super-admin";
-import { clearTenantCache } from "~/server/lib/tenant-context";
-import { provisionTenant } from "~/server/lib/tenant-provisioning";
+import { commitTenantConfigChange } from "~/server/lib/tenant-config";
+import {
+	abandonTenantProvisioning,
+	listUnfinishedProvisionings,
+	provisionTenant,
+	type UnfinishedProvisioning,
+} from "~/server/lib/tenant-provisioning";
 
 type ActionResult<T = void> = {
 	success: boolean;
@@ -46,41 +51,43 @@ export async function listTenantsAction(): Promise<
 	try {
 		await requireSuperAdmin();
 
-		const tenantRows = await controlDb
-			.select({
-				id: tenants.id,
-				slug: tenants.slug,
-				displayName: tenants.displayName,
-				status: tenants.status,
-				dbUrl: tenants.dbUrl,
-				createdAt: tenants.createdAt,
-				microsoftEnabled: tenantAuthConfig.microsoftEnabled,
-			})
-			.from(tenants)
-			.leftJoin(tenantAuthConfig, eq(tenantAuthConfig.tenantId, tenants.id));
-
-		const result: SuperadminTenantRow[] = [];
-		for (const t of tenantRows) {
-			const domains = await controlDb
-				.select({ id: tenantDomains.id })
+		// Three queries in one round trip, however many tenants there are.
+		const [tenantRows, domainCounts, memberCounts] = await controlDb.batch([
+			controlDb
+				.select({
+					id: tenants.id,
+					slug: tenants.slug,
+					displayName: tenants.displayName,
+					status: tenants.status,
+					dbUrl: tenants.dbUrl,
+					createdAt: tenants.createdAt,
+					microsoftEnabled: tenantAuthConfig.microsoftEnabled,
+				})
+				.from(tenants)
+				.leftJoin(tenantAuthConfig, eq(tenantAuthConfig.tenantId, tenants.id)),
+			controlDb
+				.select({ tenantId: tenantDomains.tenantId, n: count() })
 				.from(tenantDomains)
-				.where(eq(tenantDomains.tenantId, t.id));
-			const members = await controlDb
-				.select({ userId: tenantMemberships.userId })
+				.groupBy(tenantDomains.tenantId),
+			controlDb
+				.select({ tenantId: tenantMemberships.tenantId, n: count() })
 				.from(tenantMemberships)
-				.where(eq(tenantMemberships.tenantId, t.id));
-			result.push({
-				id: t.id,
-				slug: t.slug,
-				displayName: t.displayName,
-				status: t.status,
-				dbUrl: t.dbUrl,
-				createdAt: t.createdAt,
-				domainCount: domains.length,
-				memberCount: members.length,
-				microsoftEnabled: Boolean(t.microsoftEnabled),
-			});
-		}
+				.groupBy(tenantMemberships.tenantId),
+		]);
+		const domainsByTenant = new Map(domainCounts.map((r) => [r.tenantId, r.n]));
+		const membersByTenant = new Map(memberCounts.map((r) => [r.tenantId, r.n]));
+
+		const result: SuperadminTenantRow[] = tenantRows.map((t) => ({
+			id: t.id,
+			slug: t.slug,
+			displayName: t.displayName,
+			status: t.status,
+			dbUrl: t.dbUrl,
+			createdAt: t.createdAt,
+			domainCount: domainsByTenant.get(t.id) ?? 0,
+			memberCount: membersByTenant.get(t.id) ?? 0,
+			microsoftEnabled: Boolean(t.microsoftEnabled),
+		}));
 
 		return { success: true, data: result };
 	} catch (e) {
@@ -94,25 +101,73 @@ export async function listTenantsAction(): Promise<
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
+/**
+ * Creates a tenant, or resumes the unfinished provisioning run for the same
+ * slug (see tenant-provisioning.ts).
+ */
 export async function createTenantAction(input: {
 	slug: string;
 	displayName: string;
+	primaryHostname?: string | null;
+	firstAdminEmail?: string | null;
 }): Promise<ActionResult<{ tenantId: string; dbUrl: string }>> {
 	try {
 		await requireSuperAdmin();
-
+	} catch (e) {
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : "Unknown error",
+		};
+	}
+	try {
 		const result = await provisionTenant({
 			slug: input.slug,
 			displayName: input.displayName,
+			primaryHostname: input.primaryHostname,
+			firstAdminEmail: input.firstAdminEmail,
 		});
-
-		revalidatePath("/superadmin");
 		return {
 			success: true,
 			data: { tenantId: result.tenantId, dbUrl: result.dbUrl },
 		};
 	} catch (e) {
 		console.error("createTenantAction failed:", e);
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : "Unknown error",
+		};
+	} finally {
+		// A failed run shows up as unfinished (and maybe a pending tenant).
+		revalidatePath("/superadmin");
+	}
+}
+
+export async function listTenantProvisioningsAction(): Promise<
+	ActionResult<UnfinishedProvisioning[]>
+> {
+	try {
+		await requireSuperAdmin();
+		return { success: true, data: await listUnfinishedProvisionings() };
+	} catch (e) {
+		console.error("listTenantProvisioningsAction failed:", e);
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : "Unknown error",
+		};
+	}
+}
+
+/** Deletes an unfinished run's Turso DB and control rows. */
+export async function abandonTenantProvisioningAction(
+	slug: string,
+): Promise<ActionResult> {
+	try {
+		await requireSuperAdmin();
+		await abandonTenantProvisioning(slug);
+		revalidatePath("/superadmin");
+		return { success: true };
+	} catch (e) {
+		console.error("abandonTenantProvisioningAction failed:", e);
 		return {
 			success: false,
 			error: e instanceof Error ? e.message : "Unknown error",
@@ -156,35 +211,35 @@ export async function getTenantDetailAction(
 	try {
 		await requireSuperAdmin();
 
-		const [t] = await controlDb
-			.select()
-			.from(tenants)
-			.where(eq(tenants.id, tenantId))
-			.limit(1);
+		const [[t], domains, [cfg], [members], featureRows] = await controlDb.batch(
+			[
+				controlDb
+					.select()
+					.from(tenants)
+					.where(eq(tenants.id, tenantId))
+					.limit(1),
+				controlDb
+					.select()
+					.from(tenantDomains)
+					.where(eq(tenantDomains.tenantId, tenantId)),
+				controlDb
+					.select()
+					.from(tenantAuthConfig)
+					.where(eq(tenantAuthConfig.tenantId, tenantId))
+					.limit(1),
+				controlDb
+					.select({ n: count() })
+					.from(tenantMemberships)
+					.where(eq(tenantMemberships.tenantId, tenantId)),
+				controlDb
+					.select({ key: tenantFeatures.key, enabled: tenantFeatures.enabled })
+					.from(tenantFeatures)
+					.where(eq(tenantFeatures.tenantId, tenantId)),
+			],
+		);
 		if (!t) {
 			return { success: false, error: "Tenant not found" };
 		}
-
-		const domains = await controlDb
-			.select()
-			.from(tenantDomains)
-			.where(eq(tenantDomains.tenantId, tenantId));
-
-		const [cfg] = await controlDb
-			.select()
-			.from(tenantAuthConfig)
-			.where(eq(tenantAuthConfig.tenantId, tenantId))
-			.limit(1);
-
-		const memberRows = await controlDb
-			.select({ userId: tenantMemberships.userId })
-			.from(tenantMemberships)
-			.where(eq(tenantMemberships.tenantId, tenantId));
-
-		const featureRows = await controlDb
-			.select({ key: tenantFeatures.key, enabled: tenantFeatures.enabled })
-			.from(tenantFeatures)
-			.where(eq(tenantFeatures.tenantId, tenantId));
 
 		return {
 			success: true,
@@ -214,7 +269,7 @@ export async function getTenantDetailAction(
 							mailSenderEmail: cfg.mailSenderEmail,
 						}
 					: null,
-				memberCount: memberRows.length,
+				memberCount: members?.n ?? 0,
 				features: resolveFeatureFlags(featureRows),
 			},
 		};
@@ -249,17 +304,17 @@ export async function setTenantFeatureAction(
 			return { success: false, error: "Tenant not found" };
 		}
 
-		await controlDb
-			.insert(tenantFeatures)
-			.values({ tenantId, key, enabled, updatedBy: userId })
-			.onConflictDoUpdate({
-				target: [tenantFeatures.tenantId, tenantFeatures.key],
-				set: { enabled, updatedBy: userId, updatedAt: new Date() },
-			});
-
-		// Other server instances pick the change up when their cached tenant
-		// expires (at most a minute).
-		clearTenantCache(tenantId);
+		// Other instances see the change within one config revalidation
+		// interval (tenant-config.ts).
+		await commitTenantConfigChange(tenantId, [
+			controlDb
+				.insert(tenantFeatures)
+				.values({ tenantId, key, enabled, updatedBy: userId })
+				.onConflictDoUpdate({
+					target: [tenantFeatures.tenantId, tenantFeatures.key],
+					set: { enabled, updatedBy: userId, updatedAt: new Date() },
+				}),
+		]);
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
 		return { success: true };
 	} catch (e) {
@@ -279,10 +334,9 @@ export async function setTenantStatusAction(
 ): Promise<ActionResult> {
 	try {
 		await requireSuperAdmin();
-		await controlDb
-			.update(tenants)
-			.set({ status })
-			.where(eq(tenants.id, tenantId));
+		await commitTenantConfigChange(tenantId, [
+			controlDb.update(tenants).set({ status }).where(eq(tenants.id, tenantId)),
+		]);
 		revalidatePath("/superadmin");
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
 		return { success: true };
@@ -305,10 +359,12 @@ export async function updateTenantDisplayNameAction(
 		if (!trimmed) {
 			return { success: false, error: "Display name is required" };
 		}
-		await controlDb
-			.update(tenants)
-			.set({ displayName: trimmed })
-			.where(eq(tenants.id, tenantId));
+		await commitTenantConfigChange(tenantId, [
+			controlDb
+				.update(tenants)
+				.set({ displayName: trimmed })
+				.where(eq(tenants.id, tenantId)),
+		]);
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
 		return { success: true };
 	} catch (e) {
@@ -352,13 +408,15 @@ export async function addTenantDomainAction(
 			};
 		}
 
-		await controlDb.insert(tenantDomains).values({
-			tenantId,
-			hostname: host,
-			isPrimary: opts.isPrimary ?? false,
-			isCustom: opts.isCustom ?? !host.endsWith("localhost"),
-			verifiedAt: new Date(),
-		});
+		await commitTenantConfigChange(tenantId, [
+			controlDb.insert(tenantDomains).values({
+				tenantId,
+				hostname: host,
+				isPrimary: opts.isPrimary ?? false,
+				isCustom: opts.isCustom ?? !host.endsWith("localhost"),
+				verifiedAt: new Date(),
+			}),
+		]);
 
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
 		return { success: true };
@@ -377,14 +435,16 @@ export async function removeTenantDomainAction(
 ): Promise<ActionResult> {
 	try {
 		await requireSuperAdmin();
-		await controlDb
-			.delete(tenantDomains)
-			.where(
-				and(
-					eq(tenantDomains.id, domainId),
-					eq(tenantDomains.tenantId, tenantId),
+		await commitTenantConfigChange(tenantId, [
+			controlDb
+				.delete(tenantDomains)
+				.where(
+					and(
+						eq(tenantDomains.id, domainId),
+						eq(tenantDomains.tenantId, tenantId),
+					),
 				),
-			);
+		]);
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
 		return { success: true };
 	} catch (e) {
@@ -439,21 +499,25 @@ export async function updateTenantAuthConfigAction(
 
 		if (existing) {
 			if (Object.keys(set).length > 0) {
-				await controlDb
-					.update(tenantAuthConfig)
-					.set(set)
-					.where(eq(tenantAuthConfig.tenantId, tenantId));
+				await commitTenantConfigChange(tenantId, [
+					controlDb
+						.update(tenantAuthConfig)
+						.set(set)
+						.where(eq(tenantAuthConfig.tenantId, tenantId)),
+				]);
 			}
 		} else {
-			await controlDb.insert(tenantAuthConfig).values({
-				tenantId,
-				emailPasswordEnabled: true,
-				microsoftEnabled: Boolean(patch.microsoftEnabled),
-				azureClientId: patch.azureClientId ?? null,
-				azureClientSecret: patch.azureClientSecret ?? null,
-				azureTenantId: patch.azureTenantId ?? null,
-				mailSenderEmail: patch.mailSenderEmail ?? null,
-			});
+			await commitTenantConfigChange(tenantId, [
+				controlDb.insert(tenantAuthConfig).values({
+					tenantId,
+					emailPasswordEnabled: true,
+					microsoftEnabled: Boolean(patch.microsoftEnabled),
+					azureClientId: patch.azureClientId ?? null,
+					azureClientSecret: patch.azureClientSecret ?? null,
+					azureTenantId: patch.azureTenantId ?? null,
+					mailSenderEmail: patch.mailSenderEmail ?? null,
+				}),
+			]);
 		}
 
 		revalidatePath(`/superadmin/tenants/${tenantId}`);

@@ -11,35 +11,21 @@ import {
 	DEFAULT_HOMEPAGE_SECTIONS,
 	DEFAULT_KASSE_TYPES,
 	DEFAULT_MEMBER_STATUSES,
+	DEFAULT_ROLES,
 } from "~/server/lib/tenant-default-config";
 
 export type TenantSeedDb = LibSQLDatabase<typeof tenantSchema>;
 
-// Same defaults as `initializeRoles` in admin.ts. Kept in sync manually for now;
-// when default-role configuration becomes per-tenant we'll move this to a
-// per-tenant config table.
-export const DEFAULT_ROLES: Array<{ name: string; description: string }> = [
-	{ name: "Admin", description: "Systemadministration" },
-	{ name: "Getränkewart", description: "Getränkeversorgung" },
-	{ name: "Fuchs", description: "Fuchsenladen Management" },
-	{ name: "Fotowart", description: "Fotos der Website verwalten" },
-	{ name: "Faxe", description: "Faxe, Hausmeister, Putzfirma" },
-	{ name: "Hausbewohner", description: "Aktive" },
-	{ name: "Senior", description: "Senior des Corps (x)" },
-	{ name: "Consenior", description: "Consenior des Corps (xx)" },
-	{ name: "Subsenior", description: "Subsenior des Corps (xxx)" },
-	{ name: "Fuchsmajor", description: "Fuchsmajor des Corps (FM)" },
-	{ name: "CC-Kasse", description: "CC-Kassenwart" },
-	{ name: "Aktivenkasse", description: "Aktivenkassenwart" },
-];
+/** Adds the default roles that are missing; existing ones stay untouched. */
+export async function seedDefaultRoles(tdb: TenantSeedDb): Promise<void> {
+	await tdb
+		.insert(tenantSchema.roles)
+		.values(DEFAULT_ROLES)
+		.onConflictDoNothing({ target: tenantSchema.roles.name });
+}
 
 export async function seedTenantDefaults(tdb: TenantSeedDb): Promise<void> {
-	for (const role of DEFAULT_ROLES) {
-		await tdb
-			.insert(tenantSchema.roles)
-			.values(role)
-			.onConflictDoNothing({ target: tenantSchema.roles.name });
-	}
+	await seedDefaultRoles(tdb);
 
 	await tdb
 		.insert(tenantSchema.kasseConfig)

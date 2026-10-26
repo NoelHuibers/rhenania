@@ -26,6 +26,7 @@ import {
 } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { requireTenantId } from "~/server/lib/tenant-context";
+import { seedDefaultRoles } from "~/server/lib/tenant-seed";
 import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
 // Types for our data
@@ -142,48 +143,9 @@ export async function getRolesWithUserCount(): Promise<Role[]> {
 export async function initializeRoles(): Promise<void> {
 	const db = await getCurrentTenantDb();
 	try {
-		const defaultRoles = [
-			{ name: "Admin", description: "Systemadministration" },
-			{ name: "Getränkewart", description: "Getränkeversorgung" },
-			{ name: "Fuchs", description: "Fuchsenladen Management" },
-			{ name: "Fotowart", description: "Fotos der Website verwalten" },
-			{ name: "Faxe", description: "Faxe, Hausmeister, Putzfirma" },
-			{ name: "Hausbewohner", description: "Aktive" },
-			{ name: "Senior", description: "Senior des Corps (x)" },
-			{ name: "Consenior", description: "Consenior des Corps (xx)" },
-			{ name: "Subsenior", description: "Subsenior des Corps (xxx)" },
-			{ name: "Fuchsmajor", description: "Fuchsmajor des Corps (FM)" },
-			{ name: "CC-Kasse", description: "CC-Kassenwart" },
-			{ name: "Aktivenkasse", description: "Aktivenkassenwart" },
-			{ name: "AHV 1. Vorstand", description: "Altherrenverein – 1. Vorstand" },
-			{ name: "AHV 2. Vorstand", description: "Altherrenverein – 2. Vorstand" },
-			{ name: "AHV 3. Vorstand", description: "Altherrenverein – 3. Vorstand" },
-			{
-				name: "Hausverein 1. Vorstand",
-				description: "Hausverein – 1. Vorstand",
-			},
-			{
-				name: "Hausverein 2. Vorstand",
-				description: "Hausverein – 2. Vorstand",
-			},
-			{
-				name: "Hausverein 3. Vorstand",
-				description: "Hausverein – 3. Vorstand",
-			},
-		];
-
-		for (const role of defaultRoles) {
-			// Check if role exists
-			const existingRole = await db
-				.select()
-				.from(roles)
-				.where(eq(roles.name, role.name))
-				.limit(1);
-
-			if (existingRole.length === 0) {
-				await db.insert(roles).values(role);
-			}
-		}
+		// One statement for the shared default list (also used when a tenant
+		// is provisioned); roles that already exist keep their description.
+		await seedDefaultRoles(db);
 	} catch (error) {
 		console.error("Failed to initialize roles:", error);
 		throw new Error("Failed to initialize roles");

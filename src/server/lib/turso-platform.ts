@@ -1,8 +1,9 @@
 // turso-platform.ts — minimal wrapper around the Turso Platform API.
 //
 // Used by the superadmin tenant-provisioning flow to create a new libSQL DB
-// for a tenant in the configured group, mint a long-lived auth token for it,
-// and (for cleanup on failure) delete it again.
+// for a tenant in the configured group, find it again when a run resumes,
+// mint a long-lived auth token for it, and delete it when a run is
+// abandoned.
 //
 // Docs: https://docs.turso.tech/api-reference
 
@@ -100,19 +101,31 @@ export async function deleteDatabase(name: string): Promise<void> {
 	});
 }
 
-export async function databaseExists(name: string): Promise<boolean> {
+/** The DB with that name, or null if Turso doesn't know it (404). */
+export async function getDatabase(
+	name: string,
+): Promise<CreatedDatabase | null> {
 	const { org } = requireConfig();
 	try {
-		await tursoFetch(`/organizations/${org}/databases/${name}`, {
-			method: "GET",
-		});
-		return true;
+		const data = await tursoFetch<{
+			database: { Name: string; Hostname: string };
+		}>(`/organizations/${org}/databases/${name}`, { method: "GET" });
+		const hostname = data.database.Hostname;
+		return {
+			name: data.database.Name,
+			hostname,
+			url: `libsql://${hostname}`,
+		};
 	} catch (e) {
 		if (e instanceof TursoApiError && e.status === 404) {
-			return false;
+			return null;
 		}
 		throw e;
 	}
+}
+
+export async function databaseExists(name: string): Promise<boolean> {
+	return (await getDatabase(name)) !== null;
 }
 
 // Validates Turso DB-name conventions: lowercase letters, digits, dashes,

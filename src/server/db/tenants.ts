@@ -1,36 +1,39 @@
-// tenants.ts — per-tenant DB client resolver.
+// tenants.ts — per-tenant DB clients.
 //
 // `getTenantDb(tenantId)` returns a drizzle instance bound to that tenant's
-// Turso DB (looked up in the control plane). Clients are cached per process.
-//
-// Step-1 caveat: domain code still imports the singleton `db` from ./index.ts
-// (which is the Rhenania DB). New code paths should call `getTenantDb()`
-// instead so the cutover is incremental.
+// Turso DB. `connect()` below is the only place that builds tenant clients.
+// Clients are cached per process, but every call checks the tenant's
+// current config (status and credentials, served by the tenant-config
+// service): a suspended tenant gets no client, and a rotated URL or token
+// replaces the cached client. Replaced clients are closed after a grace
+// period so queries already running on them can finish.
 
 import type { Client } from "@libsql/client";
-import { eq } from "drizzle-orm";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
 
-import { controlDb } from "./control";
-import { tenants } from "./control-schema";
+import { getTenantConfig } from "~/server/lib/tenant-config";
 import { createClient } from "./libsql";
 import * as schema from "./schema";
 
 export type TenantDb = LibSQLDatabase<typeof schema>;
 
-type TenantDbCacheEntry = {
+type TenantConnection = {
 	client: Client;
 	db: TenantDb;
-	dbUrl: string;
+	url: string;
+	authToken: string | null;
 };
+
+/** How long a replaced or suspended tenant's client stays open. */
+export const RETIRED_CLIENT_GRACE_MS = 30_000;
 
 const globalForTenantDb = globalThis as unknown as {
-	tenantDbCache: Map<string, TenantDbCacheEntry> | undefined;
+	tenantConnections: Map<string, TenantConnection> | undefined;
 };
 
-const tenantDbCache: Map<string, TenantDbCacheEntry> =
-	globalForTenantDb.tenantDbCache ?? new Map();
-globalForTenantDb.tenantDbCache = tenantDbCache;
+const connections: Map<string, TenantConnection> =
+	globalForTenantDb.tenantConnections ?? new Map();
+globalForTenantDb.tenantConnections = connections;
 
 export class TenantNotFoundError extends Error {
 	constructor(tenantId: string) {
@@ -39,42 +42,67 @@ export class TenantNotFoundError extends Error {
 	}
 }
 
-export async function getTenantDb(tenantId: string): Promise<TenantDb> {
-	const cached = tenantDbCache.get(tenantId);
-	if (cached) {
-		return cached.db;
+function retire(tenantId: string) {
+	const connection = connections.get(tenantId);
+	if (!connection) {
+		return;
 	}
+	connections.delete(tenantId);
+	const timer = setTimeout(
+		() => connection.client.close(),
+		RETIRED_CLIENT_GRACE_MS,
+	);
+	timer.unref?.();
+}
 
-	const [tenant] = await controlDb
-		.select({
-			dbUrl: tenants.dbUrl,
-			dbAuthToken: tenants.dbAuthToken,
-			status: tenants.status,
-		})
-		.from(tenants)
-		.where(eq(tenants.id, tenantId))
-		.limit(1);
-
-	if (!tenant) {
+async function connect(tenantId: string): Promise<TenantConnection> {
+	const config = await getTenantConfig(tenantId);
+	if (!config) {
+		retire(tenantId);
 		throw new TenantNotFoundError(tenantId);
 	}
-	if (tenant.status === "suspended") {
+	if (config.status === "suspended") {
+		retire(tenantId);
 		throw new Error(`Tenant suspended: ${tenantId}`);
 	}
 
-	const existing = tenantDbCache.get(tenantId);
-	if (existing && existing.dbUrl === tenant.dbUrl) {
-		return existing.db;
+	// No await from here on: concurrent callers see each other's client
+	// instead of each creating (and leaking) one.
+	const current = connections.get(tenantId);
+	if (
+		current &&
+		current.url === config.db.url &&
+		current.authToken === config.db.authToken
+	) {
+		return current;
 	}
+	retire(tenantId);
 
 	const client = createClient({
-		url: tenant.dbUrl,
-		authToken: tenant.dbAuthToken ?? undefined,
+		url: config.db.url,
+		authToken: config.db.authToken ?? undefined,
 	});
-	const db = drizzle(client, { schema });
+	const connection: TenantConnection = {
+		client,
+		db: drizzle(client, { schema }),
+		url: config.db.url,
+		authToken: config.db.authToken,
+	};
+	connections.set(tenantId, connection);
+	return connection;
+}
 
-	tenantDbCache.set(tenantId, { client, db, dbUrl: tenant.dbUrl });
-	return db;
+export async function getTenantDb(tenantId: string): Promise<TenantDb> {
+	return (await connect(tenantId)).db;
+}
+
+/**
+ * The raw libSQL `Client` behind `getTenantDb(tenantId)`. Used by the
+ * `client` proxy in `./index.ts` to dispatch network calls to the right
+ * tenant.
+ */
+export async function getTenantClient(tenantId: string): Promise<Client> {
+	return (await connect(tenantId)).client;
 }
 
 // `requireTenantId` is imported lazily in `getCurrentTenantDb` to avoid
@@ -96,51 +124,11 @@ export async function getCurrentTenantDb(): Promise<TenantDb> {
 	return getTenantDb(tenantId);
 }
 
-/**
- * Returns the raw libSQL `Client` for a tenant. Used by the `client` proxy
- * exported from `./index.ts` to dispatch network calls to the right tenant.
- */
-export async function resolveTenantClient(tenantId: string): Promise<Client> {
-	const cached = tenantDbCache.get(tenantId);
-	if (cached) {
-		return cached.client;
-	}
-
-	const [tenant] = await controlDb
-		.select({
-			dbUrl: tenants.dbUrl,
-			dbAuthToken: tenants.dbAuthToken,
-			status: tenants.status,
-		})
-		.from(tenants)
-		.where(eq(tenants.id, tenantId))
-		.limit(1);
-
-	if (!tenant) {
-		throw new TenantNotFoundError(tenantId);
-	}
-	if (tenant.status === "suspended") {
-		throw new Error(`Tenant suspended: ${tenantId}`);
-	}
-
-	const client = createClient({
-		url: tenant.dbUrl,
-		authToken: tenant.dbAuthToken ?? undefined,
-	});
-	const db = drizzle(client, { schema });
-	tenantDbCache.set(tenantId, { client, db, dbUrl: tenant.dbUrl });
-	return client;
-}
-
+/** Closes and forgets cached clients right away (one tenant or all). */
 export function clearTenantDbCache(tenantId?: string) {
-	if (tenantId) {
-		const entry = tenantDbCache.get(tenantId);
-		entry?.client.close();
-		tenantDbCache.delete(tenantId);
-		return;
+	const ids = tenantId ? [tenantId] : [...connections.keys()];
+	for (const id of ids) {
+		connections.get(id)?.client.close();
+		connections.delete(id);
 	}
-	for (const entry of tenantDbCache.values()) {
-		entry.client.close();
-	}
-	tenantDbCache.clear();
 }

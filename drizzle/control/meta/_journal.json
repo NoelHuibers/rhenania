@@ -50,6 +50,13 @@
       "when": 1790902125993,
       "tag": "0007_tenant_features",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793016697276,
+      "tag": "0008_tenant_provisioning",
+      "breakpoints": true
     }
   ]
 }

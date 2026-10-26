@@ -15,6 +15,8 @@ export function NewTenantForm() {
 	const [isPending, startTransition] = useTransition();
 	const [slug, setSlug] = useState("");
 	const [displayName, setDisplayName] = useState("");
+	const [primaryHostname, setPrimaryHostname] = useState("");
+	const [firstAdminEmail, setFirstAdminEmail] = useState("");
 	const [confirming, setConfirming] = useState(false);
 
 	// Submitting (after the browser's own validation) only asks; the
@@ -26,11 +28,18 @@ export function NewTenantForm() {
 
 	const provision = () => {
 		startTransition(async () => {
-			const result = await createTenantAction({ slug, displayName });
+			const result = await createTenantAction({
+				slug,
+				displayName,
+				primaryHostname: primaryHostname || null,
+				firstAdminEmail: firstAdminEmail || null,
+			});
 			if (!result.success || !result.data) {
+				// Progress is kept: submitting again resumes the run.
 				toast.error("Failed to create tenant", {
 					description: result.error ?? "Unknown error",
 				});
+				router.refresh();
 				return;
 			}
 			toast.success(`Tenant '${slug}' created`, {
@@ -86,10 +95,38 @@ export function NewTenantForm() {
 					/>
 				</div>
 
+				<div className="space-y-1">
+					<Label htmlFor="primaryHostname">Primary domain (optional)</Label>
+					<Input
+						id="primaryHostname"
+						value={primaryHostname}
+						onChange={(e) => setPrimaryHostname(e.target.value.toLowerCase())}
+						placeholder="hassia.de"
+						disabled={isPending}
+					/>
+				</div>
+
+				<div className="space-y-1">
+					<Label htmlFor="firstAdminEmail">First admin (optional)</Label>
+					<Input
+						id="firstAdminEmail"
+						type="email"
+						value={firstAdminEmail}
+						onChange={(e) => setFirstAdminEmail(e.target.value)}
+						placeholder="senior@hassia.de"
+						disabled={isPending}
+					/>
+					<p className="text-muted-foreground text-xs">
+						Must be an existing account (signed in once on any Corps). Gets the
+						Admin role in the new tenant.
+					</p>
+				</div>
+
 				<div className="flex items-center justify-between rounded-md bg-warning-muted p-3 text-sm text-warning-muted-foreground">
 					<span>
 						This will provision a new Turso DB in the <code>corps</code> group,
-						run all migrations, and seed default roles.
+						run all migrations, and seed default roles. If a step fails, the
+						progress is kept: submit the same slug again to resume.
 					</span>
 				</div>
 

@@ -70,6 +70,8 @@ describe("resolveTenantByHost", () => {
 		expect(await resolveTenantByHost("new.test.localhost")).toBe(pending.id);
 	});
 
+	// Superadmin writes bump the config version and are seen within seconds
+	// (tenant-config.test.ts); a minute is the bound for writes that don't.
 	test("caches lookups for a minute, including misses", async () => {
 		vi.useFakeTimers({ toFake: ["Date"] });
 		vi.setSystemTime(new Date("2026-10-26T12:00:00Z"));

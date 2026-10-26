@@ -19,7 +19,7 @@ import {
 	tenantMemberships,
 } from "~/server/db/control-schema";
 import { users as tenantUsers } from "~/server/db/schema";
-import { getTenantDb } from "~/server/db/tenants";
+import { getTenantDb, type TenantDb } from "~/server/db/tenants";
 
 export type MirroredUser = {
 	id: string;
@@ -35,8 +35,14 @@ export async function mirrorUserToTenant(
 	user: MirroredUser,
 	tenantId: string,
 ): Promise<void> {
-	const tdb = await getTenantDb(tenantId);
+	await upsertUserMirror(await getTenantDb(tenantId), user);
+}
 
+/** Writes the mirror row into an already opened tenant DB. */
+export async function upsertUserMirror(
+	tdb: TenantDb,
+	user: MirroredUser,
+): Promise<void> {
 	await tdb
 		.insert(tenantUsers)
 		.values({
