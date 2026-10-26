@@ -39,7 +39,9 @@ export default async function CcKasseRoute({
 	searchParams: Promise<{ etaplan?: string; tab?: string; run?: string }>;
 }) {
 	const session = await auth();
-	if (!session?.user?.id) redirect("/auth/signin");
+	if (!session?.user?.id) {
+		redirect("/auth/signin");
+	}
 
 	const roleNames = await getUserRoleNames(session.user.id);
 	if (!roleNames.some((r) => ALLOWED_ROLES.includes(r))) {

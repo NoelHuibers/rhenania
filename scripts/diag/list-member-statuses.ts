@@ -12,7 +12,9 @@ async function main() {
 	const rs = await c.execute(
 		'SELECT status, count(*) AS n FROM "member" GROUP BY status ORDER BY n DESC',
 	);
-	for (const r of rs.rows) console.log(`${r.n}\t${JSON.stringify(r.status)}`);
+	for (const r of rs.rows) {
+		console.log(`${r.n}\t${JSON.stringify(r.status)}`);
+	}
 	c.close();
 	process.exit(0);
 }

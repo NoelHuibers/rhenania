@@ -198,7 +198,9 @@ export type AppSidebarClientProps = {
 const COLLAPSED_GROUPS_KEY = "sidebar-collapsed-groups";
 
 function initials(name?: string | null) {
-	if (!name) return "U";
+	if (!name) {
+		return "U";
+	}
 	return name
 		.split(" ")
 		.filter(Boolean)
@@ -221,7 +223,9 @@ export function AppSidebarClient({
 	useEffect(() => {
 		try {
 			const stored = window.localStorage.getItem(COLLAPSED_GROUPS_KEY);
-			if (stored) setCollapsedGroups(JSON.parse(stored));
+			if (stored) {
+				setCollapsedGroups(JSON.parse(stored));
+			}
 		} catch {
 			// ignore invalid stored state
 		}

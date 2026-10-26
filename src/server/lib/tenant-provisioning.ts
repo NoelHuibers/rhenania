@@ -54,7 +54,9 @@ export async function provisionTenant(
 	const slug = input.slug.trim().toLowerCase();
 	const displayName = input.displayName.trim();
 	validateSlug(slug);
-	if (!displayName) throw new Error("displayName is required.");
+	if (!displayName) {
+		throw new Error("displayName is required.");
+	}
 
 	const [existing] = await controlDb
 		.select({ id: tenants.id })
@@ -101,7 +103,9 @@ export async function provisionTenant(
 			})
 			.returning({ id: tenants.id });
 
-		if (!insertedTenant) throw new Error("Failed to insert tenant row.");
+		if (!insertedTenant) {
+			throw new Error("Failed to insert tenant row.");
+		}
 
 		await controlDb.insert(tenantAuthConfig).values({
 			tenantId: insertedTenant.id,

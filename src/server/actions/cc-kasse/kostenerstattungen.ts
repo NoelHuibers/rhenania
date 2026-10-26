@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ibanSchema } from "~/lib/iban";
@@ -69,7 +69,9 @@ export async function submitReimbursement(input: {
 	expenseDate?: Date;
 }) {
 	const guard = await requireAuth();
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = submitSchema.parse(input);
@@ -112,7 +114,9 @@ export async function submitReimbursement(input: {
 
 export async function listMyReimbursements() {
 	const guard = await requireAuth();
-	if (!guard.ok) return [];
+	if (!guard.ok) {
+		return [];
+	}
 	return db.query.kostenerstattungen.findMany({
 		where: (t, { eq }) => eq(t.submittedBy, guard.userId),
 		orderBy: (t, { desc }) => [desc(t.createdAt)],
@@ -129,7 +133,9 @@ export type MyReimbursement = Awaited<
 
 export async function cancelMyReimbursement(id: string) {
 	const guard = await requireAuth();
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	const row = await db.query.kostenerstattungen.findFirst({
 		where: (t, { eq }) => eq(t.id, id),
@@ -163,7 +169,9 @@ export async function updateMyReimbursement(
 	},
 ) {
 	const guard = await requireAuth();
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = submitSchema.parse(input);
@@ -227,10 +235,14 @@ async function loadForTransition(id: string) {
 
 export async function approveReimbursement(id: string) {
 	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	const row = await loadForTransition(id);
-	if (!row) return { success: false as const, error: "Antrag nicht gefunden" };
+	if (!row) {
+		return { success: false as const, error: "Antrag nicht gefunden" };
+	}
 	if (!canTransition(row.status as ErstattungStatus, "Genehmigt")) {
 		return { success: false as const, error: "Ungültiger Statusübergang" };
 	}
@@ -250,7 +262,9 @@ export async function approveReimbursement(id: string) {
 
 export async function rejectReimbursement(id: string, reason: string) {
 	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	const trimmed = (reason ?? "").trim();
 	if (!trimmed) {
@@ -258,7 +272,9 @@ export async function rejectReimbursement(id: string, reason: string) {
 	}
 
 	const row = await loadForTransition(id);
-	if (!row) return { success: false as const, error: "Antrag nicht gefunden" };
+	if (!row) {
+		return { success: false as const, error: "Antrag nicht gefunden" };
+	}
 	if (!canTransition(row.status as ErstattungStatus, "Abgelehnt")) {
 		return { success: false as const, error: "Ungültiger Statusübergang" };
 	}
@@ -282,10 +298,14 @@ export async function markReimbursementPaid(
 	opts?: { paidAt?: Date },
 ) {
 	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	const row = await loadForTransition(id);
-	if (!row) return { success: false as const, error: "Antrag nicht gefunden" };
+	if (!row) {
+		return { success: false as const, error: "Antrag nicht gefunden" };
+	}
 	if (!canTransition(row.status as ErstattungStatus, "Ausgezahlt")) {
 		return { success: false as const, error: "Ungültiger Statusübergang" };
 	}
@@ -323,7 +343,9 @@ export async function createDirectBooking(input: {
 	expenseDate: Date;
 }) {
 	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const parsed = directBookingSchema.parse(input);
@@ -380,7 +402,9 @@ export async function updateReimbursement(
 	},
 ) {
 	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	const patch: Record<string, unknown> = {};
 	if (input.kostenpunktId !== undefined) {
@@ -394,13 +418,24 @@ export async function updateReimbursement(
 		patch.kostenpunktId = kp.id;
 		patch.etaplanId = kp.etaplanId;
 	}
-	if (input.description !== undefined) patch.description = input.description;
-	if (input.amount !== undefined) patch.amount = round2(input.amount);
-	if (input.recipientName !== undefined)
+	if (input.description !== undefined) {
+		patch.description = input.description;
+	}
+	if (input.amount !== undefined) {
+		patch.amount = round2(input.amount);
+	}
+	if (input.recipientName !== undefined) {
 		patch.recipientName = input.recipientName;
-	if (input.iban !== undefined) patch.iban = input.iban;
-	if (input.expenseDate !== undefined) patch.expenseDate = input.expenseDate;
-	if (input.receipts !== undefined) patch.receipts = input.receipts;
+	}
+	if (input.iban !== undefined) {
+		patch.iban = input.iban;
+	}
+	if (input.expenseDate !== undefined) {
+		patch.expenseDate = input.expenseDate;
+	}
+	if (input.receipts !== undefined) {
+		patch.receipts = input.receipts;
+	}
 	if (Object.keys(patch).length === 0) {
 		return { success: false as const, error: "Keine Änderungen" };
 	}
@@ -421,12 +456,17 @@ export async function listReimbursementQueue(filter?: {
 	// Read access for all Etaplan editors (Senior incl.); treasury actions are
 	// gated separately in the UI.
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return [];
+	if (!guard.ok) {
+		return [];
+	}
 
-	const conds = [];
-	if (filter?.etaplanId)
+	const conds: Array<SQL | undefined> = [];
+	if (filter?.etaplanId) {
 		conds.push(eq(kostenerstattungen.etaplanId, filter.etaplanId));
-	if (filter?.status) conds.push(eq(kostenerstattungen.status, filter.status));
+	}
+	if (filter?.status) {
+		conds.push(eq(kostenerstattungen.status, filter.status));
+	}
 
 	return db.query.kostenerstattungen.findMany({
 		where: conds.length ? and(...conds) : undefined,

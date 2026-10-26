@@ -213,10 +213,10 @@ async function generatePDFContent(
 	];
 
 	let yPos = 85;
-	letterText.forEach((line) => {
+	for (const line of letterText) {
 		doc.text(line, 20, yPos);
 		yPos += 7;
-	});
+	}
 
 	yPos += 5;
 
@@ -227,10 +227,10 @@ async function generatePDFContent(
 		"Rechnung.",
 	];
 
-	paymentText.forEach((line) => {
+	for (const line of paymentText) {
 		doc.text(line, 20, yPos);
 		yPos += 7;
-	});
+	}
 
 	// Closing
 	yPos += 10;
@@ -271,7 +271,7 @@ async function generatePDFContent(
 	doc.setFont("helvetica", "normal");
 
 	// List all items with their details
-	data.items.forEach((item) => {
+	for (const item of data.items) {
 		doc.text(item.drinkName, 20, yPosition);
 		doc.text(item.amount.toString(), 80, yPosition);
 		doc.text(formatCurrency(item.pricePerDrink), 110, yPosition);
@@ -283,7 +283,7 @@ async function generatePDFContent(
 			doc.addPage();
 			yPosition = 30;
 		}
-	});
+	}
 
 	// Add separator line
 	yPosition += 10;

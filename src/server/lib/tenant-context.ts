@@ -40,12 +40,18 @@ function normalizeHost(host: string): string {
 export async function resolveTenantByHost(
 	rawHost: string | null | undefined,
 ): Promise<string | null> {
-	if (!rawHost) return null;
+	if (!rawHost) {
+		return null;
+	}
 	const host = normalizeHost(rawHost);
-	if (!host) return null;
+	if (!host) {
+		return null;
+	}
 
 	const cached = hostCache.get(host);
-	if (cached && cached.expiresAt > Date.now()) return cached.tenantId;
+	if (cached && cached.expiresAt > Date.now()) {
+		return cached.tenantId;
+	}
 
 	const [row] = await controlDb
 		.select({ tenantId: tenantDomains.tenantId, status: tenants.status })
@@ -112,13 +118,18 @@ async function loadFeatureFlags(tenantId: string): Promise<FeatureFlags> {
 
 /** Drops the cached tenant so a flag change is visible on the next request. */
 export function clearTenantCache(tenantId?: string) {
-	if (tenantId) tenantByIdCache.delete(tenantId);
-	else tenantByIdCache.clear();
+	if (tenantId) {
+		tenantByIdCache.delete(tenantId);
+	} else {
+		tenantByIdCache.clear();
+	}
 }
 
 export async function getTenantById(id: string): Promise<TenantContext | null> {
 	const cached = tenantByIdCache.get(id);
-	if (cached && cached.expiresAt > Date.now()) return cached.value;
+	if (cached && cached.expiresAt > Date.now()) {
+		return cached.value;
+	}
 
 	const [row] = await controlDb
 		.select({
@@ -131,7 +142,9 @@ export async function getTenantById(id: string): Promise<TenantContext | null> {
 		.where(eq(tenants.id, id))
 		.limit(1);
 
-	if (!row) return null;
+	if (!row) {
+		return null;
+	}
 	const value: TenantContext = {
 		id: row.id,
 		slug: row.slug,
@@ -148,7 +161,9 @@ export async function getTenantById(id: string): Promise<TenantContext | null> {
 
 export async function getCurrentTenant(): Promise<TenantContext | null> {
 	const id = await getTenantId();
-	if (!id) return null;
+	if (!id) {
+		return null;
+	}
 	return getTenantById(id);
 }
 
@@ -195,7 +210,9 @@ export async function hasActiveMembership(
 ): Promise<boolean> {
 	const key = `${tenantId}:${userId}`;
 	const cached = membershipCache.get(key);
-	if (cached && cached.expiresAt > Date.now()) return cached.active;
+	if (cached && cached.expiresAt > Date.now()) {
+		return cached.active;
+	}
 
 	const [row] = await controlDb
 		.select({ status: tenantMemberships.status })

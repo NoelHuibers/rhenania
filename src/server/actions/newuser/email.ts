@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db";
 import { kontos } from "~/server/db/schema";
+import { log } from "~/server/lib/log";
 import { sendTenantMail } from "~/server/lib/mailer";
 import {
 	getCurrentRequestOrigin,
@@ -110,7 +111,7 @@ export async function sendVerificationEmail(
 			text: template.text,
 			html: template.html,
 		});
-		console.log(`Verification email sent to ${email}`);
+		log.info("mail sent", { kind: "verification" });
 	} catch (error) {
 		console.error("Error sending verification email:", error);
 		throw new Error("Failed to send verification email");
@@ -200,7 +201,7 @@ ${tenantLabel}
 		};
 
 		await sendTenantMail(mailOptions);
-		console.log(`Bill notification email sent to ${email} (${billNumber})`);
+		log.info("mail sent", { kind: "bill" });
 	} catch (error) {
 		console.error(`Error sending bill notification to ${email}:`, error);
 		throw new Error(`Failed to send bill notification email to ${email}`);
@@ -288,9 +289,7 @@ ${tenantLabel}
 				},
 			],
 		});
-		console.log(
-			`Treasurer bill email sent to ${treasurerEmail} (${billNumber}, ${billOwnerName})`,
-		);
+		log.info("mail sent", { kind: "bill-treasurer" });
 	} catch (error) {
 		console.error(
 			`Error sending treasurer bill email to ${treasurerEmail}:`,
@@ -347,7 +346,7 @@ Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignoriere
 		};
 
 		await sendTenantMail(mailOptions);
-		console.log(`Password reset email sent to ${email}`);
+		log.info("mail sent", { kind: "password-reset" });
 	} catch (error) {
 		console.error("Error sending password reset email:", error);
 		throw new Error("Failed to send password reset email");
@@ -442,7 +441,7 @@ export async function sendBeitragEmail(
 				},
 			],
 		});
-		console.log(`Beitrag email sent to ${email}`);
+		log.info("mail sent", { kind: "beitrag" });
 	} catch (error) {
 		console.error(`Error sending Beitrag email to ${email}:`, error);
 		throw new Error(`Failed to send Beitrag email to ${email}`);
@@ -487,7 +486,7 @@ export async function sendMahnungEmail(
 				},
 			],
 		});
-		console.log(`Mahnung email sent to ${email}`);
+		log.info("mail sent", { kind: "mahnung" });
 	} catch (error) {
 		console.error(`Error sending Mahnung email to ${email}:`, error);
 		throw new Error(`Failed to send Mahnung email to ${email}`);

@@ -1,6 +1,7 @@
 // app/api/upload/route.ts
 import { type HandleUploadBody, handleUpload } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
+import { log } from "~/server/lib/log";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
 
 const ALLOWED_SUBPATHS = [
@@ -124,7 +125,7 @@ export async function POST(request: Request) {
 				};
 			},
 			onUploadCompleted: async ({ blob }) => {
-				console.log("Upload completed:", blob.pathname);
+				log.info("upload completed", { path: blob.pathname });
 			},
 		});
 

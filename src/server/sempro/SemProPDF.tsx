@@ -62,9 +62,15 @@ const PAD = 3 * MM; // ~8.5pt — matches Scribus frame offset
 
 function fmtTime(d: Date): string {
 	const { hour, minute } = getZonedParts(d);
-	if (minute === 0) return `${hour} h.s.t.`;
-	if (minute === 15) return `${hour} h.c.t.`;
-	if (minute === 30) return `${hour} h.m.c.t.`;
+	if (minute === 0) {
+		return `${hour} h.s.t.`;
+	}
+	if (minute === 15) {
+		return `${hour} h.c.t.`;
+	}
+	if (minute === 30) {
+		return `${hour} h.m.c.t.`;
+	}
 	return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")} Uhr`;
 }
 
@@ -77,7 +83,9 @@ function fmtDate(d: Date): string {
 }
 
 function fmtDateRange(d: Date, end: Date | null): string {
-	if (!end) return fmtDate(d);
+	if (!end) {
+		return fmtDate(d);
+	}
 	return `${fmtDate(d)} – ${fmtDate(end)}`;
 }
 
@@ -96,8 +104,12 @@ function normalizeBankName(name: string): string {
 }
 
 function category(type: string, isPublic: boolean): 1 | 2 | 3 {
-	if (!isPublic) return 1;
-	if (type === "AHV") return 3;
+	if (!isPublic) {
+		return 1;
+	}
+	if (type === "AHV") {
+		return 3;
+	}
 	return 2;
 }
 
@@ -117,9 +129,13 @@ function groupByMonth(evts: PDFEvent[]): Map<string, PDFEvent[]> {
 	const map = new Map<string, PDFEvent[]>();
 	for (const e of evts) {
 		const key = monthLabel(e.date);
-		if (!map.has(key)) map.set(key, []);
+		if (!map.has(key)) {
+			map.set(key, []);
+		}
 		const bucket = map.get(key);
-		if (bucket) bucket.push(e);
+		if (bucket) {
+			bucket.push(e);
+		}
 	}
 	return map;
 }

@@ -21,7 +21,7 @@ interface HauscarouselProps {
 	}[];
 }
 
-const Hauscarousel = ({ images }: HauscarouselProps) => {
+export const Hauscarousel = ({ images }: HauscarouselProps) => {
 	const plugin = React.useRef(
 		Autoplay({ delay: 4000, stopOnInteraction: true }),
 	);
@@ -112,5 +112,3 @@ const Hauscarousel = ({ images }: HauscarouselProps) => {
 		</div>
 	);
 };
-
-export default Hauscarousel;

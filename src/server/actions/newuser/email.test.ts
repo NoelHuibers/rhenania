@@ -27,7 +27,9 @@ const pdf = Buffer.from("%PDF-1.4");
 
 function sentMail(): TenantMail {
 	const mail = vi.mocked(sendTenantMail).mock.lastCall?.[0];
-	if (!mail) throw new Error("No mail sent");
+	if (!mail) {
+		throw new Error("No mail sent");
+	}
 	return mail;
 }
 

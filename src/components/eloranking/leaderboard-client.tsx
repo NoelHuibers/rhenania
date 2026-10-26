@@ -31,21 +31,30 @@ const PAGE_SIZE = 10;
 const INITIAL_SIZE = 20;
 
 const getRankIcon = (rank: number) => {
-	if (rank === 1)
+	if (rank === 1) {
 		return <Trophy className="h-3 w-3 text-yellow-500 sm:h-4 sm:w-4" />;
-	if (rank === 2)
+	}
+	if (rank === 2) {
 		return <Trophy className="h-3 w-3 text-gray-400 sm:h-4 sm:w-4" />;
-	if (rank === 3)
+	}
+	if (rank === 3) {
 		return <Trophy className="h-3 w-3 text-amber-600 sm:h-4 sm:w-4" />;
+	}
 	return (
 		<span className="font-medium text-muted-foreground text-xs">#{rank}</span>
 	);
 };
 
 const getEloColor = (elo: number) => {
-	if (elo >= 1600) return "text-purple-500";
-	if (elo >= 1400) return "text-blue-500";
-	if (elo >= 1200) return "text-green-500";
+	if (elo >= 1600) {
+		return "text-purple-500";
+	}
+	if (elo >= 1400) {
+		return "text-blue-500";
+	}
+	if (elo >= 1200) {
+		return "text-green-500";
+	}
 	return "text-gray-500";
 };
 
@@ -121,7 +130,9 @@ export function LeaderboardClient({
 		try {
 			const next = await fetchPage(scope, PAGE_SIZE, players.length);
 			setPlayers((prev) => [...prev, ...next]);
-			if (next.length < PAGE_SIZE) setHasMore(false);
+			if (next.length < PAGE_SIZE) {
+				setHasMore(false);
+			}
 		} finally {
 			setLoading(false);
 		}

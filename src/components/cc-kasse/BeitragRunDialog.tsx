@@ -49,7 +49,9 @@ export function BeitragRunDialog({
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			return;
+		}
 		setName(`Semesterbeitrag ${etaplan.name}`);
 		const guess = kostenpunkte.find((k) =>
 			k.name.toLowerCase().includes("beitrag"),

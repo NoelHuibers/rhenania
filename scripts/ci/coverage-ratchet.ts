@@ -39,9 +39,13 @@ const baseline = JSON.parse(readFileSync(BASELINE, "utf8")) as Record<
 	Totals
 >;
 const { regressions, improvements } = compare(baseline, current);
-for (const line of improvements) console.log(`↑ ${line}`);
+for (const line of improvements) {
+	console.log(`↑ ${line}`);
+}
 if (regressions.length > 0) {
-	for (const line of regressions) console.error(`✗ ${line}`);
+	for (const line of regressions) {
+		console.error(`✗ ${line}`);
+	}
 	console.error(
 		"\nCoverage dropped. Add tests, or justify and run pnpm coverage:baseline.",
 	);

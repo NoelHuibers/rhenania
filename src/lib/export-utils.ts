@@ -64,7 +64,9 @@ export function exportToCSV(
 
 export function printInventoryReport(data: InventoryItem[]) {
 	const printWindow = window.open("", "_blank");
-	if (!printWindow) return;
+	if (!printWindow) {
+		return;
+	}
 
 	const totalStockValue = data.reduce(
 		(sum, item) => sum + item.theoretical_stock * item.product.cost_per_unit,

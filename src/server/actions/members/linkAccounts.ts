@@ -9,13 +9,17 @@ import { applyLink, computeLinkablePairs } from "./link-helpers";
 // time — never relinks or overwrites an existing link.
 export async function relinkMemberAccounts() {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	try {
 		const { pairs, ambiguous } = await computeLinkablePairs();
 		for (const p of pairs) {
 			await applyLink(p.memberId, p.userId);
 		}
-		if (pairs.length > 0) revalidatePath("/adressliste");
+		if (pairs.length > 0) {
+			revalidatePath("/adressliste");
+		}
 		return {
 			success: true as const,
 			linked: pairs.length,

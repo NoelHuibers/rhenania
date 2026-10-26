@@ -45,7 +45,9 @@ function contactForm(values: Record<string, string> = {}) {
 		formLoadTime: String(NOW - 10_000),
 		...values,
 	};
-	for (const [k, v] of Object.entries(all)) data.set(k, v);
+	for (const [k, v] of Object.entries(all)) {
+		data.set(k, v);
+	}
 	return data;
 }
 

@@ -4,6 +4,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"prepare": "[ -n \"$CI\" ] || lefthook install",
 		"build": "next build",
 		"check": "biome check .",
 		"check:unsafe": "biome check --write --unsafe .",
@@ -124,6 +125,7 @@
 		"@vitest/coverage-v8": "^5.0.5",
 		"dotenv": "^17.4.2",
 		"drizzle-kit": "^0.31.10",
+		"lefthook": "^2.2.2",
 		"postcss": "^8.5.31",
 		"shadcn": "^4.22.1",
 		"tailwindcss": "^4.3.1",

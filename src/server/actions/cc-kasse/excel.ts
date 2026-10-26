@@ -43,7 +43,9 @@ type ParsedKp = {
 
 export async function exportEtaplanXlsx(etaplanId: string) {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const plan = await db.query.etaplans.findFirst({
@@ -204,7 +206,9 @@ export async function importEtaplanXlsx(input: {
 	base64: string;
 }) {
 	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 
 	try {
 		const { etaplanId, base64 } = input;

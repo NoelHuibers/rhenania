@@ -44,7 +44,9 @@ vi.mock("next/headers", async () => {
 	const { testState } = await import("./state");
 	const buildHeaders = () => {
 		const h = new Headers({ host: "test.localhost", ...testState.headers });
-		if (testState.tenantId) h.set("x-tenant-id", testState.tenantId);
+		if (testState.tenantId) {
+			h.set("x-tenant-id", testState.tenantId);
+		}
 		return h;
 	};
 	const cookieJar = new Map<string, string>();
@@ -97,8 +99,9 @@ vi.mock("~/server/db/tenants", async () => {
 		}
 	}
 	const get = (tenantId: string) => {
-		if (!testState.tenants.has(tenantId))
+		if (!testState.tenants.has(tenantId)) {
 			throw new TenantNotFoundError(tenantId);
+		}
 		return requireTenant(tenantId);
 	};
 	return {
@@ -128,7 +131,9 @@ vi.mock("~/server/auth", async () => {
 
 	async function auth() {
 		const user = testState.sessionUser;
-		if (!user) return null;
+		if (!user) {
+			return null;
+		}
 		let roleNames: string[] = [];
 		const tenantId = testState.tenantId;
 		if (tenantId) {

@@ -32,6 +32,12 @@ pnpm test         # Vitest, nur gegen lokale Test-DBs (siehe test/README.md)
 pnpm test:coverage
 ```
 
+Biome ist streng konfiguriert (`biome.jsonc`): u. a. keine `any`, keine
+Non-null-Assertions, Block-Statements, keine Default-Exports außerhalb von
+`src/app`, kein `console.log` (Server-Logging über `~/server/lib/log`), keine
+DB-Zugriffe aus Komponenten. Ein Pre-Commit-Hook (lefthook, wird mit
+`pnpm install` eingerichtet) formatiert und prüft die gestagten Dateien.
+
 CI (`.github/workflows/ci.yml`) führt Lint, Typecheck, Tests (TZ=Europe/Berlin
 und UTC, mit Coverage) und einen Build gegen lokal migrierte `file:`-DBs aus.
 CI bekommt keine Produktions-Zugangsdaten.

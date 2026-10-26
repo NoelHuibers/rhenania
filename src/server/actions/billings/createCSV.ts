@@ -42,13 +42,13 @@ function sortBillsWithEventsFirst(bills: BillWithItems[]): BillWithItems[] {
 	const eventBills: BillWithItems[] = [];
 	const regularBills: BillWithItems[] = [];
 
-	bills.forEach((bill) => {
+	for (const bill of bills) {
 		if (bill.userId.startsWith("event-")) {
 			eventBills.push(bill);
 		} else {
 			regularBills.push(bill);
 		}
-	});
+	}
 
 	// Sort events by name (optional - you can customize this)
 	eventBills.sort((a, b) => a.userName.localeCompare(b.userName));
@@ -102,9 +102,9 @@ export async function generateBillPeriodCSV(
 
 		const drinkColumns = allDrinks.map((d) => d.name);
 		const drinkPrices: Record<string, number> = {};
-		allDrinks.forEach((d) => {
+		for (const d of allDrinks) {
 			drinkPrices[d.name] = d.price;
-		});
+		}
 
 		const billsData = await db
 			.select()
@@ -133,12 +133,12 @@ export async function generateBillPeriodCSV(
 
 		// 5. Group items by bill ID
 		const itemsByBillId: Record<string, typeof billItemsData> = {};
-		billItemsData.forEach((item) => {
+		for (const item of billItemsData) {
 			if (!itemsByBillId[item.billId]) {
 				itemsByBillId[item.billId] = [];
 			}
 			itemsByBillId[item.billId]?.push(item);
-		});
+		}
 
 		// 6. Prepare bills with their items
 		const billsWithItems: BillWithItems[] = billsData.map((bill) => ({
@@ -235,9 +235,9 @@ function generateCSVContent(
 
 	// Track total quantities for each drink
 	const totalQuantities: Record<string, number> = {};
-	drinkColumns.forEach((drink) => {
+	for (const drink of drinkColumns) {
 		totalQuantities[drink] = 0;
-	});
+	}
 
 	// Process each bill into a CSV row
 	const rows: string[][] = bills.map((bill) => {
@@ -245,7 +245,7 @@ function generateCSVContent(
 		const drinkQuantities: Record<string, number> = {};
 
 		// Aggregate quantities from bill items
-		bill.items.forEach((item) => {
+		for (const item of bill.items) {
 			if (drinkQuantities[item.drinkName]) {
 				// biome-ignore lint/style/noNonNullAssertion: guarded by if-check above
 				drinkQuantities[item.drinkName]! += item.amount;
@@ -257,7 +257,7 @@ function generateCSVContent(
 				// biome-ignore lint/style/noNonNullAssertion: guarded by !== undefined check above
 				totalQuantities[item.drinkName]! += item.amount;
 			}
-		});
+		}
 
 		// Build the row data
 		const row: string[] = [
@@ -265,10 +265,10 @@ function generateCSVContent(
 		];
 
 		// Add drink columns (showing QUANTITIES, not prices)
-		drinkColumns.forEach((drinkName) => {
+		for (const drinkName of drinkColumns) {
 			const quantity = drinkQuantities[drinkName] || 0;
 			row.push(escapeCSVField(quantity.toString(), delimiter));
-		});
+		}
 
 		// Calculate Mahnfaktor (late fee percentage)
 		const mahnfaktor =
@@ -333,10 +333,10 @@ function createPriceRow(
 	const priceRow: string[] = [escapeCSVField("Preis/Einheit", delimiter)];
 
 	// Add price for each drink column
-	drinkColumns.forEach((drinkName) => {
+	for (const drinkName of drinkColumns) {
 		const price = drinkPrices[drinkName] || 0;
 		priceRow.push(escapeCSVField(formatCurrency(price), delimiter));
-	});
+	}
 
 	// Fill remaining columns with empty values
 	priceRow.push(escapeCSVField("", delimiter)); // Rechnungsbetrag
@@ -363,10 +363,10 @@ function createTotalRow(
 	const totalRow: string[] = [escapeCSVField("GESAMT", delimiter)];
 
 	// Add total quantities for each drink column
-	drinkColumns.forEach((drinkName) => {
+	for (const drinkName of drinkColumns) {
 		const totalQuantity = totalQuantities[drinkName] || 0;
 		totalRow.push(escapeCSVField(totalQuantity.toString(), delimiter));
-	});
+	}
 
 	// Add summary totals for financial columns
 	const totalDrinks = bills.reduce((sum, bill) => sum + bill.drinksTotal, 0);

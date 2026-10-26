@@ -45,15 +45,21 @@ export function RsvpResponsesDialog({
 	const [loading, setLoading] = useState(false);
 
 	useEffect(() => {
-		if (!open || !eventId) return;
+		if (!open || !eventId) {
+			return;
+		}
 		let cancelled = false;
 		setLoading(true);
 		getEventRsvps(eventId)
 			.then((data) => {
-				if (!cancelled) setRows(data);
+				if (!cancelled) {
+					setRows(data);
+				}
 			})
 			.finally(() => {
-				if (!cancelled) setLoading(false);
+				if (!cancelled) {
+					setLoading(false);
+				}
 			});
 		return () => {
 			cancelled = true;
@@ -82,7 +88,9 @@ export function RsvpResponsesDialog({
 					<div className="space-y-4">
 						{(["yes", "maybe", "no"] as const).map((status) => {
 							const list = grouped[status];
-							if (list.length === 0) return null;
+							if (list.length === 0) {
+								return null;
+							}
 							const meta = STATUS_META[status];
 							return (
 								<div key={status} className="space-y-2">

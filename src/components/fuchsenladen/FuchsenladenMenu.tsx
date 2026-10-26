@@ -12,7 +12,7 @@ import {
 import { FuchsenItemCard } from "./FuchsenItemCard";
 import { FuchsenOrderDrawer } from "./FuchsenOrderDrawer";
 
-export default function FuchsenladenMenu() {
+export function FuchsenladenMenu() {
 	const [items, setItems] = useState<FuchsenItem[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [selectedItem, setSelectedItem] = useState<FuchsenItem | null>(null);

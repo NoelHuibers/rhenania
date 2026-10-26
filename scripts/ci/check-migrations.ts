@@ -54,7 +54,9 @@ for (const { name, allowedIdxGaps } of FOLDERS) {
 		}),
 	);
 
-	if (!baseRef) continue;
+	if (!baseRef) {
+		continue;
+	}
 	let base: JournalEntry[] = [];
 	try {
 		base = readJournal(git(["show", `${baseRef}:${name}/meta/_journal.json`]));
@@ -83,21 +85,31 @@ for (const { name, allowedIdxGaps } of FOLDERS) {
 
 	for (const entry of entries.slice(base.length)) {
 		const file = path.join(dir, `${entry.tag}.sql`);
-		if (!existsSync(file)) continue;
+		if (!existsSync(file)) {
+			continue;
+		}
 		const destructive = destructiveStatements(readFileSync(file, "utf8"));
-		if (destructive.length === 0) continue;
+		if (destructive.length === 0) {
+			continue;
+		}
 		const message = `${name}/${entry.tag}.sql has destructive statements (expand/contract: only after every tenant runs code that no longer needs them):\n    ${destructive.join("\n    ")}`;
-		if (process.env.MIGRATION_CONTRACT_OK === "1") warnings.push(message);
-		else
+		if (process.env.MIGRATION_CONTRACT_OK === "1") {
+			warnings.push(message);
+		} else {
 			errors.push(
 				`${message}\n  Label the PR "migration:contract" once that's true.`,
 			);
+		}
 	}
 }
 
-for (const w of warnings) console.warn(`warning: ${w}`);
+for (const w of warnings) {
+	console.warn(`warning: ${w}`);
+}
 if (errors.length > 0) {
-	for (const e of errors) console.error(`error: ${e}`);
+	for (const e of errors) {
+		console.error(`error: ${e}`);
+	}
 	process.exit(1);
 }
 console.log(

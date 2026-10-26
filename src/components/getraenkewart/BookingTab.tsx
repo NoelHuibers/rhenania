@@ -34,7 +34,7 @@ type Drink = {
 	isCurrentlyAvailable: boolean;
 };
 
-export default function BookingTab() {
+export function BookingTab() {
 	const [users, setUsers] = useState<User[]>([]);
 	const [drinks, setDrinks] = useState<Drink[]>([]);
 	const [markupPercent, setMarkupPercent] = useState(0);
@@ -77,7 +77,9 @@ export default function BookingTab() {
 	const total = orderTotal(unitPrice, quantity, markupPercent);
 
 	const handleSubmit = () => {
-		if (!selectedUserId || !selectedDrink) return;
+		if (!selectedUserId || !selectedDrink) {
+			return;
+		}
 
 		startTransition(async () => {
 			const result = await createOrder({
@@ -179,7 +181,9 @@ export default function BookingTab() {
 						<NumericInput
 							value={quantity}
 							onChange={(v) => {
-								if (!Number.isNaN(v) && v >= 1) setQuantity(v);
+								if (!Number.isNaN(v) && v >= 1) {
+									setQuantity(v);
+								}
 							}}
 							min={1}
 							max={200}

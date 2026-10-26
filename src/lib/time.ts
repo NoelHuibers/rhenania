@@ -58,7 +58,9 @@ export function getZonedParts(date: Date, tz: string = APP_TZ): ZonedParts {
 
 export function wallClockToUTC(input: string, tz: string = APP_TZ): Date {
 	const match = input.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/);
-	if (!match) return new Date(input);
+	if (!match) {
+		return new Date(input);
+	}
 	const year = Number(match[1]);
 	const month = Number(match[2]);
 	const day = Number(match[3]);
@@ -136,7 +138,9 @@ export function formatEventShortDate(d: Date): string {
 
 export function formatAcademicTime(d: Date): string | null {
 	const { hour, minute } = getZonedParts(d);
-	if (hour === 0 && minute === 0) return null;
+	if (hour === 0 && minute === 0) {
+		return null;
+	}
 	return academicTimeLabel(hour, minute);
 }
 

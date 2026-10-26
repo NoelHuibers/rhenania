@@ -38,7 +38,7 @@ function validatePassword(password: string) {
 	};
 }
 
-export default function ResetPassword() {
+export function ResetPassword() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const token = searchParams.get("token");
@@ -58,7 +58,9 @@ export default function ResetPassword() {
 
 	const handleSubmit = async (event: React.FormEvent) => {
 		event.preventDefault();
-		if (!token || !passwordValidation.isValid || !passwordsMatch) return;
+		if (!token || !passwordValidation.isValid || !passwordsMatch) {
+			return;
+		}
 
 		setIsLoading(true);
 		setError("");

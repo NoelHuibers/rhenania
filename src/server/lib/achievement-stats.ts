@@ -25,7 +25,9 @@ export const getAchievementUnlockPercentages = cache(
 		]);
 
 		const total = totals[0]?.total ?? 0;
-		if (total === 0) return {};
+		if (total === 0) {
+			return {};
+		}
 
 		return Object.fromEntries(
 			counts.map((c) => [c.achievementId, Math.round((c.cnt / total) * 100)]),

@@ -58,7 +58,9 @@ export async function addDomain(
 		.db.insert(tenantDomains)
 		.values({ tenantId, hostname, isPrimary })
 		.returning();
-	if (!row) throw new Error("Could not create domain");
+	if (!row) {
+		throw new Error("Could not create domain");
+	}
 	return row;
 }
 
@@ -71,7 +73,9 @@ export async function createAccount(
 		.db.insert(accounts)
 		.values({ accountId: randomUUID(), providerId, userId, ...values })
 		.returning();
-	if (!row) throw new Error("Could not create account");
+	if (!row) {
+		throw new Error("Could not create account");
+	}
 	return row;
 }
 
@@ -95,7 +99,9 @@ export async function createBill(
 		.insert(billPeriods)
 		.values({ billNumber: opts.billNumber ?? `KW-${next()}-26` })
 		.returning();
-	if (!period) throw new Error("Could not create bill period");
+	if (!period) {
+		throw new Error("Could not create bill period");
+	}
 
 	const items = opts.items ?? [];
 	const drinksTotal =
@@ -120,7 +126,9 @@ export async function createBill(
 				: {}),
 		})
 		.returning();
-	if (!bill) throw new Error("Could not create bill");
+	if (!bill) {
+		throw new Error("Could not create bill");
+	}
 
 	for (const item of items) {
 		await db.insert(billItems).values({
@@ -147,7 +155,9 @@ export async function createHomepageImage(
 			...values,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create homepage image");
+	if (!row) {
+		throw new Error("Could not create homepage image");
+	}
 	return row;
 }
 
@@ -164,6 +174,8 @@ export async function createKonto(
 			...values,
 		})
 		.returning();
-	if (!row) throw new Error("Could not create konto");
+	if (!row) {
+		throw new Error("Could not create konto");
+	}
 	return row;
 }

@@ -7,7 +7,9 @@ export const PDF_MIME = "application/pdf";
 export function downloadBase64(base64: string, fileName: string, mime: string) {
 	const bytes = atob(base64);
 	const arr = new Uint8Array(bytes.length);
-	for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+	for (let i = 0; i < bytes.length; i++) {
+		arr[i] = bytes.charCodeAt(i);
+	}
 	const blob = new Blob([arr], { type: mime });
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement("a");

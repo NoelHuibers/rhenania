@@ -71,7 +71,9 @@ const breadcrumbJsonLd = createBreadcrumbJsonLd([
 
 export default async function StudentenverbindungStuttgartPage() {
 	const tenant = await getCurrentTenant();
-	if (tenant?.slug !== "rhenania") notFound();
+	if (tenant?.slug !== "rhenania") {
+		notFound();
+	}
 
 	const storedImages = await getAllActiveImagesBySection("aktive");
 	const images =

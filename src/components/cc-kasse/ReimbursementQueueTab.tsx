@@ -88,8 +88,12 @@ export function ReimbursementQueueTab({
 	const [editing, setEditing] = useState<EditingReimbursement | null>(null);
 
 	const matches = (r: QueueReimbursement, f: Filter) => {
-		if (f === "alle") return true;
-		if (f === "offen") return isOpen(r);
+		if (f === "alle") {
+			return true;
+		}
+		if (f === "offen") {
+			return isOpen(r);
+		}
 		return r.status === f;
 	};
 	const count = (f: Filter) => queue.filter((r) => matches(r, f)).length;
@@ -112,7 +116,9 @@ export function ReimbursementQueueTab({
 	};
 
 	const confirmReject = () => {
-		if (!rejectId) return;
+		if (!rejectId) {
+			return;
+		}
 		const id = rejectId;
 		const reason = rejectReason;
 		setRejectId(null);
@@ -136,8 +142,10 @@ export function ReimbursementQueueTab({
 
 	// The one action that moves a request forward — big and obvious.
 	const primaryAction = (r: QueueReimbursement, full?: boolean) => {
-		if (!isTreasury) return null;
-		if (r.status === "Eingereicht")
+		if (!isTreasury) {
+			return null;
+		}
+		if (r.status === "Eingereicht") {
 			return (
 				<Button
 					size="sm"
@@ -148,7 +156,8 @@ export function ReimbursementQueueTab({
 					<Check /> Genehmigen
 				</Button>
 			);
-		if (r.status === "Genehmigt")
+		}
+		if (r.status === "Genehmigt") {
 			return (
 				<Button
 					size="sm"
@@ -161,6 +170,7 @@ export function ReimbursementQueueTab({
 					<Wallet /> Ausgezahlt
 				</Button>
 			);
+		}
 		return null;
 	};
 
@@ -388,7 +398,9 @@ export function ReimbursementQueueTab({
 			<Dialog
 				open={rejectId !== null}
 				onOpenChange={(o) => {
-					if (!o) setRejectId(null);
+					if (!o) {
+						setRejectId(null);
+					}
 				}}
 			>
 				<DialogContent className="sm:max-w-[420px]">
@@ -423,7 +435,9 @@ export function ReimbursementQueueTab({
 			<ReimbursementDialog
 				open={editing !== null}
 				onOpenChange={(o) => {
-					if (!o) setEditing(null);
+					if (!o) {
+						setEditing(null);
+					}
 				}}
 				kostenpunkte={kostenpunkte}
 				mode="direct"

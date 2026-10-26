@@ -55,7 +55,9 @@ export async function createOrderRow(
 			...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
 		})
 		.returning();
-	if (!order) throw new Error("Could not create order");
+	if (!order) {
+		throw new Error("Could not create order");
+	}
 	return order;
 }
 
@@ -99,7 +101,9 @@ export async function createInventory(
 			...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
 		})
 		.returning();
-	if (!inventory) throw new Error("Could not create inventory");
+	if (!inventory) {
+		throw new Error("Could not create inventory");
+	}
 
 	for (const item of opts.items ?? []) {
 		await db.insert(inventoryItems).values({
@@ -124,7 +128,9 @@ export async function createEvent(
 		.db.insert(events)
 		.values({ title: opts.title ?? "Kneipe", date: opts.date })
 		.returning();
-	if (!event) throw new Error("Could not create event");
+	if (!event) {
+		throw new Error("Could not create event");
+	}
 	return event;
 }
 
@@ -147,9 +153,11 @@ export async function createEtaplan(
 			...(opts.createdAt ? { createdAt: opts.createdAt } : {}),
 		})
 		.returning();
-	if (!plan) throw new Error("Could not create Etaplan");
+	if (!plan) {
+		throw new Error("Could not create Etaplan");
+	}
 
-	const kps = [];
+	const kps: (typeof kostenpunkte.$inferSelect)[] = [];
 	for (const kp of opts.kostenpunkte ?? []) {
 		const [row] = await db
 			.insert(kostenpunkte)
@@ -159,7 +167,9 @@ export async function createEtaplan(
 				category: kp.category ?? "Veranstaltungen",
 			})
 			.returning();
-		if (!row) throw new Error("Could not create Kostenpunkt");
+		if (!row) {
+			throw new Error("Could not create Kostenpunkt");
+		}
 		kps.push(row);
 	}
 	return { plan, kostenpunkte: kps };

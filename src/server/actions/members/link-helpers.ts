@@ -44,9 +44,13 @@ export async function computeLinkablePairs(): Promise<{
 	// users.email is unique, so each email maps to at most one free account.
 	const freeUserByEmail = new Map<string, string>();
 	for (const u of allUsers) {
-		if (takenUsers.has(u.id)) continue;
+		if (takenUsers.has(u.id)) {
+			continue;
+		}
 		const e = norm(u.email);
-		if (e) freeUserByEmail.set(e, u.id);
+		if (e) {
+			freeUserByEmail.set(e, u.id);
+		}
 	}
 
 	let ambiguous = 0;
@@ -54,21 +58,29 @@ export async function computeLinkablePairs(): Promise<{
 	const matchesPerUser = new Map<string, number>();
 
 	for (const m of allMembers) {
-		if (m.userId) continue;
+		if (m.userId) {
+			continue;
+		}
 		const hits = new Set<string>();
 		for (const raw of [m.email, m.email2, m.email3]) {
 			const e = norm(raw);
 			const uid = e ? freeUserByEmail.get(e) : undefined;
-			if (uid) hits.add(uid);
+			if (uid) {
+				hits.add(uid);
+			}
 		}
-		if (hits.size === 0) continue;
+		if (hits.size === 0) {
+			continue;
+		}
 		if (hits.size > 1) {
 			// The member's emails point at two different accounts.
 			ambiguous++;
 			continue;
 		}
 		const [userId] = hits;
-		if (!userId) continue;
+		if (!userId) {
+			continue;
+		}
 		candidates.push({
 			memberId: m.id,
 			userId,
@@ -96,7 +108,9 @@ export async function applyLink(memberId: string, userId: string) {
 export async function tryAutoLinkMember(memberId: string): Promise<boolean> {
 	const { pairs } = await computeLinkablePairs();
 	const pair = pairs.find((p) => p.memberId === memberId);
-	if (!pair) return false;
+	if (!pair) {
+		return false;
+	}
 	await applyLink(pair.memberId, pair.userId);
 	return true;
 }

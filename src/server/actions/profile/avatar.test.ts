@@ -45,7 +45,9 @@ const imageOf = async (id: string) =>
 
 function fileForm(file?: File) {
 	const data = new FormData();
-	if (file) data.set("file", file);
+	if (file) {
+		data.set("file", file);
+	}
 	return data;
 }
 

@@ -98,10 +98,14 @@ export function StatsOverviewSkeleton() {
 }
 
 function lastNameOf(fullName: string | null): string {
-	if (!fullName) return "Unbekannt";
+	if (!fullName) {
+		return "Unbekannt";
+	}
 	const parts = fullName.trim().split(/\s+/);
 	const last = parts[parts.length - 1];
-	if (!last) return "Unbekannt";
+	if (!last) {
+		return "Unbekannt";
+	}
 	return last.charAt(0).toUpperCase() + last.slice(1);
 }
 

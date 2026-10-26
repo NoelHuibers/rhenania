@@ -60,10 +60,16 @@ export function categoryFromSubtotal(label: string): string {
 
 /** Parse a German-formatted number (e.g. "1.855,00 €" → 1855). */
 export function parseGermanNumber(value: unknown): number {
-	if (value == null || value === "") return 0;
-	if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+	if (value == null || value === "") {
+		return 0;
+	}
+	if (typeof value === "number") {
+		return Number.isFinite(value) ? value : 0;
+	}
 	const s = String(value).replace(/[^\d,.-]/g, "");
-	if (!s || s === "-") return 0;
+	if (!s || s === "-") {
+		return 0;
+	}
 	const normalized = s.replace(/\./g, "").replace(",", ".");
 	const n = Number.parseFloat(normalized);
 	return Number.isFinite(n) ? n : 0;

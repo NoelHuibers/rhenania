@@ -89,7 +89,9 @@ export const useImageManager = () => {
 
 	const handleFileSelect = useCallback(
 		async (files: FileList | null, sectionInput: string) => {
-			if (!files || files.length === 0) return;
+			if (!files || files.length === 0) {
+				return;
+			}
 			// Hardcoded for Rhenania today; runtime sections always match the
 			// local literal type.
 			const section = sectionInput as HomepageSection;
@@ -108,7 +110,9 @@ export const useImageManager = () => {
 				for (let i = 0; i < fileArray.length; i++) {
 					const file = fileArray[i];
 
-					if (!file) continue;
+					if (!file) {
+						continue;
+					}
 
 					if (!file.type.startsWith("image/")) {
 						toast.error(`${file.name} ist kein Bild`);
@@ -343,7 +347,9 @@ export const useImageManager = () => {
 				}
 			}
 
-			if (!targetSection) return;
+			if (!targetSection) {
+				return;
+			}
 
 			// Optimistic update
 			setState((prev) => {

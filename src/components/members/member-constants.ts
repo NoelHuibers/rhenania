@@ -36,14 +36,18 @@ export function memberInitials(
 // Semantic badge colors per status family (free-text tolerant, dark-mode aware).
 export function memberStatusClasses(status: string): string {
 	const s = (status ?? "").toLowerCase().replace(/[^a-z]/g, "");
-	if (s.startsWith("fuchs") || s.startsWith("fux"))
+	if (s.startsWith("fuchs") || s.startsWith("fux")) {
 		return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300";
-	if (s.startsWith("iacb"))
+	}
+	if (s.startsWith("iacb")) {
 		return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/25 dark:bg-sky-500/10 dark:text-sky-300";
-	if (s.startsWith("cb"))
+	}
+	if (s.startsWith("cb")) {
 		return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300";
-	if (s.startsWith("ah"))
+	}
+	if (s.startsWith("ah")) {
 		return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-400/25 dark:bg-slate-400/10 dark:text-slate-300";
+	}
 	return "border-border bg-muted text-muted-foreground";
 }
 
@@ -55,11 +59,21 @@ export function memberCategory(
 	status: string | null | undefined,
 ): MemberCategory {
 	const s = (status ?? "").toLowerCase().replace(/[^a-z]/g, "");
-	if (!s) return "other";
-	if (s.startsWith("ah")) return "ah";
-	if (s.startsWith("iacb")) return "inaktive";
-	if (s.startsWith("fuchs") || s.startsWith("fux")) return "fuchs";
-	if (s.startsWith("cb")) return "aktive";
+	if (!s) {
+		return "other";
+	}
+	if (s.startsWith("ah")) {
+		return "ah";
+	}
+	if (s.startsWith("iacb")) {
+		return "inaktive";
+	}
+	if (s.startsWith("fuchs") || s.startsWith("fux")) {
+		return "fuchs";
+	}
+	if (s.startsWith("cb")) {
+		return "aktive";
+	}
 	return "other";
 }
 
@@ -75,6 +89,8 @@ const AVATAR_PALETTE = [
 // Deterministic avatar tint from the member's name (stable across renders).
 export function avatarColorClasses(seed: string): string {
 	let h = 0;
-	for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+	for (let i = 0; i < seed.length; i++) {
+		h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+	}
 	return AVATAR_PALETTE[h % AVATAR_PALETTE.length] as string;
 }

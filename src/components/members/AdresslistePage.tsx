@@ -93,10 +93,15 @@ export function AdresslistePage({
 	const counts = { aktive: 0, inaktive: 0, ah: 0, fuchs: 0 };
 	for (const m of members) {
 		const c = memberCategory(m.status);
-		if (c === "aktive") counts.aktive++;
-		else if (c === "inaktive") counts.inaktive++;
-		else if (c === "ah") counts.ah++;
-		else if (c === "fuchs") counts.fuchs++;
+		if (c === "aktive") {
+			counts.aktive++;
+		} else if (c === "inaktive") {
+			counts.inaktive++;
+		} else if (c === "ah") {
+			counts.ah++;
+		} else if (c === "fuchs") {
+			counts.fuchs++;
+		}
 	}
 
 	const openNew = () => {
@@ -118,7 +123,9 @@ export function AdresslistePage({
 	const onImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
 		e.target.value = "";
-		if (!file) return;
+		if (!file) {
+			return;
+		}
 		const base64 = await fileToBase64(file);
 		startTransition(async () => {
 			const res = await importMembersXlsx({ base64 });
@@ -163,7 +170,9 @@ export function AdresslistePage({
 	};
 
 	const confirmDelete = () => {
-		if (!deleteTarget) return;
+		if (!deleteTarget) {
+			return;
+		}
 		const id = deleteTarget.id;
 		setDeleteTarget(null);
 		startTransition(async () => {
@@ -283,7 +292,9 @@ export function AdresslistePage({
 			<AlertDialog
 				open={deleteTarget !== null}
 				onOpenChange={(o) => {
-					if (!o) setDeleteTarget(null);
+					if (!o) {
+						setDeleteTarget(null);
+					}
 				}}
 			>
 				<AlertDialogContent>

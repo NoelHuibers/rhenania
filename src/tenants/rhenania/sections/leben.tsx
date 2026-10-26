@@ -18,10 +18,12 @@ export function Leben({ images }: { images: string[] }) {
 
 	useLayoutEffect(() => {
 		const el = grid.current;
-		if (!el || prefersReducedMotion()) return;
+		if (!el || prefersReducedMotion()) {
+			return;
+		}
 		const { gsap } = ensureGsap();
 		const ctx = gsap.context(() => {
-			el.querySelectorAll<HTMLElement>("[data-parallax]").forEach((tile) => {
+			for (const tile of el.querySelectorAll<HTMLElement>("[data-parallax]")) {
 				const speed = Number(tile.dataset.speed ?? 0);
 				gsap.to(tile, {
 					yPercent: speed,
@@ -33,7 +35,7 @@ export function Leben({ images }: { images: string[] }) {
 						scrub: true,
 					},
 				});
-			});
+			}
 		}, el);
 		return () => ctx.revert();
 	}, []);
@@ -70,7 +72,9 @@ export function Leben({ images }: { images: string[] }) {
 			>
 				{images.slice(0, 4).map((src, i) => {
 					const tile = TILES[i % TILES.length] ?? TILES[0];
-					if (!tile) return null;
+					if (!tile) {
+						return null;
+					}
 					return (
 						<div
 							key={src}

@@ -18,7 +18,7 @@ import {
 } from "~/components/ui/card";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 
-export default async function DefaultLandingPage() {
+export async function DefaultLandingPage() {
 	const tenant = await getCurrentTenant();
 	const name = tenant?.displayName ?? "euer Corps";
 

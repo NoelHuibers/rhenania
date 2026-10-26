@@ -106,24 +106,32 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 		setError(null);
 		const result = await createVenue(shortName, fullAddress);
 		setLoading(false);
-		if (!result.success) return setError(result.error ?? "Fehler");
+		if (!result.success) {
+			return setError(result.error ?? "Fehler");
+		}
 		setShowCreate(false);
 		router.refresh();
 	}
 
 	async function handleUpdate(shortName: string, fullAddress: string) {
-		if (!editingId) return;
+		if (!editingId) {
+			return;
+		}
 		setLoading(true);
 		setError(null);
 		const result = await updateVenue(editingId, shortName, fullAddress);
 		setLoading(false);
-		if (!result.success) return setError(result.error ?? "Fehler");
+		if (!result.success) {
+			return setError(result.error ?? "Fehler");
+		}
 		setEditingId(null);
 		router.refresh();
 	}
 
 	async function confirmDelete() {
-		if (!deleteId) return;
+		if (!deleteId) {
+			return;
+		}
 		await deleteVenue(deleteId);
 		setDeleteId(null);
 		router.refresh();

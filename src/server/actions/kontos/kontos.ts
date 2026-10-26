@@ -48,7 +48,9 @@ const INVALID_IBAN_ERROR =
 	"Ungültige IBAN. Bitte Länge und Prüfziffer kontrollieren.";
 
 function canManageKonto(roleNames: string[], konto: Konto) {
-	if (isAdmin(roleNames)) return true;
+	if (isAdmin(roleNames)) {
+		return true;
+	}
 	const requiredRole = KASSE_ROLE_MAP[konto.kasseType];
 	return !!requiredRole && roleNames.includes(requiredRole);
 }
@@ -59,7 +61,9 @@ export async function getKontos(): Promise<
 	{ success: true; kontos: Konto[] } | { success: false; error: string }
 > {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	const roleNames = await getUserRoleNames(session.user.id);
 	const all = await db.select().from(kontos).orderBy(kontos.kasseType);
@@ -77,13 +81,17 @@ export async function createKonto(
 	input: KontoInput,
 ): Promise<{ success: true; id: string } | { success: false; error: string }> {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	const roleNames = await getUserRoleNames(session.user.id);
-	if (!isAdmin(roleNames))
+	if (!isAdmin(roleNames)) {
 		return { success: false, error: "Keine Berechtigung" };
-	if (!isValidIban(input.iban))
+	}
+	if (!isValidIban(input.iban)) {
 		return { success: false, error: INVALID_IBAN_ERROR };
+	}
 
 	const [row] = await db
 		.insert(kontos)
@@ -99,7 +107,9 @@ export async function createKonto(
 		.returning({ id: kontos.id });
 
 	revalidatePath("/konten");
-	if (!row) throw new Error("Insert failed");
+	if (!row) {
+		throw new Error("Insert failed");
+	}
 	return { success: true, id: row.id };
 }
 
@@ -110,30 +120,47 @@ export async function updateKonto(
 	input: Partial<KontoInput>,
 ): Promise<{ success: true } | { success: false; error: string }> {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	const [existing] = await db
 		.select()
 		.from(kontos)
 		.where(eq(kontos.id, id))
 		.limit(1);
-	if (!existing) return { success: false, error: "Konto nicht gefunden" };
+	if (!existing) {
+		return { success: false, error: "Konto nicht gefunden" };
+	}
 
 	const roleNames = await getUserRoleNames(session.user.id);
-	if (!canManageKonto(roleNames, existing))
+	if (!canManageKonto(roleNames, existing)) {
 		return { success: false, error: "Keine Berechtigung" };
+	}
 
-	if (input.iban !== undefined && !isValidIban(input.iban))
+	if (input.iban !== undefined && !isValidIban(input.iban)) {
 		return { success: false, error: INVALID_IBAN_ERROR };
+	}
 
 	const updateData: Partial<typeof kontos.$inferInsert> = {};
-	if (input.iban !== undefined) updateData.iban = normalizeIban(input.iban);
-	if (input.bic !== undefined) updateData.bic = input.bic;
-	if (input.bankName !== undefined) updateData.bankName = input.bankName;
-	if (input.paypalLink !== undefined) updateData.paypalLink = input.paypalLink;
-	if (input.description !== undefined)
+	if (input.iban !== undefined) {
+		updateData.iban = normalizeIban(input.iban);
+	}
+	if (input.bic !== undefined) {
+		updateData.bic = input.bic;
+	}
+	if (input.bankName !== undefined) {
+		updateData.bankName = input.bankName;
+	}
+	if (input.paypalLink !== undefined) {
+		updateData.paypalLink = input.paypalLink;
+	}
+	if (input.description !== undefined) {
 		updateData.description = input.description;
-	if (input.isActive !== undefined) updateData.isActive = input.isActive;
+	}
+	if (input.isActive !== undefined) {
+		updateData.isActive = input.isActive;
+	}
 	// Only admin may change the type
 	if (isAdmin(roleNames) && input.kasseType !== undefined) {
 		updateData.kasseType = input.kasseType;
@@ -150,11 +177,14 @@ export async function deleteKonto(
 	id: string,
 ): Promise<{ success: true } | { success: false; error: string }> {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	const roleNames = await getUserRoleNames(session.user.id);
-	if (!isAdmin(roleNames))
+	if (!isAdmin(roleNames)) {
 		return { success: false, error: "Keine Berechtigung" };
+	}
 
 	await db.delete(kontos).where(eq(kontos.id, id));
 	revalidatePath("/konten");

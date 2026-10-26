@@ -28,7 +28,9 @@ export function DeleteUserDialog({
 }: DeleteUserDialogProps) {
 	const [isPending, startTransition] = useTransition();
 
-	if (!user) return null;
+	if (!user) {
+		return null;
+	}
 
 	const handleDelete = () => {
 		startTransition(async () => {
@@ -51,7 +53,9 @@ export function DeleteUserDialog({
 		<Dialog
 			open={open}
 			onOpenChange={(open) => {
-				if (!isPending) onOpenChange(open);
+				if (!isPending) {
+					onOpenChange(open);
+				}
 			}}
 		>
 			<DialogContent className="sm:max-w-md">

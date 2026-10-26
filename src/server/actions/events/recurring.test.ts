@@ -76,7 +76,9 @@ async function template(
 	});
 	const all = await getAllRecurringEvents();
 	const created = all.at(-1);
-	if (!created) throw new Error("template not created");
+	if (!created) {
+		throw new Error("template not created");
+	}
 	return created;
 }
 

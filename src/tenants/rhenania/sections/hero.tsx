@@ -13,7 +13,9 @@ export function Hero({ heroImageUrl }: { heroImageUrl: string }) {
 
 	useLayoutEffect(() => {
 		const el = root.current;
-		if (!el || prefersReducedMotion()) return;
+		if (!el || prefersReducedMotion()) {
+			return;
+		}
 		const { gsap } = ensureGsap();
 
 		const ctx = gsap.context(() => {

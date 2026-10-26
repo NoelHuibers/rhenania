@@ -3,7 +3,7 @@
 import { motion, type Variants } from "framer-motion";
 import Link from "next/link";
 
-const ContactButton = () => {
+export const ContactButton = () => {
 	const buttonVariants = {
 		initial: {
 			background: "rgb(17 24 39)",
@@ -41,5 +41,3 @@ const ContactButton = () => {
 		</motion.div>
 	);
 };
-
-export default ContactButton;

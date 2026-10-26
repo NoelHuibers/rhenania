@@ -118,7 +118,9 @@ export function ProfileIdentity() {
 
 	const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0];
-		if (!file) return;
+		if (!file) {
+			return;
+		}
 
 		// Validate file type
 		const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -297,7 +299,9 @@ export function ProfileIdentity() {
 	};
 
 	const getInitials = (name: string | null) => {
-		if (!name) return "U";
+		if (!name) {
+			return "U";
+		}
 		return name
 			.split(" ")
 			.map((n) => n[0])
@@ -467,8 +471,9 @@ export function ProfileIdentity() {
 											role="button"
 											tabIndex={0}
 											onKeyDown={(e) => {
-												if (e.key === "Enter" || e.key === " ")
+												if (e.key === "Enter" || e.key === " ") {
 													fileInputRef.current?.click();
+												}
 											}}
 										>
 											<input

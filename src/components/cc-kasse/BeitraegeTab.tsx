@@ -69,7 +69,7 @@ type KpOption = { id: string; name: string; category: string };
 type ChargeFilter = "offen" | "Bezahlt" | "Gestundet" | "alle";
 
 function chargeBadge(c: ChargeListItem) {
-	if (c.status === "Bezahlt")
+	if (c.status === "Bezahlt") {
 		return (
 			<Badge
 				variant="outline"
@@ -78,7 +78,8 @@ function chargeBadge(c: ChargeListItem) {
 				Bezahlt
 			</Badge>
 		);
-	if (c.status === "Gestundet")
+	}
+	if (c.status === "Gestundet") {
 		return (
 			<Badge
 				variant="outline"
@@ -87,7 +88,8 @@ function chargeBadge(c: ChargeListItem) {
 				Gestundet
 			</Badge>
 		);
-	if (c.status === "Gemahnt")
+	}
+	if (c.status === "Gemahnt") {
 		return (
 			<Badge
 				variant="outline"
@@ -96,7 +98,8 @@ function chargeBadge(c: ChargeListItem) {
 				Gemahnt
 			</Badge>
 		);
-	if (c.ueberfaellig)
+	}
+	if (c.ueberfaellig) {
 		return (
 			<Badge
 				variant="outline"
@@ -105,6 +108,7 @@ function chargeBadge(c: ChargeListItem) {
 				Überfällig
 			</Badge>
 		);
+	}
 	return <Badge variant="secondary">Offen</Badge>;
 }
 
@@ -137,8 +141,12 @@ export function BeitraegeTab({
 	const [filter, setFilter] = useState<ChargeFilter>("offen");
 	const [query, setQuery] = useState("");
 	const matchesFilter = (c: ChargeListItem, f: ChargeFilter) => {
-		if (f === "alle") return true;
-		if (f === "offen") return c.status === "Offen" || c.status === "Gemahnt";
+		if (f === "alle") {
+			return true;
+		}
+		if (f === "offen") {
+			return c.status === "Offen" || c.status === "Gemahnt";
+		}
 		return c.status === f;
 	};
 	const countBy = (f: ChargeFilter) =>
@@ -162,7 +170,9 @@ export function BeitraegeTab({
 		});
 
 	const sendEmails = () => {
-		if (!run) return;
+		if (!run) {
+			return;
+		}
 		startTransition(async () => {
 			const res = await sendBeitragEmails(run.id);
 			if (res.success) {
@@ -179,7 +189,9 @@ export function BeitraegeTab({
 	};
 
 	const sendMahn = () => {
-		if (!run) return;
+		if (!run) {
+			return;
+		}
 		startTransition(async () => {
 			const res = await sendMahnungen(run.id);
 			if (res.success) {
@@ -194,7 +206,9 @@ export function BeitraegeTab({
 	};
 
 	const confirmDeleteRun = () => {
-		if (!run) return;
+		if (!run) {
+			return;
+		}
 		const id = run.id;
 		setDeleteOpen(false);
 		startTransition(async () => {
@@ -211,8 +225,11 @@ export function BeitraegeTab({
 	const dlPdf = (chargeId: string, isMahnung: boolean) =>
 		startTransition(async () => {
 			const res = await downloadChargePdf(chargeId, { isMahnung });
-			if (res.success) downloadBase64(res.base64, res.fileName, PDF_MIME);
-			else toast.error(res.error);
+			if (res.success) {
+				downloadBase64(res.base64, res.fileName, PDF_MIME);
+			} else {
+				toast.error(res.error);
+			}
 		});
 
 	return (
@@ -465,8 +482,11 @@ export function BeitraegeTab({
 					etaplan={etaplan}
 					kostenpunkte={kostenpunkte}
 					onSaved={(id) => {
-						if (id) onNavigateRun(id);
-						else router.refresh();
+						if (id) {
+							onNavigateRun(id);
+						} else {
+							router.refresh();
+						}
 					}}
 				/>
 			)}

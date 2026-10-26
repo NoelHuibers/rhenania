@@ -61,7 +61,9 @@ function KPIStatCard({
 }
 
 function formatDateDE(value: NullableDate) {
-	if (!value) return "Nie";
+	if (!value) {
+		return "Nie";
+	}
 	const d = new Date(value);
 	return d.toLocaleDateString("de-DE", {
 		day: "numeric",

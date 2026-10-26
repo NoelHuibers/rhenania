@@ -14,6 +14,7 @@ import {
 	users,
 } from "~/server/db/schema";
 import { getBillRecipient } from "~/server/lib/getraenke-settings";
+import { log } from "~/server/lib/log";
 import {
 	sendBillNotificationEmail,
 	sendTreasurerBillEmail,
@@ -80,7 +81,7 @@ async function generateBillNumber(tx: any, date: Date): Promise<string> {
 
 	// Find the highest suffix number
 	let maxSuffix = 1;
-	existingBills.forEach((bill: { billNumber: string }) => {
+	for (const bill of existingBills) {
 		const match = bill.billNumber.match(
 			new RegExp(`^${baseNumber}(?:-(\\d+))?$`),
 		);
@@ -88,7 +89,7 @@ async function generateBillNumber(tx: any, date: Date): Promise<string> {
 			const suffix = match[1] ? parseInt(match[1], 10) : 1;
 			maxSuffix = Math.max(maxSuffix, suffix);
 		}
-	});
+	}
 
 	return `${baseNumber}-${maxSuffix + 1}`;
 }
@@ -101,8 +102,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 	const createdByUserId = session.user.id;
 
 	try {
-		console.log("Starting billing process...");
-
 		const result = await db.transaction(async (tx) => {
 			// 1. Get all unbilled orders (both personal and event)
 			const allUnbilledOrders = await tx
@@ -112,7 +111,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				.orderBy(orders.userId, orders.createdAt);
 
 			if (allUnbilledOrders.length === 0) {
-				console.log("No unbilled orders found");
 				return {
 					success: true,
 					message: "Keine unbezahlten Bestellungen gefunden",
@@ -127,9 +125,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				(order) => !order.bookingFor,
 			);
 			const eventOrders = allUnbilledOrders.filter((order) => order.bookingFor);
-
-			console.log(`Found ${personalOrders.length} unbilled personal orders`);
-			console.log(`Found ${eventOrders.length} event orders to process`);
 
 			// 2. Generate the new bill number and close the previous bill period
 			const now = new Date();
@@ -156,8 +151,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 						updatedAt: now,
 					})
 					.where(eq(billPeriods.id, lastBillPeriod.id));
-
-				console.log(`Closed previous bill period ${lastBillPeriod.billNumber}`);
 			}
 
 			// 3. Create the new bill period
@@ -170,10 +163,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				createdBy: createdByUserId,
 				createdAt: now,
 			});
-
-			console.log(
-				`Created bill period ${nextBillNumber} (ID: ${billPeriodId}) by user ${createdByUserId}`,
-			);
 
 			// 4. Get unpaid and deferred amounts from ALL previous periods for each
 			// user — not just the last one. A member without new orders gets skipped
@@ -195,9 +184,11 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					or(eq(bills.status, "Unbezahlt"), eq(bills.status, "Gestundet")),
 				);
 
-			outstandingBills.forEach((row) => {
+			for (const row of outstandingBills) {
 				// Gruppenrechnungen (event bills) are settled directly, never carried.
-				if (row.userId.startsWith("event-")) return;
+				if (row.userId.startsWith("event-")) {
+					continue;
+				}
 				unpaidAmountMap.set(
 					row.userId,
 					(unpaidAmountMap.get(row.userId) ?? 0) + (Number(row.total) || 0),
@@ -207,14 +198,7 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				if (row.status === "Gestundet") {
 					deferredStatusMap.set(row.userId, true);
 				}
-			});
-
-			console.log(
-				`Found outstanding amounts from previous bill periods for ${unpaidAmountMap.size} users`,
-			);
-			console.log(
-				`Of which ${deferredStatusMap.size} were deferred (Gestundet)`,
-			);
+			}
 
 			// 5. Process personal orders - Group by user
 			const userOrderMap = new Map<string, OrderWithDetails[]>();
@@ -226,8 +210,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				userOrderMap.get(userId)?.push(order);
 			}
 
-			console.log(`Processing bills for ${userOrderMap.size} users`);
-
 			// 6. Process event orders - Group by event name (bookingFor)
 			const eventOrderMap = new Map<string, OrderWithDetails[]>();
 			for (const order of eventOrders) {
@@ -237,8 +219,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				}
 				eventOrderMap.get(eventName)?.push(order);
 			}
-
-			console.log(`Processing bills for ${eventOrderMap.size} events`);
 
 			// 7. Process each user's billing
 			const userBillingSummaries: UserBillingSummary[] = [];
@@ -310,18 +290,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					createdAt: now,
 				});
 
-				console.log(
-					`Created bill ${billId} for user ${userName} with total €${finalTotal.toFixed(
-						2,
-					)} (drinks: €${drinksTotal.toFixed(
-						2,
-					)}, old billing: €${oldBillingAmount.toFixed(
-						2,
-					)}, fees: €${fees.toFixed(2)})${
-						wasDeferred ? " [Previous bill was deferred - no fees applied]" : ""
-					}`,
-				);
-
 				if (oldBillingAmount > 0) {
 					await settleCarriedBills(userId);
 				}
@@ -390,8 +358,12 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 			// Abrechnung. Without this, their old bill stays behind and the next
 			// run (which only sees the new period) would lose track of it.
 			for (const [userId, oldBillingAmount] of unpaidAmountMap.entries()) {
-				if (userOrderMap.has(userId)) continue; // already rolled in above
-				if (oldBillingAmount <= 0) continue;
+				if (userOrderMap.has(userId)) {
+					continue; // already rolled in above
+				}
+				if (oldBillingAmount <= 0) {
+					continue;
+				}
 
 				const userName = outstandingUserNameMap.get(userId) ?? "";
 				const wasDeferred = deferredStatusMap.get(userId) || false;
@@ -418,14 +390,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					createdAt: now,
 				});
 				await settleCarriedBills(userId);
-
-				console.log(
-					`Created carry-over bill ${billId} for user ${userName} with total €${finalTotal.toFixed(
-						2,
-					)} (old billing: €${oldBillingAmount.toFixed(2)}, fees: €${fees.toFixed(2)})${
-						wasDeferred ? " [Previous bill was deferred - no fees applied]" : ""
-					}`,
-				);
 
 				userBillingSummaries.push({
 					userId,
@@ -469,12 +433,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					total: finalTotal,
 					createdAt: now,
 				});
-
-				console.log(
-					`Created event bill ${billId} for "${eventName}" with total €${finalTotal.toFixed(
-						2,
-					)}`,
-				);
 
 				// Group orders by drink to consolidate quantities
 				const drinkSummary = new Map<
@@ -547,8 +505,6 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 							sql`, `,
 						)})`,
 					);
-
-				console.log(`Marked ${allOrderIds.length} orders as processed`);
 			}
 
 			return {
@@ -568,7 +524,11 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 			};
 		});
 
-		console.log("Billing process completed successfully:", result);
+		log.info("billing run completed", {
+			bills: result.billsCreated,
+			eventBills: result.eventBillsCreated,
+			total: result.totalAmount,
+		});
 
 		// Send the new bills by mail: to the treasurer when the tenant chose that
 		// (feature `billing.treasurerRecipient`), otherwise to each member who
@@ -630,10 +590,6 @@ async function sendBillsToMembers(billPeriodId: string, billNumber: string) {
 		(u) => u.emailPref === null || u.emailPref === "true",
 	);
 
-	console.log(
-		`Sending bill notification emails to ${toNotify.length} users...`,
-	);
-
 	for (const user of toNotify) {
 		try {
 			const pdfResult = await generateUserBillPDF(user.billId);
@@ -671,10 +627,6 @@ async function sendBillsToTreasurer(
 		.from(bills)
 		.where(eq(bills.billPeriodId, billPeriodId))
 		.orderBy(bills.userName);
-
-	console.log(
-		`Sending ${periodBills.length} bills to the treasurer (${treasurerEmail})...`,
-	);
 
 	for (const bill of periodBills) {
 		try {

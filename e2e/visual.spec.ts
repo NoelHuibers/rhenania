@@ -65,8 +65,9 @@ for (const scheme of ["light", "dark"] as const) {
 
 			for (const screen of SCREENS) {
 				test(`${screen.name}`, async ({ page }) => {
-					if (screen.user)
+					if (screen.user) {
 						await signIn(page, screen.user, screen.origin ?? RHENANIA);
+					}
 					await page.goto(screen.url, { waitUntil: "networkidle" });
 					await page.addStyleTag({ content: HIDE_DYNAMIC });
 					await screen.prepare?.(page);

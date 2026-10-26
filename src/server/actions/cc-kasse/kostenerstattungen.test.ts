@@ -129,7 +129,9 @@ describe("submitReimbursement", () => {
 		});
 
 		expect(result.success).toBe(false);
-		if (message) expect(result).toMatchObject({ error: message });
+		if (message) {
+			expect(result).toMatchObject({ error: message });
+		}
 		expect(await tenantDb().select().from(kostenerstattungen)).toHaveLength(0);
 	});
 

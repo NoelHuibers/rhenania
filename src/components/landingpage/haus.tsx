@@ -1,8 +1,8 @@
 // components/landingpage/haus.tsx
 import { getAllActiveImagesBySection } from "~/server/actions/bilder/images";
-import Hauscarousel from "./hauscarousel";
+import { Hauscarousel } from "./hauscarousel";
 
-const Haus = async () => {
+export const Haus = async () => {
 	const hausImages = await getAllActiveImagesBySection("haus");
 
 	return (
@@ -27,5 +27,3 @@ const Haus = async () => {
 		</section>
 	);
 };
-
-export default Haus;

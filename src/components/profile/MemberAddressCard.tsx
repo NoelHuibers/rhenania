@@ -126,8 +126,11 @@ export function MemberAddressCard() {
 		}
 		startTransition(async () => {
 			const res = await updateMyMember(f);
-			if (res.success) toast.success("Daten gespeichert");
-			else toast.error(res.error);
+			if (res.success) {
+				toast.success("Daten gespeichert");
+			} else {
+				toast.error(res.error);
+			}
 		});
 	};
 

@@ -21,7 +21,9 @@ export function GruppenSection({
 		(r) => !SECTIONED_ROLE_NAMES.includes(r.name) && r.name !== "Admin",
 	);
 
-	if (gruppenRoles.length === 0) return null;
+	if (gruppenRoles.length === 0) {
+		return null;
+	}
 
 	return (
 		<div>

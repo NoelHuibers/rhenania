@@ -61,7 +61,7 @@ function downloadCSV(content: string, fileName: string) {
 	}, 100);
 }
 
-export default function FuchsenBillingDashboard() {
+export function FuchsenBillingDashboard() {
 	const { data: session, isPending } = useSession();
 	const [roles, setRoles] = useState<string[]>([]);
 	const [config, setConfig] = useState<FuchsenBillingConfig>(EMPTY_CONFIG);
@@ -79,7 +79,9 @@ export default function FuchsenBillingDashboard() {
 	}, [session?.user?.id]);
 
 	useEffect(() => {
-		if (!session?.user?.id) return;
+		if (!session?.user?.id) {
+			return;
+		}
 		getFuchsenBillingConfig()
 			.then(setConfig)
 			.catch(() => setConfig(EMPTY_CONFIG));
@@ -254,7 +256,9 @@ function FuchsenwartBilling({
 	) => {
 		// "Übertragen" is a carry-over status the shared table never emits for
 		// fuchsen bills (the status button disables it); guard so the type narrows.
-		if (!newStatus || newStatus === "Übertragen") return;
+		if (!newStatus || newStatus === "Übertragen") {
+			return;
+		}
 		const previous = currentBills.find((b) => b.id === billId)?.status;
 		setCurrentBills((prev) =>
 			prev.map((b) => (b.id === billId ? { ...b, status: newStatus } : b)),
@@ -281,7 +285,9 @@ function FuchsenwartBilling({
 	};
 
 	const loadHistory = async (periodId: string) => {
-		if (historyBills.has(periodId)) return;
+		if (historyBills.has(periodId)) {
+			return;
+		}
 		const bills = await getFuchsenBillsForPeriod(periodId);
 		setHistoryBills((prev) => new Map(prev).set(periodId, bills));
 	};

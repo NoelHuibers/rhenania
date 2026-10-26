@@ -1,8 +1,8 @@
 // components/landingpage/contactus.tsx
 import { getActiveImageBySection } from "~/server/actions/bilder/images";
-import ContactButton from "./contactbutton";
+import { ContactButton } from "./contactbutton";
 
-const ContactUs = async () => {
+export const ContactUs = async () => {
 	const footerImage = await getActiveImageBySection("footer");
 	const backgroundImageUrl = footerImage?.imageUrl || "/background.png";
 
@@ -17,5 +17,3 @@ const ContactUs = async () => {
 		</section>
 	);
 };
-
-export default ContactUs;

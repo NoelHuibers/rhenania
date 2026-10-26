@@ -69,7 +69,9 @@ async function upsertTenant(): Promise<string> {
 		})
 		.returning({ id: tenants.id });
 
-	if (!inserted) throw new Error("Failed to insert Rhenania tenant");
+	if (!inserted) {
+		throw new Error("Failed to insert Rhenania tenant");
+	}
 	console.log(`✓ tenant '${RHENANIA_SLUG}' inserted (${inserted.id})`);
 	return inserted.id;
 }
@@ -151,7 +153,9 @@ async function backfillMemberships(tenantId: string) {
 	const allUsers = await db.select({ id: users.id }).from(users);
 	console.log(`  → backfilling ${allUsers.length} memberships`);
 
-	if (allUsers.length === 0) return;
+	if (allUsers.length === 0) {
+		return;
+	}
 
 	const rows = allUsers.map((u) => ({
 		userId: u.id,

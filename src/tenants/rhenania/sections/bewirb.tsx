@@ -14,7 +14,9 @@ export function Bewirb({ ctaImageUrl }: { ctaImageUrl: string }) {
 	// Drifting aurora + periodic button shine.
 	useLayoutEffect(() => {
 		const el = section.current;
-		if (!el || prefersReducedMotion()) return;
+		if (!el || prefersReducedMotion()) {
+			return;
+		}
 		const { gsap } = ensureGsap();
 		const ctx = gsap.context(() => {
 			el.querySelectorAll<HTMLElement>("[data-aurora]").forEach((blob, i) => {
@@ -46,7 +48,9 @@ export function Bewirb({ ctaImageUrl }: { ctaImageUrl: string }) {
 	// Magnetic button: ease the button toward the pointer while hovered.
 	useLayoutEffect(() => {
 		const el = btn.current;
-		if (!el || prefersReducedMotion()) return;
+		if (!el || prefersReducedMotion()) {
+			return;
+		}
 		const { gsap } = ensureGsap();
 		const xTo = gsap.quickTo(el, "x", { duration: 0.5, ease: "power3.out" });
 		const yTo = gsap.quickTo(el, "y", { duration: 0.5, ease: "power3.out" });

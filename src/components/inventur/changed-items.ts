@@ -3,6 +3,8 @@ export function removeSavedItemIds(
 	savedItemIds: Iterable<string>,
 ): Set<string> {
 	const remainingItems = new Set(changedItems);
-	for (const drinkId of savedItemIds) remainingItems.delete(drinkId);
+	for (const drinkId of savedItemIds) {
+		remainingItems.delete(drinkId);
+	}
 	return remainingItems;
 }

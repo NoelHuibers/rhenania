@@ -109,7 +109,9 @@ describe("pricing properties", () => {
 				const numerator = BigInt(cents * (200 + twiceMarkup));
 				const expected = Number((2n * numerator + 200n) / 400n);
 				const actual = Math.round(applyMarkup(cents / 100, markup) * 100);
-				if (actual !== expected) mismatches.push(`${cents / 100}@${markup}%`);
+				if (actual !== expected) {
+					mismatches.push(`${cents / 100}@${markup}%`);
+				}
 			}
 		}
 		expect(mismatches).toEqual([]);

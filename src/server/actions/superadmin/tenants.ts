@@ -161,7 +161,9 @@ export async function getTenantDetailAction(
 			.from(tenants)
 			.where(eq(tenants.id, tenantId))
 			.limit(1);
-		if (!t) return { success: false, error: "Tenant not found" };
+		if (!t) {
+			return { success: false, error: "Tenant not found" };
+		}
 
 		const domains = await controlDb
 			.select()
@@ -243,7 +245,9 @@ export async function setTenantFeatureAction(
 			.from(tenants)
 			.where(eq(tenants.id, tenantId))
 			.limit(1);
-		if (!tenant) return { success: false, error: "Tenant not found" };
+		if (!tenant) {
+			return { success: false, error: "Tenant not found" };
+		}
 
 		await controlDb
 			.insert(tenantFeatures)
@@ -298,7 +302,9 @@ export async function updateTenantDisplayNameAction(
 	try {
 		await requireSuperAdmin();
 		const trimmed = displayName.trim();
-		if (!trimmed) return { success: false, error: "Display name is required" };
+		if (!trimmed) {
+			return { success: false, error: "Display name is required" };
+		}
 		await controlDb
 			.update(tenants)
 			.set({ displayName: trimmed })
@@ -324,7 +330,9 @@ export async function addTenantDomainAction(
 	try {
 		await requireSuperAdmin();
 		const host = hostname.trim().toLowerCase();
-		if (!host) return { success: false, error: "Hostname is required" };
+		if (!host) {
+			return { success: false, error: "Hostname is required" };
+		}
 		if (!/^[a-z0-9.-]+$/.test(host)) {
 			return { success: false, error: "Invalid hostname characters" };
 		}

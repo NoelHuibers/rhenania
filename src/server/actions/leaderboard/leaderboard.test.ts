@@ -28,7 +28,9 @@ async function drinkWithVolume(name: string, volume: number | null) {
 		.insert(drinks)
 		.values({ name, price: 1, volume })
 		.returning();
-	if (!drink) throw new Error("Could not create drink");
+	if (!drink) {
+		throw new Error("Could not create drink");
+	}
 	return drink;
 }
 

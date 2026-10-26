@@ -82,7 +82,9 @@ function toValues(p: z.infer<typeof memberInputSchema>) {
 
 export async function listMembers() {
 	const guard = await requireRoles(MEMBER_VIEW_ROLES);
-	if (!guard.ok) return [];
+	if (!guard.ok) {
+		return [];
+	}
 	const isBeitragspflichtig = makeBeitragspflichtigMatcher(
 		await getTenantMemberStatuses(),
 	);
@@ -103,7 +105,9 @@ export async function listMemberStatusOptions(): Promise<
 	{ value: string; label: string }[]
 > {
 	const guard = await requireRoles(MEMBER_VIEW_ROLES);
-	if (!guard.ok) return [];
+	if (!guard.ok) {
+		return [];
+	}
 	const statuses = await getTenantMemberStatuses();
 	return statuses.map((s) => ({ value: s.key, label: s.label }));
 }
@@ -112,7 +116,9 @@ export type MemberListItem = Awaited<ReturnType<typeof listMembers>>[number];
 
 export async function createMember(input: MemberInput) {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	try {
 		const parsed = memberInputSchema.parse(input);
 		const [row] = await db
@@ -141,7 +147,9 @@ export async function createMember(input: MemberInput) {
 
 export async function updateMember(id: string, input: MemberInput) {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	try {
 		const parsed = memberInputSchema.parse(input);
 		const [row] = await db
@@ -149,8 +157,9 @@ export async function updateMember(id: string, input: MemberInput) {
 			.set({ ...toValues(parsed), updatedBy: guard.userId })
 			.where(eq(members.id, id))
 			.returning();
-		if (!row)
+		if (!row) {
 			return { success: false as const, error: "Mitglied nicht gefunden" };
+		}
 		// A corrected email may now match an existing account — link it right away.
 		const linkedNow = row.userId == null ? await tryAutoLinkMember(id) : false;
 		revalidatePath("/adressliste");
@@ -176,17 +185,26 @@ export async function updateMemberFields(
 	patch: Record<string, unknown>,
 ) {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	try {
 		const parsed = editableFieldsSchema.parse(patch);
 		const set: Record<string, unknown> = {};
 		for (const [k, val] of Object.entries(parsed)) {
-			if (val === undefined) continue;
+			if (val === undefined) {
+				continue;
+			}
 			if (typeof val === "string") {
 				const t = val.trim();
-				if (REQUIRED_FIELDS.has(k) && t === "") continue; // never blank a required field
-				if (k === "status") set[k] = normalizeStatus(t);
-				else set[k] = REQUIRED_FIELDS.has(k) ? t : t || null;
+				if (REQUIRED_FIELDS.has(k) && t === "") {
+					continue; // never blank a required field
+				}
+				if (k === "status") {
+					set[k] = normalizeStatus(t);
+				} else {
+					set[k] = REQUIRED_FIELDS.has(k) ? t : t || null;
+				}
 			} else {
 				set[k] = val;
 			}
@@ -215,7 +233,9 @@ export async function updateMemberFields(
 
 export async function setAddressNeedsUpdate(id: string, value: boolean) {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	await db
 		.update(members)
 		.set({ addressNeedsUpdate: value, updatedBy: guard.userId })
@@ -226,7 +246,9 @@ export async function setAddressNeedsUpdate(id: string, value: boolean) {
 
 export async function deleteMember(id: string) {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) return { success: false as const, error: guard.error };
+	if (!guard.ok) {
+		return { success: false as const, error: guard.error };
+	}
 	const [row] = await db
 		.select({ c: sql<number>`count(*)` })
 		.from(semesterbeitragCharges)

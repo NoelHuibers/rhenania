@@ -47,7 +47,9 @@ export function EtaplanDialog({ open, onOpenChange, etaplan, onSaved }: Props) {
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			return;
+		}
 		if (etaplan) {
 			setSemesterType(etaplan.semesterType);
 			setYear(String(etaplan.year));
@@ -96,7 +98,9 @@ export function EtaplanDialog({ open, onOpenChange, etaplan, onSaved }: Props) {
 
 			if (res.success) {
 				toast.success(isEdit ? "Etatplan gespeichert" : "Etatplan erstellt");
-				if ("warning" in res && res.warning) toast.warning(res.warning);
+				if ("warning" in res && res.warning) {
+					toast.warning(res.warning);
+				}
 				const newId =
 					"data" in res && res.data ? (res.data as Etaplan).id : etaplan?.id;
 				onSaved(newId);

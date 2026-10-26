@@ -3,7 +3,9 @@
 // so it can be used as a drop-in replacement for Number.parseFloat.
 export function parseDecimalInput(value: string): number {
 	const s = value.trim().replace(/[€\s]/g, "");
-	if (!s) return Number.NaN;
+	if (!s) {
+		return Number.NaN;
+	}
 
 	const lastComma = s.lastIndexOf(",");
 	const lastDot = s.lastIndexOf(".");

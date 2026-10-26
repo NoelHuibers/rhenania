@@ -41,7 +41,9 @@ export class TenantNotFoundError extends Error {
 
 export async function getTenantDb(tenantId: string): Promise<TenantDb> {
 	const cached = tenantDbCache.get(tenantId);
-	if (cached) return cached.db;
+	if (cached) {
+		return cached.db;
+	}
 
 	const [tenant] = await controlDb
 		.select({
@@ -53,13 +55,17 @@ export async function getTenantDb(tenantId: string): Promise<TenantDb> {
 		.where(eq(tenants.id, tenantId))
 		.limit(1);
 
-	if (!tenant) throw new TenantNotFoundError(tenantId);
+	if (!tenant) {
+		throw new TenantNotFoundError(tenantId);
+	}
 	if (tenant.status === "suspended") {
 		throw new Error(`Tenant suspended: ${tenantId}`);
 	}
 
 	const existing = tenantDbCache.get(tenantId);
-	if (existing && existing.dbUrl === tenant.dbUrl) return existing.db;
+	if (existing && existing.dbUrl === tenant.dbUrl) {
+		return existing.db;
+	}
 
 	const client = createClient({
 		url: tenant.dbUrl,
@@ -96,7 +102,9 @@ export async function getCurrentTenantDb(): Promise<TenantDb> {
  */
 export async function resolveTenantClient(tenantId: string): Promise<Client> {
 	const cached = tenantDbCache.get(tenantId);
-	if (cached) return cached.client;
+	if (cached) {
+		return cached.client;
+	}
 
 	const [tenant] = await controlDb
 		.select({
@@ -108,7 +116,9 @@ export async function resolveTenantClient(tenantId: string): Promise<Client> {
 		.where(eq(tenants.id, tenantId))
 		.limit(1);
 
-	if (!tenant) throw new TenantNotFoundError(tenantId);
+	if (!tenant) {
+		throw new TenantNotFoundError(tenantId);
+	}
 	if (tenant.status === "suspended") {
 		throw new Error(`Tenant suspended: ${tenantId}`);
 	}
@@ -129,6 +139,8 @@ export function clearTenantDbCache(tenantId?: string) {
 		tenantDbCache.delete(tenantId);
 		return;
 	}
-	for (const entry of tenantDbCache.values()) entry.client.close();
+	for (const entry of tenantDbCache.values()) {
+		entry.client.close();
+	}
 	tenantDbCache.clear();
 }

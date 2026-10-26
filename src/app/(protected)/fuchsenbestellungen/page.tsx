@@ -1,4 +1,4 @@
-import FuchsenOrdersPage from "~/components/fuchsenladen/FuchsenOrdersPage";
+import { FuchsenOrdersPage } from "~/components/fuchsenladen/FuchsenOrdersPage";
 import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 
 export default function Page() {

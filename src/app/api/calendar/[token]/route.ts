@@ -24,7 +24,9 @@ function escapeICalText(str: string): string {
 }
 
 function foldLine(line: string): string {
-	if (line.length <= 75) return line;
+	if (line.length <= 75) {
+		return line;
+	}
 	const chunks: string[] = [];
 	chunks.push(line.slice(0, 75));
 	let i = 75;
@@ -123,7 +125,9 @@ export async function GET(
 			).getTime();
 			for (const r of eventRsvpList) {
 				const rMs = (r.updatedAt ?? r.createdAt).getTime();
-				if (rMs > latestMs) latestMs = rMs;
+				if (rMs > latestMs) {
+					latestMs = rMs;
+				}
 			}
 			const sequence = Math.floor(latestMs / 1000);
 			const lastModified = formatICalDate(new Date(latestMs));
@@ -152,7 +156,9 @@ export async function GET(
 			);
 
 			for (const r of eventRsvpList) {
-				if (r.userId === tokenRow.userId) continue;
+				if (r.userId === tokenRow.userId) {
+					continue;
+				}
 				const partstat = STATUS_TO_PARTSTAT[r.status] ?? "NEEDS-ACTION";
 				const cn = escapeICalText(r.userName ?? r.userEmail);
 				lines.push(
@@ -167,7 +173,9 @@ export async function GET(
 				lines.push(foldLine(`LOCATION:${escapeICalText(resolved)}`));
 			}
 			const descParts: string[] = [];
-			if (event.description) descParts.push(event.description);
+			if (event.description) {
+				descParts.push(event.description);
+			}
 			if (event.meetingUrl) {
 				descParts.push(`Online-Meeting: ${event.meetingUrl}`);
 			}

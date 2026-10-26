@@ -69,7 +69,9 @@ export function BillingOverview() {
 	};
 
 	const handlePayWithPayPal = () => {
-		if (!billData || !payment) return;
+		if (!billData || !payment) {
+			return;
+		}
 		window.open(
 			`${payment.paypalBaseUrl}/${billData.total.toFixed(2)}EUR`,
 			"_blank",

@@ -383,10 +383,14 @@ export function EventsManager({
 	}
 
 	async function confirmDelete() {
-		if (!deleteId) return;
+		if (!deleteId) {
+			return;
+		}
 		const result = await deleteEvent(deleteId);
 		setDeleteId(null);
-		if (result.success) router.refresh();
+		if (result.success) {
+			router.refresh();
+		}
 	}
 
 	async function handleToggleCancel(id: string) {

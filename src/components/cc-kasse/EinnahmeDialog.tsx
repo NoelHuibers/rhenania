@@ -61,7 +61,9 @@ export function EinnahmeDialog({
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			return;
+		}
 		if (editing) {
 			setKostenpunktId(editing.kostenpunktId);
 			setAmount(String(editing.amount));

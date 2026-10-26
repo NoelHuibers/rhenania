@@ -28,14 +28,18 @@ export async function getUserPreference<T>(
 ): Promise<T> {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return fallback;
+	if (!userId) {
+		return fallback;
+	}
 
 	const row = await db.query.userPreferences.findFirst({
 		where: (t, { and, eq }) => and(eq(t.userId, userId), eq(t.key, key)),
 		columns: { value: true, valueType: true },
 	});
 
-	if (!row) return fallback;
+	if (!row) {
+		return fallback;
+	}
 	try {
 		return decodeValue<T>(
 			row.value,
@@ -53,7 +57,9 @@ export async function setUserPreference(
 ): Promise<{ success: true } | { success: false; error: string }> {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return { success: false, error: "Not authenticated" };
+	if (!userId) {
+		return { success: false, error: "Not authenticated" };
+	}
 
 	const encoded = encodeValue(value, valueType);
 
@@ -98,7 +104,9 @@ export async function isEloEnabledForUser(userId: string): Promise<boolean> {
 		where: (t, { and, eq }) => and(eq(t.userId, userId), eq(t.key, ELO_KEY)),
 		columns: { value: true },
 	});
-	if (!row) return true;
+	if (!row) {
+		return true;
+	}
 	try {
 		return JSON.parse(row.value) !== false;
 	} catch {
@@ -134,7 +142,9 @@ export async function isPublicProfileEnabledForUser(
 			and(eq(t.userId, userId), eq(t.key, PUBLIC_PROFILE_KEY)),
 		columns: { value: true },
 	});
-	if (!row) return true;
+	if (!row) {
+		return true;
+	}
 	try {
 		return JSON.parse(row.value) !== false;
 	} catch {
@@ -202,7 +212,9 @@ const ALL_EVENT_TYPES = [
 export type EventTypeName = (typeof ALL_EVENT_TYPES)[number];
 
 function sanitizeHiddenTypes(value: unknown): EventTypeName[] {
-	if (!Array.isArray(value)) return [];
+	if (!Array.isArray(value)) {
+		return [];
+	}
 	return value.filter((v): v is EventTypeName =>
 		(ALL_EVENT_TYPES as readonly string[]).includes(v),
 	);
@@ -225,7 +237,9 @@ export async function getHiddenEventTypesForUser(
 			and(eq(t.userId, userId), eq(t.key, HIDDEN_EVENT_TYPES_KEY)),
 		columns: { value: true },
 	});
-	if (!row) return [];
+	if (!row) {
+		return [];
+	}
 	try {
 		return sanitizeHiddenTypes(JSON.parse(row.value));
 	} catch {
@@ -248,7 +262,9 @@ export async function setHiddenEventTypes(types: EventTypeName[]) {
 export async function getAllPreferences() {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return {};
+	if (!userId) {
+		return {};
+	}
 
 	const rows = await db.query.userPreferences.findMany({
 		where: (t, { eq }) => eq(t.userId, userId),

@@ -148,8 +148,12 @@ export function DrinkRow({
 						className="w-full"
 						disabled={isPending || isUploadingImage}
 						onKeyDown={(e) => {
-							if (e.key === "Enter") onSave();
-							if (e.key === "Escape") onCancel();
+							if (e.key === "Enter") {
+								onSave();
+							}
+							if (e.key === "Escape") {
+								onCancel();
+							}
 						}}
 					/>
 				) : (
@@ -171,8 +175,12 @@ export function DrinkRow({
 							className="w-24"
 							disabled={isPending || isUploadingImage}
 							onKeyDown={(e) => {
-								if (e.key === "Enter") onSave();
-								if (e.key === "Escape") onCancel();
+								if (e.key === "Enter") {
+									onSave();
+								}
+								if (e.key === "Escape") {
+									onCancel();
+								}
 							}}
 						/>
 					</div>
@@ -195,8 +203,12 @@ export function DrinkRow({
 							placeholder="Leer"
 							disabled={isPending || isUploadingImage}
 							onKeyDown={(e) => {
-								if (e.key === "Enter") onSave();
-								if (e.key === "Escape") onCancel();
+								if (e.key === "Enter") {
+									onSave();
+								}
+								if (e.key === "Escape") {
+									onCancel();
+								}
 							}}
 						/>
 						<span className="text-muted-foreground text-sm" aria-hidden>
@@ -229,8 +241,12 @@ export function DrinkRow({
 						placeholder="Leer"
 						disabled={isPending || isUploadingImage}
 						onKeyDown={(e) => {
-							if (e.key === "Enter") onSave();
-							if (e.key === "Escape") onCancel();
+							if (e.key === "Enter") {
+								onSave();
+							}
+							if (e.key === "Escape") {
+								onCancel();
+							}
 						}}
 					/>
 				) : (

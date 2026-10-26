@@ -22,7 +22,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { authClient } from "~/server/auth/client";
 
-export default function ForgotPassword() {
+export function ForgotPassword() {
 	const [email, setEmail] = useState("");
 	const [submittedEmail, setSubmittedEmail] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +31,9 @@ export default function ForgotPassword() {
 	const handleSubmit = async (event: React.FormEvent) => {
 		event.preventDefault();
 		const normalizedEmail = email.trim().toLowerCase();
-		if (!normalizedEmail) return;
+		if (!normalizedEmail) {
+			return;
+		}
 
 		setIsLoading(true);
 		setError("");

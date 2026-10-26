@@ -18,7 +18,7 @@ import {
 	updateDrink,
 } from "~/server/actions/drinks";
 
-export default function GetraenkePage() {
+export function GetraenkePage() {
 	const tenantSlug = useTenantSlug();
 	const [drinks, setDrinks] = useState<Drink[]>([]);
 	const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -204,9 +204,12 @@ export default function GetraenkePage() {
 					volume?: number;
 					kastengroesse?: number;
 				} = { name: editingData.name.trim(), price };
-				if (volume !== undefined) updateData.volume = volume;
-				if (kastengroesse !== undefined)
+				if (volume !== undefined) {
+					updateData.volume = volume;
+				}
+				if (kastengroesse !== undefined) {
 					updateData.kastengroesse = kastengroesse;
+				}
 
 				const result = await updateDrink(id, updateData);
 				if (result.success) {

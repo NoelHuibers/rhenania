@@ -158,7 +158,9 @@ function fmt(amount: number) {
 }
 
 function fmtDate(date: Date | null) {
-	if (!date) return "—";
+	if (!date) {
+		return "—";
+	}
 	return new Date(date).toLocaleDateString("de-DE");
 }
 
@@ -180,7 +182,9 @@ function SummarySection({
 
 	function handleSavePfand() {
 		const parsed = parseDecimalInput(pfandInput);
-		if (Number.isNaN(parsed)) return;
+		if (Number.isNaN(parsed)) {
+			return;
+		}
 		startTransition(async () => {
 			const res = await setPfandWert(parsed);
 			if (res.success) {
@@ -282,8 +286,12 @@ function SummarySection({
 										placeholder="0,00"
 										autoFocus
 										onKeyDown={(e) => {
-											if (e.key === "Enter") handleSavePfand();
-											if (e.key === "Escape") setEditingPfand(false);
+											if (e.key === "Enter") {
+												handleSavePfand();
+											}
+											if (e.key === "Escape") {
+												setEditingPfand(false);
+											}
 										}}
 									/>
 									<Button
@@ -346,7 +354,9 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 		: parsedKontostand - balance;
 
 	function handleAdd() {
-		if (diff === null || !description.trim()) return;
+		if (diff === null || !description.trim()) {
+			return;
+		}
 		startTransition(async () => {
 			const res = await addBankEntry({
 				amount: diff,
@@ -907,7 +917,9 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 
 	function handleAdd() {
 		const parsed = parseDecimalInput(amount);
-		if (Number.isNaN(parsed) || !creditor.trim() || !description.trim()) return;
+		if (Number.isNaN(parsed) || !creditor.trim() || !description.trim()) {
+			return;
+		}
 		startTransition(async () => {
 			const res = await addExternalBill({
 				creditor: creditor.trim(),
@@ -1161,7 +1173,7 @@ function NeueRechnungCard() {
 
 // ─── KasseTab ─────────────────────────────────────────────────────────────────
 
-export default function KasseTab({
+export function KasseTab({
 	summary,
 	bankEntries,
 	externalBills,

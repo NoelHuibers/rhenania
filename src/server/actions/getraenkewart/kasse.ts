@@ -45,7 +45,9 @@ export async function getKasseSummary() {
 				.where(eq(inventories.status, "closed"))
 				.orderBy(desc(inventories.closedAt))
 				.limit(1);
-			if (!lastClosed) return { value: 0, date: null as Date | null };
+			if (!lastClosed) {
+				return { value: 0, date: null as Date | null };
+			}
 			const items = await db
 				.select({
 					counted: inventoryItems.countedStock,
@@ -122,7 +124,9 @@ export async function addBankEntry(data: {
 	date: Date;
 }) {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	await db.insert(bankEntries).values({
 		amount: data.amount,
@@ -135,7 +139,9 @@ export async function addBankEntry(data: {
 
 export async function deleteBankEntry(id: string) {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	await db.delete(bankEntries).where(eq(bankEntries.id, id));
 	return { success: true };
@@ -153,7 +159,9 @@ export async function addExternalBill(data: {
 	amount: number;
 }) {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	await db.insert(externalBills).values({
 		creditor: data.creditor,
@@ -166,7 +174,9 @@ export async function addExternalBill(data: {
 
 export async function markExternalBillPaid(id: string) {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	await db
 		.update(externalBills)
@@ -177,7 +187,9 @@ export async function markExternalBillPaid(id: string) {
 
 export async function deleteExternalBill(id: string) {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	await db.delete(externalBills).where(eq(externalBills.id, id));
 	return { success: true };
@@ -195,7 +207,9 @@ export async function getPfandWert() {
 
 export async function setPfandWert(value: number) {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	await db
 		.insert(kasseConfig)
@@ -274,10 +288,14 @@ export async function downloadEntityBillPDF(billId: string): Promise<{
 	error?: string;
 }> {
 	const session = await auth();
-	if (!session?.user?.id) return { success: false, error: "Nicht angemeldet" };
+	if (!session?.user?.id) {
+		return { success: false, error: "Nicht angemeldet" };
+	}
 
 	const allowed = await hasGetraenkewartRole(session.user.id);
-	if (!allowed) return { success: false, error: "Keine Berechtigung" };
+	if (!allowed) {
+		return { success: false, error: "Keine Berechtigung" };
+	}
 
 	const result = await generateUserBillPDF(billId);
 	if (!result.success || !result.pdfContent) {
@@ -306,9 +324,12 @@ async function requireGetraenkewart(): Promise<
 	{ ok: true; userId: string } | { ok: false; error: string }
 > {
 	const session = await auth();
-	if (!session?.user?.id) return { ok: false, error: "Nicht angemeldet" };
-	if (!(await hasGetraenkewartRole(session.user.id)))
+	if (!session?.user?.id) {
+		return { ok: false, error: "Nicht angemeldet" };
+	}
+	if (!(await hasGetraenkewartRole(session.user.id))) {
 		return { ok: false, error: "Keine Berechtigung" };
+	}
 	return { ok: true, userId: session.user.id };
 }
 
@@ -324,7 +345,9 @@ export async function getGetraenkeSettings(): Promise<GetraenkeSettings | null> 
 		hasFeature("drinks.markup"),
 		hasFeature("billing.treasurerRecipient"),
 	]);
-	if (!markup && !treasurer) return null;
+	if (!markup && !treasurer) {
+		return null;
+	}
 
 	const [row] = await db
 		.select({
@@ -344,17 +367,21 @@ export async function getGetraenkeSettings(): Promise<GetraenkeSettings | null> 
 
 export async function setMarkupPercent(value: number): Promise<ActionResult> {
 	const gate = await requireGetraenkewart();
-	if (!gate.ok) return { success: false, error: gate.error };
-	if (!(await hasFeature("drinks.markup")))
+	if (!gate.ok) {
+		return { success: false, error: gate.error };
+	}
+	if (!(await hasFeature("drinks.markup"))) {
 		return {
 			success: false,
 			error: new FeatureDisabledError("drinks.markup").message,
 		};
-	if (!isValidMarkupPercent(value))
+	}
+	if (!isValidMarkupPercent(value)) {
 		return {
 			success: false,
 			error: `Der Aufschlag muss zwischen 0 und ${MAX_MARKUP_PERCENT} % liegen.`,
 		};
+	}
 
 	await db
 		.insert(kasseConfig)
@@ -371,23 +398,29 @@ export async function setBillRecipient(
 	treasurerEmail: string,
 ): Promise<ActionResult> {
 	const gate = await requireGetraenkewart();
-	if (!gate.ok) return { success: false, error: gate.error };
-	if (!(await hasFeature("billing.treasurerRecipient")))
+	if (!gate.ok) {
+		return { success: false, error: gate.error };
+	}
+	if (!(await hasFeature("billing.treasurerRecipient"))) {
 		return {
 			success: false,
 			error: new FeatureDisabledError("billing.treasurerRecipient").message,
 		};
-	if (mode !== "members" && mode !== "treasurer")
+	}
+	if (mode !== "members" && mode !== "treasurer") {
 		return { success: false, error: "Ungültiger Empfänger" };
+	}
 
 	const email = treasurerEmail.trim();
-	if (email && !z.string().email().safeParse(email).success)
+	if (email && !z.string().email().safeParse(email).success) {
 		return { success: false, error: "Ungültige E-Mail-Adresse" };
-	if (mode === "treasurer" && !email)
+	}
+	if (mode === "treasurer" && !email) {
 		return {
 			success: false,
 			error: "Bitte die E-Mail-Adresse des Kassenwarts eintragen.",
 		};
+	}
 
 	const values = { billRecipient: mode, treasurerEmail: email || null };
 	await db
@@ -406,12 +439,15 @@ export async function markAllMemberBillsPaid(): Promise<
 	{ success: true; count: number } | { success: false; error: string }
 > {
 	const gate = await requireGetraenkewart();
-	if (!gate.ok) return { success: false, error: gate.error };
-	if (!(await hasFeature("billing.markAllPaid")))
+	if (!gate.ok) {
+		return { success: false, error: gate.error };
+	}
+	if (!(await hasFeature("billing.markAllPaid"))) {
 		return {
 			success: false,
 			error: new FeatureDisabledError("billing.markAllPaid").message,
 		};
+	}
 
 	// Same set the Kasse lists as open: unpaid and deferred member bills.
 	// Group bills are settled separately and stay untouched.
@@ -421,13 +457,16 @@ export async function markAllMemberBillsPaid(): Promise<
 		// Reuse the single-bill path so carried-over predecessor bills are
 		// settled exactly as when the Getränkewart marks one bill paid.
 		const res = await updateBillStatus(bill.id, "Bezahlt");
-		if (res.success) count++;
+		if (res.success) {
+			count++;
+		}
 	}
 
-	if (count < open.length)
+	if (count < open.length) {
 		return {
 			success: false,
 			error: `${count} von ${open.length} Rechnungen als bezahlt markiert.`,
 		};
+	}
 	return { success: true, count };
 }

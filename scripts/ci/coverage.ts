@@ -31,17 +31,24 @@ export function aggregate(summary: Summary): Record<string, Totals> {
 		s.branches.covered += entry.branches.covered;
 	};
 	for (const [file, entry] of Object.entries(summary)) {
-		if (file === "total") continue;
+		if (file === "total") {
+			continue;
+		}
 		const area = AREAS.find(([, re]) => re.test(file))?.[0];
-		if (area) add(area, entry);
+		if (area) {
+			add(area, entry);
+		}
 	}
 	const result: Record<string, Totals> = {};
 	const total = summary.total;
-	if (total)
+	if (total) {
 		result.total = { lines: pct(total.lines), branches: pct(total.branches) };
+	}
 	for (const [area] of AREAS) {
 		const s = sums[area];
-		if (s) result[area] = { lines: pct(s.lines), branches: pct(s.branches) };
+		if (s) {
+			result[area] = { lines: pct(s.lines), branches: pct(s.branches) };
+		}
 	}
 	return result;
 }
@@ -63,14 +70,15 @@ export function compare(
 		}
 		for (const metric of ["lines", "branches"] as const) {
 			const diff = Math.round((now[metric] - base[metric]) * 10) / 10;
-			if (diff < -TOLERANCE)
+			if (diff < -TOLERANCE) {
 				regressions.push(
 					`${area} ${metric}: ${base[metric]}% → ${now[metric]}%`,
 				);
-			else if (diff >= 1)
+			} else if (diff >= 1) {
 				improvements.push(
 					`${area} ${metric}: ${base[metric]}% → ${now[metric]}% (consider pnpm coverage:baseline)`,
 				);
+			}
 		}
 	}
 	return { regressions, improvements };

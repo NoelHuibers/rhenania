@@ -52,24 +52,34 @@ function paymentLabel(
 
 function formatDelta(target: Date, now: number): string {
 	const diffMs = target.getTime() - now;
-	if (diffMs <= 0) return "abgelaufen";
+	if (diffMs <= 0) {
+		return "abgelaufen";
+	}
 	const totalSec = Math.floor(diffMs / 1000);
 	const h = Math.floor(totalSec / 3600);
 	const m = Math.floor((totalSec % 3600) / 60);
 	const s = totalSec % 60;
-	if (h > 0) return `${h}h ${m}m`;
-	if (m > 0) return `${m}m ${String(s).padStart(2, "0")}s`;
+	if (h > 0) {
+		return `${h}h ${m}m`;
+	}
+	if (m > 0) {
+		return `${m}m ${String(s).padStart(2, "0")}s`;
+	}
 	return `${s}s`;
 }
 
 function useCountdown(target: Date | null) {
 	const [now, setNow] = useState(() => Date.now());
 	useEffect(() => {
-		if (!target) return;
+		if (!target) {
+			return;
+		}
 		const id = setInterval(() => setNow(Date.now()), 1000);
 		return () => clearInterval(id);
 	}, [target]);
-	if (!target) return "";
+	if (!target) {
+		return "";
+	}
 	return formatDelta(target, now);
 }
 

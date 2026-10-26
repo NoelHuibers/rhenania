@@ -64,7 +64,9 @@ export function KostenpunktDialog({
 	const [isPending, startTransition] = useTransition();
 
 	useEffect(() => {
-		if (!open) return;
+		if (!open) {
+			return;
+		}
 		if (kostenpunkt) {
 			setCategorySel(kostenpunkt.category);
 			setNewCategory("");

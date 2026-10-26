@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
-import DefaultLandingPage from "~/tenants/default/landing-page";
-import RhenaniaLandingPage from "~/tenants/rhenania/landing-page";
+import { DefaultLandingPage } from "~/tenants/default/landing-page";
+import { RhenaniaLandingPage } from "~/tenants/rhenania/landing-page";
 import {
 	createRhenaniaMetadata,
 	JsonLd,
@@ -10,7 +10,9 @@ import {
 
 export async function generateMetadata(): Promise<Metadata> {
 	const tenant = await getCurrentTenant();
-	if (tenant?.slug !== "rhenania") return {};
+	if (tenant?.slug !== "rhenania") {
+		return {};
+	}
 
 	return createRhenaniaMetadata({
 		title: "Corps Rhenania – Studentenverbindung in Stuttgart",

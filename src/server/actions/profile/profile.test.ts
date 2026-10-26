@@ -48,7 +48,9 @@ afterEach(() => {
 
 const form = (values: Record<string, string>) => {
 	const data = new FormData();
-	for (const [k, v] of Object.entries(values)) data.set(k, v);
+	for (const [k, v] of Object.entries(values)) {
+		data.set(k, v);
+	}
 	return data;
 };
 
@@ -232,8 +234,12 @@ describe("syncFromMicrosoft", () => {
 		const api = vi.fn((path: string) => ({
 			select: () => ({ get: async () => me }),
 			get: async () => {
-				if (path !== "/me/photo") return me;
-				if (photo instanceof Error) throw photo;
+				if (path !== "/me/photo") {
+					return me;
+				}
+				if (photo instanceof Error) {
+					throw photo;
+				}
 				return photo;
 			},
 		}));

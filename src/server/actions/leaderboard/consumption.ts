@@ -66,8 +66,11 @@ export async function getConsumptionLast6MonthsByDrink(): Promise<{
 
 	// Drinks
 	const drinkMap = new Map<string, string>();
-	for (const r of rows)
-		if (!drinkMap.has(r.drinkId)) drinkMap.set(r.drinkId, r.drinkName);
+	for (const r of rows) {
+		if (!drinkMap.has(r.drinkId)) {
+			drinkMap.set(r.drinkId, r.drinkName);
+		}
+	}
 
 	// Axis + lookup
 	const months = monthRangeLast6();
@@ -87,14 +90,18 @@ export async function getConsumptionLast6MonthsByDrink(): Promise<{
 			label: fmt.format(new Date(mStart * 1000)),
 			total: 0,
 		};
-		for (const id of drinkMap.keys()) point[keyFor(id)] = 0;
+		for (const id of drinkMap.keys()) {
+			point[keyFor(id)] = 0;
+		}
 		return point;
 	});
 
 	// Fill
 	for (const r of rows) {
 		const idx = monthIndex.get(Number(r.monthStart));
-		if (idx == null) continue;
+		if (idx == null) {
+			continue;
+		}
 		const key = keyFor(r.drinkId);
 		(data[idx] as ConsumptionLinePoint)[key] =
 			Math.round(Number(r.liters ?? 0) * 100) / 100;
@@ -103,7 +110,9 @@ export async function getConsumptionLast6MonthsByDrink(): Promise<{
 	// Totals
 	for (const p of data) {
 		let t = 0;
-		for (const id of drinkMap.keys()) t += Number(p[keyFor(id)] ?? 0);
+		for (const id of drinkMap.keys()) {
+			t += Number(p[keyFor(id)] ?? 0);
+		}
 		p.total = Math.round(t * 100) / 100;
 	}
 

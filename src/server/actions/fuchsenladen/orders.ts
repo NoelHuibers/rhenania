@@ -226,7 +226,9 @@ export async function updateFuchsenOrderStatus(
 ) {
 	try {
 		const auth = await requireFuchsenwart();
-		if (!auth.ok) return { success: false, error: auth.error };
+		if (!auth.ok) {
+			return { success: false, error: auth.error };
+		}
 
 		const db = await getCurrentTenantDb();
 		const [updated] = await db
@@ -256,7 +258,9 @@ export async function updateFuchsenOrderStatus(
 export async function markAllUserFuchsenOrdersPaid(userId: string) {
 	try {
 		const authCheck = await requireFuchsenwart();
-		if (!authCheck.ok) return { success: false, error: authCheck.error };
+		if (!authCheck.ok) {
+			return { success: false, error: authCheck.error };
+		}
 
 		const db = await getCurrentTenantDb();
 		const result = await db
@@ -287,7 +291,9 @@ export async function markAllUserFuchsenOrdersPaid(userId: string) {
 export async function deleteFuchsenOrder(orderId: string) {
 	try {
 		const authCheck = await requireFuchsenwart();
-		if (!authCheck.ok) return { success: false, error: authCheck.error };
+		if (!authCheck.ok) {
+			return { success: false, error: authCheck.error };
+		}
 
 		const db = await getCurrentTenantDb();
 		await db.delete(fuchsenOrders).where(eq(fuchsenOrders.id, orderId));

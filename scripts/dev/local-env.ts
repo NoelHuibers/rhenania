@@ -35,7 +35,9 @@ const ENV_FILES = [
 
 function keysIn(file: string): string[] {
 	const full = path.join(ROOT, file);
-	if (!existsSync(full)) return [];
+	if (!existsSync(full)) {
+		return [];
+	}
 	const content = readFileSync(full, "utf8");
 	// dotenv's own parser (same syntax Next.js accepts, incl. `KEY: value`),
 	// plus a loose scan as a second net for anything it might skip.
@@ -56,10 +58,14 @@ export function localEnv(
 ): NodeJS.ProcessEnv {
 	const env: NodeJS.ProcessEnv = { ...process.env };
 	for (const file of ENV_FILES) {
-		for (const key of keysIn(file)) env[key] = "";
+		for (const key of keysIn(file)) {
+			env[key] = "";
+		}
 	}
 	for (const key of Object.keys(env)) {
-		if (CREDENTIAL.test(key)) env[key] = "";
+		if (CREDENTIAL.test(key)) {
+			env[key] = "";
+		}
 	}
 	Object.assign(env, {
 		DATABASE_URL: `file:${LOCAL_DB.rhenania}`,

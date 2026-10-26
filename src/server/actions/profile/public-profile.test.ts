@@ -38,7 +38,9 @@ async function createAchievement(
 			...values,
 		})
 		.returning();
-	if (!row) throw new Error("no achievement");
+	if (!row) {
+		throw new Error("no achievement");
+	}
 	return row;
 }
 
@@ -105,7 +107,9 @@ describe("getPublicProfile", () => {
 		const profile = await getPublicProfile(target.id);
 
 		expect(profile.status).toBe("public");
-		if (profile.status !== "public") return;
+		if (profile.status !== "public") {
+			return;
+		}
 		expect(profile.user).toEqual({
 			id: target.id,
 			name: "Max",

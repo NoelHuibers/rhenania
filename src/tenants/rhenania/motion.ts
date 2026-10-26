@@ -36,7 +36,9 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(options?: {
 
 	useLayoutEffect(() => {
 		const el = ref.current;
-		if (!el || prefersReducedMotion()) return;
+		if (!el || prefersReducedMotion()) {
+			return;
+		}
 		const { gsap } = ensureGsap();
 
 		const items = el.querySelectorAll<HTMLElement>("[data-animate]");
@@ -46,7 +48,9 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(options?: {
 
 		let played = false;
 		const play = () => {
-			if (played) return;
+			if (played) {
+				return;
+			}
 			played = true;
 			gsap.to(targets, {
 				y: 0,

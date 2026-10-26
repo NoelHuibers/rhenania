@@ -48,7 +48,9 @@ export function FuchsenOrderDrawer({
 	};
 
 	const handleConfirm = () => {
-		if (!item) return;
+		if (!item) {
+			return;
+		}
 
 		startTransition(async () => {
 			try {
@@ -77,7 +79,9 @@ export function FuchsenOrderDrawer({
 		});
 	};
 
-	if (!item) return null;
+	if (!item) {
+		return null;
+	}
 
 	const totalPrice = item.price * quantity;
 

@@ -25,7 +25,9 @@ const EDIT_ROLES = ADRESSLISTE_ROLES;
 
 export default async function AdresslisteRoute() {
 	const session = await auth();
-	if (!session?.user?.id) redirect("/auth/signin");
+	if (!session?.user?.id) {
+		redirect("/auth/signin");
+	}
 
 	const roleNames = await getUserRoleNames(session.user.id);
 	if (!roleNames.some((r) => VIEW_ROLES.includes(r))) {

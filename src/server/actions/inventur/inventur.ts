@@ -83,7 +83,9 @@ async function sumMarkupProfit(from: Date | null, to: Date | null) {
  * none yet). Returns null for tenants without the markup feature.
  */
 export async function getInventoryProfit(): Promise<number | null> {
-	if (!(await hasFeature("drinks.markup"))) return null;
+	if (!(await hasFeature("drinks.markup"))) {
+		return null;
+	}
 
 	const [active] = await db
 		.select({ createdAt: inventories.createdAt })
@@ -259,7 +261,9 @@ export async function saveInventoryCount(
 						.where(eq(drinks.id, item.drinkId))
 						.limit(1);
 
-					if (!drink[0]) continue;
+					if (!drink[0]) {
+						continue;
+					}
 
 					const soldSinceAgg = await tx
 						.select({
@@ -381,7 +385,9 @@ export async function saveInventoryCount(
 					.where(eq(drinks.id, item.drinkId))
 					.limit(1);
 
-				if (!drink[0]) continue;
+				if (!drink[0]) {
+					continue;
+				}
 
 				let closingCounted: number | null = null;
 
@@ -397,8 +403,9 @@ export async function saveInventoryCount(
 						)
 						.limit(1);
 
-					if (justClosedItem[0])
+					if (justClosedItem[0]) {
 						closingCounted = justClosedItem[0].countedStock;
+					}
 				}
 
 				if (closingCounted === null) {
@@ -632,7 +639,9 @@ export type EtaplanWithKostenpunkte = Awaited<
 
 export async function cancelEventInventory() {
 	const session = await auth();
-	if (!session?.user) return { success: false as const, error: "Unauthorized" };
+	if (!session?.user) {
+		return { success: false as const, error: "Unauthorized" };
+	}
 	await db
 		.update(inventories)
 		.set({ kind: "routine", eventId: null, eventName: null, eventDate: null })
@@ -664,7 +673,9 @@ export async function finishEventInventory(
 	| { success: false; error: string }
 > {
 	const session = await auth();
-	if (!session?.user) return { success: false, error: "Unauthorized" };
+	if (!session?.user) {
+		return { success: false, error: "Unauthorized" };
+	}
 
 	try {
 		const report = await db.transaction(async (tx) => {
@@ -675,9 +686,12 @@ export async function finishEventInventory(
 				.orderBy(desc(inventories.createdAt))
 				.limit(1);
 
-			if (!activeInv) throw new Error("Keine aktive Inventur vorhanden");
-			if (activeInv.kind !== "event")
+			if (!activeInv) {
+				throw new Error("Keine aktive Inventur vorhanden");
+			}
+			if (activeInv.kind !== "event") {
 				throw new Error("Die aktive Inventur ist keine Veranstaltung");
+			}
 
 			const reportItems: EventConsumptionReport["items"] = [];
 			let totalQty = 0;
@@ -692,7 +706,9 @@ export async function finishEventInventory(
 					.from(drinks)
 					.where(eq(drinks.id, item.drinkId))
 					.limit(1);
-				if (!drink) continue;
+				if (!drink) {
+					continue;
+				}
 
 				const [soldAgg] = await tx
 					.select({ total: sql<number>`COALESCE(SUM(${orders.amount}), 0)` })
@@ -736,8 +752,9 @@ export async function finishEventInventory(
 				const value = round2(consumed * drink.price);
 				totalQty += consumed;
 				totalValue = round2(totalValue + value);
-				if (consumed > 0)
+				if (consumed > 0) {
 					reportItems.push({ drinkName: drink.name, consumed, value });
+				}
 
 				if (existing) {
 					await tx
@@ -777,8 +794,9 @@ export async function finishEventInventory(
 					totalLoss: 0,
 				})
 				.returning();
-			if (!newInv)
+			if (!newInv) {
 				throw new Error("Folge-Inventur konnte nicht angelegt werden");
+			}
 
 			for (const item of items) {
 				const [drink] = await tx
@@ -786,7 +804,9 @@ export async function finishEventInventory(
 					.from(drinks)
 					.where(eq(drinks.id, item.drinkId))
 					.limit(1);
-				if (!drink) continue;
+				if (!drink) {
+					continue;
+				}
 				const counted = Math.max(0, item.countedStock);
 				await tx.insert(inventoryItems).values({
 					inventoryId: newInv.id,

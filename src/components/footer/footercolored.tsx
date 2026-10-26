@@ -1,11 +1,9 @@
-import Footercontent from "./footercontent";
+import { Footercontent } from "./footercontent";
 
-const Footer = () => {
+export const Footer = () => {
 	return (
 		<footer className="bg-blue-100 px-4 py-4 md:px-28 md:py-6 dark:bg-gray-900">
 			<Footercontent />
 		</footer>
 	);
 };
-
-export default Footer;

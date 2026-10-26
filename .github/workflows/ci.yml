@@ -36,6 +36,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec biome ci .
+      - name: No unexplained biome-ignore
+        run: |
+          if grep -rnE 'biome-ignore[^:]*:[^:]*$' src scripts test e2e | grep -vE 'biome-ignore[^:]*: .*[a-zA-Z]{3,}'; then
+            echo '::error::Every biome-ignore needs a reason after the colon.'; exit 1
+          fi
 
   typecheck:
     name: Typecheck

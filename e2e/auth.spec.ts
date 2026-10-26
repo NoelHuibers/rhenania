@@ -6,7 +6,9 @@ test.describe("authentication", () => {
 	// Production builds rate-limit sign-in per IP; start the UI sign-ins with a
 	// fresh window instead of inheriting the setup project's attempts.
 	test.beforeAll(async () => {
-		if (!process.env.E2E_DEV) await new Promise((r) => setTimeout(r, 11_000));
+		if (!process.env.E2E_DEV) {
+			await new Promise((r) => setTimeout(r, 11_000));
+		}
 	});
 
 	test("anonymous visitors are sent to sign-in", async ({ page }) => {

@@ -32,7 +32,9 @@ export function GetraenkeSettingsCard({
 }) {
 	const markupEnabled = useFeature("drinks.markup");
 	const treasurerEnabled = useFeature("billing.treasurerRecipient");
-	if (!markupEnabled && !treasurerEnabled) return null;
+	if (!markupEnabled && !treasurerEnabled) {
+		return null;
+	}
 
 	return (
 		<Card>
@@ -63,7 +65,9 @@ function MarkupSection({ initial }: { initial: number }) {
 		!Number.isNaN(parsed) && parsed >= 0 && parsed <= MAX_MARKUP_PERCENT;
 
 	function save() {
-		if (!valid) return;
+		if (!valid) {
+			return;
+		}
 		startTransition(async () => {
 			const res = await setMarkupPercent(parsed);
 			if (res.success) {

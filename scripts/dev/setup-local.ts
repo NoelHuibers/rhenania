@@ -54,7 +54,9 @@ async function main() {
 
 	for (const t of SEED_TENANTS) {
 		const file = tenantFile[t.slug];
-		if (!file) throw new Error(`No local DB file for ${t.slug}`);
+		if (!file) {
+			throw new Error(`No local DB file for ${t.slug}`);
+		}
 		const client = await migrated(file, "drizzle");
 		clients.push(client);
 		const tdb = drizzle(client, { schema: tenant });
@@ -127,13 +129,17 @@ async function main() {
 				.insert(control.tenantMemberships)
 				.values({ userId: u.id, tenantId: m.tenantId, status: "active" });
 			const tdb = tenantDbs.get(m.tenantId);
-			if (!tdb) throw new Error(`Unknown tenant ${m.tenantId}`);
+			if (!tdb) {
+				throw new Error(`Unknown tenant ${m.tenantId}`);
+			}
 			await tdb.insert(tenant.users).values(user);
 			for (const roleName of m.roles) {
 				const role = await tdb.query.roles.findFirst({
 					where: (r, { eq }) => eq(r.name, roleName),
 				});
-				if (!role) throw new Error(`Role ${roleName} missing in ${m.tenantId}`);
+				if (!role) {
+					throw new Error(`Role ${roleName} missing in ${m.tenantId}`);
+				}
 				await tdb
 					.insert(tenant.userRoles)
 					.values({ userId: u.id, roleId: role.id });
@@ -141,7 +147,9 @@ async function main() {
 		}
 	}
 
-	for (const client of clients) client.close();
+	for (const client of clients) {
+		client.close();
+	}
 
 	console.log(
 		`Local databases ready in ${path.relative(ROOT, DATA_DIR) || "."}/`,

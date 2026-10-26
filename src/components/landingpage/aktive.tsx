@@ -1,8 +1,8 @@
 // components/landingpage/aktive.tsx
 import { getAllActiveImagesBySection } from "~/server/actions/bilder/images";
-import Aktivenbilder from "./aktivenbilder";
+import { Aktivenbilder } from "./aktivenbilder";
 
-const Aktive = async () => {
+export const Aktive = async () => {
 	// Fetch aktive images server-side
 	const aktiveImages = await getAllActiveImagesBySection("aktive");
 
@@ -27,5 +27,3 @@ const Aktive = async () => {
 		</section>
 	);
 };
-
-export default Aktive;

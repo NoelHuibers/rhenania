@@ -101,7 +101,9 @@ async function processAchievement(
 					.where(eq(drinks.id, context.drinkId))
 					.limit(1);
 				const kiste = drink[0]?.kastengroesse;
-				if (kiste && context.amount >= kiste) newValue = 1;
+				if (kiste && context.amount >= kiste) {
+					newValue = 1;
+				}
 			}
 			break;
 
@@ -117,7 +119,9 @@ async function processAchievement(
 					.where(eq(drinks.id, context.drinkId))
 					.limit(1);
 				const kiste = drink[0]?.kastengroesse ?? 20;
-				if (context.amount >= kiste) newValue = 1;
+				if (context.amount >= kiste) {
+					newValue = 1;
+				}
 			}
 			break;
 
@@ -190,7 +194,9 @@ async function processAchievement(
 				const hour = new Date().getHours();
 				if (hour >= 5 && hour < 8) {
 					const count = await getMorningBeerCount(userId);
-					if (count >= 4) newValue = 1;
+					if (count >= 4) {
+						newValue = 1;
+					}
 				}
 			}
 			break;
@@ -227,7 +233,9 @@ async function processAchievement(
 			if (event === "order_created") {
 				if (new Date().getHours() === 0) {
 					const count = await getMidnightBeerCount(userId);
-					if (count >= 4) newValue = 1;
+					if (count >= 4) {
+						newValue = 1;
+					}
 				}
 			}
 			break;
@@ -335,7 +343,9 @@ async function processAchievement(
 			break;
 	}
 
-	if (newValue === null) return;
+	if (newValue === null) {
+		return;
+	}
 
 	await updateProgress(userId, achievement.id, newValue);
 
@@ -559,8 +569,11 @@ async function getCurrentStreak(userId: string): Promise<number> {
 
 	let streak = 0;
 	for (const game of recentGames) {
-		if (game.winnerId === userId) streak++;
-		else break;
+		if (game.winnerId === userId) {
+			streak++;
+		} else {
+			break;
+		}
 	}
 	return streak;
 }
@@ -605,7 +618,9 @@ async function getConsecutiveWeekends(userId: string): Promise<number> {
 	}
 
 	const sorted = Array.from(weekSaturdays).sort().reverse();
-	if (sorted.length === 0) return 0;
+	if (sorted.length === 0) {
+		return 0;
+	}
 
 	let streak = 1;
 	for (let i = 1; i < sorted.length; i++) {
@@ -614,8 +629,11 @@ async function getConsecutiveWeekends(userId: string): Promise<number> {
 		// biome-ignore lint/style/noNonNullAssertion: within loop bounds
 		const curr = new Date(sorted[i]!).getTime();
 		const diffDays = Math.round((prev - curr) / (1000 * 60 * 60 * 24));
-		if (diffDays === 7) streak++;
-		else break;
+		if (diffDays === 7) {
+			streak++;
+		} else {
+			break;
+		}
 	}
 	return streak;
 }
@@ -628,7 +646,9 @@ async function getAccountAgeInDays(userId: string): Promise<number> {
 		.where(eq(users.id, userId))
 		.limit(1);
 
-	if (!user[0]?.createdAt) return 0;
+	if (!user[0]?.createdAt) {
+		return 0;
+	}
 	return Math.floor(
 		(Date.now() - user[0].createdAt.getTime()) / (1000 * 60 * 60 * 24),
 	);
@@ -695,7 +715,9 @@ async function hasEverOrderedFullCrate(
 			.where(eq(drinks.id, order.drinkId))
 			.limit(1);
 		const kiste = drink[0]?.kastengroesse ?? 20;
-		if (order.amount >= kiste) return 1;
+		if (order.amount >= kiste) {
+			return 1;
+		}
 	}
 	return 0;
 }
@@ -743,7 +765,9 @@ async function hasEverOrderedOnNewYear(userId: string): Promise<number> {
 
 	for (const order of allOrders) {
 		const d = order.createdAt;
-		if (d.getMonth() === 0 && d.getDate() === 1 && d.getHours() === 0) return 1;
+		if (d.getMonth() === 0 && d.getDate() === 1 && d.getHours() === 0) {
+			return 1;
+		}
 	}
 	return 0;
 }
@@ -777,7 +801,9 @@ async function hasEverPlayedOnOct3(userId: string): Promise<number> {
 
 	for (const game of allGames) {
 		const d = game.playedAt;
-		if (d.getMonth() === 9 && d.getDate() === 3) return 1;
+		if (d.getMonth() === 9 && d.getDate() === 3) {
+			return 1;
+		}
 	}
 	return 0;
 }
@@ -789,7 +815,9 @@ async function getBestWeeklyGameStreak(userId: string): Promise<number> {
 		.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)))
 		.orderBy(asc(games.playedAt));
 
-	if (allGames.length === 0) return 0;
+	if (allGames.length === 0) {
+		return 0;
+	}
 
 	const days = [
 		// biome-ignore lint/style/noNonNullAssertion: ISO string always has a date part before "T"
@@ -975,7 +1003,9 @@ export async function recalculateAllAchievements(
 				break;
 		}
 
-		if (value === null) continue;
+		if (value === null) {
+			continue;
+		}
 
 		await updateProgress(userId, achievement.id, value);
 

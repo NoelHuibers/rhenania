@@ -41,7 +41,9 @@ export function useChallengeBadge(): ChallengeBadgeValue {
 			feed: EMPTY_FEED,
 			badgeCount: 0,
 			notificationsEnabled: false,
-			refresh: async () => {},
+			refresh: async () => {
+				// Default outside the provider: nothing to refresh.
+			},
 		};
 	}
 	return v;
@@ -59,7 +61,9 @@ export function ChallengeBadgeProvider({
 	const inFlightRef = useRef(false);
 
 	const refresh = useCallback(async () => {
-		if (inFlightRef.current) return;
+		if (inFlightRef.current) {
+			return;
+		}
 		inFlightRef.current = true;
 		try {
 			const f = await getMyChallenges();
@@ -75,9 +79,13 @@ export function ChallengeBadgeProvider({
 		void refresh();
 
 		const start = () => {
-			if (timerRef.current != null) return;
+			if (timerRef.current != null) {
+				return;
+			}
 			timerRef.current = setInterval(() => {
-				if (!document.hidden) void refresh();
+				if (!document.hidden) {
+					void refresh();
+				}
 			}, POLL_INTERVAL_MS);
 		};
 		const stop = () => {
@@ -96,7 +104,9 @@ export function ChallengeBadgeProvider({
 			}
 		};
 
-		if (!document.hidden) start();
+		if (!document.hidden) {
+			start();
+		}
 		document.addEventListener("visibilitychange", onVisibility);
 
 		return () => {

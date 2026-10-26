@@ -23,13 +23,19 @@ async function resolveMyMember(
 	// Sessions are global across tenants — never resolve (and especially never
 	// auto-link) a member row for someone who isn't a member of THIS tenant.
 	const tenantId = await getTenantId();
-	if (!tenantId || !(await hasActiveMembership(userId, tenantId))) return null;
+	if (!tenantId || !(await hasActiveMembership(userId, tenantId))) {
+		return null;
+	}
 
 	const byUser = await db.query.members.findFirst({
 		where: (t, { eq }) => eq(t.userId, userId),
 	});
-	if (byUser) return byUser;
-	if (!email) return null;
+	if (byUser) {
+		return byUser;
+	}
+	if (!email) {
+		return null;
+	}
 
 	const matches = await db
 		.select()
@@ -40,10 +46,14 @@ async function resolveMyMember(
 				sql`lower(${members.email}) = lower(${email})`,
 			),
 		);
-	if (matches.length !== 1) return null;
+	if (matches.length !== 1) {
+		return null;
+	}
 
 	const m = matches[0];
-	if (!m) return null;
+	if (!m) {
+		return null;
+	}
 	// Race-guarded link.
 	await db
 		.update(members)
@@ -55,7 +65,9 @@ async function resolveMyMember(
 export async function getMyMember(): Promise<Member | null> {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return null;
+	if (!userId) {
+		return null;
+	}
 	return resolveMyMember(userId, session.user.email ?? null);
 }
 
@@ -89,7 +101,9 @@ const selfSchema = z.object({
 export async function updateMyMember(input: z.input<typeof selfSchema>) {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) return { success: false as const, error: "Nicht angemeldet" };
+	if (!userId) {
+		return { success: false as const, error: "Nicht angemeldet" };
+	}
 
 	const member = await resolveMyMember(userId, session.user.email ?? null);
 	if (!member) {

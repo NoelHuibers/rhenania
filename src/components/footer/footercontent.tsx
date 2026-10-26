@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const Footercontent = () => {
+export const Footercontent = () => {
 	return (
 		<div className="flex flex-col space-y-2 pl-4 text-gray-500 md:flex-row md:items-center md:justify-between md:space-y-0 md:px-8 dark:text-gray-400">
 			<div className="flex flex-col md:flex-col">
@@ -45,5 +45,3 @@ const Footercontent = () => {
 		</div>
 	);
 };
-
-export default Footercontent;

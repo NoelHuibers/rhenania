@@ -16,7 +16,9 @@ function escapeICalText(str: string): string {
 }
 
 function foldLine(line: string): string {
-	if (line.length <= 75) return line;
+	if (line.length <= 75) {
+		return line;
+	}
 	const chunks: string[] = [];
 	chunks.push(line.slice(0, 75));
 	let i = 75;

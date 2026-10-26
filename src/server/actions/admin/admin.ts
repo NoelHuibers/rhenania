@@ -122,8 +122,12 @@ export async function getRolesWithUserCount(): Promise<Role[]> {
 
 		// Sort to ensure Admin is always first
 		return rolesWithCount.sort((a, b) => {
-			if (a.name === "Admin") return -1;
-			if (b.name === "Admin") return 1;
+			if (a.name === "Admin") {
+				return -1;
+			}
+			if (b.name === "Admin") {
+				return 1;
+			}
 			return a.name.localeCompare(b.name);
 		});
 	} catch (error) {

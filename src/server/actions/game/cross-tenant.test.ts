@@ -61,7 +61,9 @@ vi.mock("~/server/actions/achievements/tracking", async (importOriginal) => {
 		...actual,
 		checkAndUnlockAchievements: vi.fn(
 			(...args: Parameters<typeof actual.checkAndUnlockAchievements>) => {
-				if (!tracking.real) return Promise.resolve();
+				if (!tracking.real) {
+					return Promise.resolve();
+				}
 				const p = actual.checkAndUnlockAchievements(...args);
 				tracking.pending.push(p);
 				return p;

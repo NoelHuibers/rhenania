@@ -2,7 +2,7 @@
 import type { Variants } from "framer-motion";
 import { motion } from "framer-motion";
 
-const CorpsRhenania = () => {
+export const CorpsRhenania = () => {
 	const draw = {
 		hidden: {
 			pathLength: 0,
@@ -44,5 +44,3 @@ const CorpsRhenania = () => {
 		</svg>
 	);
 };
-
-export default CorpsRhenania;

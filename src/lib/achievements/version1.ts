@@ -2,6 +2,7 @@
 
 import { db } from "~/server/db/index";
 import { achievements } from "~/server/db/schema";
+import { log } from "~/server/lib/log";
 
 export const defaultAchievements = [
 	// ==================== DRINKING ====================
@@ -454,12 +455,12 @@ export const defaultAchievements = [
 ];
 
 export async function seedAchievements() {
-	console.log("🏆 Seeding achievements...");
+	log.info("seeding achievements");
 
 	await db
 		.insert(achievements)
 		.values(defaultAchievements)
 		.onConflictDoNothing();
 
-	console.log(`✅ Seeded ${defaultAchievements.length} achievements`);
+	log.info("achievements seeded", { count: defaultAchievements.length });
 }

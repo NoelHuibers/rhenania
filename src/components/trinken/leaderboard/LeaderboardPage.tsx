@@ -1,6 +1,6 @@
 import { ConsumptionLineChart } from "~/components/trinken/leaderboard/ConsumptionChart";
-import Leaderboard from "~/components/trinken/leaderboard/Leaderboard";
-import MetricsCards from "~/components/trinken/leaderboard/MetricsCards";
+import { Leaderboard } from "~/components/trinken/leaderboard/Leaderboard";
+import { MetricsCards } from "~/components/trinken/leaderboard/MetricsCards";
 import { getConsumptionLast6MonthsByDrink } from "~/server/actions/leaderboard/consumption";
 import {
 	getLeaderboardLast6Months,
@@ -9,7 +9,7 @@ import {
 } from "~/server/actions/leaderboard/leaderboard";
 import { SiteHeader } from "../SiteHeader";
 
-export default async function LeaderboardPage() {
+export async function LeaderboardPage() {
 	const rows = await getLeaderboardLast6Months({ limit: 20 });
 	const { data, config } = await getConsumptionLast6MonthsByDrink();
 

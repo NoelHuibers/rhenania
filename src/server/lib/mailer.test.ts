@@ -12,12 +12,16 @@ let outbox: string | null = null;
 afterEach(() => {
 	vi.unstubAllEnvs();
 	vi.resetModules();
-	if (outbox) rmSync(outbox, { recursive: true, force: true });
+	if (outbox) {
+		rmSync(outbox, { recursive: true, force: true });
+	}
 	outbox = null;
 });
 
 async function loadMailer(env: Record<string, string>) {
-	for (const [key, value] of Object.entries(env)) vi.stubEnv(key, value);
+	for (const [key, value] of Object.entries(env)) {
+		vi.stubEnv(key, value);
+	}
 	vi.resetModules();
 	return import("./mailer");
 }

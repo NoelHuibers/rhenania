@@ -43,10 +43,14 @@ export function EditUserDialog({
 		}
 	}, [open, user]);
 
-	if (!user) return null;
+	if (!user) {
+		return null;
+	}
 
 	const handleOpenChange = (next: boolean) => {
-		if (!isPending) onOpenChange(next);
+		if (!isPending) {
+			onOpenChange(next);
+		}
 	};
 
 	const nameChanged = name.trim() !== (user.name ?? "");
@@ -57,8 +61,12 @@ export function EditUserDialog({
 		startTransition(async () => {
 			try {
 				const data: { name?: string; email?: string } = {};
-				if (nameChanged) data.name = name.trim();
-				if (emailChanged) data.email = email.trim();
+				if (nameChanged) {
+					data.name = name.trim();
+				}
+				if (emailChanged) {
+					data.email = email.trim();
+				}
 				await updateUser(user.id, data);
 				onUserUpdated(user.id, name.trim(), email.trim());
 				onOpenChange(false);

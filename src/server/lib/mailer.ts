@@ -58,7 +58,9 @@ async function getGraphMailConfig(
 	tenantId: string,
 ): Promise<GraphMailConfig | null> {
 	const cached = configCache.get(tenantId);
-	if (cached && cached.expiresAt > Date.now()) return cached.value;
+	if (cached && cached.expiresAt > Date.now()) {
+		return cached.value;
+	}
 
 	const [row] = await controlDb
 		.select({
@@ -94,7 +96,9 @@ const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 async function getGraphToken(cfg: GraphMailConfig): Promise<string> {
 	const key = `${cfg.azureTenantId}:${cfg.clientId}`;
 	const cached = tokenCache.get(key);
-	if (cached && cached.expiresAt > Date.now()) return cached.token;
+	if (cached && cached.expiresAt > Date.now()) {
+		return cached.token;
+	}
 
 	const res = await fetch(
 		`https://login.microsoftonline.com/${cfg.azureTenantId}/oauth2/v2.0/token`,

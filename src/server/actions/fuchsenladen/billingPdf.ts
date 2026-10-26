@@ -50,7 +50,9 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 			.from(fuchsenBills)
 			.where(eq(fuchsenBills.id, billId))
 			.limit(1);
-		if (!bill) return { success: false, error: "Rechnung nicht gefunden" };
+		if (!bill) {
+			return { success: false, error: "Rechnung nicht gefunden" };
+		}
 
 		if (bill.userId !== session.user.id) {
 			const [isFuchs, isAdmin] = await Promise.all([
@@ -88,9 +90,15 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 		// ---- Page 1: cover letter ----
 		doc.setFont("helvetica");
 		doc.setFontSize(12);
-		if (config.senderName) doc.text(config.senderName, 20, 20);
-		if (config.senderStreet) doc.text(config.senderStreet, 20, 27);
-		if (config.senderCity) doc.text(config.senderCity, 20, 34);
+		if (config.senderName) {
+			doc.text(config.senderName, 20, 20);
+		}
+		if (config.senderStreet) {
+			doc.text(config.senderStreet, 20, 27);
+		}
+		if (config.senderCity) {
+			doc.text(config.senderCity, 20, 34);
+		}
 
 		const dateLine = config.location
 			? `${config.location}, den ${formatDate(createdAt)}`
@@ -116,7 +124,9 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 		}
 		y += 10;
 		doc.text("Mit freundlichen Grüßen,", 20, y);
-		if (config.accountHolder) doc.text(config.accountHolder, 20, y + 10);
+		if (config.accountHolder) {
+			doc.text(config.accountHolder, 20, y + 10);
+		}
 
 		y = 250;
 		doc.setFontSize(11);
@@ -128,7 +138,9 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 			doc.text(`IBAN: ${config.iban}`, 20, y);
 			y += 7;
 		}
-		if (config.accountHolder) doc.text(config.accountHolder, 20, y);
+		if (config.accountHolder) {
+			doc.text(config.accountHolder, 20, y);
+		}
 
 		// ---- Page 2: invoice details ----
 		doc.addPage();

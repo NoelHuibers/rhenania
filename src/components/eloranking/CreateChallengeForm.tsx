@@ -68,7 +68,9 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 					getAllUsersExcept(),
 					getDrinkMarkupPercent(),
 				]);
-				if (cancelled) return;
+				if (cancelled) {
+					return;
+				}
 				// Challenge drinks are personal orders, so show the charged price.
 				setDrinks(
 					d.map((x) => ({ ...x, price: applyMarkup(x.price, markup) })),
@@ -76,9 +78,13 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 				setUsers(u);
 			} catch (err) {
 				console.error(err);
-				if (!cancelled) toast.error("Daten konnten nicht geladen werden");
+				if (!cancelled) {
+					toast.error("Daten konnten nicht geladen werden");
+				}
 			} finally {
-				if (!cancelled) setLoading(false);
+				if (!cancelled) {
+					setLoading(false);
+				}
 			}
 		})();
 		return () => {
@@ -87,7 +93,9 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 	}, []);
 
 	const filteredUsers = useMemo(() => {
-		if (!opponentSearch.trim()) return users;
+		if (!opponentSearch.trim()) {
+			return users;
+		}
 		const q = opponentSearch.toLowerCase().trim();
 		return users.filter((u) => {
 			const name = (u.name || "").toLowerCase();

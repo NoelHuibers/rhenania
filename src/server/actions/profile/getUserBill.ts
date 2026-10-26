@@ -141,7 +141,7 @@ export async function getAllUserBills(): Promise<
 			.where(eq(bills.userId, session.user.id))
 			.orderBy(desc(bills.createdAt));
 
-		const allBills = [];
+		const allBills: Array<{ billData: BillData; billItems: BillItem[] }> = [];
 
 		for (const userBill of userBills) {
 			const bill = userBill.bill;

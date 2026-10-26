@@ -28,7 +28,7 @@ type SignInPageProps = {
 	microsoftProviderId: string | null;
 };
 
-export default function SignInPage({ microsoftProviderId }: SignInPageProps) {
+export function SignInPage({ microsoftProviderId }: SignInPageProps) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 
@@ -67,7 +67,9 @@ export default function SignInPage({ microsoftProviderId }: SignInPageProps) {
 	};
 
 	const handleMicrosoftSignIn = async () => {
-		if (!microsoftProviderId) return;
+		if (!microsoftProviderId) {
+			return;
+		}
 		setIsLoading(true);
 		await authClient.signIn.oauth2({
 			providerId: microsoftProviderId,
