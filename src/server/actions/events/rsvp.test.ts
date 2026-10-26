@@ -117,6 +117,49 @@ describe("setRsvp", () => {
 		signInAs(c);
 		expect(await setRsvp(event.id, "yes")).toEqual({ success: true });
 	});
+
+	test("simultaneous yes answers never exceed the attendee limit (#147)", async () => {
+		await createTenant();
+		const event = await createEvent({ maxAttendees: 1 });
+		const [a, b] = [await member(), await member()];
+
+		// The session is read synchronously when each call starts, so both
+		// requests run interleaved as two different members.
+		signInAs(a);
+		const first = setRsvp(event.id, "yes");
+		signInAs(b);
+		const second = setRsvp(event.id, "yes");
+		const results = await Promise.all([first, second]);
+
+		expect(results.filter((r) => r.success)).toHaveLength(1);
+		expect(results.filter((r) => !r.success)).toEqual([
+			expect.objectContaining({ error: "capacity_full" }),
+		]);
+		const counts = await getRsvpCountsForEvents([event.id]);
+		expect(counts.get(event.id)?.yes).toBe(1);
+	});
+
+	test("a capacity-checked yes stores a complete answer", async () => {
+		await createTenant();
+		const event = await createEvent({ maxAttendees: 3 });
+		const me = await member();
+		signInAs(me);
+
+		expect(await setRsvp(event.id, "yes", "mit Begleitung")).toEqual({
+			success: true,
+		});
+
+		const [row] = await tenantDb().select().from(eventRsvps);
+		expect(row).toMatchObject({
+			eventId: event.id,
+			userId: me.id,
+			status: "yes",
+			note: "mit Begleitung",
+			updatedAt: NOW,
+		});
+		expect(row?.id).toMatch(/^[0-9a-f-]{36}$/);
+		expect(row?.createdAt).toBeInstanceOf(Date);
+	});
 });
 
 describe("removeRsvp", () => {
