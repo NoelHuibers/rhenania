@@ -6,6 +6,11 @@ import "./src/env.js";
 
 /** @type {import("next").NextConfig} */
 const config = {
+	// Tenant provisioning (superadmin) runs the drizzle migrations at runtime
+	// from ./drizzle; make sure the SQL files ship with those functions.
+	outputFileTracingIncludes: {
+		"/superadmin/**": ["./drizzle/**/*"],
+	},
 	images: {
 		remotePatterns: [
 			{
