@@ -2,6 +2,8 @@ import { academicTimeLabel } from "./academic-time";
 
 export const APP_TZ = "Europe/Berlin";
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 type ZonedParts = {
 	year: number;
 	month: number;
@@ -68,16 +70,27 @@ export function wallClockToUTC(input: string, tz: string = APP_TZ): Date {
 	const minute = match[5] ? Number(match[5]) : 0;
 
 	const wanted = Date.UTC(year, month - 1, day, hour, minute);
-	const candidate = new Date(wanted);
-	const shownParts = getZonedParts(candidate, tz);
-	const shown = Date.UTC(
-		shownParts.year,
-		shownParts.month - 1,
-		shownParts.day,
-		shownParts.hour,
-		shownParts.minute,
-	);
-	return new Date(wanted + (wanted - shown));
+	// The offset can differ between a wall-clock time and the instant we are
+	// looking for when a DST switch lies in between, so try the offsets in
+	// effect a day before and a day after and keep those that round-trip.
+	// Repeated (autumn) times resolve to the earlier instant; skipped (spring)
+	// times are moved forward by the gap, like Temporal's "compatible" mode.
+	const before = offsetAt(wanted - MS_PER_DAY, tz);
+	const after = offsetAt(wanted + MS_PER_DAY, tz);
+	for (const offset of before === after ? [before] : [before, after]) {
+		const instant = wanted - offset;
+		if (offsetAt(instant, tz) === offset) {
+			return new Date(instant);
+		}
+	}
+	return new Date(wanted - before);
+}
+
+/** UTC offset of `tz` at the given instant, in milliseconds. */
+function offsetAt(instant: number, tz: string): number {
+	const p = getZonedParts(new Date(instant), tz);
+	const shown = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute);
+	return shown - Math.floor(instant / 60_000) * 60_000;
 }
 
 export function utcToWallClockInput(date: Date, tz: string = APP_TZ): string {
@@ -163,10 +176,14 @@ export function startOfDayInTZ(d: Date, tz: string = APP_TZ): Date {
 	return wallClockToUTC(dayKeyInTZ(d, tz), tz);
 }
 
+/**
+ * Start of the calendar day `days` days after the one containing `d` (in
+ * `tz`). Steps over calendar dates, so 23- and 25-hour DST days count as one.
+ */
 export function addDaysInTZ(d: Date, days: number, tz: string = APP_TZ): Date {
-	const start = startOfDayInTZ(d, tz);
-	const shifted = new Date(start.getTime() + days * 24 * 60 * 60 * 1000);
-	return startOfDayInTZ(shifted, tz);
+	const p = getZonedParts(d, tz);
+	const target = new Date(Date.UTC(p.year, p.month - 1, p.day + days));
+	return wallClockToUTC(target.toISOString().slice(0, 10), tz);
 }
 
 export function startOfWeekInTZ(d: Date, tz: string = APP_TZ): Date {
