@@ -10,6 +10,19 @@ Dies ist die rhenania-stuttgart.de Seite.
 - Rechnungsverwaltung
 - Gameification mit Leaderboard und Elo System
 
+## Entwicklung & Qualität
+
+```bash
+pnpm check        # Biome (Lint + Format)
+pnpm typecheck    # TypeScript
+pnpm test         # Vitest, nur gegen lokale Test-DBs (siehe test/README.md)
+pnpm test:coverage
+```
+
+CI (`.github/workflows/ci.yml`) führt Lint, Typecheck, Tests (TZ=Europe/Berlin
+und UTC, mit Coverage) und einen Build gegen lokal migrierte `file:`-DBs aus.
+CI bekommt keine Produktions-Zugangsdaten.
+
 ## Feature-Flags pro Corps
 
 Einzelne Funktionen lassen sich pro Tenant an- und ausschalten. Alle Flags
