@@ -5,6 +5,10 @@ import { sql } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { userPreferences } from "~/server/db/schema";
+import {
+	ELO_PREFERENCE_KEY,
+	readEloEnabled,
+} from "~/server/lib/elo-preference";
 
 type ValueType = "boolean" | "number" | "string" | "json";
 
@@ -86,7 +90,7 @@ export async function setUserPreference(
 
 // --- Elo-specific sugar ---
 
-const ELO_KEY = "gamification.eloEnabled";
+const ELO_KEY = ELO_PREFERENCE_KEY;
 
 export async function getEloPreferenceAction() {
 	// Default: true (participate)
@@ -100,18 +104,7 @@ export async function setEloPreferenceAction(opts: { enabled: boolean }) {
 }
 
 export async function isEloEnabledForUser(userId: string): Promise<boolean> {
-	const row = await db.query.userPreferences.findFirst({
-		where: (t, { and, eq }) => and(eq(t.userId, userId), eq(t.key, ELO_KEY)),
-		columns: { value: true },
-	});
-	if (!row) {
-		return true;
-	}
-	try {
-		return JSON.parse(row.value) !== false;
-	} catch {
-		return true;
-	}
+	return await readEloEnabled(db, userId);
 }
 
 // --- Public profile sugar ---

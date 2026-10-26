@@ -27,6 +27,7 @@ pnpm exec tsx scripts/dev/run.ts pnpm db:migrate-tenants --dry-run
 | `pnpm diag:migration-journal [slug]` | applied tenant migrations vs local journal and file hashes |
 | `pnpm diag:control-journal` | applied control migrations vs local journal |
 | `pnpm diag:member-statuses [slug]` | distinct `member.status` values |
+| `pnpm diag:duplicate-settlements [slug]` | challenges settled more than once (several games per `challengeId`), per Corps and cross-Corps |
 
 ## Removed one-off migrations
 
