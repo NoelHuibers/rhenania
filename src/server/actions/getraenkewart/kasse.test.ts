@@ -145,7 +145,9 @@ describe("getKasseSummary", () => {
 			lagerwert: 23,
 			lagerwertDate: latest?.closedAt,
 			offeneMitglieder: 30,
+			gestundetMitglieder: 0,
 			offeneGruppen: 45,
+			gestundetGruppen: 0,
 			pfand: 80,
 			externOffen: 200,
 			gesamt: 379.5 + 23 + 30 + 45 + 80 - 200,
@@ -160,17 +162,18 @@ describe("getKasseSummary", () => {
 			lagerwert: 0,
 			lagerwertDate: null,
 			offeneMitglieder: 0,
+			gestundetMitglieder: 0,
 			offeneGruppen: 0,
+			gestundetGruppen: 0,
 			pfand: 0,
 			externOffen: 0,
 			gesamt: 0,
 		});
 	});
 
-	// New: "Offene Mitgliederrechnungen" only sums Unbezahlt, while the open
-	// member list (getOpenMemberBills) also shows Gestundet bills, which are
-	// still owed to the Kasse.
-	test.fails("counts Gestundet member bills as open, like the open list (#139)", async () => {
+	// "Offene Mitgliederrechnungen" shows the amount due (Unbezahlt) and the
+	// Gestundet amount as separate lines; together they match the open list.
+	test("reports Gestundet member bills separately from the amount due (#139)", async () => {
 		await signInWart();
 		const period = await createBillPeriodRow();
 		await createBillRow({
@@ -192,7 +195,37 @@ describe("getKasseSummary", () => {
 		const summary = await getKasseSummary();
 
 		expect(listed).toBe(25);
-		expect(summary.offeneMitglieder).toBe(listed);
+		expect(summary.offeneMitglieder).toBe(10);
+		expect(summary.gestundetMitglieder).toBe(15);
+		expect(summary.offeneMitglieder + summary.gestundetMitglieder).toBe(listed);
+		// Deferred bills are still owed to the Kasse.
+		expect(summary.gesamt).toBe(25);
+	});
+
+	test("reports Gestundet group bills separately and counts them in Gesamtvermögen (#139)", async () => {
+		await signInWart();
+		const period = await createBillPeriodRow();
+		await createBillRow({
+			periodId: period.id,
+			user: eventUser("CC"),
+			drinksTotal: 40,
+		});
+		await createBillRow({
+			periodId: period.id,
+			user: eventUser("Stiftungsfest"),
+			status: "Gestundet",
+			drinksTotal: 12,
+		});
+
+		const summary = await getKasseSummary();
+
+		expect(summary).toMatchObject({
+			offeneMitglieder: 0,
+			gestundetMitglieder: 0,
+			offeneGruppen: 40,
+			gestundetGruppen: 12,
+			gesamt: 52,
+		});
 	});
 });
 

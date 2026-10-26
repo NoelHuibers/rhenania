@@ -127,7 +127,8 @@ describe("Getränkewart page query budget (#25)", () => {
 		await addHistory(8);
 		const large = await countQueries(loadGetraenkewartPage);
 
-		expect(small.total).toBe(22);
+		// 21: the Kasse summary sums all open bill totals in one query (#139).
+		expect(small.total).toBe(21);
 		expect(large.total).toBe(small.total);
 		expect(large.writes).toBe(0);
 

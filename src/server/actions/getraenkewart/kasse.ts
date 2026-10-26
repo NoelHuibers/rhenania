@@ -23,12 +23,20 @@ import { generateUserBillPDF } from "../billings/createUserPDF";
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
+/** SUM of bill totals with this status; group bills belong to `event-…` users. */
+function sumBills(status: "Unbezahlt" | "Gestundet", group: boolean) {
+	const isGroup = group
+		? sql`${bills.userId} LIKE 'event-%'`
+		: sql`${bills.userId} NOT LIKE 'event-%'`;
+	return sql<number>`COALESCE(SUM(CASE WHEN ${bills.status} = ${status} AND ${isGroup} THEN ${bills.total} END), 0)`;
+}
+
 export async function getKasseSummary() {
 	const [
 		kassenstand,
 		lagerwert,
-		offeneMitglieder,
-		offeneGruppen,
+		// Member and group bills, each split into Unbezahlt and Gestundet
+		offeneRechnungen,
 		externOffen,
 		pfand,
 	] = await Promise.all([
@@ -60,27 +68,29 @@ export async function getKasseSummary() {
 			return { value, date: lastClosed.closedAt };
 		})(),
 
-		// Open personal member bills
+		// Open member and group bills, split into due (Unbezahlt) and deferred
+		// (Gestundet). Both are still owed to the Kasse; the overview shows
+		// them on separate lines so they add up to the open lists.
 		db
-			.select({ total: sql<number>`COALESCE(SUM(${bills.total}), 0)` })
+			.select({
+				mitglieder: sumBills("Unbezahlt", false),
+				gestundetMitglieder: sumBills("Gestundet", false),
+				gruppen: sumBills("Unbezahlt", true),
+				gestundetGruppen: sumBills("Gestundet", true),
+			})
 			.from(bills)
-			.where(
-				sql`${bills.status} = 'Unbezahlt' AND ${bills.userId} NOT LIKE 'event-%'`,
-			)
-			.then((r) => Number(r[0]?.total ?? 0)),
-
-		// Open entity/group bills
-		db
-			.select({ total: sql<number>`COALESCE(SUM(${bills.total}), 0)` })
-			.from(bills)
-			.where(
-				sql`${bills.status} = 'Unbezahlt' AND ${bills.userId} LIKE 'event-%'`,
-			)
-			.then((r) => Number(r[0]?.total ?? 0)),
+			.then((r) => ({
+				mitglieder: Number(r[0]?.mitglieder ?? 0),
+				gestundetMitglieder: Number(r[0]?.gestundetMitglieder ?? 0),
+				gruppen: Number(r[0]?.gruppen ?? 0),
+				gestundetGruppen: Number(r[0]?.gestundetGruppen ?? 0),
+			})),
 
 		// Open external bills
 		db
-			.select({ total: sql<number>`COALESCE(SUM(${externalBills.amount}), 0)` })
+			.select({
+				total: sql<number>`COALESCE(SUM(${externalBills.amount}), 0)`,
+			})
 			.from(externalBills)
 			.where(eq(externalBills.status, "Offen"))
 			.then((r) => Number(r[0]?.total ?? 0)),
@@ -96,8 +106,10 @@ export async function getKasseSummary() {
 	const gesamt =
 		kassenstand +
 		lagerwert.value +
-		offeneMitglieder +
-		offeneGruppen +
+		offeneRechnungen.mitglieder +
+		offeneRechnungen.gestundetMitglieder +
+		offeneRechnungen.gruppen +
+		offeneRechnungen.gestundetGruppen +
 		pfand -
 		externOffen;
 
@@ -105,8 +117,12 @@ export async function getKasseSummary() {
 		kassenstand,
 		lagerwert: lagerwert.value,
 		lagerwertDate: lagerwert.date,
-		offeneMitglieder,
-		offeneGruppen,
+		/** Member bills due now (Unbezahlt). */
+		offeneMitglieder: offeneRechnungen.mitglieder,
+		/** Deferred member bills (Gestundet): owed, but not due yet. */
+		gestundetMitglieder: offeneRechnungen.gestundetMitglieder,
+		offeneGruppen: offeneRechnungen.gruppen,
+		gestundetGruppen: offeneRechnungen.gestundetGruppen,
 		pfand,
 		externOffen,
 		gesamt,
