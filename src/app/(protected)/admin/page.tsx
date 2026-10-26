@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { AdminDashboard } from "~/components/admin/dashboard";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { Card, CardContent } from "~/components/ui/card";
 import { Skeleton } from "~/components/ui/skeleton";
 import {
@@ -109,9 +108,7 @@ async function AdminDashboardData() {
 export default function AdminPage() {
 	return (
 		<Suspense fallback={<DashboardSkeleton />}>
-			<SidebarLayout>
-				<AdminDashboardData />
-			</SidebarLayout>
+			<AdminDashboardData />
 		</Suspense>
 	);
 }

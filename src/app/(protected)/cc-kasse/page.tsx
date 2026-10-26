@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { CcKassePage } from "~/components/cc-kasse/CcKassePage";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { listEinnahmen } from "~/server/actions/cc-kasse/einnahmen";
 import {
 	getActiveEtaplan,
@@ -83,20 +82,18 @@ export default async function CcKasseRoute({
 	}
 
 	return (
-		<SidebarLayout>
-			<CcKassePage
-				etaplans={etaplans}
-				selectedEtaplan={selectedEtaplan}
-				kostenpunkte={kostenpunkte}
-				overview={overview}
-				queue={queue}
-				einnahmen={einnahmen}
-				events={events}
-				isTreasury={isTreasury}
-				beitragRuns={beitragRuns}
-				selectedBeitrag={selectedBeitrag}
-			/>
-		</SidebarLayout>
+		<CcKassePage
+			etaplans={etaplans}
+			selectedEtaplan={selectedEtaplan}
+			kostenpunkte={kostenpunkte}
+			overview={overview}
+			queue={queue}
+			einnahmen={einnahmen}
+			events={events}
+			isTreasury={isTreasury}
+			beitragRuns={beitragRuns}
+			selectedBeitrag={selectedBeitrag}
+		/>
 	);
 }
 

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { KostenerstattungPage } from "~/components/cc-kasse/KostenerstattungPage";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { listMyReimbursements } from "~/server/actions/cc-kasse/kostenerstattungen";
 import { getBookableKostenpunkte } from "~/server/actions/cc-kasse/kostenpunkte";
 import { getMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
@@ -19,13 +18,11 @@ export default async function KostenerstattungRoute() {
 	]);
 
 	return (
-		<SidebarLayout>
-			<KostenerstattungPage
-				reimbursements={reimbursements}
-				paymentInfo={paymentInfo}
-				kostenpunkte={kostenpunkte}
-			/>
-		</SidebarLayout>
+		<KostenerstattungPage
+			reimbursements={reimbursements}
+			paymentInfo={paymentInfo}
+			kostenpunkte={kostenpunkte}
+		/>
 	);
 }
 

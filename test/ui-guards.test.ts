@@ -71,6 +71,25 @@ describe("money and dates go through src/lib/format.ts (#83)", () => {
 	});
 });
 
+describe("the app shell lives in the protected layout (#82)", () => {
+	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
+	const LAYOUT = path.join("src", "app", "(protected)", "layout.tsx");
+
+	test("pages do not mount their own sidebar", () => {
+		const pages = sourceFiles(path.join("src", "app", "(protected)")).filter(
+			(f) => f !== LAYOUT && /SidebarLayout/.test(read(f)),
+		);
+		expect(pages).toEqual([]);
+		expect(read(LAYOUT)).toMatch(/<SidebarLayout[\s>]/);
+	});
+
+	test("no Tailwind v3 arbitrary CSS-variable syntax (w-[--x])", () => {
+		expect(
+			offending([...UI_FILES, ...sourceFiles("src/components/ui")], /-\[--/),
+		).toEqual([]);
+	});
+});
+
 describe("one document root, one toaster, one theme (#86)", () => {
 	const ROOT_LAYOUT = path.join("src", "app", "layout.tsx");
 	const APP_FILES = sourceFiles("src/app");

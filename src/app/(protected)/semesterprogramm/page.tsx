@@ -5,7 +5,6 @@ import { EventTypeFilter } from "~/components/semesterprogramm/EventTypeFilter";
 import { RsvpAttendees } from "~/components/semesterprogramm/RsvpAttendees";
 import { RsvpControls } from "~/components/semesterprogramm/RsvpControls";
 import { WeekPreview } from "~/components/semesterprogramm/WeekPreview";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import {
 	formatAcademicTime,
@@ -73,7 +72,7 @@ export default async function SemesterprogrammPage() {
 	);
 
 	return (
-		<SidebarLayout>
+		<>
 			<SiteHeader title="Semesterprogramm" />
 			<div className="mx-auto max-w-2xl p-6 lg:grid lg:max-w-7xl lg:grid-cols-[320px_1fr] lg:gap-10 xl:max-w-[1600px] xl:px-10">
 				<aside className="space-y-2 lg:sticky lg:top-6 lg:self-start">
@@ -213,6 +212,6 @@ export default async function SemesterprogrammPage() {
 					)}
 				</div>
 			</div>
-		</SidebarLayout>
+		</>
 	);
 }

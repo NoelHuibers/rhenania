@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { TenantProvider } from "~/components/TenantProvider";
 import { defaultFeatureFlags } from "~/lib/features";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
@@ -7,6 +8,8 @@ export const metadata: Metadata = {
 	robots: { index: false, follow: false },
 };
 
+// The sidebar is mounted here, once, so it keeps its open state and scroll
+// position while the member navigates between pages.
 export default async function ProtectedLayout({
 	children,
 }: {
@@ -19,5 +22,9 @@ export default async function ProtectedLayout({
 		features: tenant?.features ?? defaultFeatureFlags(),
 	};
 
-	return <TenantProvider value={tenantValue}>{children}</TenantProvider>;
+	return (
+		<TenantProvider value={tenantValue}>
+			<SidebarLayout>{children}</SidebarLayout>
+		</TenantProvider>
+	);
 }
