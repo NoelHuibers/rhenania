@@ -379,16 +379,12 @@ export function CrossChallengeCard({
 				</div>
 			) : null}
 
+			{/* A proposed result can only be confirmed or disputed (#142). */}
 			{variant === "awaiting-their-confirm" ? (
-				<Button
-					variant="ghost"
-					size="sm"
-					className="w-full text-muted-foreground text-xs"
-					disabled={isPending}
-					onClick={() => run(() => cancelCrossTenantChallenge(c.id))}
-				>
-					Abbrechen
-				</Button>
+				<div className="rounded bg-muted/50 p-2 text-muted-foreground text-xs">
+					Dein Gegner kann das Ergebnis bestätigen oder anfechten. Ohne Antwort
+					läuft die Herausforderung ab.
+				</div>
 			) : null}
 		</div>
 	);

@@ -393,7 +393,8 @@ export async function proposeCrossTenantResult(input: {
 		return { success: false, error: "Ungültiger Gewinner" };
 	}
 
-	await controlDb
+	// Only from "accepted": a cancel or the sweep may have closed it meanwhile.
+	const [proposed] = await controlDb
 		.update(crossTenantChallenges)
 		.set({
 			status: "result_proposed",
@@ -402,7 +403,19 @@ export async function proposeCrossTenantResult(input: {
 			proposedAt: new Date(),
 			confirmDeadline: new Date(Date.now() + CONFIRM_WINDOW_MS),
 		})
-		.where(eq(crossTenantChallenges.id, row.id));
+		.where(
+			and(
+				eq(crossTenantChallenges.id, row.id),
+				eq(crossTenantChallenges.status, "accepted"),
+			),
+		)
+		.returning({ id: crossTenantChallenges.id });
+	if (!proposed) {
+		return {
+			success: false,
+			error: "Ergebnis kann nur in laufenden Spielen gemeldet werden",
+		};
+	}
 
 	revalidatePath("/eloranking");
 	return { success: true };

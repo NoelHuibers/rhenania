@@ -511,6 +511,32 @@ describe("respond, propose, confirm", () => {
 			error: "Kann nicht mehr abgebrochen werden",
 		});
 	});
+
+	test("neither player can cancel once a result is proposed; it can only be confirmed or disputed (#142)", async () => {
+		const { anna, bert, drink } = await setup();
+		const { challengeId } = await playChallenge({
+			challenger: anna,
+			opponent: bert,
+			drink,
+			winner: anna,
+		});
+		const refused = {
+			success: false,
+			error: "Ein Ergebnis wurde gemeldet: bestätigen oder anfechten",
+		};
+
+		// bert, the reported loser, must not dodge the drinks by cancelling.
+		signInAs(bert);
+		expect(await cancelChallenge(challengeId)).toEqual(refused);
+		signInAs(anna);
+		expect(await cancelChallenge(challengeId)).toEqual(refused);
+		expect((await challengeRow(challengeId))?.status).toBe("result_proposed");
+
+		signInAs(bert);
+		expect(await confirmResult(challengeId)).toMatchObject({ success: true });
+		expect((await challengeRow(challengeId))?.status).toBe("settled");
+		expect(await tenantDb().select().from(games)).toHaveLength(1);
+	});
 });
 
 describe("sweepExpiredChallenges (via getMyChallenges)", () => {
@@ -739,30 +765,29 @@ describe("settlement races", () => {
 		});
 	});
 
-	test("a confirm racing a cancel either settles or cancels, never both", async () => {
+	test("a proposal racing a cancel either proposes or cancels, never both (#142)", async () => {
 		const { anna, bert, drink } = await setup();
-		const { challengeId } = await playChallenge({
-			challenger: anna,
-			opponent: bert,
-			drink,
-			winner: anna,
+		signInAs(anna);
+		const { challengeId } = await createChallenge({
+			opponentId: bert.id,
+			drinkId: drink.id,
+			payment: "loser",
+		});
+		signInAs(bert);
+		await respondToChallenge({
+			challengeId: challengeId as string,
+			response: "accept",
 		});
 
-		const [confirmed, cancelled] = await Promise.all([
-			confirmResult(challengeId),
-			cancelChallenge(challengeId),
+		const [proposed, cancelled] = await Promise.all([
+			proposeResult({ challengeId: challengeId as string, winnerId: anna.id }),
+			cancelChallenge(challengeId as string),
 		]);
 
-		expect(confirmed.success).not.toBe(cancelled.success);
-		const row = await challengeRow(challengeId);
-		const booked = await tenantDb().select().from(games);
-		if (confirmed.success) {
-			expect(row?.status).toBe("settled");
-			expect(booked).toHaveLength(1);
-		} else {
-			expect(row?.status).toBe("cancelled");
-			expect(booked).toHaveLength(0);
-		}
+		expect(proposed.success).not.toBe(cancelled.success);
+		expect((await challengeRow(challengeId as string))?.status).toBe(
+			proposed.success ? "result_proposed" : "cancelled",
+		);
 	});
 
 	test("a confirm racing a dispute either settles or disputes, never both", async () => {

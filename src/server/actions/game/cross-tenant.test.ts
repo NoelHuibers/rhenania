@@ -438,6 +438,48 @@ describe("cross-Corps lifecycle", () => {
 		);
 	});
 
+	test("once a result is proposed, neither player can cancel (#142)", async () => {
+		const { a, b } = await twoCorps();
+		const id = await proposedCrossChallenge(a, b, a.player);
+
+		// B, the reported loser, is signed in.
+		expect(await cancelCrossTenantChallenge(id)).toMatchObject({
+			success: false,
+		});
+		switchTenant(a.tenant);
+		signInAs(a.player);
+		expect(await cancelCrossTenantChallenge(id)).toMatchObject({
+			success: false,
+		});
+		expect((await crossRow(id))?.status).toBe("result_proposed");
+	});
+
+	test("a proposal racing a cancel either proposes or cancels, never both (#142)", async () => {
+		const { a, b } = await twoCorps();
+		signInAs(a.player);
+		const created = await createCrossTenantChallenge({
+			opponentId: b.player.id,
+			opponentTenantId: b.tenant.id,
+		});
+		const id = created.challengeId as string;
+		switchTenant(b.tenant);
+		signInAs(b.player);
+		await respondToCrossTenantChallenge({
+			challengeId: id,
+			response: "accept",
+		});
+
+		const [cancelled, proposed] = await Promise.all([
+			cancelCrossTenantChallenge(id),
+			proposeCrossTenantResult({ challengeId: id, winnerId: a.player.id }),
+		]);
+
+		expect(proposed.success).not.toBe(cancelled.success);
+		expect((await crossRow(id))?.status).toBe(
+			proposed.success ? "result_proposed" : "cancelled",
+		);
+	});
+
 	test("a late reply expires the challenge", async () => {
 		const { a, b } = await twoCorps();
 		signInAs(a.player);
