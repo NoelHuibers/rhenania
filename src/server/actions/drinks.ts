@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
 import { drinks } from "~/server/db/schema";
+import { isForeignKeyViolation } from "~/server/lib/db-errors";
 
 const addDrinkSchema = z.object({
 	name: z.string().min(1, "Name ist erforderlich").max(255, "Name ist zu lang"),
@@ -252,24 +253,25 @@ export async function deleteDrinkImage(id: string) {
 	}
 }
 
+const DRINK_IN_USE_ERROR =
+	"Das Getränk wurde schon bestellt oder gezählt und kann deshalb nicht gelöscht werden. Setze es stattdessen auf „Nicht verfügbar“.";
+
 export async function deleteDrink(id: string) {
 	try {
-		// Get the drink to delete its image
-		const [drinkToDelete] = await db
-			.select()
-			.from(drinks)
+		// Delete the row first: orders and inventory counts reference it, and the
+		// picture must survive when the database refuses the delete.
+		const [deleted] = await db
+			.delete(drinks)
 			.where(eq(drinks.id, id))
-			.limit(1);
+			.returning({ picture: drinks.picture });
 
-		if (drinkToDelete?.picture) {
+		if (deleted?.picture) {
 			try {
-				await del(drinkToDelete.picture);
+				await del(deleted.picture);
 			} catch (error) {
 				console.error("Error deleting image:", error);
 			}
 		}
-
-		await db.delete(drinks).where(eq(drinks.id, id));
 
 		revalidatePath("/getraenkewart");
 
@@ -278,6 +280,9 @@ export async function deleteDrink(id: string) {
 			message: "Getränk erfolgreich gelöscht",
 		};
 	} catch (error) {
+		if (isForeignKeyViolation(error)) {
+			return { success: false, error: DRINK_IN_USE_ERROR };
+		}
 		console.error("Error deleting drink:", error);
 		return {
 			success: false,
