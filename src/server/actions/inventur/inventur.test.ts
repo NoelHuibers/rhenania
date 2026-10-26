@@ -120,6 +120,39 @@ describe("getStockData", () => {
 		});
 	});
 
+	test("each drink counts its own sales since its own latest count", async () => {
+		const pils = await createDrink({ name: "Pils" });
+		const weizen = await createDrink({ name: "Weizen" });
+		await createDrink({ name: "Neu" });
+		await createInventory({
+			status: "closed",
+			createdAt: daysAgo(20),
+			closedAt: daysAgo(10),
+			items: [
+				{ drink: pils, countedStock: 10 },
+				{ drink: weizen, countedStock: 10 },
+			],
+		});
+		await createInventory({
+			createdAt: daysAgo(10),
+			items: [{ drink: pils, countedStock: 8 }],
+		});
+		await createOrderRow({ drink: pils, amount: 4, createdAt: daysAgo(15) });
+		await createOrderRow({ drink: pils, amount: 1, createdAt: daysAgo(2) });
+		await createOrderRow({ drink: weizen, amount: 3, createdAt: daysAgo(15) });
+
+		const stock = await getStockData();
+
+		expect(
+			stock.map((s) => [s.drinkName, s.soldSince, s.calculatedStock]),
+		).toEqual([
+			["Pils", 1, 7],
+			["Weizen", 3, 7],
+			["Neu", 0, 0],
+		]);
+		expect(stock[0]?.lastInventoryDate).toEqual(daysAgo(10));
+	});
+
 	test("uses the latest inventory and never reports negative stock", async () => {
 		const pils = await createDrink();
 		await createInventory({

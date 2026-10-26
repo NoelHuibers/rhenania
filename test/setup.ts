@@ -72,6 +72,21 @@ vi.mock("next/cache", () => ({
 	unstable_cache: <T>(fn: T) => fn,
 }));
 
+// `after()` needs a Next.js request scope: start the task right away and keep
+// its promise so a test can await it with `flushAfter()`. Test files that
+// mock `next/server` themselves take precedence.
+vi.mock("next/server", async (importOriginal) => {
+	const { testState } = await import("./state");
+	return {
+		...(await importOriginal<typeof import("next/server")>()),
+		after: (task: (() => unknown) | Promise<unknown>) => {
+			testState.afterTasks.push(
+				Promise.resolve(typeof task === "function" ? task() : task),
+			);
+		},
+	};
+});
+
 // ─── Databases ──────────────────────────────────────────────────────────────
 vi.mock("~/server/db", async () => {
 	const { requireTenant } = await import("./state");

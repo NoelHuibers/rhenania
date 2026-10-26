@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
+import { auth } from "~/server/auth";
 import { challenges, games, orders } from "~/server/db/schema";
 import {
 	advanceClock,
@@ -15,11 +16,13 @@ import {
 	setUserStats,
 } from "../../../../test/factories/game";
 import {
+	countQueries,
 	createDrink,
 	createTenant,
 	setKasseConfig,
 	setupTestDatabases,
 	signInAs,
+	signOut,
 	type TestUser,
 	tenantDb,
 } from "../../../../test/harness";
@@ -630,6 +633,37 @@ describe("getMyChallenges", () => {
 		});
 	});
 
+	test("a poll with nothing due writes nothing and reads the feed in one query (#21)", async () => {
+		const { anna, bert, drink } = await setup();
+		const [carl] = await createPlayers(1);
+		signInAs(anna);
+		await createChallenge({
+			opponentId: bert.id,
+			drinkId: drink.id,
+			payment: "loser",
+		});
+		await playChallenge({
+			challenger: carl,
+			opponent: anna,
+			drink,
+			winner: carl,
+		});
+		signInAs(anna);
+		const session = await countQueries(() => auth());
+
+		const poll = await countQueries(() => getMyChallenges());
+
+		expect(poll.writes).toBe(0);
+		// Session lookup, one check for due challenges, one feed query.
+		expect(poll.total - session.total).toBe(2);
+		expect(poll.result.outgoingPending).toHaveLength(1);
+		expect(poll.result.awaitingMyConfirm[0]).toMatchObject({
+			challengerName: carl.name,
+			opponentName: anna.name,
+			drinkName: "Pils",
+		});
+	});
+
 	test("is empty for signed-out visitors", async () => {
 		await setup();
 		expect(await getMyChallenges()).toEqual({
@@ -812,5 +846,122 @@ describe("settlement races", () => {
 		await getMyChallenges();
 		expect((await challengeRow(challengeId))?.status).toBe("settled");
 		logged.mockRestore();
+	});
+});
+
+describe("guards", () => {
+	test("signed-out visitors cannot act on challenges", async () => {
+		await setup();
+		signOut();
+		const notSignedIn = { success: false, error: "Nicht authentifiziert" };
+
+		expect(
+			await createChallenge({
+				opponentId: "x",
+				drinkId: "x",
+				payment: "loser",
+			}),
+		).toEqual(notSignedIn);
+		expect(
+			await respondToChallenge({ challengeId: "x", response: "accept" }),
+		).toEqual(notSignedIn);
+		expect(await cancelChallenge("x")).toEqual(notSignedIn);
+		expect(await proposeResult({ challengeId: "x", winnerId: "x" })).toEqual(
+			notSignedIn,
+		);
+		expect(await confirmResult("x")).toEqual(notSignedIn);
+		expect(await disputeResult("x")).toEqual(notSignedIn);
+	});
+
+	test("unknown challenges are reported as not found", async () => {
+		const { anna } = await setup();
+		signInAs(anna);
+		const notFound = {
+			success: false,
+			error: "Herausforderung nicht gefunden",
+		};
+
+		expect(
+			await respondToChallenge({ challengeId: "x", response: "accept" }),
+		).toEqual(notFound);
+		expect(await cancelChallenge("x")).toEqual(notFound);
+		expect(await proposeResult({ challengeId: "x", winnerId: "x" })).toEqual(
+			notFound,
+		);
+		expect(await confirmResult("x")).toEqual(notFound);
+		expect(await disputeResult("x")).toEqual(notFound);
+	});
+
+	test("players outside a challenge cannot touch it", async () => {
+		const { anna, bert, drink } = await setup();
+		const [carl] = await createPlayers(1);
+		const { challengeId } = await playChallenge({
+			challenger: anna,
+			opponent: bert,
+			drink,
+			winner: anna,
+		});
+		signInAs(carl);
+		const denied = { success: false, error: "Keine Berechtigung" };
+
+		expect(await cancelChallenge(challengeId)).toEqual(denied);
+		expect(await confirmResult(challengeId)).toEqual(denied);
+		expect(await disputeResult(challengeId)).toEqual(denied);
+
+		signInAs(bert);
+		const open = await createChallenge({
+			opponentId: anna.id,
+			drinkId: drink.id,
+			payment: "split",
+		});
+		signInAs(anna);
+		await respondToChallenge({
+			challengeId: open.challengeId as string,
+			response: "accept",
+		});
+		signInAs(carl);
+		expect(
+			await proposeResult({
+				challengeId: open.challengeId as string,
+				winnerId: carl.id,
+			}),
+		).toEqual(denied);
+	});
+
+	test("only a proposed result can be disputed; disputes show up as active", async () => {
+		const { anna, bert, drink } = await setup();
+		signInAs(anna);
+		const { challengeId } = await createChallenge({
+			opponentId: bert.id,
+			drinkId: drink.id,
+			payment: "loser",
+		});
+		signInAs(bert);
+		expect(await disputeResult(challengeId as string)).toEqual({
+			success: false,
+			error: "Nichts anzufechten",
+		});
+
+		const played = await playChallenge({
+			challenger: bert,
+			opponent: anna,
+			drink,
+			winner: bert,
+		});
+		signInAs(anna);
+		expect((await disputeResult(played.challengeId)).success).toBe(true);
+
+		const feed = await getMyChallenges();
+		expect(feed.disputed.map((c) => c.id)).toEqual([played.challengeId]);
+		expect(feed.active.map((c) => c.id)).toContain(played.challengeId);
+	});
+
+	test("a player without challenges gets an empty feed", async () => {
+		const { anna } = await setup();
+		signInAs(anna);
+
+		const feed = await getMyChallenges();
+
+		expect(Object.values(feed).every((list) => list.length === 0)).toBe(true);
 	});
 });

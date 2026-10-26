@@ -1,20 +1,23 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 
+import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
 import { orders } from "~/server/db/schema";
 import { createOrderRow, daysAgo } from "../../../test/factories/inventory";
 import {
 	createDrink,
 	createTenant,
 	createUser,
+	flushAfter,
 	setKasseConfig,
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
 } from "../../../test/harness";
+import { testState } from "../../../test/state";
 import { createOrder, getUserOrders, updateOrderStatus } from "./orders";
 
-// Achievements run fire-and-forget after the response; they have their own tests.
+// Achievements run after the response; they have their own tests.
 vi.mock("~/server/actions/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
@@ -60,6 +63,30 @@ describe("createOrder", () => {
 			costPerUnit: null,
 			bookedByAdminId: null,
 		});
+	});
+
+	test("tracks achievements after the response, for this Corps (#22)", async () => {
+		const tenant = await createTenant();
+		const member = await createUser();
+		const drink = await createDrink({ name: "Pils", price: 1.5 });
+		signInAs(member);
+
+		await createOrder({ ...baseOrder, drinkId: drink.id });
+
+		expect(testState.afterTasks).toHaveLength(1);
+		await flushAfter();
+		expect(checkAndUnlockAchievements).toHaveBeenCalledWith(
+			member.id,
+			"order_created",
+			{
+				drinkName: "Pils",
+				drinkId: drink.id,
+				amount: 2,
+				total: 3,
+				bookingFor: null,
+			},
+			{ tenantId: tenant.id },
+		);
 	});
 
 	test("applies the tenant markup to personal orders only", async () => {

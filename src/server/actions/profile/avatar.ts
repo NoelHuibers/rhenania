@@ -4,9 +4,11 @@
 import { del } from "@vercel/blob";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
+import { requireTenantId } from "~/server/lib/tenant-context";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
 
 export async function updateUserAvatarWithUpload(formData: FormData) {
@@ -116,7 +118,13 @@ export async function updateUserAvatarUrl(formData: FormData) {
 			.set({ image: imageUrl })
 			.where(eq(users.id, session.user.id));
 
-		void checkAndUnlockAchievements(session.user.id, "profile_picture_set");
+		const userId = session.user.id;
+		const tenantId = await requireTenantId();
+		after(() =>
+			checkAndUnlockAchievements(userId, "profile_picture_set", undefined, {
+				tenantId,
+			}),
+		);
 
 		revalidatePath("/profile");
 		revalidatePath("/leaderboard");

@@ -2,10 +2,12 @@
 
 import { and, desc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { db } from "~/server/db";
 import { controlDb } from "~/server/db/control";
 import { userStats } from "~/server/db/control-schema";
 import { games, userPreferences, users } from "~/server/db/schema";
+import { requireTenantId } from "~/server/lib/tenant-context";
 import { applyEloOutcome, getOrCreateUserStats } from "~/server/lib/user-stats";
 import { auth } from "../../auth";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
@@ -187,12 +189,22 @@ export async function createGame(gameData: GameResult): Promise<{
 
 		revalidatePath(`/eloranking`);
 
-		void Promise.all([
-			checkAndUnlockAchievements(userId, "game_played"),
-			checkAndUnlockAchievements(gameData.player2Id, "game_played"),
-			checkAndUnlockAchievements(winnerId, "game_won"),
-			checkAndUnlockAchievements(loserId, "game_lost"),
-		]);
+		// Achievements run after the response, against this Corps explicitly.
+		const tenantId = await requireTenantId();
+		const scope = { tenantId };
+		after(() =>
+			Promise.all([
+				checkAndUnlockAchievements(userId, "game_played", undefined, scope),
+				checkAndUnlockAchievements(
+					gameData.player2Id,
+					"game_played",
+					undefined,
+					scope,
+				),
+				checkAndUnlockAchievements(winnerId, "game_won", undefined, scope),
+				checkAndUnlockAchievements(loserId, "game_lost", undefined, scope),
+			]),
+		);
 
 		return {
 			success: true,

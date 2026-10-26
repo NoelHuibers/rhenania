@@ -128,6 +128,8 @@ describe("createUser (invite)", () => {
 		expect(checkAndUnlockAchievements).toHaveBeenCalledWith(
 			id,
 			"account_created",
+			undefined,
+			{ tenantId: tenant.id },
 		);
 	});
 

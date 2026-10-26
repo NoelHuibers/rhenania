@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 
 import { auth } from "~/server/auth";
@@ -10,6 +11,8 @@ import {
 	resolveTenantByHost,
 } from "~/server/lib/tenant-context";
 import {
+	controlDb,
+	countQueries,
 	createDrink,
 	createTenant,
 	createUser,
@@ -86,5 +89,35 @@ describe("test harness", () => {
 		});
 		signInAs(user);
 		expect((await auth())?.user.roles).toEqual([]);
+	});
+
+	test("countQueries counts round trips per database, batches as one", async () => {
+		await createTenant();
+		const drink = await createDrink({ name: "Pils" });
+
+		const counted = await countQueries(async () => {
+			await db.select().from(drinks);
+			await db.batch([
+				db.select().from(drinks),
+				db.update(drinks).set({ price: 2 }).where(eq(drinks.id, drink.id)),
+			]);
+			await controlDb().query.tenants.findMany();
+			await db.transaction(async (tx) => {
+				await tx.update(drinks).set({ price: 3 });
+			});
+			return "done";
+		});
+
+		expect(counted.result).toBe("done");
+		expect(counted).toMatchObject({ tenant: 4, control: 1, total: 5 });
+		// The batch and the transaction's UPDATE write; the commit does not.
+		expect(counted.writes).toBe(2);
+		expect(counted.log.map((e) => e.kind)).toEqual([
+			"execute",
+			"batch",
+			"execute",
+			"transaction",
+			"transaction",
+		]);
 	});
 });

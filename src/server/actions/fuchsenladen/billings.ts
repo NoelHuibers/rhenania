@@ -12,6 +12,7 @@ import {
 	type SQL,
 	sql,
 } from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
 import {
 	addMoney,
@@ -29,6 +30,7 @@ import {
 	fuchsenBills,
 	fuchsenOrders,
 } from "~/server/db/schema";
+import { groupBy } from "~/server/lib/group-by";
 import { hasRole } from "../admin/userRoles";
 
 export type FuchsenBillPeriod = typeof fuchsenBillPeriods.$inferSelect;
@@ -354,40 +356,65 @@ export async function getAllFuchsenBillPeriods() {
 	}
 }
 
+/**
+ * Runs the bill query together with the items of every bill matching
+ * `billFilter` (one round trip) and groups the items by bill.
+ */
+async function withFuchsenItems<T>(
+	billsQuery: BatchItem<"sqlite"> & PromiseLike<T>,
+	billFilter: SQL | undefined,
+) {
+	const [billRows, itemRows] = await db.batch([
+		billsQuery,
+		db
+			.select({ item: fuchsenBillItems })
+			.from(fuchsenBillItems)
+			.innerJoin(fuchsenBills, eq(fuchsenBillItems.billId, fuchsenBills.id))
+			.where(billFilter)
+			.orderBy(sql`${fuchsenBillItems}.rowid`),
+	]);
+	const itemsByBill = groupBy(
+		(itemRows as Array<{ item: typeof fuchsenBillItems.$inferSelect }>).map(
+			(r) => r.item,
+		),
+		(item) => item.billId,
+	);
+	return [billRows as T, itemsByBill] as const;
+}
+
 export async function getFuchsenBillsForPeriod(
 	billPeriodId: string,
 ): Promise<FuchsenBillingEntry[]> {
 	try {
-		const billsData = await db
-			.select()
-			.from(fuchsenBills)
-			.where(eq(fuchsenBills.billPeriodId, billPeriodId))
-			.orderBy(fuchsenBills.userName);
-
-		return await Promise.all(
-			billsData.map(async (bill) => {
-				const items = await db
-					.select()
-					.from(fuchsenBillItems)
-					.where(eq(fuchsenBillItems.billId, bill.id));
-				return {
-					id: bill.id,
-					name: bill.userName,
-					totalDue: bill.total,
-					status: bill.status,
-					oldBillingAmount: bill.oldBillingAmount,
-					itemsTotal: bill.itemsTotal,
-					paidAt: bill.paidAt,
-					items: items.map((item) => ({
-						id: item.id,
-						name: item.itemName,
-						quantity: item.amount,
-						unitPrice: item.pricePerItem,
-						subtotal: item.totalPrice,
-					})),
-				};
-			}),
+		// Bills and all their items in one round trip.
+		const [billsData, itemsByBill] = await withFuchsenItems(
+			db
+				.select()
+				.from(fuchsenBills)
+				.where(eq(fuchsenBills.billPeriodId, billPeriodId))
+				.orderBy(fuchsenBills.userName),
+			eq(fuchsenBills.billPeriodId, billPeriodId),
 		);
+
+		return billsData.map((bill) => {
+			const items = itemsByBill.get(bill.id) ?? [];
+			return {
+				id: bill.id,
+				name: bill.userName,
+				totalDue: bill.total,
+				status: bill.status,
+				oldBillingAmount: bill.oldBillingAmount,
+				itemsTotal: bill.itemsTotal,
+				paidAt: bill.paidAt,
+				items: items.map((item) => ({
+					id: item.id,
+					name: item.itemName,
+					quantity: item.amount,
+					unitPrice: item.pricePerItem,
+					subtotal: item.totalPrice,
+				})),
+			};
+		});
 	} catch (error) {
 		console.error("Error getting fuchsen bills for period:", error);
 		return [];
@@ -630,43 +657,41 @@ export async function getMyFuchsenBills(): Promise<
 			return [];
 		}
 
-		const rows = await db
-			.select({ bill: fuchsenBills, period: fuchsenBillPeriods })
-			.from(fuchsenBills)
-			.leftJoin(
-				fuchsenBillPeriods,
-				eq(fuchsenBills.billPeriodId, fuchsenBillPeriods.id),
-			)
-			.where(eq(fuchsenBills.userId, session.user.id))
-			.orderBy(desc(fuchsenBills.createdAt));
-
-		return await Promise.all(
-			rows.map(async ({ bill, period }) => {
-				const items = await db
-					.select()
-					.from(fuchsenBillItems)
-					.where(eq(fuchsenBillItems.billId, bill.id));
-				return {
-					period,
-					bill: {
-						id: bill.id,
-						name: bill.userName,
-						totalDue: bill.total,
-						status: bill.status,
-						oldBillingAmount: bill.oldBillingAmount,
-						itemsTotal: bill.itemsTotal,
-						paidAt: bill.paidAt,
-						items: items.map((item) => ({
-							id: item.id,
-							name: item.itemName,
-							quantity: item.amount,
-							unitPrice: item.pricePerItem,
-							subtotal: item.totalPrice,
-						})),
-					},
-				};
-			}),
+		const [rows, itemsByBill] = await withFuchsenItems(
+			db
+				.select({ bill: fuchsenBills, period: fuchsenBillPeriods })
+				.from(fuchsenBills)
+				.leftJoin(
+					fuchsenBillPeriods,
+					eq(fuchsenBills.billPeriodId, fuchsenBillPeriods.id),
+				)
+				.where(eq(fuchsenBills.userId, session.user.id))
+				.orderBy(desc(fuchsenBills.createdAt)),
+			eq(fuchsenBills.userId, session.user.id),
 		);
+
+		return rows.map(({ bill, period }) => {
+			const items = itemsByBill.get(bill.id) ?? [];
+			return {
+				period,
+				bill: {
+					id: bill.id,
+					name: bill.userName,
+					totalDue: bill.total,
+					status: bill.status,
+					oldBillingAmount: bill.oldBillingAmount,
+					itemsTotal: bill.itemsTotal,
+					paidAt: bill.paidAt,
+					items: items.map((item) => ({
+						id: item.id,
+						name: item.itemName,
+						quantity: item.amount,
+						unitPrice: item.pricePerItem,
+						subtotal: item.totalPrice,
+					})),
+				},
+			};
+		});
 	} catch (error) {
 		console.error("Error getting my fuchsen bills:", error);
 		return [];

@@ -12,6 +12,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
+import { testState } from "../../../../test/state";
 import {
 	deleteUserAvatar,
 	updateUserAvatarUrl,
@@ -103,6 +104,8 @@ describe("updateUserAvatarUrl", () => {
 		expect(checkAndUnlockAchievements).toHaveBeenCalledWith(
 			member.id,
 			"profile_picture_set",
+			undefined,
+			{ tenantId: testState.tenantId },
 		);
 		expect(revalidatePath).toHaveBeenCalledWith("/profile");
 	});

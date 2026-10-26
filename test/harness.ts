@@ -49,6 +49,7 @@ export function setupTestDatabases() {
 		testState.tenantId = null;
 		testState.sessionUser = null;
 		testState.headers = {};
+		testState.afterTasks = [];
 	});
 }
 
@@ -224,6 +225,12 @@ export async function setKasseConfig(
 		.onConflictDoUpdate({ target: kasseConfig.id, set: values });
 }
 
+/** Waits for everything `after()` scheduled so far. */
+export async function flushAfter() {
+	const tasks = testState.afterTasks.splice(0);
+	await Promise.all(tasks);
+}
+
 /** Direct handle on the current tenant DB for assertions. */
 export function tenantDb(tenantId = testState.tenantId) {
 	return requireTenant(tenantId).db;
@@ -232,3 +239,5 @@ export function tenantDb(tenantId = testState.tenantId) {
 export function controlDb() {
 	return requireControl().db;
 }
+
+export { countQueries } from "./query-count";
