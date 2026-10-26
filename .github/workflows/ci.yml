@@ -70,6 +70,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test:coverage
+      - name: Coverage may only go up (per area)
+        run: pnpm coverage:check
       - name: Coverage summary
         if: matrix.tz == 'Europe/Berlin'
         run: |

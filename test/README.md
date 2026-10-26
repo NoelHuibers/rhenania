@@ -92,3 +92,26 @@ pnpm test:visual:update   # accept intended UI changes (review the PNG diff!)
 CI runs the same image (`visual` job). When bumping `@playwright/test`, update
 the image tag in `.github/workflows/ci.yml` too; `test/ci-config.test.ts`
 fails if they drift apart.
+
+## Coverage gates
+
+- `vitest.config.ts` sets hard floors: server ≥ 85 % lines / 70 % branches,
+  API routes ≥ 90 %, `src/lib` ≥ 65 %, overall ≥ 40 %. UI components are covered
+  by E2E, a11y and visual tests instead.
+- `pnpm coverage:check` compares each area with `test/coverage-baseline.json`
+  and fails CI if one drops by more than 0.3 points. After raising coverage, run
+  `pnpm test:coverage && pnpm coverage:baseline` and commit the baseline.
+
+## Pinned bugs (`test.fails`)
+
+Known bugs are pinned with their correct expectation as
+`test.fails("… (#issue)")`. They pass while the bug exists and fail once it is
+fixed. The fix PR then turns them into normal `test`s.
+
+## Mutation testing
+
+`pnpm test:mutation` (Stryker, `stryker.config.mjs`) mutates the money code
+(pricing, decimal, IBAN, billing, inventory, reimbursements, ELO) and checks
+that some test fails for each mutant. It runs nightly in CI
+(`.github/workflows/mutation.yml`) and fails below a 50 % score. The HTML
+report is in `reports/mutation/`.

@@ -38,6 +38,14 @@ export default defineConfig({
 			include: ["src/**/*.{ts,tsx}"],
 			exclude: ["src/**/*.test.ts", "src/**/*.d.ts"],
 			reporter: ["text-summary", "html", "lcov", "json-summary"],
+			// Hard floors; the per-area ratchet (pnpm coverage:check) guards
+			// against smaller drops. UI is covered by E2E/a11y/visual tests.
+			thresholds: {
+				lines: 40,
+				"src/server/**": { lines: 85, branches: 70 },
+				"src/app/api/**": { lines: 90, branches: 75 },
+				"src/lib/**": { lines: 65, branches: 65 },
+			},
 		},
 	},
 });

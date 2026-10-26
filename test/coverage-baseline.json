@@ -1,0 +1,22 @@
+{
+	"total": {
+		"lines": 44.9,
+		"branches": 31.8
+	},
+	"api": {
+		"lines": 97.3,
+		"branches": 86.1
+	},
+	"server": {
+		"lines": 88.7,
+		"branches": 77.6
+	},
+	"lib": {
+		"lines": 70.8,
+		"branches": 74.8
+	},
+	"proxy": {
+		"lines": 41.8,
+		"branches": 42.9
+	}
+}

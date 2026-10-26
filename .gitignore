@@ -8,6 +8,8 @@
 # testing
 /coverage
 /test-results/
+/reports/
+/.stryker-tmp/
 /playwright-report/
 
 # local dev / E2E databases and mail outbox
