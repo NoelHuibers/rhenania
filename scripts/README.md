@@ -29,6 +29,14 @@ pnpm exec tsx scripts/dev/run.ts pnpm db:migrate-tenants --dry-run
 | `pnpm diag:member-statuses [slug]` | distinct `member.status` values |
 | `pnpm diag:duplicate-settlements [slug]` | challenges settled more than once (several games per `challengeId`), per Corps and cross-Corps |
 
+## One-off repairs
+
+Dry run by default; `--apply` writes and needs `CONFIRM_PROD=<db-host>` for a remote DB.
+
+| Command | What it does |
+|---|---|
+| `pnpm ops:repair-fuchsen-carry <slug> [--apply]` | closes Fuchsen bills the old billing carried into a later bill but left open (→ "Übertragen", or "Bezahlt" when the later bill was paid), so the next run doesn't charge them twice; lists carries and bills that need a human look. Run once per tenant before the first Fuchsen billing with the new code. |
+
 ## Removed one-off migrations
 
 These ran once against production and were removed. Restore one from git history
