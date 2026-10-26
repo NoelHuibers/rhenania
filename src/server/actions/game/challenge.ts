@@ -26,6 +26,9 @@ const CONFIRM_WINDOW_MS = 10 * 60 * 1000; // 10 min to confirm
 const DECLINE_COOLDOWN_MS = 60 * 60 * 1000; // 1 h cooldown after decline
 
 const OPEN_STATUSES = ["pending", "accepted", "result_proposed"] as const;
+// Once a result is proposed it can only be confirmed or disputed (#142):
+// otherwise the reported loser could cancel and skip the drinks.
+const CANCELLABLE_STATUSES = ["pending", "accepted"] as const;
 
 export type ChallengeStatus =
 	| "pending"
@@ -244,6 +247,9 @@ export async function respondToChallenge(input: {
 
 // ---------- Cancel ----------
 
+const RESULT_PROPOSED_ERROR =
+	"Ein Ergebnis wurde gemeldet: bestätigen oder anfechten";
+
 export async function cancelChallenge(
 	challengeId: string,
 ): Promise<{ success: boolean; error?: string }> {
@@ -268,18 +274,26 @@ export async function cancelChallenge(
 	if (row.challengerId !== userId && row.opponentId !== userId) {
 		return { success: false, error: "Keine Berechtigung" };
 	}
-	if (!OPEN_STATUSES.includes(row.status as (typeof OPEN_STATUSES)[number])) {
+	if (row.status === "result_proposed") {
+		return { success: false, error: RESULT_PROPOSED_ERROR };
+	}
+	if (
+		!CANCELLABLE_STATUSES.includes(
+			row.status as (typeof CANCELLABLE_STATUSES)[number],
+		)
+	) {
 		return { success: false, error: "Kann nicht mehr abgebrochen werden" };
 	}
 
-	// Only from the status checked above: a settlement may claim it meanwhile.
+	// Only from the status checked above: a proposal or the sweep may move it
+	// on meanwhile.
 	const [cancelled] = await db
 		.update(challenges)
 		.set({ status: "cancelled" })
 		.where(
 			and(
 				eq(challenges.id, challengeId),
-				inArray(challenges.status, [...OPEN_STATUSES]),
+				inArray(challenges.status, [...CANCELLABLE_STATUSES]),
 			),
 		)
 		.returning({ id: challenges.id });
@@ -326,7 +340,8 @@ export async function proposeResult(input: {
 		return { success: false, error: "Ungültiger Gewinner" };
 	}
 
-	await db
+	// Only from "accepted": a cancel or the sweep may have closed it meanwhile.
+	const [proposed] = await db
 		.update(challenges)
 		.set({
 			status: "result_proposed",
@@ -335,7 +350,14 @@ export async function proposeResult(input: {
 			proposedAt: new Date(),
 			confirmDeadline: new Date(Date.now() + CONFIRM_WINDOW_MS),
 		})
-		.where(eq(challenges.id, row.id));
+		.where(and(eq(challenges.id, row.id), eq(challenges.status, "accepted")))
+		.returning({ id: challenges.id });
+	if (!proposed) {
+		return {
+			success: false,
+			error: "Ergebnis kann nur in laufenden Spielen gemeldet werden",
+		};
+	}
 
 	revalidatePath("/eloranking");
 	revalidatePath("/challenges");

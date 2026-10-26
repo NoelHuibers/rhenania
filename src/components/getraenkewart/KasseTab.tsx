@@ -62,7 +62,11 @@ import {
 import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { BillStatusBadge, statusClass } from "~/components/ui/status-badge";
+import {
+	BillStatusBadge,
+	StatusBadge,
+	statusClass,
+} from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -98,7 +102,9 @@ type Summary = {
 	lagerwert: number;
 	lagerwertDate: Date | null;
 	offeneMitglieder: number;
+	gestundetMitglieder: number;
 	offeneGruppen: number;
+	gestundetGruppen: number;
 	pfand: number;
 	externOffen: number;
 	gesamt: number;
@@ -188,7 +194,17 @@ function SummarySection({
 		});
 	}
 
-	const supportingCards = [
+	const supportingCards: Array<{
+		label: string;
+		value: string;
+		icon: typeof Euro;
+		color: string;
+		sub?: string;
+		/** Shown after the value: what the amount is ("fällig"). */
+		qualifier?: string;
+		/** Gestundet amount, shown as its own line; omitted when undefined. */
+		deferred?: number;
+	}> = [
 		{
 			label: "Kassenstand",
 			value: formatEUR(summary.kassenstand),
@@ -207,12 +223,18 @@ function SummarySection({
 		{
 			label: "Offene Mitgliederrechnungen",
 			value: formatEUR(summary.offeneMitglieder),
+			qualifier: "fällig",
+			deferred: summary.gestundetMitglieder,
 			icon: Users,
 			color: "text-warning-muted-foreground",
 		},
 		{
 			label: "Offene Gruppenrechnungen",
 			value: formatEUR(summary.offeneGruppen),
+			// Rare for groups: only shown when there is something deferred.
+			...(summary.gestundetGruppen > 0
+				? { qualifier: "fällig", deferred: summary.gestundetGruppen }
+				: {}),
 			icon: Receipt,
 			color: "text-purple-600",
 		},
@@ -251,7 +273,24 @@ function SummarySection({
 								<Icon className={`size-5 shrink-0 ${c.color}`} />
 								<div className="min-w-0">
 									<p className="text-muted-foreground text-xs">{c.label}</p>
-									<p className={`font-bold text-lg ${c.color}`}>{c.value}</p>
+									<p className={`font-bold text-lg ${c.color}`}>
+										{c.value}
+										{c.qualifier && (
+											<span className="ml-1.5 font-normal text-muted-foreground text-xs">
+												{c.qualifier}
+											</span>
+										)}
+									</p>
+									{c.deferred !== undefined && (
+										<p className="mt-1 flex items-center gap-1.5 text-xs">
+											<StatusBadge {...billStatusStyle("Gestundet")}>
+												Gestundet
+											</StatusBadge>
+											<span className="font-semibold">
+												{formatEUR(c.deferred)}
+											</span>
+										</p>
+									)}
 									{c.sub && (
 										<p className="text-muted-foreground text-xs">{c.sub}</p>
 									)}
