@@ -7,6 +7,8 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # local dev / E2E databases and mail outbox
 /.data/

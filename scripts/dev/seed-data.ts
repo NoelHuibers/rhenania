@@ -90,6 +90,12 @@ export const SEED_USERS: SeedUser[] = [
 		memberships: [{ tenantId: "tenant-rhenania", roles: ["Hausbewohner"] }],
 	},
 	{
+		id: "user-rh-reset",
+		name: "Rita Reset",
+		email: "reset@rhenania.test",
+		memberships: [{ tenantId: "tenant-rhenania", roles: [] }],
+	},
+	{
 		id: "user-ha-admin",
 		name: "Hanna Hassia",
 		email: "admin@hassia.test",

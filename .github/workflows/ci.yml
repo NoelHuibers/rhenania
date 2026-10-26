@@ -109,3 +109,29 @@ jobs:
           pnpm exec drizzle-kit migrate
           pnpm exec drizzle-kit migrate --config=drizzle.control.config.ts
       - run: pnpm build
+
+  e2e:
+    name: E2E (Playwright, local DBs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      # Builds the app, seeds .data/e2e with two tenants and runs the suite.
+      # scripts/dev/run.ts pins every database to local files.
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
