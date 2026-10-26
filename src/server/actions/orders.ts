@@ -4,7 +4,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
-import { auth } from "~/server/auth"; // Import your NextAuth auth function
+import { auth } from "~/server/auth";
 import { drinks, orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
