@@ -53,3 +53,7 @@ yarn-error.log*
 .idea
 # agent worktrees
 /.claude/worktrees/
+
+# personal Claude Code permissions (never commit: they may auto-approve
+# commands that touch production)
+/.claude/settings.local.json
