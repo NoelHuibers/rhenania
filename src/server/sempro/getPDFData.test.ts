@@ -131,7 +131,7 @@ describe("getPDFData", () => {
 
 	// endDate is the picked last day at 00:00, and the query uses
 	// `date <= endDate`, so anything later on the last day is dropped.
-	test.fails("includes events on the semester's last day (new)", async () => {
+	test.fails("includes events on the semester's last day (#145)", async () => {
 		await createTenant();
 		await setSemesterConfig(SEMESTER);
 		await createEvent({

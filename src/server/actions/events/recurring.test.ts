@@ -380,7 +380,7 @@ describe("generateInstances", () => {
 
 	// Steps of 14 × 24h from local midnight land on 23:00 the previous day
 	// once DST ends (last Sunday in October), so later dates move a day early.
-	test.fails("biweekly dates keep their weekday across the end of DST (new)", async () => {
+	test.fails("biweekly dates keep their weekday across the end of DST (#144)", async () => {
 		await setup();
 		const t = await template({
 			dayOfWeek: 1,
@@ -398,7 +398,7 @@ describe("generateInstances", () => {
 		]);
 	});
 
-	test.fails("winter oCC dates keep their weekdays across the end of DST (new)", async () => {
+	test.fails("winter oCC dates keep their weekdays across the end of DST (#144)", async () => {
 		await setup();
 		const t = await template({
 			recurrenceType: "occ_semester",

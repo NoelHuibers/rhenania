@@ -195,7 +195,7 @@ describe("createBeitragRun", () => {
 	// The run's paid charges count as Ist-Einnahmen of `run.kostenpunktId`
 	// within `run.etaplanId`; a Kostenpunkt of another plan makes them vanish
 	// from both overviews.
-	test.fails("rejects a Kostenpunkt that belongs to another Etatplan (new)", async () => {
+	test.fails("rejects a Kostenpunkt that belongs to another Etatplan (#151)", async () => {
 		const { kp } = await setup();
 		const otherPlan = await createEtaplan();
 
@@ -502,7 +502,7 @@ describe("sendBeitragEmails", () => {
 		});
 	});
 
-	test.fails("does not send an invoice for an already paid Beitrag (new)", async () => {
+	test.fails("does not send an invoice for an already paid Beitrag (#151)", async () => {
 		const { kp } = await setup();
 		await createKonto();
 		const run = await seedRun(kp);
@@ -611,7 +611,7 @@ describe("sendMahnungen", () => {
 	// stays Gemahnt, so it is never picked up again (only "Offen" charges
 	// without mahnungSentAt are reminded) and markChargeUnpaid returns it to
 	// Gemahnt, not Offen.
-	test.fails("a failed reminder can be retried (new)", async () => {
+	test.fails("a failed reminder can be retried (#151)", async () => {
 		const { kp } = await setup();
 		const run = await seedRun(kp, { dueDate: PAST_DUE });
 		const charge = await createCharge(

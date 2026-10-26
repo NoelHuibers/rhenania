@@ -83,7 +83,7 @@ describe("createDatabase", () => {
 		);
 	});
 
-	test.fails("reports the status of failed calls with a plain-text body (new)", async () => {
+	test.fails("reports the status of failed calls with a plain-text body (#152)", async () => {
 		fetchMock.mockResolvedValueOnce(
 			new Response("Bad Gateway", { status: 502 }),
 		);
@@ -148,7 +148,7 @@ describe("databaseExists", () => {
 		await expect(databaseExists("corps-hassia")).rejects.toThrow(/401/);
 	});
 
-	test.fails("a 404 with a plain-text body counts as missing (new)", async () => {
+	test.fails("a 404 with a plain-text body counts as missing (#152)", async () => {
 		fetchMock.mockResolvedValueOnce(new Response("Not Found", { status: 404 }));
 		expect(await databaseExists("corps-nope")).toBe(false);
 	});

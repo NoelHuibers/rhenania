@@ -105,7 +105,7 @@ describe("GET /api/calendar", () => {
 
 	// Folding counts UTF-16 code units: lines with umlauts exceed the 75-octet
 	// limit and an emoji at the fold point is split into lone surrogates.
-	test.fails("folds by octets without splitting characters (new)", async () => {
+	test.fails("folds by octets without splitting characters (#146)", async () => {
 		await createTenant();
 		// "SUMMARY:" + 66 characters puts the emoji's two code units at 74/75.
 		const title = `${"Fuchsenprüfung ".repeat(4)}Grill 🍺 und mehr`;
@@ -123,7 +123,7 @@ describe("GET /api/calendar", () => {
 
 	// The public feed still hard-codes the original tenant in UID and
 	// calendar name, unlike the per-member feed.
-	test.fails("names the calendar after the tenant (new)", async () => {
+	test.fails("names the calendar after the tenant (#36)", async () => {
 		await createTenant({ slug: "hassia", displayName: "Corps Hassia" });
 		const event = await createEvent();
 

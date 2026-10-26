@@ -100,7 +100,7 @@ describe("getEloStatsForUser", () => {
 	});
 
 	// The chart date is taken from toISOString(), i.e. the UTC calendar day.
-	test.fails("a game at 00:30 Berlin time is charted on that Berlin day (new)", async () => {
+	test.fails("a game at 00:30 Berlin time is charted on that Berlin day (#15)", async () => {
 		await createTenant();
 		const [anna, bert] = await createPlayers(2);
 		await insertGame({

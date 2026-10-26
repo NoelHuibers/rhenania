@@ -482,7 +482,7 @@ describe("createNewBilling", () => {
 
 	// New: with no Hausbewohner the divisor falls back to 1, so every billed
 	// member is charged the whole inventory loss.
-	test.fails("never collects more Umlage than the inventory loss (new)", async () => {
+	test.fails("never collects more Umlage than the inventory loss (#10)", async () => {
 		await setupKasse();
 		const drink = await createDrink({ price: 1 });
 		await createOrderRow({ user: await createUser(), drink });

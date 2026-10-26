@@ -85,7 +85,7 @@ describe("exportToCSV", () => {
 		expect(row).toContain('"5","","","1"');
 	});
 
-	test.fails("escapes quotes inside values (new)", async () => {
+	test.fails("escapes quotes inside values (#57)", async () => {
 		exportToCSV([item('Pils "Export"')]);
 
 		const [, row] = await csvLines();

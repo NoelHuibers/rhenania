@@ -180,14 +180,14 @@ describe("day arithmetic", () => {
 	});
 
 	// Oct 25 has 25 h, so start + 24 h is still Oct 25 (breaks WeekPreview's next week).
-	test.fails("addDaysInTZ steps over the 25-hour autumn day (new)", () => {
+	test.fails("addDaysInTZ steps over the 25-hour autumn day (#135)", () => {
 		expect(addDaysInTZ(utc("2026-10-25T10:00:00"), 1)).toEqual(
 			utc("2026-10-25T23:00:00"),
 		);
 	});
 
 	// Mar 29 has 23 h: Mar 30 00:00 − 24 h is Mar 28 23:00, a day too far.
-	test.fails("addDaysInTZ steps back over the 23-hour spring day (new)", () => {
+	test.fails("addDaysInTZ steps back over the 23-hour spring day (#135)", () => {
 		expect(addDaysInTZ(utc("2026-03-30T10:00:00"), -1)).toEqual(
 			utc("2026-03-28T23:00:00"),
 		);

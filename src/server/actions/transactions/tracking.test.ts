@@ -104,7 +104,7 @@ describe("getTransactions / getTransactionCount", () => {
 	});
 
 	// SQLite LIKE only folds ASCII, and the term is lower-cased first.
-	test.fails("finds members whose name starts with an umlaut (new)", async () => {
+	test.fails("finds members whose name starts with an umlaut (#136)", async () => {
 		const ozan = await createUser({ name: "Özdemir" });
 		await createOrderRow({ drink: await createDrink(), user: ozan });
 
