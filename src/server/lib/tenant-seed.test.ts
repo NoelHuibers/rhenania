@@ -13,7 +13,8 @@ import {
 	setupTestDatabases,
 	tenantDb,
 } from "../../../test/harness";
-import { DEFAULT_ROLES, seedTenantDefaults } from "./tenant-seed";
+import { DEFAULT_ROLES } from "./tenant-default-config";
+import { seedTenantDefaults } from "./tenant-seed";
 
 setupTestDatabases();
 

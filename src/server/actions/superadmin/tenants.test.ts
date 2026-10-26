@@ -27,9 +27,11 @@ import {
 } from "../../../../test/harness";
 import { requireControl } from "../../../../test/state";
 import {
+	abandonTenantProvisioningAction,
 	addTenantDomainAction,
 	createTenantAction,
 	getTenantDetailAction,
+	listTenantProvisioningsAction,
 	listTenantsAction,
 	removeTenantDomainAction,
 	setTenantFeatureAction,
@@ -41,6 +43,8 @@ import {
 // Provisioning talks to Turso; it has its own test file.
 vi.mock("~/server/lib/tenant-provisioning", () => ({
 	provisionTenant: vi.fn(),
+	listUnfinishedProvisionings: vi.fn(async () => []),
+	abandonTenantProvisioning: vi.fn(),
 }));
 
 setupTestDatabases();
@@ -67,6 +71,8 @@ describe("superadmin gate", () => {
 		const results = [
 			await listTenantsAction(),
 			await createTenantAction({ slug: "neu", displayName: "Neu" }),
+			await listTenantProvisioningsAction(),
+			await abandonTenantProvisioningAction("neu"),
 			await getTenantDetailAction(tenant.id),
 			await setTenantFeatureAction(tenant.id, "drinks.markup", true),
 			await setTenantStatusAction(tenant.id, "suspended"),

@@ -18,7 +18,12 @@ import {
 } from "~/server/db/control-schema";
 import { requireSuperAdmin } from "~/server/lib/super-admin";
 import { commitTenantConfigChange } from "~/server/lib/tenant-config";
-import { provisionTenant } from "~/server/lib/tenant-provisioning";
+import {
+	abandonTenantProvisioning,
+	listUnfinishedProvisionings,
+	provisionTenant,
+	type UnfinishedProvisioning,
+} from "~/server/lib/tenant-provisioning";
 
 type ActionResult<T = void> = {
 	success: boolean;
@@ -96,25 +101,73 @@ export async function listTenantsAction(): Promise<
 
 // ─── Create ───────────────────────────────────────────────────────────────────
 
+/**
+ * Creates a tenant, or resumes the unfinished provisioning run for the same
+ * slug (see tenant-provisioning.ts).
+ */
 export async function createTenantAction(input: {
 	slug: string;
 	displayName: string;
+	primaryHostname?: string | null;
+	firstAdminEmail?: string | null;
 }): Promise<ActionResult<{ tenantId: string; dbUrl: string }>> {
 	try {
 		await requireSuperAdmin();
-
+	} catch (e) {
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : "Unknown error",
+		};
+	}
+	try {
 		const result = await provisionTenant({
 			slug: input.slug,
 			displayName: input.displayName,
+			primaryHostname: input.primaryHostname,
+			firstAdminEmail: input.firstAdminEmail,
 		});
-
-		revalidatePath("/superadmin");
 		return {
 			success: true,
 			data: { tenantId: result.tenantId, dbUrl: result.dbUrl },
 		};
 	} catch (e) {
 		console.error("createTenantAction failed:", e);
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : "Unknown error",
+		};
+	} finally {
+		// A failed run shows up as unfinished (and maybe a pending tenant).
+		revalidatePath("/superadmin");
+	}
+}
+
+export async function listTenantProvisioningsAction(): Promise<
+	ActionResult<UnfinishedProvisioning[]>
+> {
+	try {
+		await requireSuperAdmin();
+		return { success: true, data: await listUnfinishedProvisionings() };
+	} catch (e) {
+		console.error("listTenantProvisioningsAction failed:", e);
+		return {
+			success: false,
+			error: e instanceof Error ? e.message : "Unknown error",
+		};
+	}
+}
+
+/** Deletes an unfinished run's Turso DB and control rows. */
+export async function abandonTenantProvisioningAction(
+	slug: string,
+): Promise<ActionResult> {
+	try {
+		await requireSuperAdmin();
+		await abandonTenantProvisioning(slug);
+		revalidatePath("/superadmin");
+		return { success: true };
+	} catch (e) {
+		console.error("abandonTenantProvisioningAction failed:", e);
 		return {
 			success: false,
 			error: e instanceof Error ? e.message : "Unknown error",
