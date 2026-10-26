@@ -35,7 +35,6 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
@@ -61,6 +60,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { BillStatusBadge, statusClass } from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -72,6 +72,7 @@ import {
 } from "~/components/ui/table";
 import { parseDecimalInput } from "~/lib/decimal";
 import { formatDate, formatDecimalInput, formatEUR } from "~/lib/format";
+import { billStatusStyle } from "~/lib/status";
 import {
 	createNewBilling,
 	updateBillStatus,
@@ -190,7 +191,7 @@ function SummarySection({
 			label: "Kassenstand",
 			value: formatEUR(summary.kassenstand),
 			icon: Euro,
-			color: "text-blue-600",
+			color: "text-info",
 		},
 		{
 			label: "Lagerwert",
@@ -199,13 +200,13 @@ function SummarySection({
 			sub: summary.lagerwertDate
 				? `Letzte Inventur: ${formatDate(summary.lagerwertDate)}`
 				: "Keine Inventur",
-			color: "text-orange-500",
+			color: "text-warning-muted-foreground",
 		},
 		{
 			label: "Offene Mitgliederrechnungen",
 			value: formatEUR(summary.offeneMitglieder),
 			icon: Users,
-			color: "text-yellow-600",
+			color: "text-warning-muted-foreground",
 		},
 		{
 			label: "Offene Gruppenrechnungen",
@@ -217,11 +218,11 @@ function SummarySection({
 			label: "Externe Verbindlichkeiten",
 			value: formatEUR(summary.externOffen),
 			icon: Building2,
-			color: "text-red-600",
+			color: "text-destructive",
 		},
 	];
 
-	const gesamtColor = summary.gesamt >= 0 ? "text-green-600" : "text-red-600";
+	const gesamtColor = summary.gesamt >= 0 ? "text-success" : "text-destructive";
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -261,7 +262,7 @@ function SummarySection({
 				{/* Pfand card — inline editable */}
 				<Card>
 					<CardContent className="flex items-center gap-3 p-4">
-						<Package className="size-5 shrink-0 text-green-600" />
+						<Package className="size-5 shrink-0 text-success" />
 						<div className="min-w-0 flex-1">
 							<p className="text-muted-foreground text-xs">Pfandguthaben</p>
 							{editingPfand ? (
@@ -289,7 +290,7 @@ function SummarySection({
 										onClick={handleSavePfand}
 										disabled={isPending}
 									>
-										<CheckCircle className="size-3.5 text-green-600" />
+										<CheckCircle className="size-3.5 text-success" />
 									</Button>
 									<Button
 										size="icon"
@@ -303,7 +304,7 @@ function SummarySection({
 								</div>
 							) : (
 								<div className="flex items-center gap-2">
-									<p className="font-bold text-green-600 text-lg">
+									<p className="font-bold text-lg text-success">
 										{formatEUR(summary.pfand)}
 									</p>
 									<Button
@@ -407,8 +408,8 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 										<span
 											className={
 												diff >= 0
-													? "font-medium text-green-600"
-													: "font-medium text-red-600"
+													? "font-medium text-success"
+													: "font-medium text-destructive"
 											}
 										>
 											{formatEUR(diff, { signed: true })}
@@ -469,7 +470,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 									<TableCell className="text-right font-medium text-sm">
 										<span
 											className={
-												e.amount >= 0 ? "text-green-600" : "text-red-600"
+												e.amount >= 0 ? "text-success" : "text-destructive"
 											}
 										>
 											{e.amount >= 0 ? (
@@ -488,7 +489,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 											disabled={isPending}
 											onClick={() => handleDelete(e.id)}
 										>
-											<Trash2 className="size-3.5 text-red-500" />
+											<Trash2 className="size-3.5 text-destructive" />
 										</Button>
 									</TableCell>
 								</TableRow>
@@ -506,7 +507,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 									Aktueller Stand
 								</TableCell>
 								<TableCell
-									className={`text-right font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}
+									className={`text-right font-bold ${balance >= 0 ? "text-success" : "text-destructive"}`}
 								>
 									{formatEUR(balance)}
 								</TableCell>
@@ -575,16 +576,7 @@ function CollapsibleCard({
 type BillStatus = "Bezahlt" | "Unbezahlt" | "Gestundet";
 
 function billStatusClass(status: string) {
-	switch (status) {
-		case "Bezahlt":
-			return "border-emerald-300 text-emerald-700 dark:text-emerald-300";
-		case "Gestundet":
-			return "border-amber-300 text-amber-700 dark:text-amber-300";
-		case "Übertragen":
-			return "border-slate-300 text-slate-600 dark:text-slate-300";
-		default:
-			return "border-red-300 text-red-700 dark:text-red-300";
-	}
+	return statusClass(billStatusStyle(status));
 }
 
 function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
@@ -827,7 +819,10 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 						{[...unpaid, ...paid].map((b) => (
 							<TableRow
 								key={b.id}
-								className={b.status !== "Unbezahlt" ? "opacity-50" : ""}
+								// Settled rows recede without dropping below 4.5:1 (opacity did).
+								className={
+									b.status !== "Unbezahlt" ? "text-muted-foreground" : ""
+								}
 							>
 								<TableCell className="font-medium text-sm">
 									{b.userName}
@@ -1033,7 +1028,9 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 						{[...openBills, ...paidBills].map((b) => (
 							<TableRow
 								key={b.id}
-								className={b.status === "Bezahlt" ? "opacity-50" : ""}
+								className={
+									b.status === "Bezahlt" ? "text-muted-foreground" : ""
+								}
 							>
 								<TableCell className="font-medium text-sm">
 									{b.creditor}
@@ -1045,13 +1042,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 									{formatEUR(b.amount)}
 								</TableCell>
 								<TableCell>
-									<Badge
-										variant={
-											b.status === "Bezahlt" ? "secondary" : "destructive"
-										}
-									>
-										{b.status}
-									</Badge>
+									<BillStatusBadge status={b.status} />
 								</TableCell>
 								<TableCell>
 									<div className="flex gap-1">
@@ -1064,7 +1055,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 												onClick={() => handlePaid(b.id)}
 												aria-label="Als bezahlt markieren"
 											>
-												<CheckCircle className="size-3.5 text-green-500" />
+												<CheckCircle className="size-3.5 text-success" />
 											</Button>
 										)}
 										<Button
@@ -1075,7 +1066,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 											onClick={() => handleDelete(b.id)}
 											aria-label="Löschen"
 										>
-											<Trash2 className="size-3.5 text-red-500" />
+											<Trash2 className="size-3.5 text-destructive" />
 										</Button>
 									</div>
 								</TableCell>

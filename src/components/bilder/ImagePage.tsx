@@ -22,11 +22,11 @@ import { ActionButtons } from "./ActionButtons";
 // Fallback component for suspense boundaries
 const ImageSectionSkeleton = () => (
 	<div className="animate-pulse">
-		<div className="mb-4 h-8 w-1/4 rounded bg-gray-200"></div>
+		<div className="mb-4 h-8 w-1/4 rounded bg-muted"></div>
 		<div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 			{Array.from({ length: 8 }).map((_, i) => (
 				// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
-				<div key={i} className="aspect-square rounded-lg bg-gray-200"></div>
+				<div key={i} className="aspect-square rounded-lg bg-muted"></div>
 			))}
 		</div>
 	</div>
@@ -108,7 +108,7 @@ export function AdminImageManager() {
 							<div className="flex justify-center gap-4 text-muted-foreground text-sm sm:justify-start">
 								<span>{statistics.totalImages} Bilder gesamt</span>
 								<span>•</span>
-								<span className="text-green-600">
+								<span className="text-success">
 									{statistics.activeImages} aktiv
 								</span>
 							</div>

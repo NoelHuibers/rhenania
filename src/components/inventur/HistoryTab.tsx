@@ -36,7 +36,7 @@ interface HistoryTabProps {
 function DiffBadge({ difference }: { difference: number }) {
 	if (difference === 0) {
 		return (
-			<Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+			<Badge className="bg-success-muted text-success-muted-foreground">
 				<CheckCircle className="mr-1 h-3 w-3" />
 				OK
 			</Badge>
@@ -44,13 +44,13 @@ function DiffBadge({ difference }: { difference: number }) {
 	}
 	if (difference > 0) {
 		return (
-			<Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+			<Badge className="bg-info-muted text-info-muted-foreground">
 				<TrendingDown className="mr-1 h-3 w-3 rotate-180" />+{difference}
 			</Badge>
 		);
 	}
 	return (
-		<Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+		<Badge className="bg-danger-muted text-danger-muted-foreground">
 			<TrendingDown className="mr-1 h-3 w-3" />
 			{difference}
 		</Badge>
@@ -134,7 +134,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{record.kind === "event" && (
 											<Badge
 												variant="outline"
-												className="shrink-0 border-amber-300 bg-amber-50 text-amber-700 text-xs dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+												className="shrink-0 border-warning/40 bg-warning-muted text-warning-muted-foreground text-xs"
 											>
 												<PartyPopper className="mr-1 h-3 w-3" />
 												{record.eventName ?? "Veranstaltung"}
@@ -150,7 +150,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{correctItems > 0 && (
 											<Badge
 												variant="outline"
-												className="border-green-300 text-green-600 text-xs"
+												className="border-success/40 text-success text-xs"
 											>
 												{correctItems} OK
 											</Badge>
@@ -158,7 +158,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{itemsWithLoss > 0 && (
 											<Badge
 												variant="outline"
-												className="border-red-300 text-red-600 text-xs"
+												className="border-danger/40 text-destructive text-xs"
 											>
 												{itemsWithLoss} Verlust
 											</Badge>
@@ -166,7 +166,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{itemsWithSurplus > 0 && (
 											<Badge
 												variant="outline"
-												className="border-blue-300 text-blue-600 text-xs"
+												className="border-info/40 text-info text-xs"
 											>
 												{itemsWithSurplus} Überschuss
 											</Badge>
@@ -174,7 +174,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{record.profit !== null && (
 											<Badge
 												variant="outline"
-												className="border-green-300 text-green-600 text-xs"
+												className="border-success/40 text-success text-xs"
 											>
 												Gewinn {formatEUR(record.profit)}
 											</Badge>
@@ -185,7 +185,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 											}
 											className={
 												record.kind === "event"
-													? "border-amber-300 text-amber-700 text-xs dark:text-amber-300"
+													? "border-warning/40 text-warning-muted-foreground text-xs"
 													: "text-xs"
 											}
 										>
@@ -222,12 +222,12 @@ export function HistoryTab({ history }: HistoryTabProps) {
 											{
 												label: "Korrekte Bestände",
 												value: correctItems,
-												cls: "text-green-600",
+												cls: "text-success",
 											},
 											{
 												label: "Artikel mit Verlust",
 												value: itemsWithLoss,
-												cls: "text-red-600",
+												cls: "text-destructive",
 											},
 											{
 												label: "Gesamtverlust",
@@ -239,7 +239,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 														{
 															label: "Gewinn aus Aufschlag",
 															value: formatEUR(record.profit),
-															cls: "text-green-600",
+															cls: "text-success",
 														},
 													]
 												: []),
@@ -299,9 +299,9 @@ export function HistoryTab({ history }: HistoryTabProps) {
 																<span
 																	className={
 																		item.difference < 0
-																			? "font-semibold text-red-600"
+																			? "font-semibold text-destructive"
 																			: item.difference > 0
-																				? "font-semibold text-blue-600"
+																				? "font-semibold text-info"
 																				: "text-muted-foreground"
 																	}
 																>
@@ -314,7 +314,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 															</TableCell>
 															<TableCell className="text-right">
 																{item.lossValue > 0 ? (
-																	<span className="font-semibold text-red-600">
+																	<span className="font-semibold text-destructive">
 																		{formatEUR(item.lossValue)}
 																	</span>
 																) : (
@@ -338,7 +338,9 @@ export function HistoryTab({ history }: HistoryTabProps) {
 													<TableCell className="hidden sm:table-cell" />
 													<TableCell className="text-right font-bold">
 														<span
-															className={totalDiff < 0 ? "text-red-600" : ""}
+															className={
+																totalDiff < 0 ? "text-destructive" : ""
+															}
 														>
 															{totalDiff > 0 ? "+" : ""}
 															{totalDiff}
@@ -355,13 +357,13 @@ export function HistoryTab({ history }: HistoryTabProps) {
 
 									{/* Loss analysis */}
 									{itemsWithLoss > 0 && (
-										<div className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 p-3 dark:bg-red-950/20">
-											<AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+										<div className="mt-3 flex items-start gap-2 rounded-lg bg-danger-muted p-3">
+											<AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
 											<div className="min-w-0">
-												<p className="font-semibold text-red-900 text-sm dark:text-red-400">
+												<p className="font-semibold text-danger-muted-foreground text-sm">
 													Verlustanalyse
 												</p>
-												<p className="mt-1 text-red-800 text-xs dark:text-red-300">
+												<p className="mt-1 text-danger-muted-foreground text-xs">
 													{itemsWithLoss} von {totalItems} Artikeln zeigen
 													Verluste. Größte Verluste:{" "}
 													{record.items

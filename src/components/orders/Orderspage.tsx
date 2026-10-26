@@ -110,7 +110,9 @@ const HeaderControls = ({
 			<div className="hidden items-center gap-2 sm:flex">
 				<div
 					className={`h-2 w-2 rounded-full ${
-						isLiveTracking ? "animate-pulse bg-green-500" : "bg-muted"
+						isLiveTracking
+							? "animate-pulse bg-success text-success-foreground"
+							: "bg-muted"
 					}`}
 				/>
 				<span className="text-muted-foreground text-sm">

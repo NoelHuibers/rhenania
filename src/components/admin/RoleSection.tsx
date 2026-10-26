@@ -91,7 +91,7 @@ export function RoleSection({
 								)}
 							</div>
 							{hasConflict && (
-								<AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+								<AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning-muted-foreground" />
 							)}
 						</button>
 					);

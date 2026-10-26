@@ -31,8 +31,11 @@ export default async function AccessDeniedPage({
 		<div className="min-h-screen bg-muted/40 px-4 py-8 sm:px-6 lg:px-8">
 			<div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-lg flex-col items-center justify-center space-y-6">
 				{/* Warning Icon */}
-				<div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-50">
-					<AlertTriangle className="h-10 w-10 text-red-500" strokeWidth={2} />
+				<div className="flex h-20 w-20 items-center justify-center rounded-full bg-danger-muted">
+					<AlertTriangle
+						className="h-10 w-10 text-destructive"
+						strokeWidth={2}
+					/>
 				</div>
 
 				{/* Main Heading */}
@@ -65,7 +68,7 @@ export default async function AccessDeniedPage({
 								{requiredRoles.map((role) => (
 									<Badge
 										key={role}
-										className="border-red-200 bg-red-100 text-red-700 hover:bg-red-100"
+										className="border-danger/40 bg-danger-muted text-danger-muted-foreground hover:bg-danger-muted"
 									>
 										{role}
 									</Badge>
@@ -88,14 +91,14 @@ export default async function AccessDeniedPage({
 				{/* Go to Home Button */}
 				<Button
 					asChild
-					className="w-full max-w-lg bg-blue-600 hover:bg-blue-700"
+					className="w-full max-w-lg bg-info text-info-foreground hover:bg-info/90"
 					size="lg"
 				>
 					<Link href="/">Go to Home</Link>
 				</Button>
 
 				{/* Info Message */}
-				<div className="flex max-w-lg items-start gap-3 text-blue-600 text-sm">
+				<div className="flex max-w-lg items-start gap-3 text-info text-sm">
 					<Info className="mt-0.5 h-5 w-5 flex-shrink-0" />
 					<p>
 						If you believe you should have access to this page, please contact

@@ -477,7 +477,7 @@ function AuthConfigSection({
 					Save auth config
 				</Button>
 
-				<div className="rounded-md bg-amber-50 p-3 text-amber-900 text-xs">
+				<div className="rounded-md bg-warning-muted p-3 text-warning-muted-foreground text-xs">
 					Auth provider configs are loaded at server start. Restart the app
 					after changing these for them to take effect.
 				</div>

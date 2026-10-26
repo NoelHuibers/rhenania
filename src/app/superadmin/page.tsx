@@ -10,7 +10,7 @@ export default async function SuperadminHomePage() {
 
 	if (!result.success || !result.data) {
 		return (
-			<div className="text-red-600">
+			<div className="text-destructive">
 				Failed to load tenants: {result.error ?? "unknown"}
 			</div>
 		);
@@ -51,7 +51,7 @@ export default async function SuperadminHomePage() {
 									<td className="px-4 py-3">
 										<Link
 											href={`/superadmin/tenants/${t.id}`}
-											className="font-mono text-blue-600 hover:underline"
+											className="font-mono text-info hover:underline"
 										>
 											{t.slug}
 										</Link>

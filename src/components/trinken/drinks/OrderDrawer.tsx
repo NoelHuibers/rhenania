@@ -110,7 +110,7 @@ export function OrderDrawer({
 					</div>
 					<DrawerTitle className="font-bold text-lg">{drink.name}</DrawerTitle>
 					<DrawerDescription className="flex items-center justify-center gap-2 text-sm">
-						<Badge className="h-5 bg-green-500 text-white text-xs">
+						<Badge variant="success" className="h-5 text-xs">
 							Verfügbar
 						</Badge>
 						<span>{formatEUR(drink.price)} pro Stück</span>
@@ -119,14 +119,14 @@ export function OrderDrawer({
 
 				<div className="flex-1 space-y-4 overflow-y-auto px-6 pb-2">
 					{selectedBilling ? (
-						<div className="rounded-lg border border-blue-200 bg-blue-50 p-2">
+						<div className="rounded-lg border border-info/40 bg-info-muted p-2">
 							<div className="flex items-center justify-between">
-								<span className="font-medium text-blue-900 text-sm">
+								<span className="font-medium text-info-muted-foreground text-sm">
 									Abrechnung:
 								</span>
 								<Badge
 									variant="secondary"
-									className="h-5 bg-blue-100 text-blue-900 text-xs"
+									className="h-5 bg-info-muted text-info-muted-foreground text-xs"
 								>
 									{selectedBilling}
 								</Badge>
@@ -190,9 +190,7 @@ export function OrderDrawer({
 						</div>
 						<div className="mt-1 flex justify-between border-t pt-1 font-bold text-base">
 							<span>Gesamt</span>
-							<span className="text-emerald-600 dark:text-emerald-400">
-								{formatEUR(totalPrice)}
-							</span>
+							<span className="text-success">{formatEUR(totalPrice)}</span>
 						</div>
 					</div>
 				</div>
@@ -208,7 +206,7 @@ export function OrderDrawer({
 					</Button>
 					<Button
 						onClick={handleConfirm}
-						className="flex-1 bg-green-500 hover:bg-green-600"
+						className="flex-1"
 						disabled={isPending}
 					>
 						<ShoppingCart className="mr-2 h-4 w-4" />

@@ -246,14 +246,14 @@ export const EnhancedImageSection = ({
 						</Badge>
 						<Badge variant="outline">{images.length} gesamt</Badge>
 						{activeCount > 0 && (
-							<Badge className="border-green-500 bg-green-500/10 text-green-600">
+							<Badge className="border-success bg-success/10 text-success">
 								{activeCount} aktiv
 							</Badge>
 						)}
 						{config.allowMultiple && images.length > 0 && (
 							<Badge
 								variant="outline"
-								className="border-blue-500 bg-blue-500/10 text-blue-600"
+								className="border-info bg-info/10 text-info"
 							>
 								Drag & Drop aktiviert
 							</Badge>
@@ -261,7 +261,7 @@ export const EnhancedImageSection = ({
 						{images.length > 50 && (
 							<Badge
 								variant="outline"
-								className="border-blue-500 bg-blue-500/10 text-blue-600"
+								className="border-info bg-info/10 text-info"
 							>
 								Virtuelles Scrollen
 							</Badge>

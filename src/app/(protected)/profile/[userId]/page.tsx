@@ -58,7 +58,7 @@ export default async function PublicProfilePage({
 								/>
 								<Card>
 									<CardContent className="flex items-center gap-3 py-6">
-										<Beer className="h-8 w-8 text-amber-500" />
+										<Beer className="h-8 w-8 text-warning-muted-foreground" />
 										<div>
 											<p className="font-semibold text-2xl">
 												{profile.drinkStats.litersLast6Months} L

@@ -114,7 +114,7 @@ export function VerifyEmailPage({
 			<div className="flex min-h-screen items-center justify-center bg-muted/40">
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
-						<XCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
+						<XCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
 						<CardTitle>Ungültiger Link</CardTitle>
 						<CardDescription>
 							Der Verifizierungslink ist ungültig oder abgelaufen.
@@ -137,7 +137,7 @@ export function VerifyEmailPage({
 		<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader className="text-center">
-					<CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
+					<CheckCircle className="mx-auto mb-4 h-12 w-12 text-success" />
 					<CardTitle>Konto aktivieren</CardTitle>
 					<CardDescription>
 						Erstellen Sie ein Passwort für <strong>{email}</strong>
@@ -186,8 +186,8 @@ export function VerifyEmailPage({
 										<div
 											className={`flex items-center gap-2 ${
 												passwordValidation.requirements.minLength
-													? "text-green-600"
-													: "text-red-600"
+													? "text-success"
+													: "text-destructive"
 											}`}
 										>
 											{passwordValidation.requirements.minLength ? (
@@ -200,8 +200,8 @@ export function VerifyEmailPage({
 										<div
 											className={`flex items-center gap-2 ${
 												passwordValidation.requirements.hasUpperCase
-													? "text-green-600"
-													: "text-red-600"
+													? "text-success"
+													: "text-destructive"
 											}`}
 										>
 											{passwordValidation.requirements.hasUpperCase ? (
@@ -214,8 +214,8 @@ export function VerifyEmailPage({
 										<div
 											className={`flex items-center gap-2 ${
 												passwordValidation.requirements.hasLowerCase
-													? "text-green-600"
-													: "text-red-600"
+													? "text-success"
+													: "text-destructive"
 											}`}
 										>
 											{passwordValidation.requirements.hasLowerCase ? (
@@ -228,8 +228,8 @@ export function VerifyEmailPage({
 										<div
 											className={`flex items-center gap-2 ${
 												passwordValidation.requirements.hasNumbers
-													? "text-green-600"
-													: "text-red-600"
+													? "text-success"
+													: "text-destructive"
 											}`}
 										>
 											{passwordValidation.requirements.hasNumbers ? (
@@ -269,7 +269,7 @@ export function VerifyEmailPage({
 							</div>
 
 							{confirmPassword && password !== confirmPassword && (
-								<p className="flex items-center gap-2 text-red-600 text-sm">
+								<p className="flex items-center gap-2 text-destructive text-sm">
 									<XCircle className="h-3 w-3" />
 									Die Passwörter stimmen nicht überein
 								</p>
@@ -278,7 +278,7 @@ export function VerifyEmailPage({
 							{confirmPassword &&
 								password === confirmPassword &&
 								confirmPassword.length > 0 && (
-									<p className="flex items-center gap-2 text-green-600 text-sm">
+									<p className="flex items-center gap-2 text-sm text-success">
 										<CheckCircle className="h-3 w-3" />
 										Passwörter stimmen überein
 									</p>

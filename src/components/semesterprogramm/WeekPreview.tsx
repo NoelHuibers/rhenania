@@ -150,8 +150,9 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 						? "bg-muted font-semibold text-foreground ring-1 ring-foreground/30"
 						: hasEvents
 							? "bg-muted/50 hover:bg-muted"
-							: "text-muted-foreground/50";
-					const pastClass = isPast && !isToday ? "opacity-40" : "";
+							: "text-muted-foreground";
+					// Past days recede by colour, not opacity, so the dates stay readable.
+					const pastClass = isPast && !isToday ? "text-muted-foreground" : "";
 					const interactiveClass = hasEvents ? "cursor-pointer" : "";
 
 					const content = (

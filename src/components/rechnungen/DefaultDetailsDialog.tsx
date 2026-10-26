@@ -96,7 +96,7 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 
 				<div className="flex items-center justify-between border-border border-t pt-4">
 					<span className="font-semibold text-base sm:text-lg">Gesamt:</span>
-					<span className="font-bold text-green-600 text-lg sm:text-xl dark:text-green-400">
+					<span className="font-bold text-lg text-success sm:text-xl">
 						{formatEUR(entry.totalDue)}
 					</span>
 				</div>

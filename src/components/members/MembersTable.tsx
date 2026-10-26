@@ -625,7 +625,7 @@ export function MembersTable({
 										{m.addressNeedsUpdate && (
 											<Badge
 												variant="outline"
-												className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300"
+												className="border-warning/40 bg-warning-muted text-warning-muted-foreground"
 											>
 												Adresse veraltet
 											</Badge>

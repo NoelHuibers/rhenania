@@ -247,25 +247,25 @@ export function AdresslistePage({
 						icon={<GraduationCap className="h-5 w-5" />}
 						label="Alte Herren"
 						value={counts.ah}
-						accent="bg-slate-500/10 text-slate-600 dark:text-slate-400"
+						accent="bg-slate-500/10 text-muted-foreground"
 					/>
 					<Stat
 						icon={<UserMinus className="h-5 w-5" />}
 						label="Inaktive"
 						value={counts.inaktive}
-						accent="bg-sky-500/10 text-sky-600 dark:text-sky-400"
+						accent="bg-info/10 text-info"
 					/>
 					<Stat
 						icon={<UserCheck className="h-5 w-5" />}
 						label="Aktive"
 						value={counts.aktive}
-						accent="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+						accent="bg-success/10 text-success"
 					/>
 					<Stat
 						icon={<Sprout className="h-5 w-5" />}
 						label="Füchse"
 						value={counts.fuchs}
-						accent="bg-amber-500/10 text-amber-600 dark:text-amber-400"
+						accent="bg-warning/10 text-warning-muted-foreground"
 					/>
 				</div>
 

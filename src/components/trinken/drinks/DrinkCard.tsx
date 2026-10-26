@@ -40,12 +40,12 @@ export function DrinkCard({ drink, onOrderClick }: DrinkCardProps) {
 					{/* Availability Badge Overlay */}
 					<div className="absolute top-2 right-2">
 						{isAvailable ? (
-							<Badge className="bg-green-500 text-xs hover:bg-green-600">
+							<Badge variant="success" className="text-xs">
 								<CheckCircle className="mr-1 h-3 w-3" />
 								<span className="hidden sm:inline">Verfügbar</span>
 							</Badge>
 						) : (
-							<Badge className="bg-orange-500 text-white text-xs">
+							<Badge variant="warning" className="text-xs">
 								<Clock className="mr-1 h-3 w-3" />
 								<span className="hidden sm:inline">Nicht verfügbar</span>
 							</Badge>
@@ -66,9 +66,7 @@ export function DrinkCard({ drink, onOrderClick }: DrinkCardProps) {
 				<div className="flex flex-col gap-2">
 					<div
 						className={`font-bold text-lg sm:text-xl lg:text-2xl ${
-							isAvailable
-								? "text-emerald-600 dark:text-emerald-400"
-								: "text-muted-foreground"
+							isAvailable ? "text-success" : "text-muted-foreground"
 						}`}
 					>
 						{formatEUR(drink.price)}
@@ -78,7 +76,7 @@ export function DrinkCard({ drink, onOrderClick }: DrinkCardProps) {
 						<Button
 							size="sm"
 							onClick={() => onOrderClick(drink)}
-							className="w-full bg-green-500 text-white text-xs hover:bg-green-600 sm:text-sm"
+							className="w-full text-xs sm:text-sm"
 						>
 							Bestellen
 						</Button>

@@ -107,7 +107,8 @@ function Section({
 	onOrderClick: (item: FuchsenItem) => void;
 }) {
 	const IconComponent = icon === "available" ? CheckCircle : Clock;
-	const iconColor = icon === "available" ? "text-green-500" : "text-orange-500";
+	const iconColor =
+		icon === "available" ? "text-success" : "text-warning-muted-foreground";
 
 	return (
 		<div className="space-y-4">

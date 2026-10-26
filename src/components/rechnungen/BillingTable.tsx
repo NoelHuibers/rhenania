@@ -3,6 +3,7 @@
 import { ArrowUpDown, Loader2 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
+import { BillStatusBadge } from "~/components/ui/status-badge";
 import { formatEUR } from "~/lib/format";
 import { Button } from "../ui/button";
 import {
@@ -73,17 +74,7 @@ export const BillingTable = ({
 
 	// Component for read-only status display
 	const StatusDisplay = ({ status }: { status?: BillingEntry["status"] }) => (
-		<span
-			className={`rounded-full px-2 py-1 font-medium text-xs ${
-				status === "Bezahlt"
-					? "bg-green-100 text-green-800"
-					: status === "Gestundet"
-						? "bg-yellow-100 text-yellow-800"
-						: "bg-red-100 text-red-800"
-			}`}
-		>
-			{status || "Unbezahlt"}
-		</span>
+		<BillStatusBadge status={status} />
 	);
 
 	if (isLoading) {
@@ -96,7 +87,7 @@ export const BillingTable = ({
 	}
 
 	if (error) {
-		return <div className="py-8 text-center text-red-600">{error}</div>;
+		return <div className="py-8 text-center text-destructive">{error}</div>;
 	}
 
 	if (entries.length === 0) {
@@ -115,7 +106,7 @@ export const BillingTable = ({
 						<div className="flex items-start justify-between">
 							<div className="min-w-0 flex-1">
 								<h3 className="truncate font-medium">{entry.name}</h3>
-								<p className="mt-1 font-bold text-emerald-600 text-lg dark:text-emerald-400">
+								<p className="mt-1 font-bold text-lg text-success">
 									{formatEUR(entry.totalDue)}
 								</p>
 							</div>

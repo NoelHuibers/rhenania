@@ -18,6 +18,7 @@ import {
 	CollapsibleTrigger,
 } from "~/components/ui/collapsible";
 import { Progress } from "~/components/ui/progress";
+import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import { formatDate, formatEUR } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import type { QueueReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
@@ -27,20 +28,19 @@ import type {
 	KostenpunktOverview,
 } from "~/server/actions/cc-kasse/overview";
 import { BarLegend, BudgetBar, EmptyState } from "./KasseUi";
-import { ReimbursementStatusBadge } from "./ReimbursementStatusBadge";
 
 const STATUS_META: Record<BudgetStatus, { label: string; cls: string }> = {
 	"on-track": {
 		label: "Im Plan",
-		cls: "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300",
+		cls: "border-success/40 bg-success-muted text-success-muted-foreground",
 	},
 	warning: {
 		label: "Achtung",
-		cls: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300",
+		cls: "border-warning/40 bg-warning-muted text-warning-muted-foreground",
 	},
 	"over-budget": {
 		label: "Über Budget",
-		cls: "border-red-200 bg-red-50 text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300",
+		cls: "border-danger/40 bg-danger-muted text-danger-muted-foreground",
 	},
 };
 
@@ -55,12 +55,12 @@ function StatusBadge({ status }: { status: BudgetStatus }) {
 
 function remainingTone(verbleibend: number, budget: number) {
 	if (verbleibend < 0) {
-		return "text-red-600 dark:text-red-400";
+		return "text-destructive";
 	}
 	if (budget > 0 && verbleibend / budget < 0.2) {
-		return "text-amber-600 dark:text-amber-400";
+		return "text-warning-muted-foreground";
 	}
-	return "text-emerald-600 dark:text-emerald-400";
+	return "text-success";
 }
 
 type KpExtras = {
@@ -255,7 +255,7 @@ function HeroCard({
 					<p
 						className={cn(
 							"mt-0.5 font-bold text-3xl tabular-nums tracking-tight sm:text-4xl",
-							total.verbleibend < 0 && "text-red-600 dark:text-red-400",
+							total.verbleibend < 0 && "text-destructive",
 						)}
 					>
 						{formatEUR(total.verbleibend)}
@@ -312,7 +312,7 @@ function HeroCard({
 						className={cn(
 							"font-semibold tabular-nums",
 							total.verbleibend - total.genehmigt - eingereicht < 0
-								? "text-red-600 dark:text-red-400"
+								? "text-destructive"
 								: "text-foreground",
 						)}
 					>
@@ -338,14 +338,14 @@ function IncomeTile({
 			<div className="flex items-center gap-2 text-muted-foreground text-xs">
 				<PiggyBank className="size-4" /> Einnahmen
 			</div>
-			<p className="mt-1 font-semibold text-emerald-600 text-lg tabular-nums sm:text-xl dark:text-emerald-400">
+			<p className="mt-1 font-semibold text-lg text-success tabular-nums sm:text-xl">
 				{formatEUR(erhalten)}
 			</p>
 			<p className="text-muted-foreground text-xs tabular-nums">
 				von {formatEUR(geplant)} geplant
 			</p>
 			<Progress
-				className="mt-2 [&>[data-slot=progress-indicator]]:bg-emerald-500"
+				className="mt-2 [&>[data-slot=progress-indicator]]:bg-success"
 				value={Math.min(pct, 100)}
 			/>
 		</div>
@@ -403,7 +403,7 @@ function KostenpunktRow({
 									? "Keine Erstattungen"
 									: `${count} ${count === 1 ? "Erstattung" : "Erstattungen"}`}
 								{kp.genehmigt + eingereicht > 0 && (
-									<span className="text-amber-600 dark:text-amber-400">
+									<span className="text-warning-muted-foreground">
 										{" "}
 										· {formatEUR(kp.genehmigt + eingereicht)} offen
 									</span>
@@ -549,14 +549,14 @@ function EinnahmenSection({ overview }: { overview: EtaplanOverview }) {
 			<div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
 				<h2 className="font-semibold text-base">Einnahmen</h2>
 				<p className="text-muted-foreground text-xs tabular-nums">
-					<span className="font-semibold text-emerald-600 dark:text-emerald-400">
+					<span className="font-semibold text-success">
 						{formatEUR(erhalten)}
 					</span>{" "}
 					von {formatEUR(geplant)}
 					{fehlt > 0 && (
 						<>
 							{" · "}
-							<span className="font-semibold text-amber-600 dark:text-amber-400">
+							<span className="font-semibold text-warning-muted-foreground">
 								{formatEUR(fehlt)} fehlen
 							</span>
 						</>
@@ -588,8 +588,8 @@ function EinnahmenSection({ overview }: { overview: EtaplanOverview }) {
 										className={cn(
 											"text-xs",
 											rowFehlt > 0
-												? "text-amber-600 dark:text-amber-400"
-												: "text-emerald-600 dark:text-emerald-400",
+												? "text-warning-muted-foreground"
+												: "text-success",
 										)}
 									>
 										{rowFehlt > 0
@@ -599,7 +599,7 @@ function EinnahmenSection({ overview }: { overview: EtaplanOverview }) {
 								</div>
 							</div>
 							<Progress
-								className="mt-2 [&>[data-slot=progress-indicator]]:bg-emerald-500"
+								className="mt-2 [&>[data-slot=progress-indicator]]:bg-success"
 								value={Math.min(pct, 100)}
 							/>
 						</li>

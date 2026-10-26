@@ -74,7 +74,7 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 			<div className="flex flex-col gap-2 sm:flex-row">
 				<Button
 					size="lg"
-					className="flex-1 bg-orange-500 px-4 hover:bg-orange-600"
+					className="flex-1 bg-warning px-4 text-warning-foreground hover:bg-warning/90"
 					onClick={() => setInternOpen(true)}
 				>
 					<Swords className="mr-2 h-4 w-4" />

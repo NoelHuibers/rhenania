@@ -137,11 +137,11 @@ export function ChallengeCard({
 	const accent = (() => {
 		switch (variant) {
 			case "incoming-pending":
-				return "border-orange-400";
+				return "border-warning";
 			case "awaiting-my-confirm":
-				return "border-yellow-400";
+				return "border-warning";
 			case "disputed":
-				return "border-red-400";
+				return "border-danger";
 			case "history":
 				return "border-border opacity-80";
 			default:
@@ -154,7 +154,7 @@ export function ChallengeCard({
 			case "incoming-pending":
 				return (
 					<>
-						<Swords className="h-4 w-4 text-orange-500" />
+						<Swords className="h-4 w-4 text-warning-muted-foreground" />
 						<span>Du wurdest herausgefordert</span>
 					</>
 				);
@@ -168,7 +168,7 @@ export function ChallengeCard({
 			case "awaiting-my-result":
 				return (
 					<>
-						<Trophy className="h-4 w-4 text-green-600" />
+						<Trophy className="h-4 w-4 text-success" />
 						<span>Spiel läuft — {other.name || "Gegner"}</span>
 					</>
 				);
@@ -180,7 +180,7 @@ export function ChallengeCard({
 				const theyWon = c.proposedWinnerId !== currentUserId;
 				return (
 					<>
-						<AlertTriangle className="h-4 w-4 text-yellow-600" />
+						<AlertTriangle className="h-4 w-4 text-warning-muted-foreground" />
 						<span>
 							{theyWon
 								? `${proposedWinnerName || "Gegner"} behauptet zu gewinnen`
@@ -199,7 +199,7 @@ export function ChallengeCard({
 			case "disputed":
 				return (
 					<>
-						<AlertTriangle className="h-4 w-4 text-red-600" />
+						<AlertTriangle className="h-4 w-4 text-destructive" />
 						<span>Anfechtung</span>
 					</>
 				);
@@ -262,7 +262,7 @@ export function ChallengeCard({
 			) : null}
 
 			{variant === "disputed" ? (
-				<div className="rounded bg-red-50 p-2 text-red-700 text-xs dark:bg-red-950/20 dark:text-red-300">
+				<div className="rounded bg-danger-muted p-2 text-danger-muted-foreground text-xs">
 					Anfechtung — bitte persönlich klären.
 				</div>
 			) : null}
@@ -286,7 +286,7 @@ export function ChallengeCard({
 						<X className="mr-1 h-4 w-4" /> Ablehnen
 					</Button>
 					<Button
-						className="flex-1 bg-orange-500 hover:bg-orange-600"
+						className="flex-1 bg-warning text-warning-foreground hover:bg-warning/90"
 						disabled={isPending}
 						onClick={() =>
 							run(() =>
@@ -317,7 +317,7 @@ export function ChallengeCard({
 				<div className="space-y-2">
 					<div className="flex gap-2">
 						<Button
-							className="flex-1 bg-green-500 hover:bg-green-600"
+							className="flex-1 bg-success text-success-foreground hover:bg-success/90"
 							disabled={isPending}
 							onClick={() =>
 								run(() =>
@@ -362,14 +362,14 @@ export function ChallengeCard({
 				<div className="flex gap-2">
 					<Button
 						variant="outline"
-						className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+						className="flex-1 border-danger/40 text-danger-muted-foreground hover:bg-danger-muted"
 						disabled={isPending}
 						onClick={() => run(() => disputeResult(c.id))}
 					>
 						Anfechten
 					</Button>
 					<Button
-						className="flex-1 bg-green-500 hover:bg-green-600"
+						className="flex-1 bg-success text-success-foreground hover:bg-success/90"
 						disabled={isPending}
 						onClick={() => run(() => confirmResult(c.id))}
 					>

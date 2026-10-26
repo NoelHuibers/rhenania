@@ -389,7 +389,7 @@ export function EtaplanEditorTab({
 															</div>
 														)}
 														{erhalten > 0 && (
-															<div className="text-emerald-600 text-xs tabular-nums dark:text-emerald-400">
+															<div className="text-success text-xs tabular-nums">
 																+{formatEUR(erhalten)} erhalten
 															</div>
 														)}
@@ -441,7 +441,7 @@ export function EtaplanEditorTab({
 											)}
 
 											{kpEinnahmen.length > 0 && (
-												<ul className="mt-2 space-y-0.5 border-emerald-500/50 border-l-2 pl-3">
+												<ul className="mt-2 space-y-0.5 border-success/50 border-l-2 pl-3">
 													{kpEinnahmen.map((e) => (
 														<li
 															key={e.id}
@@ -450,7 +450,7 @@ export function EtaplanEditorTab({
 															<span className="min-w-0 truncate text-muted-foreground">
 																{formatDate(e.incomeDate)} · {e.description}
 															</span>
-															<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
+															<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-success tabular-nums">
 																+{formatEUR(e.amount)}
 																{isTreasury && (
 																	<DropdownMenu>

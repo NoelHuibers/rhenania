@@ -82,9 +82,9 @@ export function SignInPage({ microsoftProviderId }: SignInPageProps) {
 		switch (message) {
 			case "account-activated":
 				return (
-					<Alert className="border-green-200 bg-green-50">
-						<CheckCircle className="h-4 w-4 text-green-600" />
-						<AlertDescription className="text-green-800">
+					<Alert className="border-success/40 bg-success-muted">
+						<CheckCircle className="h-4 w-4 text-success" />
+						<AlertDescription className="text-success-muted-foreground">
 							Ihr Konto wurde erfolgreich aktiviert! Sie können sich jetzt
 							anmelden.
 						</AlertDescription>
@@ -92,9 +92,9 @@ export function SignInPage({ microsoftProviderId }: SignInPageProps) {
 				);
 			case "password-reset":
 				return (
-					<Alert className="border-green-200 bg-green-50">
-						<CheckCircle className="h-4 w-4 text-green-600" />
-						<AlertDescription className="text-green-800">
+					<Alert className="border-success/40 bg-success-muted">
+						<CheckCircle className="h-4 w-4 text-success" />
+						<AlertDescription className="text-success-muted-foreground">
 							Ihr Passwort wurde erfolgreich zurückgesetzt! Sie können sich
 							jetzt anmelden.
 						</AlertDescription>

@@ -45,6 +45,54 @@ function offending(files: string[], pattern: RegExp): string[] {
 	return hits;
 }
 
+describe("status colours come from theme tokens (#76)", () => {
+	const PALETTE =
+		/(?<![\w-])(?:bg|text|border|ring|from|to|via|fill|stroke|outline|divide|decoration)-(?:red|green|blue|yellow|amber|orange|emerald|lime|teal|cyan|sky|indigo|violet|purple|fuchsia|pink|rose|gray|slate|zinc|neutral|stone)-\d{2,3}\b/g;
+
+	// Categorical colours (member status, event type, achievement tier,
+	// ranks, chart-like accents) are not statuses and may use the palette.
+	// The counts only go down; new status colours use success / warning /
+	// info / danger (see src/components/ui/status-badge.tsx).
+	const ALLOWED: Record<string, number> = {
+		"src/components/members/member-constants.ts": 48,
+		"src/components/admin/semesterprogramm/RecurringEventsManager.tsx": 22,
+		"src/components/admin/semesterprogramm/EventsManager.tsx": 20,
+		"src/components/profile/achievement-ui.tsx": 16,
+		"src/components/eloranking/leaderboard-client.tsx": 8,
+		"src/components/semesterprogramm/WeekPreview.tsx": 7,
+		"src/components/orders/Orderspage.tsx": 6,
+		"src/components/bilder/DraggableImageGrid.tsx": 2,
+		"src/components/eloranking/stats-overview.tsx": 2,
+		"src/components/bilder/OptimizedImagePreview.tsx": 1,
+		"src/components/getraenkewart/KasseTab.tsx": 1,
+		"src/components/members/AdresslistePage.tsx": 1,
+		"src/components/profile/KPIGrid.tsx": 1,
+		"src/app/(protected)/semesterprogramm/page.tsx": 14,
+	};
+	// The public marketing pages have their own per-tenant design.
+	const MARKETING =
+		/^src\/(components\/(landingpage|footer|header)|app\/\(public\))\//;
+
+	test("no new raw palette colours in feature UI", () => {
+		const over: string[] = [];
+		for (const file of UI_FILES) {
+			const key = file.split(path.sep).join("/");
+			if (MARKETING.test(key)) {
+				continue;
+			}
+			const n = (
+				readFileSync(path.join(ROOT, file), "utf8").match(PALETTE) ?? []
+			).length;
+			if (n > (ALLOWED[key] ?? 0)) {
+				over.push(
+					`${key}: ${n} raw palette classes (allowed ${ALLOWED[key] ?? 0})`,
+				);
+			}
+		}
+		expect(over).toEqual([]);
+	});
+});
+
 describe("money and dates go through src/lib/format.ts (#83)", () => {
 	test("no euro sign in front of an amount (€3.50)", () => {
 		expect(offending(UI_FILES, /€\s*\$?\{/)).toEqual([]);

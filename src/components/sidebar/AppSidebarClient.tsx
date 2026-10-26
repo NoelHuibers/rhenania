@@ -340,7 +340,7 @@ export function AppSidebarClient({
 															<Icon />
 															<span>{item.title}</span>
 															{showBadge ? (
-																<span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 font-medium text-white text-xs">
+																<span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-warning px-1.5 font-medium text-warning-foreground text-xs">
 																	{badgeCount}
 																</span>
 															) : null}

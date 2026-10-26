@@ -24,8 +24,8 @@ export function MetricsCards({
 	const growthColor = growthIsNull
 		? "text-muted-foreground"
 		: (growthRate as number) >= 0
-			? "text-green-600"
-			: "text-red-600";
+			? "text-success"
+			: "text-destructive";
 	const growthSub = growthIsNull
 		? "Keine Vergleichsdaten"
 		: "im Vergleich zum Vormonat";

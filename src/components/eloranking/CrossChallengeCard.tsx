@@ -142,11 +142,11 @@ export function CrossChallengeCard({
 	const accent = (() => {
 		switch (variant) {
 			case "incoming-pending":
-				return "border-orange-400";
+				return "border-warning";
 			case "awaiting-my-confirm":
-				return "border-yellow-400";
+				return "border-warning";
 			case "disputed":
-				return "border-red-400";
+				return "border-danger";
 			case "history":
 				return "border-border opacity-80";
 			default:
@@ -159,7 +159,7 @@ export function CrossChallengeCard({
 			case "incoming-pending":
 				return (
 					<>
-						<Swords className="h-4 w-4 shrink-0 text-orange-500" />
+						<Swords className="h-4 w-4 shrink-0 text-warning-muted-foreground" />
 						<span className="truncate">Du wurdest herausgefordert</span>
 					</>
 				);
@@ -173,7 +173,7 @@ export function CrossChallengeCard({
 			case "awaiting-my-result":
 				return (
 					<>
-						<Trophy className="h-4 w-4 shrink-0 text-green-600" />
+						<Trophy className="h-4 w-4 shrink-0 text-success" />
 						<span className="truncate">
 							Spiel läuft — {otherName ?? "Gegner"}
 						</span>
@@ -187,7 +187,7 @@ export function CrossChallengeCard({
 				const theyWon = c.proposedWinnerId !== currentUserId;
 				return (
 					<>
-						<AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
+						<AlertTriangle className="h-4 w-4 shrink-0 text-warning-muted-foreground" />
 						<span className="truncate">
 							{theyWon
 								? `${proposedWinnerName ?? "Gegner"} behauptet zu gewinnen`
@@ -206,7 +206,7 @@ export function CrossChallengeCard({
 			case "disputed":
 				return (
 					<>
-						<AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+						<AlertTriangle className="h-4 w-4 shrink-0 text-destructive" />
 						<span className="truncate">Anfechtung</span>
 					</>
 				);
@@ -264,7 +264,7 @@ export function CrossChallengeCard({
 			) : null}
 
 			{variant === "disputed" ? (
-				<div className="rounded bg-red-50 p-2 text-red-700 text-xs dark:bg-red-950/20 dark:text-red-300">
+				<div className="rounded bg-danger-muted p-2 text-danger-muted-foreground text-xs">
 					Anfechtung — bitte mit dem Gegner persönlich klären.
 				</div>
 			) : null}
@@ -287,7 +287,7 @@ export function CrossChallengeCard({
 						<X className="mr-1 h-4 w-4" /> Ablehnen
 					</Button>
 					<Button
-						className="flex-1 bg-orange-500 hover:bg-orange-600"
+						className="flex-1 bg-warning text-warning-foreground hover:bg-warning/90"
 						disabled={isPending}
 						onClick={() =>
 							run(() =>
@@ -318,7 +318,7 @@ export function CrossChallengeCard({
 				<div className="space-y-2">
 					<div className="flex gap-2">
 						<Button
-							className="flex-1 bg-green-500 hover:bg-green-600"
+							className="flex-1 bg-success text-success-foreground hover:bg-success/90"
 							disabled={isPending}
 							onClick={() =>
 								run(() =>
@@ -363,14 +363,14 @@ export function CrossChallengeCard({
 				<div className="flex gap-2">
 					<Button
 						variant="outline"
-						className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
+						className="flex-1 border-danger/40 text-danger-muted-foreground hover:bg-danger-muted"
 						disabled={isPending}
 						onClick={() => run(() => disputeCrossTenantResult(c.id))}
 					>
 						Anfechten
 					</Button>
 					<Button
-						className="flex-1 bg-green-500 hover:bg-green-600"
+						className="flex-1 bg-success text-success-foreground hover:bg-success/90"
 						disabled={isPending}
 						onClick={() => run(() => confirmCrossTenantResult(c.id))}
 					>

@@ -131,7 +131,7 @@ export default async function SemesterprogrammPage() {
 														<div className="flex flex-wrap items-center gap-2">
 															<span className="font-medium text-sm leading-snug">
 																{event.isCancelled ? (
-																	<span className="line-through opacity-50">
+																	<span className="text-muted-foreground line-through">
 																		{event.title}
 																	</span>
 																) : (
@@ -139,7 +139,7 @@ export default async function SemesterprogrammPage() {
 																)}
 															</span>
 															{event.isCancelled && (
-																<span className="rounded-full bg-red-100 px-2 py-0.5 font-medium text-red-600 text-xs">
+																<span className="rounded-full bg-danger-muted px-2 py-0.5 font-medium text-danger-muted-foreground text-xs">
 																	Abgesagt
 																</span>
 															)}

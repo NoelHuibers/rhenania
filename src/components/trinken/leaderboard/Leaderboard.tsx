@@ -43,9 +43,9 @@ function getChangeBadgeStyle(change: string) {
 	const isNegative = change.startsWith("-");
 
 	if (isNegative) {
-		return "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300";
+		return "bg-danger-muted text-danger-muted-foreground";
 	} else {
-		return "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300";
+		return "bg-success-muted text-success-muted-foreground";
 	}
 }
 
@@ -53,9 +53,9 @@ function getChangeBadgeStyleOutline(change: string) {
 	const isNegative = change.startsWith("-");
 
 	if (isNegative) {
-		return "text-red-600 border-red-200 dark:text-red-400 dark:border-red-900/60";
+		return "text-destructive border-danger/40";
 	} else {
-		return "text-green-600 border-green-200 dark:text-green-400 dark:border-green-900/60";
+		return "text-success border-success/40";
 	}
 }
 

@@ -180,22 +180,22 @@ export function GamesElo({ userStats, eloHistory = [] }: GamesEloProps) {
 				<div className="flex gap-2 font-medium leading-none">
 					{eloTrend > 0 ? (
 						<>
-							<span className="text-green-600">
+							<span className="text-success">
 								Highperformt um {trendPercentage}%
 							</span>
 							<svg
-								className="h-4 w-4 text-green-600"
+								className="h-4 w-4 text-success"
 								viewBox="0 0 24 24"
 								aria-hidden="true"
 							/>
 						</>
 					) : eloTrend < 0 ? (
 						<>
-							<span className="text-red-600">
+							<span className="text-destructive">
 								Lowperformt um {Math.abs(trendPercentage)}%
 							</span>
 							<svg
-								className="h-4 w-4 text-red-600"
+								className="h-4 w-4 text-destructive"
 								viewBox="0 0 24 24"
 								aria-hidden="true"
 							/>

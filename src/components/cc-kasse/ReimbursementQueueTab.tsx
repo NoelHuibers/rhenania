@@ -27,6 +27,7 @@ import {
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Label } from "~/components/ui/label";
+import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -52,7 +53,6 @@ import {
 	ReimbursementDialog,
 	toEditing,
 } from "./ReimbursementDialog";
-import { ReimbursementStatusBadge } from "./ReimbursementStatusBadge";
 
 type Filter =
 	| "offen"
@@ -280,7 +280,7 @@ export function ReimbursementQueueTab({
 									</p>
 
 									{r.status === "Abgelehnt" && r.rejectionReason && (
-										<p className="rounded-lg bg-red-50 px-3 py-2 text-red-700 text-xs dark:bg-red-500/10 dark:text-red-300">
+										<p className="rounded-lg bg-danger-muted px-3 py-2 text-danger-muted-foreground text-xs">
 											{r.rejectionReason}
 										</p>
 									)}
@@ -347,7 +347,7 @@ export function ReimbursementQueueTab({
 												{formatDate(r.expenseDate)} · {submitterLabel(r)}
 											</div>
 											{r.status === "Abgelehnt" && r.rejectionReason && (
-												<div className="mt-1 text-red-600 text-xs dark:text-red-400">
+												<div className="mt-1 text-destructive text-xs">
 													{r.rejectionReason}
 												</div>
 											)}

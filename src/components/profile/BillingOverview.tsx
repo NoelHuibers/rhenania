@@ -456,7 +456,7 @@ export function BillingOverview() {
 											aria-label="Notiz kopieren"
 										>
 											{copiedField === "Notiz" ? (
-												<Check className="h-3 w-3 text-green-500" />
+												<Check className="h-3 w-3 text-success" />
 											) : (
 												<Copy className="h-3 w-3" />
 											)}
@@ -500,7 +500,7 @@ export function BillingOverview() {
 												aria-label={`${label} kopieren`}
 											>
 												{copiedField === label ? (
-													<Check className="h-3 w-3 text-green-500" />
+													<Check className="h-3 w-3 text-success" />
 												) : (
 													<Copy className="h-3 w-3" />
 												)}
@@ -517,7 +517,7 @@ export function BillingOverview() {
 										level="M"
 										className="rounded"
 									/>
-									<p className="text-center text-[9px] text-gray-400">
+									<p className="text-center text-[9px] text-muted-foreground">
 										GiroCode
 									</p>
 								</div>

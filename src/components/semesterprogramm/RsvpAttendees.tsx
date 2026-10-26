@@ -145,13 +145,13 @@ function AttendeesDialog({
 						<Group
 							icon={<Check className="h-3 w-3" />}
 							label="Kommen"
-							className="bg-green-100 text-green-700"
+							className="bg-success-muted text-success-muted-foreground"
 							rows={yes}
 						/>
 						<Group
 							icon={<HelpCircle className="h-3 w-3" />}
 							label="Vielleicht"
-							className="bg-amber-100 text-amber-700"
+							className="bg-warning-muted text-warning-muted-foreground"
 							rows={maybe}
 						/>
 					</div>

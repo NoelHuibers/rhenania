@@ -96,7 +96,7 @@ export function AddUserDialog({
 				<div className="space-y-4 py-4">
 					<div className="space-y-2">
 						<Label htmlFor="user-email">
-							E-Mail-Adresse <span className="text-red-500">*</span>
+							E-Mail-Adresse <span className="text-destructive">*</span>
 						</Label>
 						<div className="relative">
 							<Mail className="absolute top-2.5 left-2 h-4 w-4 text-muted-foreground" />

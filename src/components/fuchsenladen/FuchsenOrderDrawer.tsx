@@ -100,7 +100,7 @@ export function FuchsenOrderDrawer({
 					</div>
 					<DrawerTitle className="font-bold text-lg">{item.name}</DrawerTitle>
 					<DrawerDescription className="flex items-center justify-center gap-2 text-sm">
-						<Badge className="h-5 bg-green-500 text-white text-xs">
+						<Badge variant="success" className="h-5 text-xs">
 							Verfügbar
 						</Badge>
 						<span>{formatEUR(item.price)} pro Stück</span>
@@ -156,9 +156,7 @@ export function FuchsenOrderDrawer({
 						</div>
 						<div className="mt-1 flex justify-between border-t pt-1 font-bold text-base">
 							<span>Gesamt</span>
-							<span className="text-emerald-600 dark:text-emerald-400">
-								{formatEUR(totalPrice)}
-							</span>
+							<span className="text-success">{formatEUR(totalPrice)}</span>
 						</div>
 					</div>
 				</div>
@@ -174,7 +172,7 @@ export function FuchsenOrderDrawer({
 					</Button>
 					<Button
 						onClick={handleConfirm}
-						className="flex-1 bg-green-500 hover:bg-green-600"
+						className="flex-1"
 						disabled={isPending}
 					>
 						<ShoppingCart className="mr-2 h-4 w-4" />

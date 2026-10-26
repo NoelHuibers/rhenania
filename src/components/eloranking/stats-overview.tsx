@@ -11,7 +11,7 @@ type StatTone = "blue" | "violet" | "emerald" | "amber";
 
 const toneStyles: Record<StatTone, { chip: string; value: string }> = {
 	blue: {
-		chip: "bg-blue-500/10 text-blue-500",
+		chip: "bg-info/10 text-info",
 		value: "text-foreground",
 	},
 	violet: {
@@ -19,12 +19,12 @@ const toneStyles: Record<StatTone, { chip: string; value: string }> = {
 		value: "text-foreground",
 	},
 	emerald: {
-		chip: "bg-emerald-500/10 text-emerald-500",
+		chip: "bg-success/10 text-success",
 		value: "text-foreground",
 	},
 	amber: {
-		chip: "bg-amber-500/10 text-amber-500",
-		value: "text-amber-500",
+		chip: "bg-warning/10 text-warning-muted-foreground",
+		value: "text-warning-muted-foreground",
 	},
 };
 

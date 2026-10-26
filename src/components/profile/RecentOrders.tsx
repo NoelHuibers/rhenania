@@ -141,7 +141,7 @@ export function RecentOrders() {
 				</CardHeader>
 				<CardContent>
 					<div className="flex items-center justify-center py-8">
-						<p className="text-red-500">Fehler: {error}</p>
+						<p className="text-destructive">Fehler: {error}</p>
 					</div>
 				</CardContent>
 			</Card>

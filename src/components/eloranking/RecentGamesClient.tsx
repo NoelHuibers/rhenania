@@ -64,9 +64,7 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 									{/* Player 1 */}
 									<div
 										className={`flex items-center justify-between rounded p-2 ${
-											player1Won
-												? "bg-green-50 dark:bg-green-950/20"
-												: "bg-red-50 dark:bg-red-950/20"
+											player1Won ? "bg-success-muted" : "bg-danger-muted"
 										}`}
 									>
 										<Link
@@ -96,13 +94,15 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 										</Link>
 										<div className="flex items-center gap-2">
 											{player1Won && (
-												<Badge className="bg-green-500 text-xs">WIN</Badge>
+												<Badge variant="success" className="text-xs">
+													WIN
+												</Badge>
 											)}
 											<div
 												className={`flex items-center gap-1 font-medium text-sm ${
 													player1EloChange > 0
-														? "text-green-600"
-														: "text-red-600"
+														? "text-success"
+														: "text-destructive"
 												}`}
 											>
 												{player1EloChange > 0 ? (
@@ -123,9 +123,7 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 									{/* Player 2 */}
 									<div
 										className={`flex items-center justify-between rounded p-2 ${
-											!player1Won
-												? "bg-green-50 dark:bg-green-950/20"
-												: "bg-red-50 dark:bg-red-950/20"
+											!player1Won ? "bg-success-muted" : "bg-danger-muted"
 										}`}
 									>
 										<Link
@@ -155,13 +153,15 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 										</Link>
 										<div className="flex items-center gap-2">
 											{!player1Won && (
-												<Badge className="bg-green-500 text-xs">WIN</Badge>
+												<Badge variant="success" className="text-xs">
+													WIN
+												</Badge>
 											)}
 											<div
 												className={`flex items-center gap-1 font-medium text-sm ${
 													player2EloChange > 0
-														? "text-green-600"
-														: "text-red-600"
+														? "text-success"
+														: "text-destructive"
 												}`}
 											>
 												{player2EloChange > 0 ? (

@@ -77,7 +77,7 @@ export const OptimizedImagePreview = memo<ImagePreviewProps>(
 					sizeClasses[size]
 				} cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${
 					image.isActive
-						? "border-green-500 shadow-lg"
+						? "border-success shadow-lg"
 						: "border-border opacity-75"
 				}
         ${isDeleting ? "scale-95 opacity-50" : ""}`}
@@ -87,16 +87,18 @@ export const OptimizedImagePreview = memo<ImagePreviewProps>(
 				onKeyDown={handleImageKeyDown}
 			>
 				{/* Image with loading states */}
-				<div className="relative h-full w-full bg-gray-100">
+				<div className="relative h-full w-full bg-muted">
 					{!imageLoaded && !imageError && (
 						<div className="absolute inset-0 flex items-center justify-center">
-							<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+							<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
 						</div>
 					)}
 
 					{imageError ? (
-						<div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-							<span className="text-gray-500 text-sm">Fehler beim Laden</span>
+						<div className="absolute inset-0 flex items-center justify-center bg-muted">
+							<span className="text-muted-foreground text-sm">
+								Fehler beim Laden
+							</span>
 						</div>
 					) : (
 						// biome-ignore lint/performance/noImgElement: dynamic blob URL, next/image requires static domain config
@@ -118,7 +120,7 @@ export const OptimizedImagePreview = memo<ImagePreviewProps>(
 				<div
 					className={`pointer-events-none absolute top-2 right-2 rounded px-2 py-1 font-medium text-xs ${
 						image.isActive
-							? "bg-green-500 text-white"
+							? "bg-success text-success-foreground"
 							: "bg-gray-500 text-white"
 					}`}
 				>

@@ -75,7 +75,7 @@ export function NewTenantForm() {
 				/>
 			</div>
 
-			<div className="flex items-center justify-between rounded-md bg-amber-50 p-3 text-amber-900 text-sm">
+			<div className="flex items-center justify-between rounded-md bg-warning-muted p-3 text-sm text-warning-muted-foreground">
 				<span>
 					This will provision a new Turso DB in the <code>corps</code> group,
 					run all migrations, and seed default roles.

@@ -15,7 +15,9 @@ export default async function TenantDetailPage({
 		if (result.error === "Tenant not found") {
 			notFound();
 		}
-		return <div className="text-red-600">Failed to load: {result.error}</div>;
+		return (
+			<div className="text-destructive">Failed to load: {result.error}</div>
+		);
 	}
 
 	return (

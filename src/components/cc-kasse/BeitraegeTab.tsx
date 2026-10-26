@@ -73,7 +73,7 @@ function chargeBadge(c: ChargeListItem) {
 		return (
 			<Badge
 				variant="outline"
-				className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
+				className="border-success/40 bg-success-muted font-medium text-success-muted-foreground"
 			>
 				Bezahlt
 			</Badge>
@@ -83,7 +83,7 @@ function chargeBadge(c: ChargeListItem) {
 		return (
 			<Badge
 				variant="outline"
-				className="border-yellow-200 bg-yellow-50 font-medium text-yellow-700 dark:border-yellow-500/25 dark:bg-yellow-500/10 dark:text-yellow-300"
+				className="border-warning/40 bg-warning-muted font-medium text-warning-muted-foreground"
 			>
 				Gestundet
 			</Badge>
@@ -93,7 +93,7 @@ function chargeBadge(c: ChargeListItem) {
 		return (
 			<Badge
 				variant="outline"
-				className="border-red-200 bg-red-50 font-medium text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
+				className="border-danger/40 bg-danger-muted font-medium text-danger-muted-foreground"
 			>
 				Gemahnt
 			</Badge>
@@ -103,7 +103,7 @@ function chargeBadge(c: ChargeListItem) {
 		return (
 			<Badge
 				variant="outline"
-				className="border-amber-200 bg-amber-50 font-medium text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300"
+				className="border-warning/40 bg-warning-muted font-medium text-warning-muted-foreground"
 			>
 				Überfällig
 			</Badge>
@@ -300,7 +300,7 @@ export function BeitraegeTab({
 							</div>
 						</div>
 						<Progress
-							className="mt-4 h-2.5 [&>[data-slot=progress-indicator]]:bg-emerald-500"
+							className="mt-4 h-2.5 [&>[data-slot=progress-indicator]]:bg-success"
 							value={charges.length ? (paid / charges.length) * 100 : 0}
 						/>
 						<div className="mt-4 flex flex-wrap gap-2">

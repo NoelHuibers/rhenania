@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { StatusBadge } from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -102,7 +103,7 @@ export function FuchsenOrdersPage() {
 												</TableCell>
 												<TableCell>
 													{order.status === "Bezahlt" ? (
-														<Badge variant="secondary">Bezahlt</Badge>
+														<StatusBadge tone="success">Bezahlt</StatusBadge>
 													) : order.billId ? (
 														<Badge variant="outline">Abgerechnet</Badge>
 													) : (

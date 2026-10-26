@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
+import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -18,7 +19,6 @@ import {
 	type MyReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
 import { ReceiptLinks } from "./ReceiptLinks";
-import { ReimbursementStatusBadge } from "./ReimbursementStatusBadge";
 
 export function MyReimbursementsTable({
 	reimbursements,
@@ -95,7 +95,7 @@ export function MyReimbursementsTable({
 						</div>
 						<p className="text-sm">{r.description}</p>
 						{r.status === "Abgelehnt" && r.rejectionReason && (
-							<p className="text-red-700 text-xs">
+							<p className="text-danger-muted-foreground text-xs">
 								Abgelehnt: {r.rejectionReason}
 							</p>
 						)}
@@ -141,7 +141,7 @@ export function MyReimbursementsTable({
 								<TableCell className="max-w-[220px]">
 									<span className="line-clamp-2">{r.description}</span>
 									{r.status === "Abgelehnt" && r.rejectionReason && (
-										<span className="mt-1 block text-red-700 text-xs">
+										<span className="mt-1 block text-danger-muted-foreground text-xs">
 											Abgelehnt: {r.rejectionReason}
 										</span>
 									)}
