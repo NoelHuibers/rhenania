@@ -42,3 +42,24 @@ test("member orders a drink", async () => {
 
 Fire-and-forget side effects (achievements, mails) should be mocked in the
 test file with `vi.mock(...)` and tested separately.
+
+## End-to-end tests (Playwright)
+
+```bash
+pnpm test:e2e       # next build + next start against freshly seeded .data/e2e
+pnpm test:e2e:dev   # same specs against next dev (faster while iterating)
+```
+
+- Port 3000 must be free. The run refuses to reuse a running server, because
+  that one might be pointed at production.
+- The web server is started through `scripts/dev/run.ts`, so every `.env`
+  credential is blanked and the app only sees `.data/e2e/*.db`. The data is
+  reseeded on every run (`scripts/dev/seed-data.ts`).
+- `e2e/auth.setup.ts` signs every user in once and stores the cookies, because
+  production builds rate-limit sign-in. In specs, `signIn(page, email, origin)`
+  loads those cookies. Add new user/host pairs to `SESSIONS` in
+  `e2e/support.ts`.
+- Mails are read from the outbox (`latestMailTo(email)`).
+- Tests tagged `@mobile` also run on a Pixel 7 viewport.
+- On failure, traces and screenshots are in `test-results/`. Open them with
+  `pnpm exec playwright show-trace <trace.zip>`.
