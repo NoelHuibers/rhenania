@@ -1,5 +1,3 @@
-// Update your existing env.js file to add NEXTAUTH_URL
-
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
@@ -66,6 +64,3 @@ export const env = createEnv({
 	 */
 	emptyStringAsUndefined: true,
 });
-
-// Add this to your .env.local file:
-// NEXTAUTH_URL=http://localhost:3000

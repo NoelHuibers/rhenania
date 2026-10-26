@@ -36,8 +36,7 @@ export async function getCurrentTenantAzureConfig(): Promise<ResolvedTenantAzure
 		.limit(1);
 
 	if (
-		!row ||
-		!row.microsoftEnabled ||
+		!row?.microsoftEnabled ||
 		!row.azureClientId ||
 		!row.azureClientSecret ||
 		!row.azureTenantId
