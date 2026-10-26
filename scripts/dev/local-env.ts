@@ -8,6 +8,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { parse } from "dotenv";
 
 export const ROOT = process.cwd();
 export const DATA_DIR = path.resolve(
@@ -35,13 +36,17 @@ const ENV_FILES = [
 function keysIn(file: string): string[] {
 	const full = path.join(ROOT, file);
 	if (!existsSync(full)) return [];
-	return readFileSync(full, "utf8")
+	const content = readFileSync(full, "utf8");
+	// dotenv's own parser (same syntax Next.js accepts, incl. `KEY: value`),
+	// plus a loose scan as a second net for anything it might skip.
+	const loose = content
 		.split("\n")
 		.map(
 			(line) =>
-				/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line)?.[1],
+				/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*[=:]/.exec(line)?.[1],
 		)
 		.filter((key): key is string => Boolean(key));
+	return [...new Set([...Object.keys(parse(content)), ...loose])];
 }
 
 const CREDENTIAL = /TOKEN|SECRET|PASSWORD|DATABASE_URL|_KEY$/;
