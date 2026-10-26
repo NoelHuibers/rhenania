@@ -102,13 +102,13 @@ describe("generateBillPeriodCSV", () => {
 		});
 		const lines = (result.csvContent ?? "").split("\n");
 		expect(lines[0]).toBe(
-			'Name;Helles;Pils;Wasser;Rechnungsbetrag;Alte Rechnung;Mahnung;Zu zahlender Betrag;nix;Mahnfaktor;PayPal Link;"Wenn Bezahlt ""Bezahlt"" eintragen"',
+			'Name;Helles;Pils;Wasser;Rechnungsbetrag;Alte Rechnung;Mahnung;Umlage;Zu zahlender Betrag;nix;Mahnfaktor;PayPal Link;"Wenn Bezahlt ""Bezahlt"" eintragen"',
 		);
 		expect(lines[1]).toBe(
-			"CC;0;6;0;9,00 EUR;0,00 EUR;0,00 EUR;9,00 EUR;CC;0,00 %;https://paypal.me/kasse/9.00EUR;",
+			"CC;0;6;0;9,00 EUR;0,00 EUR;0,00 EUR;0,00 EUR;9,00 EUR;CC;0,00 %;https://paypal.me/kasse/9.00EUR;",
 		);
 		expect(lines[2]).toBe(
-			"Anna;0;0;1;1,00 EUR;0,00 EUR;0,00 EUR;1,00 EUR;Anna;0,00 %;#####;Bezahlt",
+			"Anna;0;0;1;1,00 EUR;0,00 EUR;0,00 EUR;0,00 EUR;1,00 EUR;Anna;0,00 %;#####;Bezahlt",
 		);
 		// Names containing the delimiter or quotes are quoted and escaped.
 		expect(lines[3]?.startsWith('"Max ""Lucky"" Muster; Jr";0;0;0;')).toBe(
@@ -116,7 +116,7 @@ describe("generateBillPeriodCSV", () => {
 		);
 		expect(lines[3]).toContain(";#####;");
 		const zed = cells(lines[4]);
-		expect(zed.slice(0, 8)).toEqual([
+		expect(zed.slice(0, 9)).toEqual([
 			"Zed",
 			"0",
 			"2",
@@ -124,13 +124,14 @@ describe("generateBillPeriodCSV", () => {
 			"3,00 EUR",
 			"20,00 EUR",
 			"2,00 EUR",
+			"0,00 EUR",
 			"25,00 EUR",
 		]);
-		expect(zed[10]).toBe("https://paypal.me/kasse/25.00EUR");
-		expect(lines[5]).toBe(";".repeat(11));
-		expect(lines[6]).toBe("Preis/Einheit;1,80 EUR;1,50 EUR;1,00 EUR;;;;;;;;");
+		expect(zed[11]).toBe("https://paypal.me/kasse/25.00EUR");
+		expect(lines[5]).toBe(";".repeat(12));
+		expect(lines[6]).toBe("Preis/Einheit;1,80 EUR;1,50 EUR;1,00 EUR;;;;;;;;;");
 		expect(lines[7]).toBe(
-			"GESAMT;0;8;1;13,00 EUR;20,00 EUR;2,00 EUR;35,00 EUR;;;;",
+			"GESAMT;0;8;1;13,00 EUR;20,00 EUR;2,00 EUR;0,00 EUR;35,00 EUR;;;;",
 		);
 		expect(lines).toHaveLength(8);
 	});
@@ -149,7 +150,7 @@ describe("generateBillPeriodCSV", () => {
 		const lines = (result.csvContent ?? "").split("\n");
 		expect(lines[0]?.startsWith("Name,Rechnungsbetrag,")).toBe(true);
 		expect(lines[1]).toBe(
-			'Solo,"4,50 EUR","0,00 EUR","0,00 EUR","4,50 EUR",Solo,"0,00 %",https://paypal.me/YourHandle/4.50EUR,',
+			'Solo,"4,50 EUR","0,00 EUR","0,00 EUR","0,00 EUR","4,50 EUR",Solo,"0,00 %",https://paypal.me/YourHandle/4.50EUR,',
 		);
 	});
 
@@ -167,23 +168,37 @@ describe("generateBillPeriodCSV", () => {
 		});
 	});
 
-	// New: Mahnfaktor divides the fee by the drinks total instead of the
-	// carried-over amount it was charged on (shows 66,67 % here).
-	test.fails("reports the Mahnfaktor relative to the carried-over amount (#138)", async () => {
+	// Mahnfaktor is the fee relative to the carried-over amount it was
+	// charged on (it used to divide by the drinks total: 66,67 % here).
+	test("reports the Mahnfaktor relative to the carried-over amount (#138)", async () => {
 		await createTenant();
 		const period = await periodWithBills();
 
 		const result = await generateBillPeriodCSV(period.id, { delimiter: ";" });
 
-		const zed = (result.csvContent ?? "")
-			.split("\n")
-			.find((line) => line.startsWith("Zed;"));
-		expect(cells(zed)[9]).toBe("10,00 %");
+		const lines = (result.csvContent ?? "").split("\n");
+		const column = cells(lines[0]).indexOf("Mahnfaktor");
+		const zed = lines.find((line) => line.startsWith("Zed;"));
+		expect(cells(zed)[column]).toBe("10,00 %");
 	});
 
-	// New: there is no Umlage column, so a row with Umlage does not add up to
-	// its "Zu zahlender Betrag".
-	test.fails("money columns add up to the amount due when an Umlage was charged (#138)", async () => {
+	test("reports a Mahnfaktor of 0 % without a carried-over amount (#138)", async () => {
+		await createTenant();
+		const period = await createBillPeriodRow();
+		await createBillRow({
+			periodId: period.id,
+			user: { id: "u1", name: "Fresh" },
+			drinksTotal: 3,
+		});
+
+		const result = await generateBillPeriodCSV(period.id, { delimiter: ";" });
+
+		const [header, row] = (result.csvContent ?? "").split("\n").map(cells);
+		expect(row?.[header?.indexOf("Mahnfaktor") ?? -1]).toBe("0,00 %");
+	});
+
+	// With an Umlage column the money columns add up to "Zu zahlender Betrag".
+	test("money columns add up to the amount due when an Umlage was charged (#138)", async () => {
 		await createTenant();
 		const period = await createBillPeriodRow();
 		await createBillRow({
@@ -267,9 +282,9 @@ describe("saveBillPeriodCSV", () => {
 		expect(await tenantDb().select().from(billCSVs)).toHaveLength(0);
 	});
 
-	// New: without options the record says ";" but the content is generated
-	// with createCSV's own default ",". The Kasse UI calls it without options.
-	test.fails("writes the CSV with the delimiter it records (#138)", async () => {
+	// The record says ";" and the content must use it too, also without
+	// options (the Kasse UI calls it that way; createCSV defaults to ",").
+	test("writes the CSV with the delimiter it records (#138)", async () => {
 		await createTenant();
 		const period = await periodWithBills();
 

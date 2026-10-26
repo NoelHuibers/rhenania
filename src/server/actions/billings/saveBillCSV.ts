@@ -52,7 +52,12 @@ export async function saveBillPeriodCSV(
 		}
 
 		// Generate new CSV since none exists or existing one was invalid
-		const result = await generateBillPeriodCSV(billPeriodId, options);
+		// Generate with the delimiter that is recorded below, not createCSV's
+		// own default.
+		const result = await generateBillPeriodCSV(billPeriodId, {
+			...options,
+			delimiter,
+		});
 		if (!result.success || !result.csvContent) {
 			return {
 				success: false,

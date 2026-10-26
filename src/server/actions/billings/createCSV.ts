@@ -2,6 +2,7 @@
 "use server";
 
 import { eq, sql } from "drizzle-orm";
+import { sumMoney } from "~/lib/money";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills, drinks } from "~/server/db/schema";
 
@@ -12,6 +13,7 @@ interface BillWithItems {
 	status: string;
 	oldBillingAmount: number;
 	fees: number;
+	umlage: number;
 	drinksTotal: number;
 	total: number;
 	paidAt: Date | null;
@@ -221,6 +223,7 @@ function generateCSVContent(
 		"Rechnungsbetrag",
 		"Alte Rechnung",
 		"Mahnung",
+		"Umlage",
 		"Zu zahlender Betrag",
 		"nix",
 		"Mahnfaktor",
@@ -270,14 +273,16 @@ function generateCSVContent(
 			row.push(escapeCSVField(quantity.toString(), delimiter));
 		}
 
-		// Calculate Mahnfaktor (late fee percentage)
+		// Mahnfaktor: the late fee as a percentage of the carried-over amount
+		// it was charged on (not of the new drinks).
 		const mahnfaktor =
-			bill.drinksTotal > 0 ? (bill.fees / bill.drinksTotal) * 100 : 0;
+			bill.oldBillingAmount > 0 ? (bill.fees / bill.oldBillingAmount) * 100 : 0;
 
 		// Add billing summary columns
 		row.push(escapeCSVField(formatCurrency(bill.drinksTotal), delimiter)); // Rechnungsbetrag (total cost)
 		row.push(escapeCSVField(formatCurrency(bill.oldBillingAmount), delimiter)); // Alte Rechnung
 		row.push(escapeCSVField(formatCurrency(bill.fees), delimiter)); // Mahnung
+		row.push(escapeCSVField(formatCurrency(bill.umlage), delimiter)); // Umlage
 		row.push(escapeCSVField(formatCurrency(bill.total), delimiter)); // Zu zahlender Betrag
 		row.push(escapeCSVField(bill.userName, delimiter)); // nix (using userName as identifier)
 		row.push(escapeCSVField(formatPercentage(mahnfaktor), delimiter)); // Mahnfaktor
@@ -342,6 +347,7 @@ function createPriceRow(
 	priceRow.push(escapeCSVField("", delimiter)); // Rechnungsbetrag
 	priceRow.push(escapeCSVField("", delimiter)); // Alte Rechnung
 	priceRow.push(escapeCSVField("", delimiter)); // Mahnung
+	priceRow.push(escapeCSVField("", delimiter)); // Umlage
 	priceRow.push(escapeCSVField("", delimiter)); // Zu zahlender Betrag
 	priceRow.push(escapeCSVField("", delimiter)); // nix
 	priceRow.push(escapeCSVField("", delimiter)); // Mahnfaktor
@@ -368,19 +374,19 @@ function createTotalRow(
 		totalRow.push(escapeCSVField(totalQuantity.toString(), delimiter));
 	}
 
-	// Add summary totals for financial columns
-	const totalDrinks = bills.reduce((sum, bill) => sum + bill.drinksTotal, 0);
-	const totalOldBilling = bills.reduce(
-		(sum, bill) => sum + bill.oldBillingAmount,
-		0,
-	);
-	const totalFees = bills.reduce((sum, bill) => sum + bill.fees, 0);
-	const grandTotal = bills.reduce((sum, bill) => sum + bill.total, 0);
+	// Add summary totals for financial columns, summed in whole cents.
+	const columnTotal = (pick: (bill: BillWithItems) => number) =>
+		sumMoney(bills.map(pick));
 
-	totalRow.push(escapeCSVField(formatCurrency(totalDrinks), delimiter));
-	totalRow.push(escapeCSVField(formatCurrency(totalOldBilling), delimiter));
-	totalRow.push(escapeCSVField(formatCurrency(totalFees), delimiter));
-	totalRow.push(escapeCSVField(formatCurrency(grandTotal), delimiter));
+	for (const total of [
+		columnTotal((b) => b.drinksTotal),
+		columnTotal((b) => b.oldBillingAmount),
+		columnTotal((b) => b.fees),
+		columnTotal((b) => b.umlage),
+		columnTotal((b) => b.total),
+	]) {
+		totalRow.push(escapeCSVField(formatCurrency(total), delimiter));
+	}
 	totalRow.push(escapeCSVField("", delimiter));
 	totalRow.push(escapeCSVField("", delimiter));
 	totalRow.push(escapeCSVField("", delimiter));
