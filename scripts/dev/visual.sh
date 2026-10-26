@@ -28,5 +28,5 @@ exec "$RUNTIME" run --rm --ipc=host --init \
 	-w /work \
 	-e CI="${CI:-}" \
 	"$IMAGE" \
-	bash -c 'corepack enable >/dev/null && pnpm install --frozen-lockfile --reporter=silent && pnpm exec playwright test --project=visual "$@"' \
+	bash -c 'corepack enable >/dev/null && pnpm install --frozen-lockfile --config.confirm-modules-purge=false --reporter=append-only >/tmp/pnpm-install.log || (tail -30 /tmp/pnpm-install.log; exit 1) && pnpm exec playwright test --project=visual "$@"' \
 	-- "$@"
