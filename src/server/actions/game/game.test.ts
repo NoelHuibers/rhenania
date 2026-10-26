@@ -85,20 +85,21 @@ describe("createGame", () => {
 		});
 	});
 
-	test("fires game achievements for both players", async () => {
-		await createTenant();
+	test("fires game achievements for both players after the response", async () => {
+		const tenant = await createTenant();
 		const [me, rival] = await createPlayers(2);
 		signInAs(me);
 
 		await createGame({ player2Id: rival.id, won: true });
 
+		const scope = { tenantId: tenant.id };
 		const calls = vi.mocked(checkAndUnlockAchievements).mock.calls;
 		expect(calls).toEqual(
 			expect.arrayContaining([
-				[me.id, "game_played"],
-				[rival.id, "game_played"],
-				[me.id, "game_won"],
-				[rival.id, "game_lost"],
+				[me.id, "game_played", undefined, scope],
+				[rival.id, "game_played", undefined, scope],
+				[me.id, "game_won", undefined, scope],
+				[rival.id, "game_lost", undefined, scope],
 			]),
 		);
 	});

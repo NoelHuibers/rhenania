@@ -3,11 +3,13 @@
 
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { auth } from "~/server/auth";
 import { drinks, orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
+import { requireTenantId } from "~/server/lib/tenant-context";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
 import { hasRole } from "./admin/userRoles";
 import { getUserName } from "./getUserName";
@@ -144,13 +146,20 @@ export async function createOrder(
 		revalidatePath("/leaderboard");
 		revalidatePath("/rechnung");
 
-		void checkAndUnlockAchievements(userId, "order_created", {
+		// Achievements run after the response, against this Corps explicitly.
+		const tenantId = await requireTenantId();
+		const achievementContext = {
 			drinkName: drink.name,
 			drinkId: drink.id,
 			amount: orderData.amount,
 			total,
 			bookingFor: orderData.bookingFor,
-		});
+		};
+		after(() =>
+			checkAndUnlockAchievements(userId, "order_created", achievementContext, {
+				tenantId,
+			}),
+		);
 
 		return {
 			success: true,

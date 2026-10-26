@@ -3,6 +3,7 @@
 import crypto from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { auth } from "~/server/auth";
 import { controlDb } from "~/server/db/control";
 import {
@@ -173,7 +174,12 @@ export async function createUser(
 		);
 
 		if (isNew) {
-			void checkAndUnlockAchievements(userRow.id, "account_created");
+			const newUserId = userRow.id;
+			after(() =>
+				checkAndUnlockAchievements(newUserId, "account_created", undefined, {
+					tenantId,
+				}),
+			);
 		}
 
 		// Generate invitation token (tenant-scoped).

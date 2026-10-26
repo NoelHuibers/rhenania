@@ -19,12 +19,15 @@ export const testState: {
 	sessionUser: TestSessionUser | null;
 	/** Extra request headers, e.g. `host`. */
 	headers: Record<string, string>;
+	/** What `after()` scheduled during the test (see `flushAfter()`). */
+	afterTasks: Promise<unknown>[];
 } = {
 	control: null,
 	tenants: new Map(),
 	tenantId: null,
 	sessionUser: null,
 	headers: {},
+	afterTasks: [],
 };
 
 export function requireControl(): ControlTestDb {

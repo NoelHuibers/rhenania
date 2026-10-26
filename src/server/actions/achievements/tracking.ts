@@ -1,4 +1,15 @@
-import { and, desc, eq, gte, like, or, type SQL, sql } from "drizzle-orm";
+import {
+	and,
+	desc,
+	eq,
+	gte,
+	inArray,
+	like,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
+import type { BatchItem } from "drizzle-orm/batch";
 import { dayKeyInTZ, getZonedParts } from "~/lib/time";
 import { db } from "~/server/db";
 import { controlDb } from "~/server/db/control";
@@ -31,8 +42,6 @@ export interface OrderEventContext {
 	bookingFor?: string | null;
 }
 
-type Achievement = typeof achievements.$inferSelect;
-
 export interface TrackingOptions {
 	/**
 	 * Corps whose achievements to evaluate. Defaults to the Corps of the
@@ -61,513 +70,89 @@ async function resolveScope(options: TrackingOptions): Promise<Scope> {
 	return { db, tenantId };
 }
 
-export async function checkAndUnlockAchievements(
-	userId: string,
-	event: AchievementEvent,
-	context?: OrderEventContext,
-	options: TrackingOptions = {},
-): Promise<void> {
-	try {
-		const scope = await resolveScope(options);
-		const [allAchievements, alreadyUnlocked] = await Promise.all([
-			scope.db
-				.select()
-				.from(achievements)
-				.where(eq(achievements.isActive, true)),
-			scope.db
-				.select({ achievementId: userAchievements.achievementId })
-				.from(userAchievements)
-				.where(eq(userAchievements.userId, userId)),
-		]);
-
-		const unlockedSet = new Set(alreadyUnlocked.map((u) => u.achievementId));
-		const pending = allAchievements.filter((a) => !unlockedSet.has(a.id));
-
-		for (const achievement of pending) {
-			await processAchievement(scope, userId, achievement, event, context);
-		}
-	} catch (error) {
-		console.error("Achievement tracking error:", error);
-		// Never throw — achievement tracking must not break the calling action
-	}
-}
-
-async function processAchievement(
-	scope: Scope,
-	userId: string,
-	achievement: Achievement,
-	event: AchievementEvent,
-	context?: OrderEventContext,
-): Promise<void> {
-	let newValue: number | null = null;
-
-	switch (achievement.key) {
-		// ── Drinking milestones (total beers ordered) ──────────────────────
-		case "spefuchs":
-		case "fuchs":
-		case "cb":
-		case "iacb":
-		case "ah":
-		case "aheb":
-			if (event === "order_created") {
-				newValue = await getTotalBeerCount(scope, userId);
-			}
-			break;
-
-		// ── Drink variety ──────────────────────────────────────────────────
-		case "biertasting":
-			if (event === "order_created") {
-				newValue = await getDistinctDrinkCount(scope, userId);
-			}
-			break;
-
-		// ── Special drinks ─────────────────────────────────────────────────
-		case "kaisersflotte":
-			if (
-				event === "order_created" &&
-				context &&
-				/sekt/i.test(context.drinkName)
-			) {
-				newValue = 1;
-			}
-			break;
-
-		case "kisteoderliste":
-			if (event === "order_created" && context) {
-				const drink = await scope.db
-					.select({ kastengroesse: drinks.kastengroesse })
-					.from(drinks)
-					.where(eq(drinks.id, context.drinkId))
-					.limit(1);
-				const kiste = drink[0]?.kastengroesse;
-				if (kiste && context.amount >= kiste) {
-					newValue = 1;
-				}
-			}
-			break;
-
-		case "alkoholfrei":
-			if (
-				event === "order_created" &&
-				context &&
-				/alkoholfrei/i.test(context.drinkName)
-			) {
-				const drink = await scope.db
-					.select({ kastengroesse: drinks.kastengroesse })
-					.from(drinks)
-					.where(eq(drinks.id, context.drinkId))
-					.limit(1);
-				const kiste = drink[0]?.kastengroesse ?? 20;
-				if (context.amount >= kiste) {
-					newValue = 1;
-				}
-			}
-			break;
-
-		case "radler":
-			if (event === "order_created") {
-				newValue = await getDrinkCountByName(scope, userId, "Radler");
-			}
-			break;
-
-		// ── CBesuch drinking ───────────────────────────────────────────────
-		// Orders where bookingFor contains "CBesuch" (case-insensitive)
-		case "cbesuch":
-		case "cbesuch2":
-		case "cbesuch3":
-		case "cbesuch4":
-			if (event === "order_created") {
-				newValue = await getCBesuchBeerCount(scope, userId);
-			}
-			break;
-
-		// ── Oetti Hell / Pils ratio ────────────────────────────────────────
-		// targetValue for both is 10, meaning 10 more of one type than the other
-		case "helleseite": {
-			if (event === "order_created") {
-				const { hellCount, pilsCount } = await getHellPilsRatio(scope, userId);
-				newValue = hellCount - pilsCount;
-			}
-			break;
-		}
-
-		case "dunkleseite": {
-			if (event === "order_created") {
-				const { hellCount, pilsCount } = await getHellPilsRatio(scope, userId);
-				newValue = pilsCount - hellCount;
-			}
-			break;
-		}
-
-		// targetValue=100, unlocks when total >= 100 AND neither Hell nor Pils
-		// dominates by more than the helleseite/dunkleseite threshold (10)
-		case "avatar": {
-			if (event === "order_created") {
-				const total = await getTotalBeerCount(scope, userId);
-				const { hellCount, pilsCount } = await getHellPilsRatio(scope, userId);
-				if (Math.abs(hellCount - pilsCount) < 10) {
-					newValue = total;
-				}
-			}
-			break;
-		}
-
-		// ── Financial ─────────────────────────────────────────────────────
-		case "first_tab":
-			if (event === "order_created") {
-				newValue = 1;
-			}
-			break;
-
-		case "big_spender":
-		case "whale":
-			if (event === "order_created") {
-				newValue = await getTotalSpent(scope, userId);
-			}
-			break;
-
-		// ── Time-based (Europe/Berlin wall clock, whatever the server zone) ─
-		// targetValue=1: unlocks once after 4 beers between 05:00–08:00
-		case "fruhaufsteher": {
-			if (event === "order_created") {
-				const { hour } = getZonedParts(new Date());
-				if (hour >= 5 && hour < 8) {
-					const count = await getBeersToday(
-						scope,
-						userId,
-						(h) => h >= 5 && h < 8,
-					);
-					if (count >= 4) {
-						newValue = 1;
-					}
-				}
-			}
-			break;
-		}
-
-		// targetValue=10: tracks order count in the last hour
-		case "goldenestunde":
-			if (event === "order_created") {
-				newValue = await getOrdersInLastHour(scope, userId);
-			}
-			break;
-
-		// targetValue=10: consecutive weekends with at least one order
-		case "wocheende": {
-			if (event === "order_created") {
-				const { weekday } = getZonedParts(new Date());
-				if (weekday === 0 || weekday === 6) {
-					newValue = await getConsecutiveWeekends(scope, userId);
-				}
-			}
-			break;
-		}
-
-		// targetValue=365: distinct calendar days with at least one order
-		case "dedication":
-			if (event === "order_created") {
-				newValue = await getDistinctOrderDays(scope, userId);
-			}
-			break;
-
-		// ── Date-specific drinking ─────────────────────────────────────────
-		// targetValue=1: 4+ beers ordered between 00:00–01:00
-		case "berry": {
-			if (event === "order_created") {
-				if (getZonedParts(new Date()).hour === 0) {
-					const count = await getBeersToday(scope, userId, (h) => h === 0);
-					if (count >= 4) {
-						newValue = 1;
-					}
-				}
-			}
-			break;
-		}
-
-		// targetValue=1: any order on Jan 1 between 00:00–01:00
-		case "neujahr": {
-			if (event === "order_created") {
-				const now = getZonedParts(new Date());
-				if (now.month === 1 && now.day === 1 && now.hour === 0) {
-					newValue = 1;
-				}
-			}
-			break;
-		}
-
-		// targetValue=10: sum of beers ordered on May 1
-		case "erstermai": {
-			if (event === "order_created") {
-				const now = getZonedParts(new Date());
-				if (now.month === 5 && now.day === 1) {
-					newValue = await getBeersToday(scope, userId);
-				}
-			}
-			break;
-		}
-
-		// targetValue=10: sum of beers ordered on Feb 21
-		case "grundungstag": {
-			if (event === "order_created") {
-				const now = getZonedParts(new Date());
-				if (now.month === 2 && now.day === 21) {
-					newValue = await getBeersToday(scope, userId);
-				}
-			}
-			break;
-		}
-
-		// targetValue=1: play a game on Oct 3 (German Unity Day)
-		case "deutschland": {
-			if (event === "game_played") {
-				const now = getZonedParts(new Date());
-				if (now.month === 10 && now.day === 3) {
-					newValue = 1;
-				}
-			}
-			break;
-		}
-
-		// ── Games ──────────────────────────────────────────────────────────
-		case "tierlunge":
-		case "jungerfuchs":
-		case "jungaktiver":
-			if (event === "game_played") {
-				newValue = await getTotalGames(scope, userId);
-			}
-			break;
-
-		case "erstersieg":
-		case "champion":
-			if (event === "game_won") {
-				newValue = await getTotalWins(scope, userId);
-			}
-			break;
-
-		// targetValue=7: a game on each of 7 distinct days within the last week
-		case "perfektewoche":
-			if (event === "game_played") {
-				newValue = await getDistinctGameDaysLastWeek(scope, userId);
-			}
-			break;
-
-		case "winning_streak_3":
-		case "winning_streak_5":
-		case "winning_streak_10":
-			if (event === "game_won") {
-				newValue = await getCurrentStreak(scope, userId);
-			} else if (event === "game_lost") {
-				newValue = 0;
-			}
-			break;
-
-		// ── Special ────────────────────────────────────────────────────────
-		case "willkommen":
-			if (event === "account_created") {
-				newValue = 1;
-			}
-			break;
-
-		case "bild":
-			if (event === "profile_picture_set") {
-				newValue = 1;
-			}
-			break;
-
-		// targetValue=365: account must be at least one year old
-		case "biergeburtstag":
-			if (event === "order_created") {
-				newValue = await getAccountAgeInDays(scope, userId);
-			}
-			break;
-	}
-
-	if (newValue === null) {
-		return;
-	}
-
-	await updateProgress(scope, userId, achievement.id, newValue);
-
-	if (achievement.targetValue !== null && newValue >= achievement.targetValue) {
-		await unlockAchievement(scope, userId, achievement.id);
-	}
-}
-
-// ── Query helpers ──────────────────────────────────────────────────────────
-
-async function getTotalBeerCount(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	const result = await scope.db
-		.select({ total: sql<number>`coalesce(sum(${orders.amount}), 0)` })
-		.from(orders)
-		.where(eq(orders.userId, userId));
-	return result[0]?.total ?? 0;
-}
-
-async function getDistinctDrinkCount(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	const result = await scope.db
-		.select({ count: sql<number>`count(distinct ${orders.drinkId})` })
-		.from(orders)
-		.where(eq(orders.userId, userId));
-	return result[0]?.count ?? 0;
-}
-
-async function getDrinkCountByName(
-	scope: Scope,
-	userId: string,
-	namePattern: string,
-): Promise<number> {
-	const result = await scope.db
-		.select({ total: sql<number>`coalesce(sum(${orders.amount}), 0)` })
-		.from(orders)
-		.where(
-			and(
-				eq(orders.userId, userId),
-				like(orders.drinkName, `%${namePattern}%`),
-			),
-		);
-	return result[0]?.total ?? 0;
-}
-
-// Counts beers where bookingFor contains "CBesuch" (case-insensitive via LIKE)
-async function getCBesuchBeerCount(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	const result = await scope.db
-		.select({ total: sql<number>`coalesce(sum(${orders.amount}), 0)` })
-		.from(orders)
-		.where(
-			and(eq(orders.userId, userId), like(orders.bookingFor, "%CBesuch%")),
-		);
-	return result[0]?.total ?? 0;
-}
-
-async function getHellPilsRatio(
-	scope: Scope,
-	userId: string,
-): Promise<{ hellCount: number; pilsCount: number }> {
-	const [hellResult, pilsResult] = await Promise.all([
-		scope.db
-			.select({ total: sql<number>`coalesce(sum(${orders.amount}), 0)` })
-			.from(orders)
-			.where(
-				and(
-					eq(orders.userId, userId),
-					or(
-						like(orders.drinkName, "%Hell%"),
-						like(orders.drinkName, "%Helles%"),
-					),
-				),
-			),
-		scope.db
-			.select({ total: sql<number>`coalesce(sum(${orders.amount}), 0)` })
-			.from(orders)
-			.where(and(eq(orders.userId, userId), like(orders.drinkName, "%Pils%"))),
-	]);
-
-	return {
-		hellCount: hellResult[0]?.total ?? 0,
-		pilsCount: pilsResult[0]?.total ?? 0,
-	};
-}
-
-async function getTotalSpent(scope: Scope, userId: string): Promise<number> {
-	const result = await scope.db
-		.select({ total: sql<number>`coalesce(sum(${orders.total}), 0)` })
-		.from(orders)
-		.where(eq(orders.userId, userId));
-	return result[0]?.total ?? 0;
-}
+// ── How tracking talks to the database ─────────────────────────────────────
+//
+// One event costs at most three round trips, however many achievements are
+// pending and however long the user's history is:
+//   1. the catalogue for this event, with the user's unlocks and progress;
+//   2. every statistic the pending rules need, as one batch (plus one batch
+//      on the control DB for cross-Corps games, in parallel);
+//   3. changed progress and new unlocks, as one batch.
+// The rules (RULES below) are pure functions of that snapshot.
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
-/** The Berlin hour of each of the user's orders since `since`, keyed by Berlin day. */
-async function getOrderHours(
-	scope: Scope,
-	userId: string,
-	since?: Date,
-): Promise<Array<{ day: string; hour: number; amount: number }>> {
-	const rows = await scope.db
-		.select({ amount: orders.amount, createdAt: orders.createdAt })
-		.from(orders)
-		.where(
-			since
-				? and(eq(orders.userId, userId), gte(orders.createdAt, since))
-				: eq(orders.userId, userId),
-		);
-	return rows.map((r) => {
-		const parts = getZonedParts(r.createdAt);
-		return { day: dayKeyInTZ(r.createdAt), hour: parts.hour, amount: r.amount };
-	});
-}
-
-/**
- * Beers the user ordered today (Berlin calendar day), optionally only those
- * whose Berlin hour passes `hourFilter`.
- */
-async function getBeersToday(
-	scope: Scope,
-	userId: string,
-	hourFilter: (hour: number) => boolean = () => true,
-): Promise<number> {
-	const now = new Date();
-	const today = dayKeyInTZ(now);
-	// A Berlin day is at most 25 h long, so this window always covers it.
-	const rows = await getOrderHours(
-		scope,
-		userId,
-		new Date(now.getTime() - 25 * HOUR_MS),
-	);
-	let total = 0;
-	for (const r of rows) {
-		if (r.day === today && hourFilter(r.hour)) {
-			total += r.amount;
-		}
-	}
-	return total;
-}
-
-// Number of order rows created in the last 60 minutes
-async function getOrdersInLastHour(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	const oneHourAgo = new Date(Date.now() - HOUR_MS);
-	const result = await scope.db
-		.select({ count: sql<number>`count(*)` })
-		.from(orders)
-		.where(and(eq(orders.userId, userId), gte(orders.createdAt, oneHourAgo)));
-	return result[0]?.count ?? 0;
-}
-
-// Distinct Berlin calendar days on which the user placed at least one order
-async function getDistinctOrderDays(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	// Berlin is a whole number of hours off UTC, so every UTC hour lies within
-	// one Berlin day: bucket by hour in SQL, map the buckets to days here.
-	const rows = await scope.db
-		.selectDistinct({ hour: sql<number>`${orders.createdAt} / 3600` })
-		.from(orders)
-		.where(eq(orders.userId, userId));
-	const days = new Set<string>();
-	for (const { hour } of rows) {
-		days.add(dayKeyInTZ(new Date(hour * HOUR_MS)));
-	}
-	return days.size;
-}
-
-// ── Games (the Corps' own games plus its members' cross-Corps games) ───────
-
+type ZonedParts = ReturnType<typeof getZonedParts>;
 type PlayedGame = { winnerId: string; playedAt: Date };
+type OrderHour = { day: string; hour: number; amount: number };
+
+type OrderTotals = {
+	totalBeers: number;
+	distinctDrinks: number;
+	radler: number;
+	/** Beers booked for a CBesuch (bookingFor contains "CBesuch"). */
+	cbesuch: number;
+	hell: number;
+	pils: number;
+	totalSpent: number;
+	/** Order rows of the last 60 minutes. */
+	ordersLastHour: number;
+};
+
+/** Everything a rule may read, loaded once per event. */
+type StatValues = {
+	orderTotals: OrderTotals;
+	/** Crate size of the ordered drink (null: none, or drink not found). */
+	crateSize: number | null;
+	/** The user's orders of the last 25 h, which always cover today in Berlin. */
+	recentOrders: OrderHour[];
+	/** Creation times of the user's latest 200 orders, newest first. */
+	latestOrderTimes: Date[];
+	/** Distinct UTC hours (hours since the epoch) with at least one order. */
+	orderHourBuckets: number[];
+	accountCreatedAt: Date | null;
+	totalGames: number;
+	totalWins: number;
+	/** The latest 20 games, own and cross-Corps, newest first. */
+	latestGames: PlayedGame[];
+	/** Own and cross-Corps games of the last 7 days. */
+	gamesLastWeek: PlayedGame[];
+};
+type StatKey = keyof StatValues;
+
+class Stats {
+	constructor(private readonly values: Partial<StatValues>) {}
+
+	get<K extends StatKey>(key: K): StatValues[K] {
+		if (!(key in this.values)) {
+			throw new Error(`Achievement statistic not loaded: ${key}`);
+		}
+		return this.values[key] as StatValues[K];
+	}
+}
+
+type RuleInput = {
+	userId: string;
+	context?: OrderEventContext;
+	now: Date;
+	/** `now` on the Berlin wall clock. */
+	zoned: ZonedParts;
+};
+
+type Rule = {
+	/** The rule only applies (and loads nothing) when this holds. */
+	when?: (input: RuleInput) => boolean;
+	needs?: StatKey[];
+	/** New progress value, or null to leave the achievement untouched. */
+	value: (stats: Stats, input: RuleInput) => number | null;
+};
+
+// ── Statistic queries ──────────────────────────────────────────────────────
+
+function ownGamesOf(userId: string): SQL | undefined {
+	return or(eq(games.player1Id, userId), eq(games.player2Id, userId));
+}
 
 /** Cross-Corps games (control DB) the user played for this scope's Corps. */
 function crossGamesOf(scope: Scope, userId: string): SQL | undefined {
@@ -581,16 +166,12 @@ function crossGamesOf(scope: Scope, userId: string): SQL | undefined {
 	);
 }
 
-function ownGamesOf(userId: string): SQL | undefined {
-	return or(eq(games.player1Id, userId), eq(games.player2Id, userId));
-}
-
-/** The user's games, newest first, optionally since a date / limited. */
-async function getPlayedGames(
+/** The user's own and cross-Corps games, newest first, optionally since / limited. */
+function playedGamesQueries(
 	scope: Scope,
 	userId: string,
 	opts: { since?: Date; limit?: number } = {},
-): Promise<PlayedGame[]> {
+) {
 	const own = scope.db
 		.select({ winnerId: games.winnerId, playedAt: games.playedAt })
 		.from(games)
@@ -617,70 +198,274 @@ async function getPlayedGames(
 		)
 		.orderBy(desc(crossTenantGames.playedAt))
 		.$dynamic();
-	const [ownRows, crossRows] = await Promise.all(
-		opts.limit === undefined
-			? [own, cross]
-			: [own.limit(opts.limit), cross.limit(opts.limit)],
-	);
-	const all = [...ownRows, ...crossRows].sort(
+	return opts.limit === undefined
+		? { own, cross }
+		: { own: own.limit(opts.limit), cross: cross.limit(opts.limit) };
+}
+
+/** Own and cross-Corps games merged, newest first. */
+function mergeGames(
+	own: PlayedGame[],
+	cross: PlayedGame[],
+	limit?: number,
+): PlayedGame[] {
+	const all = [...own, ...cross].sort(
 		(a, b) => b.playedAt.getTime() - a.playedAt.getTime(),
 	);
-	return opts.limit === undefined ? all : all.slice(0, opts.limit);
+	return limit === undefined ? all : all.slice(0, limit);
 }
 
-async function getTotalGames(scope: Scope, userId: string): Promise<number> {
-	const [own, cross] = await Promise.all([
-		scope.db
-			.select({ count: sql<number>`count(*)` })
+function toOrderHours(
+	rows: Array<{ amount: number; createdAt: Date }>,
+): OrderHour[] {
+	return rows.map((r) => ({
+		day: dayKeyInTZ(r.createdAt),
+		hour: getZonedParts(r.createdAt).hour,
+		amount: r.amount,
+	}));
+}
+
+const rowCount = sql<number>`count(*)`;
+
+/** SUM(amount) over the orders matching `cond`. */
+function amountWhere(cond: SQL | undefined) {
+	return sql<number>`coalesce(sum(case when ${cond} then ${orders.amount} else 0 end), 0)`;
+}
+
+type StatRead<K extends StatKey> = {
+	tenant: BatchItem<"sqlite">;
+	control?: BatchItem<"sqlite">;
+	parse: (tenantRows: unknown, controlRows: unknown) => StatValues[K];
+};
+
+type ReadArgs = { scope: Scope; userId: string; input: RuleInput };
+
+/** COUNT(*) always returns exactly one row. */
+const countOf = (rows: unknown) => (rows as [{ count: number }])[0].count;
+
+/** One query per statistic (game statistics: one per DB). */
+const READS: { [K in StatKey]: (args: ReadArgs) => StatRead<K> } = {
+	orderTotals: ({ scope, userId, input }) => ({
+		tenant: scope.db
+			.select({
+				totalBeers: sql<number>`coalesce(sum(${orders.amount}), 0)`,
+				distinctDrinks: sql<number>`count(distinct ${orders.drinkId})`,
+				radler: amountWhere(like(orders.drinkName, "%Radler%")),
+				cbesuch: amountWhere(like(orders.bookingFor, "%CBesuch%")),
+				hell: amountWhere(
+					or(
+						like(orders.drinkName, "%Hell%"),
+						like(orders.drinkName, "%Helles%"),
+					),
+				),
+				pils: amountWhere(like(orders.drinkName, "%Pils%")),
+				totalSpent: sql<number>`coalesce(sum(${orders.total}), 0)`,
+				ordersLastHour: sql<number>`coalesce(sum(case when ${gte(
+					orders.createdAt,
+					new Date(input.now.getTime() - HOUR_MS),
+				)} then 1 else 0 end), 0)`,
+			})
+			.from(orders)
+			.where(eq(orders.userId, userId)),
+		// An aggregate without GROUP BY always returns exactly one row.
+		parse: (rows) => (rows as [OrderTotals])[0],
+	}),
+
+	crateSize: ({ scope, input }) => ({
+		tenant: scope.db
+			.select({ kastengroesse: drinks.kastengroesse })
+			.from(drinks)
+			.where(eq(drinks.id, input.context?.drinkId ?? ""))
+			.limit(1),
+		parse: (rows) =>
+			(rows as Array<{ kastengroesse: number | null }>)[0]?.kastengroesse ??
+			null,
+	}),
+
+	recentOrders: ({ scope, userId, input }) => ({
+		tenant: scope.db
+			.select({ amount: orders.amount, createdAt: orders.createdAt })
+			.from(orders)
+			.where(
+				and(
+					eq(orders.userId, userId),
+					// A Berlin day is at most 25 h long.
+					gte(orders.createdAt, new Date(input.now.getTime() - 25 * HOUR_MS)),
+				),
+			),
+		parse: (rows) =>
+			toOrderHours(rows as Array<{ amount: number; createdAt: Date }>),
+	}),
+
+	latestOrderTimes: ({ scope, userId }) => ({
+		tenant: scope.db
+			.select({ createdAt: orders.createdAt })
+			.from(orders)
+			.where(eq(orders.userId, userId))
+			.orderBy(desc(orders.createdAt))
+			.limit(200),
+		parse: (rows) =>
+			(rows as Array<{ createdAt: Date }>).map((r) => r.createdAt),
+	}),
+
+	orderHourBuckets: ({ scope, userId }) => ({
+		// Berlin is a whole number of hours off UTC, so every UTC hour lies
+		// within one Berlin day: bucket by hour in SQL, map to days in JS.
+		tenant: scope.db
+			.selectDistinct({ hour: sql<number>`${orders.createdAt} / 3600` })
+			.from(orders)
+			.where(eq(orders.userId, userId)),
+		parse: (rows) => (rows as Array<{ hour: number }>).map((r) => r.hour),
+	}),
+
+	accountCreatedAt: ({ scope, userId }) => ({
+		tenant: scope.db
+			.select({ createdAt: users.createdAt })
+			.from(users)
+			.where(eq(users.id, userId))
+			.limit(1),
+		parse: (rows) =>
+			(rows as Array<{ createdAt: Date | null }>)[0]?.createdAt ?? null,
+	}),
+
+	totalGames: ({ scope, userId }) => ({
+		tenant: scope.db
+			.select({ count: rowCount })
 			.from(games)
 			.where(ownGamesOf(userId)),
-		controlDb
-			.select({ count: sql<number>`count(*)` })
+		control: controlDb
+			.select({ count: rowCount })
 			.from(crossTenantGames)
 			.where(crossGamesOf(scope, userId)),
-	]);
-	return (own[0]?.count ?? 0) + (cross[0]?.count ?? 0);
-}
+		parse: (own, cross) => countOf(own) + countOf(cross),
+	}),
 
-async function getTotalWins(scope: Scope, userId: string): Promise<number> {
-	const [own, cross] = await Promise.all([
-		scope.db
-			.select({ count: sql<number>`count(*)` })
+	totalWins: ({ scope, userId }) => ({
+		tenant: scope.db
+			.select({ count: rowCount })
 			.from(games)
 			.where(eq(games.winnerId, userId)),
-		controlDb
-			.select({ count: sql<number>`count(*)` })
+		control: controlDb
+			.select({ count: rowCount })
 			.from(crossTenantGames)
 			.where(
 				and(eq(crossTenantGames.winnerId, userId), crossGamesOf(scope, userId)),
 			),
-	]);
-	return (own[0]?.count ?? 0) + (cross[0]?.count ?? 0);
-}
+		parse: (own, cross) => countOf(own) + countOf(cross),
+	}),
 
-// Count consecutive wins from the most recent games
-async function getCurrentStreak(scope: Scope, userId: string): Promise<number> {
-	const recentGames = await getPlayedGames(scope, userId, { limit: 20 });
+	latestGames: ({ scope, userId }) => {
+		const q = playedGamesQueries(scope, userId, { limit: 20 });
+		return {
+			tenant: q.own,
+			control: q.cross,
+			parse: (own, cross) =>
+				mergeGames(own as PlayedGame[], cross as PlayedGame[], 20),
+		};
+	},
 
-	let streak = 0;
-	for (const game of recentGames) {
-		if (game.winnerId === userId) {
-			streak++;
-		} else {
-			break;
-		}
+	gamesLastWeek: ({ scope, userId, input }) => {
+		const since = new Date(input.now.getTime() - 7 * DAY_MS);
+		const q = playedGamesQueries(scope, userId, { since });
+		return {
+			tenant: q.own,
+			control: q.cross,
+			parse: (own, cross) =>
+				mergeGames(own as PlayedGame[], cross as PlayedGame[]),
+		};
+	},
+};
+
+type Batchable = {
+	batch: (
+		items: [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]],
+	) => Promise<unknown[]>;
+};
+
+/** Sends the queries in one round trip (none if there are none). */
+async function runBatch(
+	target: unknown,
+	items: BatchItem<"sqlite">[],
+): Promise<unknown[]> {
+	const [first, ...rest] = items;
+	if (!first) {
+		return [];
 	}
-	return streak;
+	return (target as Batchable).batch([first, ...rest]);
 }
 
-// Distinct Berlin days the user played a game within the last 7 days
-async function getDistinctGameDaysLastWeek(
+/** Loads the statistics: one tenant batch and one control batch, in parallel. */
+async function loadStats(
 	scope: Scope,
 	userId: string,
-): Promise<number> {
-	const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
-	const recent = await getPlayedGames(scope, userId, { since: sevenDaysAgo });
-	return new Set(recent.map((g) => dayKeyInTZ(g.playedAt))).size;
+	keys: Iterable<StatKey>,
+	input: RuleInput,
+): Promise<Stats> {
+	const reads = [...new Set(keys)].map((key) => ({
+		key,
+		read: (READS[key] as (args: ReadArgs) => StatRead<StatKey>)({
+			scope,
+			userId,
+			input,
+		}),
+	}));
+	const [tenantResults, controlResults] = await Promise.all([
+		runBatch(
+			scope.db,
+			reads.map(({ read }) => read.tenant),
+		),
+		runBatch(
+			controlDb,
+			reads.flatMap(({ read }) => (read.control ? [read.control] : [])),
+		),
+	]);
+
+	const values: Partial<Record<StatKey, unknown>> = {};
+	let c = 0;
+	reads.forEach(({ key, read }, i) => {
+		const controlRows = read.control ? controlResults[c++] : undefined;
+		values[key] = read.parse(tenantResults[i], controlRows);
+	});
+	return new Stats(values as Partial<StatValues>);
+}
+
+// ── Pure helpers on the snapshot ───────────────────────────────────────────
+
+/** Beers ordered today (Berlin day), optionally only in some Berlin hours. */
+function beersToday(
+	recent: OrderHour[],
+	now: Date,
+	hourFilter: (hour: number) => boolean = () => true,
+): number {
+	const today = dayKeyInTZ(now);
+	let total = 0;
+	for (const r of recent) {
+		if (r.day === today && hourFilter(r.hour)) {
+			total += r.amount;
+		}
+	}
+	return total;
+}
+
+/** Distinct Berlin calendar days among the given epoch hours. */
+function distinctOrderDays(hourBuckets: number[]): number {
+	const days = new Set<string>();
+	for (const hour of hourBuckets) {
+		days.add(dayKeyInTZ(new Date(hour * HOUR_MS)));
+	}
+	return days.size;
+}
+
+/** Consecutive wins, counted from the most recent game. */
+function currentStreak(latest: PlayedGame[], userId: string): number {
+	let streak = 0;
+	for (const game of latest) {
+		if (game.winnerId !== userId) {
+			break;
+		}
+		streak++;
+	}
+	return streak;
 }
 
 /** Shifts a `YYYY-MM-DD` calendar date by whole days (no time zone involved). */
@@ -697,24 +482,14 @@ function daysBetween(later: string, earlier: string): number {
 	);
 }
 
-// Count consecutive weekends (Sat/Sun, Berlin time) with at least one order
-async function getConsecutiveWeekends(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	const recentOrders = await scope.db
-		.select({ createdAt: orders.createdAt })
-		.from(orders)
-		.where(eq(orders.userId, userId))
-		.orderBy(desc(orders.createdAt))
-		.limit(200);
-
+/** Consecutive weekends (Sat/Sun, Berlin time) with at least one order. */
+function consecutiveWeekends(orderTimes: Date[]): number {
 	// Normalize each weekend order to its Saturday's Berlin date
 	const weekSaturdays = new Set<string>();
-	for (const order of recentOrders) {
-		const { weekday } = getZonedParts(order.createdAt); // 0=Sun, 6=Sat
+	for (const createdAt of orderTimes) {
+		const { weekday } = getZonedParts(createdAt); // 0=Sun, 6=Sat
 		if (weekday === 0 || weekday === 6) {
-			const day = dayKeyInTZ(order.createdAt);
+			const day = dayKeyInTZ(createdAt);
 			weekSaturdays.add(weekday === 6 ? day : shiftDayKey(day, -1));
 		}
 	}
@@ -736,59 +511,384 @@ async function getConsecutiveWeekends(
 	return streak;
 }
 
-// Account age in full days, based on account creation timestamp
-async function getAccountAgeInDays(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	const user = await scope.db
-		.select({ createdAt: users.createdAt })
-		.from(users)
-		.where(eq(users.id, userId))
-		.limit(1);
-
-	if (!user[0]?.createdAt) {
+/** Account age in full days. */
+function accountAgeInDays(createdAt: Date | null, now: Date): number {
+	if (!createdAt) {
 		return 0;
 	}
-	return Math.floor(
-		(Date.now() - user[0].createdAt.getTime()) / (1000 * 60 * 60 * 24),
-	);
+	return Math.floor((now.getTime() - createdAt.getTime()) / DAY_MS);
 }
 
-// ── Progress / unlock helpers ──────────────────────────────────────────────
+// ── Rules per event ────────────────────────────────────────────────────────
 
-async function updateProgress(
+const totals = (s: Stats) => s.get("orderTotals");
+
+const beerMilestone: Rule = {
+	needs: ["orderTotals"],
+	value: (s) => totals(s).totalBeers,
+};
+const cbesuchSeries: Rule = {
+	needs: ["orderTotals"],
+	value: (s) => totals(s).cbesuch,
+};
+const spending: Rule = {
+	needs: ["orderTotals"],
+	value: (s) => totals(s).totalSpent,
+};
+const gamesPlayed: Rule = {
+	needs: ["totalGames"],
+	value: (s) => s.get("totalGames"),
+};
+const gamesWon: Rule = {
+	needs: ["totalWins"],
+	value: (s) => s.get("totalWins"),
+};
+const winningStreak: Rule = {
+	needs: ["latestGames"],
+	value: (s, { userId }) => currentStreak(s.get("latestGames"), userId),
+};
+const streakBroken: Rule = { value: () => 0 };
+const always1: Rule = { value: () => 1 };
+
+const isMorning = (hour: number) => hour >= 5 && hour < 8;
+const isMidnight = (hour: number) => hour === 0;
+const onDate = (month: number, day: number) => (input: RuleInput) =>
+	input.zoned.month === month && input.zoned.day === day;
+
+const RULES: Record<AchievementEvent, Record<string, Rule>> = {
+	order_created: {
+		// ── Drinking milestones (total beers ordered) ──────────────────────
+		spefuchs: beerMilestone,
+		fuchs: beerMilestone,
+		cb: beerMilestone,
+		iacb: beerMilestone,
+		ah: beerMilestone,
+		aheb: beerMilestone,
+
+		// ── Drink variety ──────────────────────────────────────────────────
+		biertasting: {
+			needs: ["orderTotals"],
+			value: (s) => totals(s).distinctDrinks,
+		},
+
+		// ── Special drinks ─────────────────────────────────────────────────
+		kaisersflotte: {
+			when: ({ context }) => /sekt/i.test(context?.drinkName ?? ""),
+			value: () => 1,
+		},
+		kisteoderliste: {
+			when: ({ context }) => context !== undefined,
+			needs: ["crateSize"],
+			value: (s, { context }) => {
+				const kiste = s.get("crateSize");
+				return kiste && (context?.amount ?? 0) >= kiste ? 1 : null;
+			},
+		},
+		alkoholfrei: {
+			when: ({ context }) => /alkoholfrei/i.test(context?.drinkName ?? ""),
+			needs: ["crateSize"],
+			value: (s, { context }) =>
+				(context?.amount ?? 0) >= (s.get("crateSize") ?? 20) ? 1 : null,
+		},
+		radler: { needs: ["orderTotals"], value: (s) => totals(s).radler },
+
+		// ── CBesuch drinking ───────────────────────────────────────────────
+		cbesuch: cbesuchSeries,
+		cbesuch2: cbesuchSeries,
+		cbesuch3: cbesuchSeries,
+		cbesuch4: cbesuchSeries,
+
+		// ── Oetti Hell / Pils ratio ────────────────────────────────────────
+		// targetValue for both is 10, meaning 10 more of one type than the other
+		helleseite: {
+			needs: ["orderTotals"],
+			value: (s) => totals(s).hell - totals(s).pils,
+		},
+		dunkleseite: {
+			needs: ["orderTotals"],
+			value: (s) => totals(s).pils - totals(s).hell,
+		},
+		// targetValue=100, unlocks when total >= 100 AND neither Hell nor Pils
+		// dominates by more than the helleseite/dunkleseite threshold (10)
+		avatar: {
+			needs: ["orderTotals"],
+			value: (s) => {
+				const t = totals(s);
+				return Math.abs(t.hell - t.pils) < 10 ? t.totalBeers : null;
+			},
+		},
+
+		// ── Financial ─────────────────────────────────────────────────────
+		first_tab: always1,
+		big_spender: spending,
+		whale: spending,
+
+		// ── Time-based (Europe/Berlin wall clock, whatever the server zone) ─
+		// targetValue=1: unlocks once after 4 beers between 05:00–08:00
+		fruhaufsteher: {
+			when: ({ zoned }) => isMorning(zoned.hour),
+			needs: ["recentOrders"],
+			value: (s, { now }) =>
+				beersToday(s.get("recentOrders"), now, isMorning) >= 4 ? 1 : null,
+		},
+		// targetValue=10: tracks order count in the last hour
+		goldenestunde: {
+			needs: ["orderTotals"],
+			value: (s) => totals(s).ordersLastHour,
+		},
+		// targetValue=10: consecutive weekends with at least one order
+		wocheende: {
+			when: ({ zoned }) => zoned.weekday === 0 || zoned.weekday === 6,
+			needs: ["latestOrderTimes"],
+			value: (s) => consecutiveWeekends(s.get("latestOrderTimes")),
+		},
+		// targetValue=365: distinct calendar days with at least one order
+		dedication: {
+			needs: ["orderHourBuckets"],
+			value: (s) => distinctOrderDays(s.get("orderHourBuckets")),
+		},
+
+		// ── Date-specific drinking ─────────────────────────────────────────
+		// targetValue=1: 4+ beers ordered between 00:00–01:00
+		berry: {
+			when: ({ zoned }) => isMidnight(zoned.hour),
+			needs: ["recentOrders"],
+			value: (s, { now }) =>
+				beersToday(s.get("recentOrders"), now, isMidnight) >= 4 ? 1 : null,
+		},
+		// targetValue=1: any order on Jan 1 between 00:00–01:00
+		neujahr: {
+			when: (input) => onDate(1, 1)(input) && isMidnight(input.zoned.hour),
+			value: () => 1,
+		},
+		// targetValue=10: sum of beers ordered on May 1
+		erstermai: {
+			when: onDate(5, 1),
+			needs: ["recentOrders"],
+			value: (s, { now }) => beersToday(s.get("recentOrders"), now),
+		},
+		// targetValue=10: sum of beers ordered on Feb 21
+		grundungstag: {
+			when: onDate(2, 21),
+			needs: ["recentOrders"],
+			value: (s, { now }) => beersToday(s.get("recentOrders"), now),
+		},
+
+		// targetValue=365: account must be at least one year old
+		biergeburtstag: {
+			needs: ["accountCreatedAt"],
+			value: (s, { now }) => accountAgeInDays(s.get("accountCreatedAt"), now),
+		},
+	},
+
+	game_played: {
+		// targetValue=1: play a game on Oct 3 (German Unity Day)
+		deutschland: { when: onDate(10, 3), value: () => 1 },
+		tierlunge: gamesPlayed,
+		jungerfuchs: gamesPlayed,
+		jungaktiver: gamesPlayed,
+		// targetValue=7: a game on each of 7 distinct days within the last week
+		perfektewoche: {
+			needs: ["gamesLastWeek"],
+			value: (s) =>
+				new Set(s.get("gamesLastWeek").map((g) => dayKeyInTZ(g.playedAt))).size,
+		},
+	},
+
+	game_won: {
+		erstersieg: gamesWon,
+		champion: gamesWon,
+		winning_streak_3: winningStreak,
+		winning_streak_5: winningStreak,
+		winning_streak_10: winningStreak,
+	},
+
+	game_lost: {
+		winning_streak_3: streakBroken,
+		winning_streak_5: streakBroken,
+		winning_streak_10: streakBroken,
+	},
+
+	account_created: { willkommen: always1 },
+	profile_picture_set: { bild: always1 },
+};
+
+// ── Catalogue, progress and unlocks ────────────────────────────────────────
+
+type CatalogueEntry = {
+	id: string;
+	key: string;
+	targetValue: number | null;
+	unlocked: boolean;
+	/** Stored progress, null if none yet. */
+	progress: number | null;
+};
+
+/** Active achievements (optionally only some keys) with the user's state. */
+async function loadCatalogue(
 	scope: Scope,
 	userId: string,
-	achievementId: string,
-	value: number,
-): Promise<void> {
-	await scope.db
-		.insert(achievementProgress)
-		.values({
-			userId,
-			achievementId,
-			currentValue: value,
-			lastUpdated: new Date(),
+	keys?: string[],
+): Promise<CatalogueEntry[]> {
+	const rows = await scope.db
+		.select({
+			id: achievements.id,
+			key: achievements.key,
+			targetValue: achievements.targetValue,
+			unlockedId: userAchievements.id,
+			progress: achievementProgress.currentValue,
 		})
-		.onConflictDoUpdate({
-			target: [achievementProgress.userId, achievementProgress.achievementId],
-			set: { currentValue: value, lastUpdated: new Date() },
-		});
+		.from(achievements)
+		.leftJoin(
+			userAchievements,
+			and(
+				eq(userAchievements.achievementId, achievements.id),
+				eq(userAchievements.userId, userId),
+			),
+		)
+		.leftJoin(
+			achievementProgress,
+			and(
+				eq(achievementProgress.achievementId, achievements.id),
+				eq(achievementProgress.userId, userId),
+			),
+		)
+		.where(
+			keys
+				? and(eq(achievements.isActive, true), inArray(achievements.key, keys))
+				: eq(achievements.isActive, true),
+		);
+	return rows.map((r) => ({
+		id: r.id,
+		key: r.key,
+		targetValue: r.targetValue,
+		unlocked: r.unlockedId !== null,
+		progress: r.progress,
+	}));
 }
 
-async function unlockAchievement(
+type Outcome = { achievement: CatalogueEntry; value: number };
+
+/**
+ * Writes new progress values (only those that changed) and unlocks every
+ * not yet unlocked achievement whose value reached its target, in one batch.
+ */
+async function saveOutcomes(
 	scope: Scope,
 	userId: string,
-	achievementId: string,
+	outcomes: Outcome[],
 ): Promise<void> {
-	await scope.db
-		.insert(userAchievements)
-		.values({ userId, achievementId, unlockedAt: new Date() })
-		.onConflictDoNothing();
+	const now = new Date();
+	const writes: BatchItem<"sqlite">[] = [];
+	for (const { achievement, value } of outcomes) {
+		if (value !== achievement.progress) {
+			writes.push(
+				scope.db
+					.insert(achievementProgress)
+					.values({
+						userId,
+						achievementId: achievement.id,
+						currentValue: value,
+						lastUpdated: now,
+					})
+					.onConflictDoUpdate({
+						target: [
+							achievementProgress.userId,
+							achievementProgress.achievementId,
+						],
+						set: { currentValue: value, lastUpdated: now },
+					}),
+			);
+		}
+		if (
+			!achievement.unlocked &&
+			achievement.targetValue !== null &&
+			value >= achievement.targetValue
+		) {
+			writes.push(
+				scope.db
+					.insert(userAchievements)
+					.values({ userId, achievementId: achievement.id, unlockedAt: now })
+					.onConflictDoNothing(),
+			);
+		}
+	}
+	await runBatch(scope.db, writes);
+}
+
+function ruleInput(userId: string, context?: OrderEventContext): RuleInput {
+	const now = new Date();
+	return { userId, context, now, zoned: getZonedParts(now) };
+}
+
+export async function checkAndUnlockAchievements(
+	userId: string,
+	event: AchievementEvent,
+	context?: OrderEventContext,
+	options: TrackingOptions = {},
+): Promise<void> {
+	try {
+		const scope = await resolveScope(options);
+		const rules = RULES[event];
+		const input = ruleInput(userId, context);
+
+		// Unlocked achievements are no longer tracked.
+		const pending = (
+			await loadCatalogue(scope, userId, Object.keys(rules))
+		).flatMap((achievement) => {
+			const rule = rules[achievement.key];
+			if (!rule || achievement.unlocked || (rule.when && !rule.when(input))) {
+				return [];
+			}
+			return [{ achievement, rule }];
+		});
+		if (pending.length === 0) {
+			return;
+		}
+
+		const stats = await loadStats(
+			scope,
+			userId,
+			pending.flatMap(({ rule }) => rule.needs ?? []),
+			input,
+		);
+		const outcomes: Outcome[] = [];
+		for (const { achievement, rule } of pending) {
+			const value = rule.value(stats, input);
+			if (value !== null) {
+				outcomes.push({ achievement, value });
+			}
+		}
+		await saveOutcomes(scope, userId, outcomes);
+	} catch (error) {
+		console.error("Achievement tracking error:", error);
+		// Never throw — achievement tracking must not break the calling action
+	}
 }
 
 // ── Historical helpers (used during seed to check past data) ───────────────
+
+/** The Berlin hour of each of the user's orders, keyed by Berlin day. */
+async function getOrderHours(
+	scope: Scope,
+	userId: string,
+): Promise<OrderHour[]> {
+	const rows = await scope.db
+		.select({ amount: orders.amount, createdAt: orders.createdAt })
+		.from(orders)
+		.where(eq(orders.userId, userId));
+	return toOrderHours(rows);
+}
+
+/** All of the user's games, own and cross-Corps, newest first. */
+async function getPlayedGames(
+	scope: Scope,
+	userId: string,
+): Promise<PlayedGame[]> {
+	const q = playedGamesQueries(scope, userId);
+	const [own, cross] = await Promise.all([q.own, q.cross]);
+	return mergeGames(own, cross);
+}
 
 async function hasEverOrderedSekt(
 	scope: Scope,
@@ -811,17 +911,13 @@ async function hasEverOrderedFullCrate(
 		: eq(orders.userId, userId);
 
 	const userOrders = await scope.db
-		.select({ drinkId: orders.drinkId, amount: orders.amount })
+		.select({ amount: orders.amount, kastengroesse: drinks.kastengroesse })
 		.from(orders)
+		.leftJoin(drinks, eq(drinks.id, orders.drinkId))
 		.where(conditions);
 
 	for (const order of userOrders) {
-		const drink = await scope.db
-			.select({ kastengroesse: drinks.kastengroesse })
-			.from(drinks)
-			.where(eq(drinks.id, order.drinkId))
-			.limit(1);
-		const kiste = drink[0]?.kastengroesse ?? 20;
+		const kiste = order.kastengroesse ?? 20;
 		if (order.amount >= kiste) {
 			return 1;
 		}
@@ -842,20 +938,6 @@ async function getBestBeerDayInHours(
 		}
 	}
 	return dayMap.size === 0 ? 0 : Math.max(...dayMap.values());
-}
-
-async function getBestMorningBeerDay(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	return await getBestBeerDayInHours(scope, userId, (h) => h >= 5 && h < 8);
-}
-
-async function getBestMidnightBeerDay(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	return await getBestBeerDayInHours(scope, userId, (h) => h === 0);
 }
 
 async function hasEverOrderedOnNewYear(
@@ -925,184 +1007,135 @@ async function getBestWeeklyGameStreak(
 
 // ── Recalculate all achievements for a single user from historical data ─────
 
+/** Statistics the recalculation shares with live tracking. */
+const RECALC_STATS: StatKey[] = [
+	"orderTotals",
+	"latestOrderTimes",
+	"orderHourBuckets",
+	"accountCreatedAt",
+	"totalGames",
+	"totalWins",
+	"latestGames",
+];
+
+async function recalculatedValue(
+	scope: Scope,
+	userId: string,
+	key: string,
+	stats: Stats,
+	input: RuleInput,
+): Promise<number | null> {
+	switch (key) {
+		case "spefuchs":
+		case "fuchs":
+		case "cb":
+		case "iacb":
+		case "ah":
+		case "aheb":
+			return totals(stats).totalBeers;
+		case "biertasting":
+			return totals(stats).distinctDrinks;
+		case "kaisersflotte":
+			return await hasEverOrderedSekt(scope, userId);
+		case "kisteoderliste":
+			return await hasEverOrderedFullCrate(scope, userId);
+		case "alkoholfrei":
+			return await hasEverOrderedFullCrate(scope, userId, "alkoholfrei");
+		case "radler":
+			return totals(stats).radler;
+		case "cbesuch":
+		case "cbesuch2":
+		case "cbesuch3":
+		case "cbesuch4":
+			return totals(stats).cbesuch;
+		case "helleseite":
+			return totals(stats).hell - totals(stats).pils;
+		case "dunkleseite":
+			return totals(stats).pils - totals(stats).hell;
+		case "avatar": {
+			const t = totals(stats);
+			return Math.abs(t.hell - t.pils) < 10 ? t.totalBeers : 0;
+		}
+		case "first_tab":
+			return totals(stats).totalBeers > 0 ? 1 : 0;
+		case "big_spender":
+		case "whale":
+			return totals(stats).totalSpent;
+		case "fruhaufsteher":
+			return (await getBestBeerDayInHours(scope, userId, isMorning)) >= 4
+				? 1
+				: 0;
+		case "goldenestunde":
+			return totals(stats).ordersLastHour;
+		case "wocheende":
+			return consecutiveWeekends(stats.get("latestOrderTimes"));
+		case "dedication":
+			return distinctOrderDays(stats.get("orderHourBuckets"));
+		case "berry":
+			return (await getBestBeerDayInHours(scope, userId, isMidnight)) >= 4
+				? 1
+				: 0;
+		case "neujahr":
+			return await hasEverOrderedOnNewYear(scope, userId);
+		case "erstermai":
+			return await getMaxBeersOnCalendarDate(scope, userId, 5, 1);
+		case "grundungstag":
+			return await getMaxBeersOnCalendarDate(scope, userId, 2, 21);
+		case "deutschland":
+			return await hasEverPlayedOnOct3(scope, userId);
+		case "tierlunge":
+		case "jungerfuchs":
+		case "jungaktiver":
+			return stats.get("totalGames");
+		case "erstersieg":
+		case "champion":
+			return stats.get("totalWins");
+		case "perfektewoche":
+			return await getBestWeeklyGameStreak(scope, userId);
+		case "winning_streak_3":
+		case "winning_streak_5":
+		case "winning_streak_10":
+			return currentStreak(stats.get("latestGames"), userId);
+		case "willkommen":
+			return 1;
+		case "bild": {
+			const user = await scope.db
+				.select({ image: users.image })
+				.from(users)
+				.where(eq(users.id, userId))
+				.limit(1);
+			return user[0]?.image ? 1 : 0;
+		}
+		case "biergeburtstag":
+			return accountAgeInDays(stats.get("accountCreatedAt"), input.now);
+		default:
+			return null;
+	}
+}
+
 export async function recalculateAllAchievements(
 	userId: string,
 	options: TrackingOptions = {},
 ): Promise<void> {
 	const scope = await resolveScope(options);
-	const [allAchievements, alreadyUnlocked] = await Promise.all([
-		scope.db.select().from(achievements).where(eq(achievements.isActive, true)),
-		scope.db
-			.select({ achievementId: userAchievements.achievementId })
-			.from(userAchievements)
-			.where(eq(userAchievements.userId, userId)),
+	const input = ruleInput(userId);
+	const [catalogue, stats] = await Promise.all([
+		loadCatalogue(scope, userId),
+		loadStats(scope, userId, RECALC_STATS, input),
 	]);
 
-	const unlockedSet = new Set(alreadyUnlocked.map((u) => u.achievementId));
-
-	for (const achievement of allAchievements) {
-		let value: number | null = null;
-
-		switch (achievement.key) {
-			case "spefuchs":
-			case "fuchs":
-			case "cb":
-			case "iacb":
-			case "ah":
-			case "aheb":
-				value = await getTotalBeerCount(scope, userId);
-				break;
-
-			case "biertasting":
-				value = await getDistinctDrinkCount(scope, userId);
-				break;
-
-			case "kaisersflotte":
-				value = await hasEverOrderedSekt(scope, userId);
-				break;
-
-			case "kisteoderliste":
-				value = await hasEverOrderedFullCrate(scope, userId);
-				break;
-
-			case "alkoholfrei":
-				value = await hasEverOrderedFullCrate(scope, userId, "alkoholfrei");
-				break;
-
-			case "radler":
-				value = await getDrinkCountByName(scope, userId, "Radler");
-				break;
-
-			case "cbesuch":
-			case "cbesuch2":
-			case "cbesuch3":
-			case "cbesuch4":
-				value = await getCBesuchBeerCount(scope, userId);
-				break;
-
-			case "helleseite": {
-				const { hellCount, pilsCount } = await getHellPilsRatio(scope, userId);
-				value = hellCount - pilsCount;
-				break;
-			}
-
-			case "dunkleseite": {
-				const { hellCount, pilsCount } = await getHellPilsRatio(scope, userId);
-				value = pilsCount - hellCount;
-				break;
-			}
-
-			case "avatar": {
-				const total = await getTotalBeerCount(scope, userId);
-				const { hellCount, pilsCount } = await getHellPilsRatio(scope, userId);
-				value = Math.abs(hellCount - pilsCount) < 10 ? total : 0;
-				break;
-			}
-
-			case "first_tab": {
-				const count = await getTotalBeerCount(scope, userId);
-				value = count > 0 ? 1 : 0;
-				break;
-			}
-
-			case "big_spender":
-			case "whale":
-				value = await getTotalSpent(scope, userId);
-				break;
-
-			case "fruhaufsteher": {
-				const best = await getBestMorningBeerDay(scope, userId);
-				value = best >= 4 ? 1 : 0;
-				break;
-			}
-
-			case "goldenestunde":
-				value = await getOrdersInLastHour(scope, userId);
-				break;
-
-			case "wocheende":
-				value = await getConsecutiveWeekends(scope, userId);
-				break;
-
-			case "dedication":
-				value = await getDistinctOrderDays(scope, userId);
-				break;
-
-			case "berry": {
-				const best = await getBestMidnightBeerDay(scope, userId);
-				value = best >= 4 ? 1 : 0;
-				break;
-			}
-
-			case "neujahr":
-				value = await hasEverOrderedOnNewYear(scope, userId);
-				break;
-
-			case "erstermai":
-				value = await getMaxBeersOnCalendarDate(scope, userId, 5, 1);
-				break;
-
-			case "grundungstag":
-				value = await getMaxBeersOnCalendarDate(scope, userId, 2, 21);
-				break;
-
-			case "deutschland":
-				value = await hasEverPlayedOnOct3(scope, userId);
-				break;
-
-			case "tierlunge":
-			case "jungerfuchs":
-			case "jungaktiver":
-				value = await getTotalGames(scope, userId);
-				break;
-
-			case "erstersieg":
-			case "champion":
-				value = await getTotalWins(scope, userId);
-				break;
-
-			case "perfektewoche":
-				value = await getBestWeeklyGameStreak(scope, userId);
-				break;
-
-			case "winning_streak_3":
-			case "winning_streak_5":
-			case "winning_streak_10":
-				value = await getCurrentStreak(scope, userId);
-				break;
-
-			case "willkommen":
-				value = 1;
-				break;
-
-			case "bild": {
-				const user = await scope.db
-					.select({ image: users.image })
-					.from(users)
-					.where(eq(users.id, userId))
-					.limit(1);
-				value = user[0]?.image ? 1 : 0;
-				break;
-			}
-
-			case "biergeburtstag":
-				value = await getAccountAgeInDays(scope, userId);
-				break;
-		}
-
-		if (value === null) {
-			continue;
-		}
-
-		await updateProgress(scope, userId, achievement.id, value);
-
-		if (
-			!unlockedSet.has(achievement.id) &&
-			achievement.targetValue !== null &&
-			value >= achievement.targetValue
-		) {
-			await unlockAchievement(scope, userId, achievement.id);
-			unlockedSet.add(achievement.id);
+	const outcomes: Outcome[] = [];
+	for (const achievement of catalogue) {
+		const value = await recalculatedValue(
+			scope,
+			userId,
+			achievement.key,
+			stats,
+			input,
+		);
+		if (value !== null) {
+			outcomes.push({ achievement, value });
 		}
 	}
+	await saveOutcomes(scope, userId, outcomes);
 }

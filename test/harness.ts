@@ -49,6 +49,7 @@ export function setupTestDatabases() {
 		testState.tenantId = null;
 		testState.sessionUser = null;
 		testState.headers = {};
+		testState.afterTasks = [];
 	});
 }
 
@@ -222,6 +223,12 @@ export async function setKasseConfig(
 		.db.insert(kasseConfig)
 		.values({ id: "singleton", ...values })
 		.onConflictDoUpdate({ target: kasseConfig.id, set: values });
+}
+
+/** Waits for everything `after()` scheduled so far. */
+export async function flushAfter() {
+	const tasks = testState.afterTasks.splice(0);
+	await Promise.all(tasks);
 }
 
 /** Direct handle on the current tenant DB for assertions. */

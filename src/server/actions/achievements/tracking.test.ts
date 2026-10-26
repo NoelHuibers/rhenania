@@ -149,6 +149,18 @@ describe("order achievements", () => {
 		);
 	});
 
+	test("without a crate size, an alcohol-free crate is 20 and no full crate counts", async () => {
+		const { user } = await setup();
+		const loose = await createDrinkWith({ name: "Radler alkoholfrei" });
+
+		await order(user, loose, 19);
+		expect(await unlockedKeys(user.id)).not.toContain("alkoholfrei");
+
+		await order(user, loose, 20);
+		expect(await unlockedKeys(user.id)).toContain("alkoholfrei");
+		expect(await unlockedKeys(user.id)).not.toContain("kisteoderliste");
+	});
+
 	test("five different drinks make a tasting", async () => {
 		const { user } = await setup();
 		for (const name of ["Pils", "Helles", "Weizen", "Radler", "Dunkel"]) {
@@ -515,6 +527,23 @@ describe("account achievements", () => {
 });
 
 describe("recalculateAllAchievements", () => {
+	test("achievements without a rule are left alone", async () => {
+		const { user, pils } = await setup();
+		await tenantDb().insert(achievements).values({
+			key: "custom",
+			name: "Custom",
+			description: "No rule yet",
+			category: "special",
+			targetValue: 1,
+		});
+
+		await order(user, pils);
+		await recalculateAllAchievements(user.id);
+
+		expect(await unlockedKeys(user.id)).not.toContain("custom");
+		expect(await progressOf(user.id, "custom")).toBeUndefined();
+	});
+
 	test("rebuilds unlocks and progress from historical data", async () => {
 		const { user, pils } = await setup("2026-10-26T12:00:00Z");
 		const sekt = await createDrinkWith({ name: "Sekt", kastengroesse: 6 });
