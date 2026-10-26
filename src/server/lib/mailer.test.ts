@@ -78,4 +78,59 @@ describe("sendTenantMail outbox", () => {
 			sendTenantMail({ to: "a@example.test", subject: "x", text: "x" }),
 		).rejects.toThrow(/No mail transport/);
 	});
+
+	test("falls back to Gmail via nodemailer with the tenant as sender name", async () => {
+		const sendMail = vi.fn().mockResolvedValue({});
+		vi.doMock("nodemailer", () => ({
+			createTransport: vi.fn(() => ({ sendMail })),
+		}));
+		const { sendTenantMail } = await loadMailer({
+			GMAIL: "kasse@example.test",
+			GMAIL_PASSWORD: "app-password",
+		});
+		await createTenant({ displayName: "Corps Test" });
+
+		await sendTenantMail({
+			to: "a@example.test",
+			subject: "Rechnung",
+			text: "Hallo",
+		});
+
+		expect(sendMail).toHaveBeenCalledWith(
+			expect.objectContaining({
+				from: { name: "Corps Test", address: "kasse@example.test" },
+				to: "a@example.test",
+				subject: "Rechnung",
+				text: "Hallo",
+			}),
+		);
+		vi.doUnmock("nodemailer");
+	});
+});
+
+test("nodemailer accepts the message shape the mailer sends (offline JSON transport)", async () => {
+	const { createTransport } =
+		await vi.importActual<typeof import("nodemailer")>("nodemailer");
+	const transport = createTransport({ jsonTransport: true });
+	const info = await transport.sendMail({
+		from: { name: "Corps Test", address: "kasse@example.test" },
+		to: "a@example.test",
+		subject: "Getränkerechnung",
+		text: "Hallo",
+		html: "<p>Hallo</p>",
+		replyTo: "reply@example.test",
+		attachments: [
+			{
+				filename: "r.pdf",
+				content: Buffer.from("pdf"),
+				contentType: "application/pdf",
+			},
+		],
+	});
+	const message = JSON.parse(String(info.message));
+	expect(message).toMatchObject({
+		subject: "Getränkerechnung",
+		from: { address: "kasse@example.test", name: "Corps Test" },
+	});
+	expect(message.attachments).toHaveLength(1);
 });

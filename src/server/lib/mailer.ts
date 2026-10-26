@@ -16,7 +16,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { eq } from "drizzle-orm";
-import nodemailer from "nodemailer";
+import { createTransport } from "nodemailer";
 
 import { env } from "~/env";
 import { controlDb } from "~/server/db/control";
@@ -177,15 +177,15 @@ async function sendViaGraph(
 	}
 }
 
-let gmailTransporter: nodemailer.Transporter | null = null;
+let gmailTransporter: ReturnType<typeof createTransport> | null = null;
 
-function getGmailTransporter(): nodemailer.Transporter {
+function getGmailTransporter(): ReturnType<typeof createTransport> {
 	if (!env.GMAIL || !env.GMAIL_PASSWORD) {
 		throw new Error(
 			"No mail transport available: tenant has no Graph mail config and GMAIL/GMAIL_PASSWORD are not set.",
 		);
 	}
-	gmailTransporter ??= nodemailer.createTransport({
+	gmailTransporter ??= createTransport({
 		service: "gmail",
 		auth: { user: env.GMAIL, pass: env.GMAIL_PASSWORD },
 	});
