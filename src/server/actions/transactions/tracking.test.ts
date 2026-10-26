@@ -105,14 +105,41 @@ describe("getTransactions / getTransactionCount", () => {
 		expect(page.total).toBe(2);
 	});
 
-	// SQLite LIKE only folds ASCII, and the term is lower-cased first.
-	test.fails("finds members whose name starts with an umlaut (#136)", async () => {
+	test("finds members whose name starts with an umlaut (#136)", async () => {
 		const ozan = await createUser({ name: "Özdemir" });
 		await createOrderRow({ drink: await createDrink(), user: ozan });
 
 		const result = await getTransactions({ search: "Özdemir" });
 
 		expect(result.data.map((t) => t.userName)).toEqual(["Özdemir"]);
+	});
+
+	test("folds the case of non-ASCII letters on both sides", async () => {
+		const ozan = await createUser({ name: "Özdemir" });
+		const jorg = await createUser({ name: "Jörg Ärmel" });
+		const drink = await createDrink({ name: "Kölsch" });
+		await createOrderRow({ drink, user: ozan });
+		await createOrderRow({ drink, user: jorg });
+
+		for (const search of ["özdemir", "ÖZDEMIR"]) {
+			const result = await getTransactions({ search });
+			expect(result.data.map((t) => t.userName)).toEqual(["Özdemir"]);
+			expect((await getTransactionCount({ search })).count).toBe(1);
+		}
+		expect(
+			(await getTransactions({ search: "ärm" })).data.map((t) => t.userName),
+		).toEqual(["Jörg Ärmel"]);
+		expect((await getTransactionCount({ search: "KÖLSCH" })).count).toBe(2);
+	});
+
+	test("treats wildcard characters in the search literally", async () => {
+		await seedOrders();
+
+		for (const search of ["%", "_", "*", "?", "[a]"]) {
+			expect((await getTransactions({ search })).data).toEqual([]);
+			expect((await getTransactionCount({ search })).count).toBe(0);
+		}
+		expect((await getTransactionCount({ search: "Club-" })).count).toBe(2);
 	});
 });
 
