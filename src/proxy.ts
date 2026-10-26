@@ -175,10 +175,10 @@ export default async function middleware(request: NextRequest) {
 	}
 	request.headers.set(TENANT_HEADER, tenantId);
 
-	// 1) Redirect to lowercase (skip case-sensitive API paths like calendar tokens)
-	const isCaseSensitiveApi = pathname
-		.toLowerCase()
-		.startsWith("/api/calendar/");
+	// 1) Redirect to lowercase. API routes are exempt: their paths carry
+	// case-sensitive tokens (calendar feeds, Better Auth password-reset links
+	// `/api/auth/reset-password/<token>`), which lowercasing would break.
+	const isCaseSensitiveApi = pathname.toLowerCase().startsWith("/api/");
 	if (!isCaseSensitiveApi && pathname !== pathname.toLowerCase()) {
 		const lowercaseUrl = request.nextUrl.clone();
 		lowercaseUrl.pathname = pathname.toLowerCase();
