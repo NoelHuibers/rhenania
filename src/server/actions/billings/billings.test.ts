@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { billPeriods, bills, orders } from "~/server/db/schema";
 import { sendTenantMail } from "~/server/lib/mailer";
+import { buildUserBillData, summaryTotal } from "~/server/lib/user-bill-data";
 import {
 	billsOf,
 	createBillPeriodRow,
@@ -480,6 +481,37 @@ describe("createNewBilling", () => {
 				total: 12,
 			});
 		}
+	});
+
+	test("the lines a bill prints add up to its total (#11)", async () => {
+		await setupKasse();
+		const resident = await createUser({ roles: ["Hausbewohner"] });
+		const other = await createUser({ roles: ["Hausbewohner"] });
+		const old = await createBillPeriodRow({ createdAt: new Date(WEEK_43) });
+		await createBillRow({ periodId: old.id, user: resident, total: 12.35 });
+		const drink = await createDrink({ price: 1.7 });
+		await createOrderRow({ user: resident, drink, amount: 3 });
+		await createOrderRow({ user: other, drink });
+		await createOrderRow({ user: other, drink, bookingFor: "AHV" });
+
+		const run = await runBilling(10.01);
+
+		const periodBills = await tenantDb()
+			.select()
+			.from(bills)
+			.where(eq(bills.billPeriodId, run.billPeriod.id));
+		expect(periodBills).toHaveLength(3);
+		for (const bill of periodBills) {
+			const data = buildUserBillData(
+				bill,
+				{ ...run.billPeriod, createdAt: new Date() },
+				[],
+			);
+			expect(summaryTotal(data)).toBe(bill.total);
+		}
+		const residentBill = periodBills.find((b) => b.userId === resident.id);
+		expect(residentBill).toMatchObject({ fees: 1.24, oldBillingAmount: 12.35 });
+		expect(residentBill?.umlage).toBeGreaterThan(0);
 	});
 
 	// #10: the Umlage is added to every member with orders instead of the

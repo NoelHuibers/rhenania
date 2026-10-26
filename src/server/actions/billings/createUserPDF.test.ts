@@ -202,8 +202,7 @@ describe("generateUserBillPDF", () => {
 		expect(deferredText).not.toContain("BEZAHLT");
 	});
 
-	// #11: the Umlage line is hard-coded to 0.
-	test.fails("prints the bill's Umlage (#11)", async () => {
+	test("prints the bill's Umlage, so the lines add up to the total (#11)", async () => {
 		await createTenant();
 		await setUpGetraenkeBilling();
 		const { bill } = await memberBill({ umlage: 3.5 });
@@ -211,10 +210,21 @@ describe("generateUserBillPDF", () => {
 		const pdf = (await generateUserBillPDF(bill.id)).pdfContent as Buffer;
 
 		expect(pdfValueAfter(pdf, "Umlage:")).toMatch(/^3,50/);
+		const cents = (label: string) =>
+			Math.round(
+				Number.parseFloat((pdfValueAfter(pdf, label) ?? "").replace(",", ".")) *
+					100,
+			);
+		expect(
+			cents("Rechnungsbetrag:") +
+				cents("Alte Rechnung:") +
+				cents("Mahnung:") +
+				cents("Umlage:"),
+		).toBe(cents("Gesamtbetrag:"));
+		expect(cents("Gesamtbetrag:")).toBe(2850);
 	});
 
-	// #11: the letter announces a 20% Mahnung while billing charges 10%.
-	test.fails("states the 10% fee that billing actually charges (#11)", async () => {
+	test("states the 10% fee that billing actually charges (#11)", async () => {
 		await createTenant();
 		await setUpGetraenkeBilling();
 		const { bill } = await memberBill();

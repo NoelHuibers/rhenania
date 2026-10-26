@@ -3,6 +3,7 @@
 
 import { eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
+import { lateFeeSentence } from "~/lib/late-fee";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills } from "~/server/db/schema";
 import {
@@ -10,31 +11,10 @@ import {
 	incompleteBillingMessage,
 	resolveGetraenkeBillSender,
 } from "~/server/lib/getraenkekasse-payment";
-
-interface UserBillData {
-	bill: {
-		id: string;
-		userId: string;
-		userName: string;
-		status: string;
-		oldBillingAmount: number;
-		fees: number;
-		drinksTotal: number;
-		total: number;
-		paidAt: Date | null;
-	};
-	billPeriod: {
-		billNumber: string;
-		createdAt: Date;
-	};
-	items: Array<{
-		drinkName: string;
-		amount: number;
-		pricePerDrink: number;
-		totalPricePerDrink: number;
-	}>;
-	umlage: number;
-}
+import {
+	buildUserBillData,
+	type UserBillData,
+} from "~/server/lib/user-bill-data";
 
 interface PDFGenerationResult {
 	success: boolean;
@@ -42,10 +22,6 @@ interface PDFGenerationResult {
 	fileName?: string;
 	error?: string;
 }
-
-// Wording of the late-fee sentence in the letter.
-const LATE_FEE_PERCENT = 20;
-const LATE_FEE_MIN_AMOUNT = 5;
 
 /**
  * Generates a PDF invoice for a specific bill
@@ -90,19 +66,9 @@ export async function generateUserBillPDF(
 			.where(eq(billItems.billId, billId))
 			.orderBy(billItems.drinkName);
 
-		// 4. Calculate umlage (you'll need to implement this based on your business logic)
-		const umlage = 0; // Placeholder - implement your calculation
-
-		// 5. Prepare data for PDF
-		const billData: UserBillData = {
-			bill: userBill,
-			billPeriod: {
-				billNumber: billPeriod.billNumber,
-				createdAt: billPeriod.createdAt,
-			},
-			items: billItemsData,
-			umlage,
-		};
+		// 4. What the PDF shows: the stored parts of the bill, Umlage included,
+		// which add up to the stored total.
+		const billData = buildUserBillData(userBill, billPeriod, billItemsData);
 
 		// 6. Sender and payment target: the tenant's own Getränkekasse setup
 		// (same data the profile page shows). No fallback to anybody else's.
@@ -191,7 +157,7 @@ async function generatePDFContent(
 		payment.paypalBaseUrl
 			? `Bitte überweise mir den Betrag mit dem Paypal-Link oder auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`
 			: `Bitte überweise mir den Betrag auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`,
-		`Tagen. Ansonsten gibt es, ab ${LATE_FEE_MIN_AMOUNT}€ Rechnungsbetrag, eine Mahnung in Höhe von ${LATE_FEE_PERCENT}% auf die nächste`,
+		`Tagen. ${lateFeeSentence()}`,
 		"Rechnung.",
 	];
 
@@ -260,28 +226,13 @@ async function generatePDFContent(
 	doc.line(20, yPosition, 190, yPosition);
 	yPosition += 10;
 
-	// Summary Section
-	doc.setFont("helvetica", "bold");
-	doc.text("Rechnungsbetrag:", 20, yPosition);
-	doc.text(formatCurrency(data.bill.drinksTotal), 160, yPosition, {
-		align: "right",
-	});
-	yPosition += 7;
-
-	doc.setFont("helvetica", "normal");
-	doc.text("Alte Rechnung:", 20, yPosition);
-	doc.text(formatCurrency(data.bill.oldBillingAmount), 160, yPosition, {
-		align: "right",
-	});
-	yPosition += 7;
-
-	doc.text("Mahnung:", 20, yPosition);
-	doc.text(formatCurrency(data.bill.fees), 160, yPosition, { align: "right" });
-	yPosition += 7;
-
-	doc.text("Umlage:", 20, yPosition);
-	doc.text(formatCurrency(data.umlage), 160, yPosition, { align: "right" });
-	yPosition += 7;
+	// Summary Section: the stored parts of the bill (they add up to the total)
+	for (const [i, line] of data.summary.entries()) {
+		doc.setFont("helvetica", i === 0 ? "bold" : "normal");
+		doc.text(line.label, 20, yPosition);
+		doc.text(formatCurrency(line.amount), 160, yPosition, { align: "right" });
+		yPosition += 7;
+	}
 
 	// Total line
 	doc.line(20, yPosition, 190, yPosition);
@@ -290,7 +241,7 @@ async function generatePDFContent(
 	doc.setFont("helvetica", "bold");
 	doc.setFontSize(14);
 	doc.text("Gesamtbetrag:", 20, yPosition);
-	doc.text(formatCurrency(data.bill.total), 160, yPosition, { align: "right" });
+	doc.text(formatCurrency(data.total), 160, yPosition, { align: "right" });
 
 	// Payment status (if applicable)
 	yPosition += 15;

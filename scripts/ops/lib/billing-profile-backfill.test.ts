@@ -101,8 +101,18 @@ describe("Rhenania backfill (#9)", () => {
 				"utf8",
 			),
 		) as string[];
-		const pdf = (await generateUserBillPDF(bill.id)).pdfContent as Buffer;
-		expect(pdfText(pdf)).toEqual(legacyText);
+		// The only deliberate change since then: the fee sentence now states
+		// what billing charges (#11). Sender, holder, IBAN and PayPal are as
+		// before.
+		const feeLine = legacyText.findIndex((t) => t.includes("Mahnung"));
+		const text = pdfText(
+			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
+		);
+		const withoutFee = (runs: string[]) => runs.filter((_, i) => i !== feeLine);
+		expect(withoutFee(text)).toEqual(withoutFee(legacyText));
+		expect(text).toHaveLength(legacyText.length);
+		expect(legacyText[feeLine]).toContain("Mahnung in Höhe von 20%");
+		expect(text[feeLine]).toContain("Mahnung in Höhe von 10% davon");
 		expect(await getGetraenkekassePayment()).toEqual(LEGACY);
 	});
 
