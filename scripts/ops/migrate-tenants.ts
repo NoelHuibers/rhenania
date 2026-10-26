@@ -32,6 +32,7 @@ import { controlDb } from "~/server/db/control";
 import { tenants } from "~/server/db/control-schema";
 import { createClient } from "~/server/db/libsql";
 import * as tenantSchema from "~/server/db/schema";
+import { guardOrExit } from "../lib/guard";
 
 const MIGRATIONS_FOLDER = path.join(process.cwd(), "drizzle");
 
@@ -120,6 +121,8 @@ async function repairMigration(client: Client, entry: JournalEntry) {
 
 async function main() {
 	const { dryRun, repair, slug } = parseArgs();
+	if (!dryRun)
+		guardOrExit(process.env.CONTROL_DATABASE_URL, "migrate tenant databases");
 	const entries = readJournal();
 
 	const rows = await controlDb
