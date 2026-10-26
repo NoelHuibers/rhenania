@@ -1,6 +1,8 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 
 import { orders } from "~/server/db/schema";
+import { createOrderRow, daysAgo } from "../../../test/factories/inventory";
 import {
 	createDrink,
 	createTenant,
@@ -10,7 +12,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../test/harness";
-import { createOrder } from "./orders";
+import { createOrder, getUserOrders, updateOrderStatus } from "./orders";
 
 // Achievements run fire-and-forget after the response; they have their own tests.
 vi.mock("~/server/actions/achievements/tracking", () => ({
@@ -132,5 +134,91 @@ describe("createOrder", () => {
 
 		const [row] = await tenantDb().select().from(orders);
 		expect(row?.bookingFor).toBe("AHV");
+	});
+});
+
+describe("getUserOrders", () => {
+	test("returns only the caller's own orders, oldest first", async () => {
+		await createTenant();
+		const member = await createUser({ name: "Max" });
+		const other = await createUser({ name: "Moritz" });
+		const drink = await createDrink({ name: "Pils" });
+		await createOrderRow({
+			drink,
+			user: member,
+			amount: 2,
+			createdAt: daysAgo(1),
+		});
+		await createOrderRow({
+			drink,
+			user: other,
+			amount: 9,
+			createdAt: daysAgo(2),
+		});
+		await createOrderRow({
+			drink,
+			user: member,
+			amount: 1,
+			createdAt: daysAgo(3),
+		});
+		// Booked for Max by an admin: it is still Max's order.
+		await createOrderRow({
+			drink,
+			user: member,
+			amount: 4,
+			bookedByAdminName: "Admin",
+			createdAt: daysAgo(2),
+		});
+		signInAs(member);
+
+		const result = await getUserOrders();
+
+		expect(result.map((o) => [o.userId, o.amount])).toEqual([
+			[member.id, 1],
+			[member.id, 4],
+			[member.id, 2],
+		]);
+	});
+
+	test("throws for anonymous callers", async () => {
+		await createTenant();
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await expect(getUserOrders()).rejects.toThrow(
+			"User must be authenticated to view orders",
+		);
+	});
+});
+
+describe("updateOrderStatus", () => {
+	test("touches updatedAt and leaves the booking untouched", async () => {
+		await createTenant();
+		const wart = await createUser({ roles: ["Getränkewart"] });
+		const drink = await createDrink();
+		const order = await createOrderRow({ drink, amount: 3, total: 4.5 });
+		await tenantDb()
+			.update(orders)
+			.set({ updatedAt: daysAgo(30) })
+			.where(eq(orders.id, order.id));
+		signInAs(wart);
+
+		expect(await updateOrderStatus(order.id)).toEqual({ success: true });
+
+		const [row] = await tenantDb()
+			.select()
+			.from(orders)
+			.where(eq(orders.id, order.id));
+		expect(row?.updatedAt?.getTime()).toBeGreaterThan(daysAgo(1).getTime());
+		expect(row).toMatchObject({ amount: 3, total: 4.5, inBill: false });
+	});
+
+	test("throws for unknown orders", async () => {
+		await createTenant();
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await expect(updateOrderStatus("deleted-order")).rejects.toThrow(
+			"Order not found",
+		);
 	});
 });
