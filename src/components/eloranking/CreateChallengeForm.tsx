@@ -9,6 +9,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
+import { formatEUR } from "~/lib/format";
 import { applyMarkup } from "~/lib/pricing";
 import {
 	createChallenge,
@@ -180,7 +181,7 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 											{d.name}
 										</div>
 										<div className="text-[10px] text-muted-foreground">
-											€{d.price.toFixed(2)}
+											{formatEUR(d.price)}
 										</div>
 									</button>
 								);

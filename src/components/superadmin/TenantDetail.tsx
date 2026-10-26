@@ -15,6 +15,7 @@ import {
 	type FeatureFlags,
 	type FeatureKey,
 } from "~/lib/features";
+import { formatDate } from "~/lib/format";
 import {
 	type AuthConfigPatch,
 	addTenantDomainAction,
@@ -51,7 +52,7 @@ export function TenantDetail({ data }: { data: SuperadminTenantDetail }) {
 				<div className="text-muted-foreground text-sm">
 					<span className="font-mono">{data.tenant.slug}</span> ·{" "}
 					{data.memberCount} members · created{" "}
-					{data.tenant.createdAt.toLocaleDateString()}
+					{formatDate(data.tenant.createdAt)}
 				</div>
 				<div className="text-muted-foreground text-xs">
 					DB: <span className="font-mono">{data.tenant.dbUrl}</span>

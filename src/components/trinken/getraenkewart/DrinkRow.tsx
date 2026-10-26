@@ -9,6 +9,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Progress } from "~/components/ui/progress";
 import { TableCell, TableRow } from "~/components/ui/table";
+import { formatEUR } from "~/lib/format";
 import type { Drink } from "~/server/actions/drinks";
 import { DeleteButton } from "./Deletebutton";
 
@@ -185,7 +186,7 @@ export function DrinkRow({
 						/>
 					</div>
 				) : (
-					<span>€{drink.price.toFixed(2)}</span>
+					<span>{formatEUR(drink.price)}</span>
 				)}
 			</TableCell>
 

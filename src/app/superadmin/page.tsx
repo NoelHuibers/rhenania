@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TenantHealthTable } from "~/components/superadmin/TenantHealthTable";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { formatDate } from "~/lib/format";
 import { listTenantsAction } from "~/server/actions/superadmin/tenants";
 
 export default async function SuperadminHomePage() {
@@ -75,7 +76,7 @@ export default async function SuperadminHomePage() {
 										{t.microsoftEnabled ? "✓" : "—"}
 									</td>
 									<td className="px-4 py-3 text-muted-foreground">
-										{t.createdAt.toLocaleDateString()}
+										{formatDate(t.createdAt)}
 									</td>
 								</tr>
 							))}

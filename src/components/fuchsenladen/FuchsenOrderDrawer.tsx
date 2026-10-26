@@ -15,6 +15,7 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "~/components/ui/drawer";
+import { formatEUR } from "~/lib/format";
 import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
 import { createFuchsenOrder } from "~/server/actions/fuchsenladen/orders";
 
@@ -65,9 +66,7 @@ export function FuchsenOrderDrawer({
 				if (result.success) {
 					handleClose();
 					toast.success(
-						`${quantity}x ${item.name} bestellt (€${(
-							item.price * quantity
-						).toFixed(2)})`,
+						`${quantity}x ${item.name} bestellt (${formatEUR(item.price * quantity)})`,
 					);
 				} else {
 					toast.error(result.error || "Ein Fehler ist aufgetreten.");
@@ -104,7 +103,7 @@ export function FuchsenOrderDrawer({
 						<Badge className="h-5 bg-green-500 text-white text-xs">
 							Verfügbar
 						</Badge>
-						<span>€{item.price.toFixed(2)} pro Stück</span>
+						<span>{formatEUR(item.price)} pro Stück</span>
 					</DrawerDescription>
 				</DrawerHeader>
 
@@ -153,12 +152,12 @@ export function FuchsenOrderDrawer({
 							<span>
 								{quantity}x {item.name}
 							</span>
-							<span>€{totalPrice.toFixed(2)}</span>
+							<span>{formatEUR(totalPrice)}</span>
 						</div>
 						<div className="mt-1 flex justify-between border-t pt-1 font-bold text-base">
 							<span>Gesamt</span>
 							<span className="text-emerald-600 dark:text-emerald-400">
-								€{totalPrice.toFixed(2)}
+								{formatEUR(totalPrice)}
 							</span>
 						</div>
 					</div>

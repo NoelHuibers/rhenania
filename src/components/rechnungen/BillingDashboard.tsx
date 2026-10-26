@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { formatCurrency } from "~/components/rechnungen/BillingTable";
 import { TabContent } from "~/components/rechnungen/TabContent";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { formatDate, formatEUR } from "~/lib/format";
 import { getUserRoles } from "~/server/actions/admin/userRoles";
 import {
 	getAllBillPeriods,
@@ -367,16 +367,14 @@ export function BillingDashboard() {
 								currentBillPeriod
 									? `Rechnung ${
 											currentBillPeriod.billNumber
-										} - Gesamtbetrag: ${formatCurrency(
+										} - Gesamtbetrag: ${formatEUR(
 											currentBillPeriod.totalAmount,
 										)}`
 									: "Zusammenfassung der aktuellen Abrechnungsperiode"
 							}
 							headerDate={
 								currentBillPeriod?.createdAt
-									? new Date(currentBillPeriod.createdAt).toLocaleDateString(
-											"de-DE",
-										)
+									? formatDate(currentBillPeriod.createdAt)
 									: undefined
 							}
 							showStatus={true}
@@ -401,16 +399,14 @@ export function BillingDashboard() {
 								previousBillPeriod
 									? `Rechnung ${
 											previousBillPeriod.billNumber
-										} - Gesamtbetrag: ${formatCurrency(
+										} - Gesamtbetrag: ${formatEUR(
 											previousBillPeriod.totalAmount,
 										)}`
 									: "Zusammenfassung der letzten Abrechnungsperiode"
 							}
 							headerDate={
 								previousBillPeriod?.createdAt
-									? new Date(previousBillPeriod.createdAt).toLocaleDateString(
-											"de-DE",
-										)
+									? formatDate(previousBillPeriod.createdAt)
 									: undefined
 							}
 							showStatus={true}
@@ -438,12 +434,10 @@ export function BillingDashboard() {
 										isLoading={isLoadingPeriod}
 										error={null}
 										cardTitle={`Rechnung ${period.billNumber}`}
-										cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatCurrency(
+										cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatEUR(
 											period.totalAmount,
 										)}`}
-										headerDate={new Date(period.createdAt).toLocaleDateString(
-											"de-DE",
-										)}
+										headerDate={formatDate(period.createdAt)}
 										showStatus={true}
 										emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
 										onStatusChange={

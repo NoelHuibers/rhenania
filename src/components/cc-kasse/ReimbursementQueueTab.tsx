@@ -36,7 +36,7 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { Textarea } from "~/components/ui/textarea";
-import { formatEur } from "~/lib/cc-kasse-format";
+import { formatDate, formatEUR } from "~/lib/format";
 import { formatIban } from "~/lib/iban";
 import {
 	approveReimbursement,
@@ -44,7 +44,7 @@ import {
 	type QueueReimbursement,
 	rejectReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
-import { EmptyState, FilterChips, formatDate } from "./KasseUi";
+import { EmptyState, FilterChips } from "./KasseUi";
 import { ReceiptLinks } from "./ReceiptLinks";
 import {
 	type EditingReimbursement,
@@ -236,7 +236,7 @@ export function ReimbursementQueueTab({
 						{filtered.length} {filtered.length === 1 ? "Eintrag" : "Einträge"} ·
 						Summe{" "}
 						<span className="font-medium text-foreground">
-							{formatEur(filteredSum)}
+							{formatEUR(filteredSum)}
 						</span>
 					</p>
 				)}
@@ -263,7 +263,7 @@ export function ReimbursementQueueTab({
 								<div className="space-y-2 p-4">
 									<div className="flex items-start justify-between gap-3">
 										<div className="font-bold text-xl tabular-nums tracking-tight">
-											{formatEur(r.amount)}
+											{formatEUR(r.amount)}
 										</div>
 										<ReimbursementStatusBadge status={r.status} />
 									</div>
@@ -374,7 +374,7 @@ export function ReimbursementQueueTab({
 											/>
 										</TableCell>
 										<TableCell className="text-right font-semibold tabular-nums">
-											{formatEur(r.amount)}
+											{formatEUR(r.amount)}
 										</TableCell>
 										<TableCell>
 											<ReimbursementStatusBadge status={r.status} />

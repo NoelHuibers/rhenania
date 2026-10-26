@@ -9,6 +9,7 @@ import {
 	TrendingUp,
 	Trophy,
 } from "lucide-react";
+import { formatDate } from "~/lib/format";
 
 type NullableDate = Date | string | null;
 
@@ -60,16 +61,11 @@ function KPIStatCard({
 	);
 }
 
-function formatDateDE(value: NullableDate) {
+function formatLastGame(value: NullableDate) {
 	if (!value) {
 		return "Nie";
 	}
-	const d = new Date(value);
-	return d.toLocaleDateString("de-DE", {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-	});
+	return formatDate(value, "short");
 }
 
 export function KPIGrid({
@@ -156,7 +152,7 @@ export function KPIGrid({
 				label="Letztes Schnelles"
 			>
 				<p className="font-medium text-sm">
-					{formatDateDE(userStats.lastGameAt)}
+					{formatLastGame(userStats.lastGameAt)}
 				</p>
 			</KPIStatCard>
 		</div>

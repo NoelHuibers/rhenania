@@ -22,6 +22,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDate, formatEUR, formatTime } from "~/lib/format";
 import {
 	getTransactionCount,
 	getTransactions,
@@ -42,31 +43,6 @@ interface Transaction {
 	bookedByAdminName: string | null;
 	createdAt: Date;
 }
-
-// Utility functions
-const formatCurrency = (amount: number) => {
-	return new Intl.NumberFormat("de-DE", {
-		style: "currency",
-		currency: "EUR",
-	}).format(amount);
-};
-
-const formatDate = (date: Date) => {
-	return new Intl.DateTimeFormat("de-DE", {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-	}).format(date);
-};
-
-const formatTime = (date: Date) => {
-	return new Intl.DateTimeFormat("de-DE", {
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		hour12: false,
-	}).format(date);
-};
 
 // Component: Loading State
 const LoadingState = () => (
@@ -371,10 +347,10 @@ const MobileTransactionCard = ({
 				</div>
 				<div className="text-right">
 					<div className="font-bold text-base">
-						{formatCurrency(transaction.total)}
+						{formatEUR(transaction.total)}
 					</div>
 					<div className="text-muted-foreground text-xs">
-						{transaction.amount}x @ {formatCurrency(transaction.pricePerUnit)}
+						{transaction.amount}x @ {formatEUR(transaction.pricePerUnit)}
 					</div>
 				</div>
 			</div>
@@ -401,7 +377,7 @@ const MobileTransactionCard = ({
 				)}
 				<span className="ml-auto text-muted-foreground">
 					{formatDate(transaction.createdAt)} •{" "}
-					{formatTime(transaction.createdAt)}
+					{formatTime(transaction.createdAt, { seconds: true })}
 				</span>
 			</div>
 		</CardContent>
@@ -489,10 +465,10 @@ const DesktopTransactionTable = ({
 									{transaction.amount}x
 								</TableCell>
 								<TableCell className="font-mono">
-									{formatCurrency(transaction.pricePerUnit)}
+									{formatEUR(transaction.pricePerUnit)}
 								</TableCell>
 								<TableCell className="font-mono font-semibold">
-									{formatCurrency(transaction.total)}
+									{formatEUR(transaction.total)}
 								</TableCell>
 								<TableCell>
 									{transaction.bookingFor &&
@@ -516,7 +492,7 @@ const DesktopTransactionTable = ({
 								</TableCell>
 								<TableCell>{formatDate(transaction.createdAt)}</TableCell>
 								<TableCell className="font-mono">
-									{formatTime(transaction.createdAt)}
+									{formatTime(transaction.createdAt, { seconds: true })}
 								</TableCell>
 								<TableCell>
 									<Badge variant={transaction.inBill ? "default" : "outline"}>

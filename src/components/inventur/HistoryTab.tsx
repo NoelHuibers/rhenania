@@ -26,15 +26,11 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDateTime, formatEUR } from "~/lib/format";
 import type { InventoryWithItems } from "./utils";
 
 interface HistoryTabProps {
 	history: InventoryWithItems[];
-}
-
-function fmtDate(date: Date) {
-	const d = new Date(date);
-	return `${d.toLocaleDateString("de-DE")} ${d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
 function DiffBadge({ difference }: { difference: number }) {
@@ -133,7 +129,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										</span>
 										<span className="flex items-center gap-1 text-muted-foreground text-xs">
 											<Calendar className="h-3 w-3" />
-											{fmtDate(record.inventoryDate)}
+											{formatDateTime(record.inventoryDate)}
 										</span>
 										{record.kind === "event" && (
 											<Badge
@@ -180,7 +176,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 												variant="outline"
 												className="border-green-300 text-green-600 text-xs"
 											>
-												Gewinn €{record.profit.toFixed(2)}
+												Gewinn {formatEUR(record.profit)}
 											</Badge>
 										)}
 										<Badge
@@ -193,8 +189,8 @@ export function HistoryTab({ history }: HistoryTabProps) {
 													: "text-xs"
 											}
 										>
-											{record.kind === "event" ? "Verbrauch " : ""}€
-											{record.totalLosses.toFixed(2)}
+											{record.kind === "event" ? "Verbrauch " : ""}
+											{formatEUR(record.totalLosses)}
 										</Badge>
 										<span className="ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center">
 											{isExpanded ? (
@@ -235,14 +231,14 @@ export function HistoryTab({ history }: HistoryTabProps) {
 											},
 											{
 												label: "Gesamtverlust",
-												value: `€${record.totalLosses.toFixed(2)}`,
+												value: formatEUR(record.totalLosses),
 												cls: "text-destructive",
 											},
 											...(record.profit !== null
 												? [
 														{
 															label: "Gewinn aus Aufschlag",
-															value: `€${record.profit.toFixed(2)}`,
+															value: formatEUR(record.profit),
 															cls: "text-green-600",
 														},
 													]
@@ -319,7 +315,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 															<TableCell className="text-right">
 																{item.lossValue > 0 ? (
 																	<span className="font-semibold text-red-600">
-																		€{item.lossValue.toFixed(2)}
+																		{formatEUR(item.lossValue)}
 																	</span>
 																) : (
 																	<span className="text-muted-foreground">
@@ -350,7 +346,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 													</TableCell>
 													<TableCell className="hidden sm:table-cell" />
 													<TableCell className="text-right font-bold text-destructive">
-														€{record.totalLosses.toFixed(2)}
+														{formatEUR(record.totalLosses)}
 													</TableCell>
 												</TableRow>
 											</TableFooter>
@@ -374,7 +370,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 														.slice(0, 3)
 														.map(
 															(i) =>
-																`${i.drinkName} (€${i.lossValue.toFixed(2)})`,
+																`${i.drinkName} (${formatEUR(i.lossValue)})`,
 														)
 														.join(", ")}
 												</p>

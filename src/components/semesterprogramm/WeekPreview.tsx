@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
+import { formatDateWith } from "~/lib/format";
 import {
 	addDaysInTZ,
 	dayKeyInTZ,
@@ -29,13 +30,6 @@ export type WeekPreviewEvent = {
 	isCancelled: boolean;
 };
 
-function fmtRange(d: Date, opts: Intl.DateTimeFormatOptions) {
-	return new Intl.DateTimeFormat("de-DE", {
-		timeZone: "Europe/Berlin",
-		...opts,
-	}).format(d);
-}
-
 export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 	const now = new Date();
 	const today = dayKeyInTZ(now);
@@ -51,18 +45,18 @@ export function WeekPreview({ events }: { events: WeekPreviewEvent[] }) {
 
 	const end = days[days.length - 1] ?? start;
 	const rangeLabel = (() => {
-		const startYear = fmtRange(start, { year: "numeric" });
-		const endYear = fmtRange(end, { year: "numeric" });
-		const startMonth = fmtRange(start, { month: "short" });
-		const endMonth = fmtRange(end, { month: "short" });
+		const startYear = formatDateWith(start, { year: "numeric" });
+		const endYear = formatDateWith(end, { year: "numeric" });
+		const startMonth = formatDateWith(start, { month: "short" });
+		const endMonth = formatDateWith(end, { month: "short" });
 		const sameYear = startYear === endYear;
 		const sameMonth = sameYear && startMonth === endMonth;
-		const startLabel = fmtRange(start, {
+		const startLabel = formatDateWith(start, {
 			day: "numeric",
 			month: "short",
 			...(sameYear ? {} : { year: "numeric" }),
 		});
-		const endLabel = fmtRange(end, {
+		const endLabel = formatDateWith(end, {
 			day: "numeric",
 			month: sameMonth ? undefined : "short",
 			year: "numeric",

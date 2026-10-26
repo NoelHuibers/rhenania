@@ -46,8 +46,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { formatEur } from "~/lib/cc-kasse-format";
 import { downloadBase64, PDF_MIME } from "~/lib/file-download";
+import { formatDate, formatEUR } from "~/lib/format";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
 import {
 	type BeitragRun,
@@ -63,7 +63,7 @@ import {
 	sendMahnungen,
 } from "~/server/actions/members/semesterbeitrag";
 import { BeitragRunDialog } from "./BeitragRunDialog";
-import { EmptyState, FilterChips, formatDate } from "./KasseUi";
+import { EmptyState, FilterChips } from "./KasseUi";
 
 type KpOption = { id: string; name: string; category: string };
 type ChargeFilter = "offen" | "Bezahlt" | "Gestundet" | "alle";
@@ -285,10 +285,10 @@ export function BeitraegeTab({
 							<div>
 								<p className="text-muted-foreground text-sm">Eingenommen</p>
 								<p className="font-bold text-2xl tabular-nums tracking-tight sm:text-3xl">
-									{formatEur(totalPaid)}
+									{formatEUR(totalPaid)}
 								</p>
 								<p className="text-muted-foreground text-xs tabular-nums">
-									von {formatEur(totalExpected)} · fällig{" "}
+									von {formatEUR(totalExpected)} · fällig{" "}
 									{formatDate(run.dueDate)}
 								</p>
 							</div>
@@ -405,9 +405,9 @@ export function BeitraegeTab({
 													{chargeBadge(c)}
 												</div>
 												<div className="text-muted-foreground text-xs tabular-nums">
-													{formatEur(c.total)}
+													{formatEUR(c.total)}
 													{c.mahnungAmount > 0 &&
-														` (inkl. ${formatEur(c.mahnungAmount)} Mahngebühr)`}
+														` (inkl. ${formatEUR(c.mahnungAmount)} Mahngebühr)`}
 													{!c.hasEmail && " · Brief nötig"}
 													{c.emailSentAt && " · Email gesendet"}
 												</div>

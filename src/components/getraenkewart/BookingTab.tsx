@@ -19,6 +19,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import { formatEUR } from "~/lib/format";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { getAllUsers, type User } from "~/server/actions/game/getUsers";
 import {
@@ -166,7 +167,7 @@ export function BookingTab() {
 													: "text-muted-foreground"
 											}
 										>
-											{drink.name} — €{priceFor(drink).toFixed(2)}
+											{drink.name} — {formatEUR(priceFor(drink))}
 											{!drink.isCurrentlyAvailable && " (nicht verfügbar)"}
 										</span>
 									</SelectItem>
@@ -226,7 +227,7 @@ export function BookingTab() {
 							</div>
 							<div className="mt-2 flex justify-between border-t pt-2 font-semibold">
 								<span>Gesamt</span>
-								<span>€{total.toFixed(2)}</span>
+								<span>{formatEUR(total)}</span>
 							</div>
 						</div>
 					)}

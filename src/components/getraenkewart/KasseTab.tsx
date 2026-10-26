@@ -71,6 +71,7 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { parseDecimalInput } from "~/lib/decimal";
+import { formatDate, formatDecimalInput, formatEUR } from "~/lib/format";
 import {
 	createNewBilling,
 	updateBillStatus,
@@ -153,17 +154,6 @@ type Props = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(amount: number) {
-	return `${amount.toFixed(2).replace(".", ",")} €`;
-}
-
-function fmtDate(date: Date | null) {
-	if (!date) {
-		return "—";
-	}
-	return new Date(date).toLocaleDateString("de-DE");
-}
-
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 function SummarySection({
@@ -175,9 +165,7 @@ function SummarySection({
 }) {
 	const router = useRouter();
 	const [editingPfand, setEditingPfand] = useState(false);
-	const [pfandInput, setPfandInput] = useState(
-		pfandWert.toFixed(2).replace(".", ","),
-	);
+	const [pfandInput, setPfandInput] = useState(formatDecimalInput(pfandWert));
 	const [isPending, startTransition] = useTransition();
 
 	function handleSavePfand() {
@@ -200,34 +188,34 @@ function SummarySection({
 	const supportingCards = [
 		{
 			label: "Kassenstand",
-			value: fmt(summary.kassenstand),
+			value: formatEUR(summary.kassenstand),
 			icon: Euro,
 			color: "text-blue-600",
 		},
 		{
 			label: "Lagerwert",
-			value: fmt(summary.lagerwert),
+			value: formatEUR(summary.lagerwert),
 			icon: Warehouse,
 			sub: summary.lagerwertDate
-				? `Letzte Inventur: ${fmtDate(summary.lagerwertDate)}`
+				? `Letzte Inventur: ${formatDate(summary.lagerwertDate)}`
 				: "Keine Inventur",
 			color: "text-orange-500",
 		},
 		{
 			label: "Offene Mitgliederrechnungen",
-			value: fmt(summary.offeneMitglieder),
+			value: formatEUR(summary.offeneMitglieder),
 			icon: Users,
 			color: "text-yellow-600",
 		},
 		{
 			label: "Offene Gruppenrechnungen",
-			value: fmt(summary.offeneGruppen),
+			value: formatEUR(summary.offeneGruppen),
 			icon: Receipt,
 			color: "text-purple-600",
 		},
 		{
 			label: "Externe Verbindlichkeiten",
-			value: fmt(summary.externOffen),
+			value: formatEUR(summary.externOffen),
 			icon: Building2,
 			color: "text-red-600",
 		},
@@ -243,7 +231,7 @@ function SummarySection({
 					<div>
 						<p className="text-muted-foreground text-sm">Gesamtvermögen</p>
 						<p className={`font-bold text-3xl ${gesamtColor}`}>
-							{fmt(summary.gesamt)}
+							{formatEUR(summary.gesamt)}
 						</p>
 					</div>
 					<Euro className={`size-10 ${gesamtColor}`} />
@@ -316,7 +304,7 @@ function SummarySection({
 							) : (
 								<div className="flex items-center gap-2">
 									<p className="font-bold text-green-600 text-lg">
-										{fmt(summary.pfand)}
+										{formatEUR(summary.pfand)}
 									</p>
 									<Button
 										size="icon"
@@ -412,7 +400,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 									onChange={(e) => setAmount(e.target.value)}
 								/>
 								<p className="text-muted-foreground text-xs">
-									Differenz zum letzten Stand ({fmt(balance)}):{" "}
+									Differenz zum letzten Stand ({formatEUR(balance)}):{" "}
 									{diff === null ? (
 										"—"
 									) : (
@@ -423,8 +411,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 													: "font-medium text-red-600"
 											}
 										>
-											{diff >= 0 ? "+" : ""}
-											{fmt(diff)}
+											{formatEUR(diff, { signed: true })}
 										</span>
 									)}
 								</p>
@@ -476,7 +463,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 							{entries.map((e) => (
 								<TableRow key={e.id}>
 									<TableCell className="hidden text-sm sm:table-cell">
-										{fmtDate(e.date)}
+										{formatDate(e.date)}
 									</TableCell>
 									<TableCell className="text-sm">{e.description}</TableCell>
 									<TableCell className="text-right font-medium text-sm">
@@ -490,7 +477,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 											) : (
 												<ArrowDownCircle className="mr-1 inline size-3.5" />
 											)}
-											{fmt(e.amount)}
+											{formatEUR(e.amount)}
 										</span>
 									</TableCell>
 									<TableCell>
@@ -521,7 +508,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 								<TableCell
 									className={`text-right font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}
 								>
-									{fmt(balance)}
+									{formatEUR(balance)}
 								</TableCell>
 								<TableCell />
 							</TableRow>
@@ -645,7 +632,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 			meta={
 				bills.length > 0 ? (
 					<span className="text-muted-foreground text-xs">
-						{bills.length} • {fmt(total)}
+						{bills.length} • {formatEUR(total)}
 					</span>
 				) : undefined
 			}
@@ -670,8 +657,8 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 								</AlertDialogTitle>
 								<AlertDialogDescription>
 									{bills.length} offene Mitgliederrechnungen über insgesamt{" "}
-									{fmt(total)} werden auf „Bezahlt" gesetzt, auch gestundete.
-									Gruppenrechnungen bleiben unverändert.
+									{formatEUR(total)} werden auf „Bezahlt" gesetzt, auch
+									gestundete. Gruppenrechnungen bleiben unverändert.
 								</AlertDialogDescription>
 							</AlertDialogHeader>
 							<AlertDialogFooter>
@@ -705,7 +692,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 									{b.userName}
 								</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
-									{fmt(b.total)}
+									{formatEUR(b.total)}
 								</TableCell>
 								<TableCell className="text-right">
 									<DropdownMenu>
@@ -747,7 +734,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 						<TableRow>
 							<TableCell className="font-semibold">Gesamt</TableCell>
 							<TableCell className="text-right font-bold">
-								{fmt(total)}
+								{formatEUR(total)}
 							</TableCell>
 							<TableCell />
 						</TableRow>
@@ -846,7 +833,7 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 									{b.userName}
 								</TableCell>
 								<TableCell className="hidden text-sm sm:table-cell">
-									{fmtDate(b.createdAt)}
+									{formatDate(b.createdAt)}
 								</TableCell>
 								<TableCell>
 									<DropdownMenu>
@@ -882,7 +869,7 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 									</DropdownMenu>
 								</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
-									{fmt(b.total)}
+									{formatEUR(b.total)}
 								</TableCell>
 								<TableCell>
 									<Button
@@ -969,7 +956,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			meta={
 				openBills.length > 0 ? (
 					<span className="text-muted-foreground text-xs">
-						{openBills.length} offen • {fmt(openTotal)}
+						{openBills.length} offen • {formatEUR(openTotal)}
 					</span>
 				) : undefined
 			}
@@ -1055,7 +1042,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 									{b.description}
 								</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
-									{fmt(b.amount)}
+									{formatEUR(b.amount)}
 								</TableCell>
 								<TableCell>
 									<Badge

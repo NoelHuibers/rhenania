@@ -180,11 +180,3 @@ export function EmptyState({
 		</div>
 	);
 }
-
-export function formatDate(d: Date | string | number): string {
-	return new Date(d).toLocaleDateString("de-DE", {
-		day: "2-digit",
-		month: "2-digit",
-		year: "numeric",
-	});
-}

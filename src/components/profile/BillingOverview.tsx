@@ -15,6 +15,7 @@ import {
 	DrawerTrigger,
 } from "~/components/ui/drawer";
 import { Separator } from "~/components/ui/separator";
+import { formatDate, formatDecimalInput, formatEUR } from "~/lib/format";
 import { downloadUserBillPDF } from "~/server/actions/profile/downloadUserBill";
 import {
 	type BillData,
@@ -219,8 +220,8 @@ export function BillingOverview() {
 		},
 		{
 			label: "Betrag",
-			value: `€${billData.total.toFixed(2)}`,
-			copy: billData.total.toFixed(2),
+			value: formatEUR(billData.total),
+			copy: formatDecimalInput(billData.total),
 			mono: false,
 		},
 		{
@@ -251,25 +252,25 @@ export function BillingOverview() {
 							Gesamtbetrag
 						</p>
 						<p className="font-bold text-xl md:text-2xl">
-							€{billData.total.toFixed(2)}
+							{formatEUR(billData.total)}
 						</p>
 					</div>
 					<div>
 						<p className="text-muted-foreground text-xs md:text-sm">Getränke</p>
 						<p className="font-semibold text-base md:text-lg">
-							€{billData.drinksTotal.toFixed(2)}
+							{formatEUR(billData.drinksTotal)}
 						</p>
 					</div>
 					<div>
 						<p className="text-muted-foreground text-xs md:text-sm">Mahnung</p>
 						<p className="font-semibold text-base md:text-lg">
-							€{billData.fees.toFixed(2)}
+							{formatEUR(billData.fees)}
 						</p>
 					</div>
 					<div>
 						<p className="text-muted-foreground text-xs md:text-sm">Umlage</p>
 						<p className="font-semibold text-base md:text-lg">
-							€{billData.umlage?.toFixed(2) || "0.00"}
+							{formatEUR(billData.umlage)}
 						</p>
 					</div>
 					<div>
@@ -277,17 +278,14 @@ export function BillingOverview() {
 							Altbetrag
 						</p>
 						<p className="font-semibold text-base md:text-lg">
-							€{billData.oldBalance.toFixed(2)}
+							{formatEUR(billData.oldBalance)}
 						</p>
 					</div>
 				</div>
 
 				<div className="flex items-center justify-between text-[11px] text-muted-foreground md:text-sm">
 					<span>Rechnung {billData.billNumber}</span>
-					<span>
-						Updated:{" "}
-						{new Date(billData.lastUpdated).toLocaleDateString("de-DE")}
-					</span>
+					<span>Updated: {formatDate(billData.lastUpdated)}</span>
 				</div>
 
 				{/* Document buttons */}
@@ -327,14 +325,14 @@ export function BillingOverview() {
 													</span>
 												</div>
 												<span className="text-sm md:text-base">
-													€{item.total.toFixed(2)}
+													{formatEUR(item.total)}
 												</span>
 											</div>
 										))}
 										<Separator />
 										<div className="flex justify-between font-bold">
 											<span>Total</span>
-											<span>€{billData.total.toFixed(2)}</span>
+											<span>{formatEUR(billData.total)}</span>
 										</div>
 									</>
 								) : (
@@ -438,7 +436,7 @@ export function BillingOverview() {
 								<div className="flex items-center justify-between">
 									<span className="text-muted-foreground text-xs">Betrag</span>
 									<span className="font-semibold text-xs">
-										€{billData.total.toFixed(2)}
+										{formatEUR(billData.total)}
 									</span>
 								</div>
 								<Separator />

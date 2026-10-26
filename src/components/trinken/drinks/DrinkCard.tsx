@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { formatEUR } from "~/lib/format";
 import type { MenuItem } from "~/server/actions/menu";
 
 interface DrinkCardProps {
@@ -70,7 +71,7 @@ export function DrinkCard({ drink, onOrderClick }: DrinkCardProps) {
 								: "text-muted-foreground"
 						}`}
 					>
-						€{drink.price.toFixed(2)}
+						{formatEUR(drink.price)}
 					</div>
 
 					{isAvailable ? (

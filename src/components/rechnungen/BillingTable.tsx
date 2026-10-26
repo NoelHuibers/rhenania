@@ -3,6 +3,7 @@
 import { ArrowUpDown, Loader2 } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
+import { formatEUR } from "~/lib/format";
 import { Button } from "../ui/button";
 import {
 	Table,
@@ -29,14 +30,6 @@ interface BillingTableProps {
 
 type SortField = "name" | "totalDue";
 type SortDirection = "asc" | "desc";
-
-// Utility function
-export const formatCurrency = (amount: number) => {
-	return new Intl.NumberFormat("de-DE", {
-		style: "currency",
-		currency: "EUR",
-	}).format(amount);
-};
 
 export const BillingTable = ({
 	entries,
@@ -123,7 +116,7 @@ export const BillingTable = ({
 							<div className="min-w-0 flex-1">
 								<h3 className="truncate font-medium">{entry.name}</h3>
 								<p className="mt-1 font-bold text-emerald-600 text-lg dark:text-emerald-400">
-									{formatCurrency(entry.totalDue)}
+									{formatEUR(entry.totalDue)}
 								</p>
 							</div>
 							<DetailsComponent entry={entry} />
@@ -184,7 +177,7 @@ export const BillingTable = ({
 							<TableRow key={entry.id}>
 								<TableCell className="font-medium">{entry.name}</TableCell>
 								<TableCell className="text-right font-mono">
-									{formatCurrency(entry.totalDue)}
+									{formatEUR(entry.totalDue)}
 								</TableCell>
 								{showStatus && (
 									<TableCell>

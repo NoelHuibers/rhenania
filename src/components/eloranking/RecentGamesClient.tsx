@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { formatDateTime, formatRelative } from "~/lib/format";
 import type { GameRecord } from "~/server/actions/game/game";
 
 interface RecentGamesClientProps {
@@ -26,25 +27,6 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 
 		return () => clearInterval(interval);
 	}, []);
-
-	const formatTimeAgo = (timestamp: Date | string) => {
-		const gameDate =
-			typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-		const diffInMinutes = Math.floor(
-			(currentTime.getTime() - gameDate.getTime()) / (1000 * 60),
-		);
-
-		if (diffInMinutes < 1) {
-			return "Just now";
-		}
-		if (diffInMinutes < 60) {
-			return `${diffInMinutes}m ago`;
-		}
-		if (diffInMinutes < 1440) {
-			return `${Math.floor(diffInMinutes / 60)}h ago`;
-		}
-		return `${Math.floor(diffInMinutes / 1440)}d ago`;
-	};
 
 	return (
 		<Card>
@@ -69,9 +51,13 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 									<Badge variant="outline" className="text-xs">
 										{game.gameType}
 									</Badge>
-									<span className="text-muted-foreground text-xs">
-										{formatTimeAgo(game.playedAt)}
-									</span>
+									<time
+										dateTime={new Date(game.playedAt).toISOString()}
+										title={formatDateTime(game.playedAt)}
+										className="text-muted-foreground text-xs"
+									>
+										{formatRelative(game.playedAt, currentTime)}
+									</time>
 								</div>
 
 								<div className="space-y-3">

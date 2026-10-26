@@ -35,7 +35,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
-import { formatEur } from "~/lib/cc-kasse-format";
+import { formatDate, formatEUR } from "~/lib/format";
 import {
 	deleteEinnahme,
 	type EinnahmeRow,
@@ -52,7 +52,7 @@ import {
 } from "~/server/actions/cc-kasse/kostenpunkte";
 import { type EditingEinnahme, EinnahmeDialog } from "./EinnahmeDialog";
 import { EtaplanDialog } from "./EtaplanDialog";
-import { EmptyState, formatDate } from "./KasseUi";
+import { EmptyState } from "./KasseUi";
 import { KostenpunktDialog } from "./KostenpunktDialog";
 import { ReimbursementDialog } from "./ReimbursementDialog";
 
@@ -251,7 +251,7 @@ export function EtaplanEditorTab({
 						<h2 className="font-semibold text-base">Kostenpunkte</h2>
 						<p className="text-muted-foreground text-xs tabular-nums">
 							{kostenpunkte.length} Posten · Budget{" "}
-							{formatEur(kostenpunkte.reduce((s, k) => s + k.budget, 0))}
+							{formatEUR(kostenpunkte.reduce((s, k) => s + k.budget, 0))}
 						</p>
 					</div>
 					<DropdownMenu>
@@ -350,11 +350,11 @@ export function EtaplanEditorTab({
 									{g.category}
 								</h3>
 								<div className="shrink-0 text-right text-xs tabular-nums">
-									<span className="font-semibold">{formatEur(catBudget)}</span>
+									<span className="font-semibold">{formatEUR(catBudget)}</span>
 									{catIncome > 0 && (
 										<span className="text-muted-foreground">
 											{" "}
-											· +{formatEur(catIncome)}
+											· +{formatEUR(catIncome)}
 										</span>
 									)}
 								</div>
@@ -381,16 +381,16 @@ export function EtaplanEditorTab({
 												<div className="flex shrink-0 items-start gap-1">
 													<div className="text-right">
 														<div className="font-semibold text-sm tabular-nums">
-															{formatEur(kp.budget)}
+															{formatEUR(kp.budget)}
 														</div>
 														{kp.income > 0 && (
 															<div className="text-muted-foreground text-xs tabular-nums">
-																+{formatEur(kp.income)} geplant
+																+{formatEUR(kp.income)} geplant
 															</div>
 														)}
 														{erhalten > 0 && (
 															<div className="text-emerald-600 text-xs tabular-nums dark:text-emerald-400">
-																+{formatEur(erhalten)} erhalten
+																+{formatEUR(erhalten)} erhalten
 															</div>
 														)}
 													</div>
@@ -431,9 +431,9 @@ export function EtaplanEditorTab({
 																{p.bemerkung ?? "—"}
 															</span>
 															<span className="shrink-0 whitespace-nowrap tabular-nums">
-																{formatEur(p.ausgaben)}
+																{formatEUR(p.ausgaben)}
 																{p.einnahmen > 0 &&
-																	` / +${formatEur(p.einnahmen)}`}
+																	` / +${formatEUR(p.einnahmen)}`}
 															</span>
 														</li>
 													))}
@@ -451,7 +451,7 @@ export function EtaplanEditorTab({
 																{formatDate(e.incomeDate)} · {e.description}
 															</span>
 															<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-emerald-600 tabular-nums dark:text-emerald-400">
-																+{formatEur(e.amount)}
+																+{formatEUR(e.amount)}
 																{isTreasury && (
 																	<DropdownMenu>
 																		<DropdownMenuTrigger asChild>

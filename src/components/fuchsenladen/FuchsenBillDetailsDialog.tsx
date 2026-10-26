@@ -3,7 +3,6 @@
 import { Download, ExternalLink, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { formatCurrency } from "~/components/rechnungen/BillingTable";
 import { Button } from "~/components/ui/button";
 import {
 	Dialog,
@@ -20,6 +19,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatEUR } from "~/lib/format";
 import type { FuchsenBillingConfig } from "~/server/actions/fuchsenladen/billingConfig";
 import { generateFuchsenBillPDF } from "~/server/actions/fuchsenladen/billingPdf";
 import type { FuchsenBillingEntry } from "~/server/actions/fuchsenladen/billings";
@@ -106,10 +106,10 @@ export function FuchsenBillDetailsDialog({
 											{item.quantity}
 										</TableCell>
 										<TableCell className="text-right">
-											{formatCurrency(item.unitPrice)}
+											{formatEUR(item.unitPrice)}
 										</TableCell>
 										<TableCell className="text-right font-medium">
-											{formatCurrency(item.subtotal)}
+											{formatEUR(item.subtotal)}
 										</TableCell>
 									</TableRow>
 								))}
@@ -120,14 +120,14 @@ export function FuchsenBillDetailsDialog({
 					{!!entry.oldBillingAmount && entry.oldBillingAmount > 0 && (
 						<div className="flex items-center justify-between text-muted-foreground text-sm">
 							<span>Alter Saldo</span>
-							<span>{formatCurrency(entry.oldBillingAmount)}</span>
+							<span>{formatEUR(entry.oldBillingAmount)}</span>
 						</div>
 					)}
 
 					<div className="flex items-center justify-between border-border border-t pt-4">
 						<span className="font-semibold text-base sm:text-lg">Gesamt:</span>
 						<span className="font-bold text-green-600 text-lg sm:text-xl dark:text-green-400">
-							{formatCurrency(entry.totalDue)}
+							{formatEUR(entry.totalDue)}
 						</span>
 					</div>
 

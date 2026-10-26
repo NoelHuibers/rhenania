@@ -20,7 +20,7 @@ import {
 	ChartTooltip,
 	ChartTooltipContent,
 } from "~/components/ui/chart";
-
+import { formatDateWith } from "~/lib/format";
 import type { UserStats } from "./KPIGrid";
 import { KPIGrid } from "./KPIGrid";
 
@@ -119,10 +119,7 @@ export function GamesElo({ userStats, eloHistory = [] }: GamesEloProps) {
 								axisLine={false}
 								tickMargin={8}
 								tickFormatter={(value) =>
-									new Date(value).toLocaleDateString("de-DE", {
-										month: "short",
-										day: "numeric",
-									})
+									formatDateWith(value, { month: "short", day: "numeric" })
 								}
 								className="text-xs"
 							/>
@@ -142,7 +139,7 @@ export function GamesElo({ userStats, eloHistory = [] }: GamesEloProps) {
 									<ChartTooltipContent
 										indicator="line"
 										labelFormatter={(value) =>
-											new Date(value as string).toLocaleDateString("de-DE", {
+											formatDateWith(value as string, {
 												weekday: "long",
 												year: "numeric",
 												month: "long",

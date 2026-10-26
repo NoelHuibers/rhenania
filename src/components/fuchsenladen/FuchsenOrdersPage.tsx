@@ -14,17 +14,12 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDate, formatEUR } from "~/lib/format";
 import type { FuchsenOrder } from "~/server/actions/fuchsenladen/orders";
 import {
 	getMyFuchsenOrders,
 	getMyFuchsenSummary,
 } from "~/server/actions/fuchsenladen/orders";
-
-const currency = new Intl.NumberFormat("de-DE", {
-	style: "currency",
-	currency: "EUR",
-});
-const date = new Intl.DateTimeFormat("de-DE");
 
 export function FuchsenOrdersPage() {
 	const [orders, setOrders] = useState<FuchsenOrder[]>([]);
@@ -52,12 +47,12 @@ export function FuchsenOrdersPage() {
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 					<SummaryCard
 						label="Offener Betrag"
-						value={currency.format(summary.openTotal)}
+						value={formatEUR(summary.openTotal)}
 						accent
 					/>
 					<SummaryCard
 						label="Bereits bezahlt"
-						value={currency.format(summary.paidTotal)}
+						value={formatEUR(summary.paidTotal)}
 					/>
 					<SummaryCard
 						label="Offene Bestellungen"
@@ -95,9 +90,7 @@ export function FuchsenOrdersPage() {
 									<TableBody>
 										{orders.map((order) => (
 											<TableRow key={order.id}>
-												<TableCell>
-													{date.format(new Date(order.createdAt))}
-												</TableCell>
+												<TableCell>{formatDate(order.createdAt)}</TableCell>
 												<TableCell className="font-medium">
 													{order.itemName}
 												</TableCell>
@@ -105,7 +98,7 @@ export function FuchsenOrdersPage() {
 													{order.amount}
 												</TableCell>
 												<TableCell className="text-right">
-													{currency.format(order.total)}
+													{formatEUR(order.total)}
 												</TableCell>
 												<TableCell>
 													{order.status === "Bezahlt" ? (

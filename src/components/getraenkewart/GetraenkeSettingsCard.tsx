@@ -12,16 +12,13 @@ import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
 import { Separator } from "~/components/ui/separator";
 import { parseDecimalInput } from "~/lib/decimal";
+import { formatEUR } from "~/lib/format";
 import { applyMarkup, MAX_MARKUP_PERCENT } from "~/lib/pricing";
 import {
 	type GetraenkeSettings,
 	setBillRecipient,
 	setMarkupPercent,
 } from "~/server/actions/getraenkewart/kasse";
-
-function fmt(amount: number) {
-	return `${amount.toFixed(2).replace(".", ",")} €`;
-}
 
 // Settings behind the per-tenant features. Rendered only for tenants that
 // have at least one of them; each section shows only with its own flag.
@@ -103,7 +100,8 @@ function MarkupSection({ initial }: { initial: number }) {
 				{valid && parsed > 0 && (
 					<>
 						{" "}
-						Beispiel: {fmt(1)} wird zu {fmt(applyMarkup(1, parsed))}.
+						Beispiel: {formatEUR(1)} wird zu {formatEUR(applyMarkup(1, parsed))}
+						.
 					</>
 				)}
 			</p>

@@ -2,6 +2,7 @@
 
 import { Badge } from "~/components/ui/badge";
 import { Progress } from "~/components/ui/progress";
+import { formatDate } from "~/lib/format";
 
 export const CATEGORIES = [
 	{ key: "all", label: "Alle" },
@@ -93,8 +94,7 @@ export function AchievementCard({ a }: { a: AchievementCardData }) {
 				)}
 				{a.unlocked && a.unlockedAt && (
 					<p className="text-[10px] text-muted-foreground">
-						Freigeschaltet{" "}
-						{new Intl.DateTimeFormat("de-DE").format(new Date(a.unlockedAt))}
+						Freigeschaltet {formatDate(a.unlockedAt)}
 					</p>
 				)}
 				{!isSecret && (

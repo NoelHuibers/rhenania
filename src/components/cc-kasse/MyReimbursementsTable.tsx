@@ -12,7 +12,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
-import { formatEur } from "~/lib/cc-kasse-format";
+import { formatDate, formatEUR } from "~/lib/format";
 import {
 	cancelMyReimbursement,
 	type MyReimbursement,
@@ -89,9 +89,9 @@ export function MyReimbursementsTable({
 						</div>
 						<div className="flex items-center justify-between text-sm">
 							<span className="text-muted-foreground">
-								{new Date(r.expenseDate).toLocaleDateString("de-DE")}
+								{formatDate(r.expenseDate)}
 							</span>
-							<span className="font-semibold">{formatEur(r.amount)}</span>
+							<span className="font-semibold">{formatEUR(r.amount)}</span>
 						</div>
 						<p className="text-sm">{r.description}</p>
 						{r.status === "Abgelehnt" && r.rejectionReason && (
@@ -129,7 +129,7 @@ export function MyReimbursementsTable({
 						{reimbursements.map((r) => (
 							<TableRow key={r.id}>
 								<TableCell className="whitespace-nowrap">
-									{new Date(r.expenseDate).toLocaleDateString("de-DE")}
+									{formatDate(r.expenseDate)}
 								</TableCell>
 								<TableCell>
 									<span className="text-muted-foreground text-xs">
@@ -147,7 +147,7 @@ export function MyReimbursementsTable({
 									)}
 								</TableCell>
 								<TableCell className="text-right font-medium">
-									{formatEur(r.amount)}
+									{formatEUR(r.amount)}
 								</TableCell>
 								<TableCell>
 									<ReimbursementStatusBadge status={r.status} />

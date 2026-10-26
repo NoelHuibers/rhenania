@@ -20,8 +20,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { formatEur } from "~/lib/cc-kasse-format";
 import { parseDecimalInput } from "~/lib/decimal";
+import { formatDate, formatEUR } from "~/lib/format";
 import {
 	createKostenpunkt,
 	type KostenpunktWithPositions,
@@ -223,7 +223,7 @@ export function KostenpunktDialog({
 								<SelectItem value={NO_EVENT}>Keine</SelectItem>
 								{events.map((ev) => (
 									<SelectItem key={ev.id} value={ev.id}>
-										{ev.title} ({new Date(ev.date).toLocaleDateString("de-DE")})
+										{ev.title} ({formatDate(ev.date)})
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -292,11 +292,11 @@ export function KostenpunktDialog({
 						<div className="flex justify-end gap-6 border-t pt-2 text-sm">
 							<span>
 								Budget:{" "}
-								<span className="font-semibold">{formatEur(budgetSum)}</span>
+								<span className="font-semibold">{formatEUR(budgetSum)}</span>
 							</span>
 							<span>
 								Einnahmen:{" "}
-								<span className="font-semibold">{formatEur(incomeSum)}</span>
+								<span className="font-semibold">{formatEUR(incomeSum)}</span>
 							</span>
 						</div>
 					</div>

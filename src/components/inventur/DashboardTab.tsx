@@ -39,6 +39,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDate, formatDateTime, formatEUR } from "~/lib/format";
 import {
 	type ActiveEventInventory,
 	type CloseInventoryAndBillResult,
@@ -387,7 +388,7 @@ export function DashboardTab({
 			if (res.success) {
 				const r = res.report;
 				toast.success(
-					`Veranstaltung abgeschlossen — ${r.totalQty} Fl., €${r.totalValue.toFixed(2)} Verbrauch${r.booked ? " · in CC-Kasse gebucht" : ""}`,
+					`Veranstaltung abgeschlossen — ${r.totalQty} Fl., ${formatEUR(r.totalValue)} Verbrauch${r.booked ? " · in CC-Kasse gebucht" : ""}`,
 				);
 				setCountedIds(new Set());
 				setShowFinishEvent(false);
@@ -468,8 +469,8 @@ export function DashboardTab({
 							</div>
 							<div className="text-muted-foreground text-sm">
 								Anfangsbestand erfasst am{" "}
-								{new Date(activeEvent.startedAt).toLocaleString("de-DE")}. Zähle
-								jetzt den Endbestand und schließe ab.
+								{formatDateTime(activeEvent.startedAt)}. Zähle jetzt den
+								Endbestand und schließe ab.
 							</div>
 						</div>
 					</div>
@@ -515,14 +516,14 @@ export function DashboardTab({
 						<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 							<span className="text-muted-foreground">Bestandswert</span>
 							<span className="font-semibold text-primary">
-								€{totalInventoryValue.toFixed(2)}
+								{formatEUR(totalInventoryValue)}
 							</span>
 						</span>
 						{profit !== null && (
 							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 								<span className="text-muted-foreground">Gewinn</span>
 								<span className="font-semibold text-green-600">
-									€{profit.toFixed(2)}
+									{formatEUR(profit)}
 								</span>
 							</span>
 						)}
@@ -530,7 +531,7 @@ export function DashboardTab({
 							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 								<span className="text-muted-foreground">Verluste</span>
 								<span className="font-semibold text-destructive">
-									€{totalLostValue.toFixed(2)}
+									{formatEUR(totalLostValue)}
 								</span>
 							</span>
 						)}
@@ -674,7 +675,7 @@ export function DashboardTab({
 										</span>
 									</TableCell>
 									<TableCell className="text-right">
-										€{item.currentPrice.toFixed(2)}
+										{formatEUR(item.currentPrice)}
 									</TableCell>
 									<TableCell className="text-center">
 										<Badge className={`${status.color} text-white`}>
@@ -682,7 +683,7 @@ export function DashboardTab({
 										</Badge>
 									</TableCell>
 									<TableCell className="text-right font-semibold text-destructive">
-										{lostValue > 0 ? `€${lostValue.toFixed(2)}` : "-"}
+										{lostValue > 0 ? formatEUR(lostValue) : "-"}
 									</TableCell>
 								</TableRow>
 							);
@@ -748,7 +749,7 @@ export function DashboardTab({
 								)}
 								{lostValue > 0 && (
 									<span className="text-destructive">
-										-€{lostValue.toFixed(2)}
+										{formatEUR(-lostValue)}
 									</span>
 								)}
 							</div>
@@ -775,7 +776,7 @@ export function DashboardTab({
 										<div>
 											<span className="block text-muted-foreground">Preis</span>
 											<span className="font-medium">
-												€{item.currentPrice.toFixed(2)}
+												{formatEUR(item.currentPrice)}
 											</span>
 										</div>
 									</div>
@@ -911,7 +912,7 @@ export function DashboardTab({
 								<SelectContent>
 									{events.map((e) => (
 										<SelectItem key={e.id} value={e.id}>
-											{e.title} · {new Date(e.date).toLocaleDateString("de-DE")}
+											{e.title} · {formatDate(e.date)}
 										</SelectItem>
 									))}
 									<SelectItem value="__free__">Andere (Freitext)…</SelectItem>
@@ -984,7 +985,7 @@ export function DashboardTab({
 										>
 											<span>{x.name}</span>
 											<span className="text-muted-foreground">
-												{x.consumed} Fl. · €{x.value.toFixed(2)}
+												{x.consumed} Fl. · {formatEUR(x.value)}
 											</span>
 										</li>
 									))}
@@ -993,7 +994,7 @@ export function DashboardTab({
 							<div className="flex items-center justify-between border-t px-3 py-2 font-semibold">
 								<span>Gesamt</span>
 								<span>
-									{previewQty} Fl. · €{previewValue.toFixed(2)}
+									{previewQty} Fl. · {formatEUR(previewValue)}
 								</span>
 							</div>
 						</div>

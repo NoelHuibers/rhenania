@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { formatEUR } from "~/lib/format";
 import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
 
 interface FuchsenItemCardProps {
@@ -72,7 +73,7 @@ export function FuchsenItemCard({ item, onOrderClick }: FuchsenItemCardProps) {
 								: "text-muted-foreground"
 						}`}
 					>
-						€{item.price.toFixed(2)}
+						{formatEUR(item.price)}
 					</div>
 
 					{isAvailable ? (

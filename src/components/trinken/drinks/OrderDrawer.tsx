@@ -15,6 +15,7 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "~/components/ui/drawer";
+import { formatEUR } from "~/lib/format";
 import type { MenuItem } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
 import type { BillingOption } from "./Billingselector";
@@ -68,9 +69,7 @@ export function OrderDrawer({
 				if (orderResult.success) {
 					handleClose();
 					toast.success(
-						`${quantity}x ${drink.name} bestellt (€${(
-							drink.price * quantity
-						).toFixed(2)}) - Abrechnung auf ${
+						`${quantity}x ${drink.name} bestellt (${formatEUR(drink.price * quantity)}) - Abrechnung auf ${
 							selectedBilling ? selectedBilling : "eigene Kosten"
 						}`,
 					);
@@ -114,7 +113,7 @@ export function OrderDrawer({
 						<Badge className="h-5 bg-green-500 text-white text-xs">
 							Verfügbar
 						</Badge>
-						<span>€{drink.price.toFixed(2)} pro Stück</span>
+						<span>{formatEUR(drink.price)} pro Stück</span>
 					</DrawerDescription>
 				</DrawerHeader>
 
@@ -187,12 +186,12 @@ export function OrderDrawer({
 							<span>
 								{quantity}x {drink.name}
 							</span>
-							<span>€{totalPrice.toFixed(2)}</span>
+							<span>{formatEUR(totalPrice)}</span>
 						</div>
 						<div className="mt-1 flex justify-between border-t pt-1 font-bold text-base">
 							<span>Gesamt</span>
 							<span className="text-emerald-600 dark:text-emerald-400">
-								€{totalPrice.toFixed(2)}
+								{formatEUR(totalPrice)}
 							</span>
 						</div>
 					</div>
