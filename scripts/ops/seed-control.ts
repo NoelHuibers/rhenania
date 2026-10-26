@@ -23,6 +23,7 @@ import {
 	tenants,
 } from "~/server/db/control-schema";
 import { users } from "~/server/db/schema";
+import { guardOrExit } from "../lib/guard";
 
 const RHENANIA_SLUG = "rhenania";
 const RHENANIA_DISPLAY_NAME = "Corps Rhenania Stuttgart";
@@ -174,6 +175,7 @@ async function backfillMemberships(tenantId: string) {
 }
 
 async function main() {
+	guardOrExit(process.env.CONTROL_DATABASE_URL, "seed the control DB");
 	console.log("Seeding control plane DB…");
 	const tenantId = await upsertTenant();
 	await upsertDomains(tenantId);

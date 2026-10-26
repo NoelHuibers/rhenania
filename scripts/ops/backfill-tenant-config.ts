@@ -32,6 +32,7 @@ import {
 	DEFAULT_KASSE_TYPES,
 	DEFAULT_MEMBER_STATUSES,
 } from "~/server/lib/tenant-default-config";
+import { guardOrExit } from "../lib/guard";
 
 function parseArgs() {
 	const args = process.argv.slice(2);
@@ -84,6 +85,7 @@ async function backfillForTenant(tenantId: string, slug: string) {
 }
 
 async function main() {
+	guardOrExit(process.env.CONTROL_DATABASE_URL, "backfill tenant config");
 	const { all, slug } = parseArgs();
 
 	const targets = all

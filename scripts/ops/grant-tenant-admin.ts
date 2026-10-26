@@ -28,6 +28,7 @@ import {
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 import { mirrorUserToTenant } from "~/server/lib/user-mirror";
+import { guardOrExit } from "../lib/guard";
 
 function parseArgs() {
 	const args = process.argv.slice(2);
@@ -42,6 +43,7 @@ function parseArgs() {
 }
 
 async function main() {
+	guardOrExit(process.env.CONTROL_DATABASE_URL, "grant a tenant admin");
 	const { email, slug } = parseArgs();
 
 	// 1. Resolve user.

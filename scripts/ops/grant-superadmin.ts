@@ -14,6 +14,7 @@ import { eq } from "drizzle-orm";
 
 import { controlDb } from "~/server/db/control";
 import { superAdmins, users } from "~/server/db/control-schema";
+import { guardOrExit } from "../lib/guard";
 
 function parseArgs() {
 	const args = process.argv.slice(2);
@@ -30,6 +31,7 @@ function parseArgs() {
 }
 
 async function main() {
+	guardOrExit(process.env.CONTROL_DATABASE_URL, "grant superadmin");
 	const { email, reason } = parseArgs();
 
 	const [user] = await controlDb

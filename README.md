@@ -63,9 +63,15 @@ Migrationen werden in CI geprüft (`pnpm db:check`, Job „Migrations“):
   erst wenn kein laufender Code die alte Struktur mehr braucht. Der PR bekommt
   dann das Label `migration:contract`.
 
-Vor einem Deploy mit Schemaänderungen zuerst migrieren:
+Vor einem Deploy mit Schemaänderungen zuerst migrieren. Schreibende Skripte
+und `drizzle-kit migrate` verweigern Remote-Datenbanken, solange `CONFIRM_PROD`
+nicht genau den DB-Host nennt. Die Fehlermeldung zeigt den Wert an:
 
 ```bash
-pnpm db:control:migrate   # Control-DB
-pnpm db:migrate-tenants   # alle Tenant-DBs
+pnpm db:migrate-tenants --dry-run                     # was steht an? (ohne Bestätigung)
+CONFIRM_PROD=<control-db-host> pnpm db:control:migrate # Control-DB
+CONFIRM_PROD=<control-db-host> pnpm db:migrate-tenants # alle Tenant-DBs
 ```
+
+`drizzle-kit push` gibt es bewusst nicht mehr als Skript: Es umgeht das
+Migrations-Journal und hat früher zu Drift geführt.
