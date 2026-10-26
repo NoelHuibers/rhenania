@@ -8,6 +8,7 @@ import {
 	signInAs,
 } from "../../../../test/harness";
 import { GET as health } from "./route";
+import { GET as tenantsHealthRoute } from "./tenants/route";
 
 setupTestDatabases();
 
@@ -73,9 +74,11 @@ describe("GET /api/health/tenants", () => {
 		const admin = await createUser();
 		await controlDb().insert(superAdmins).values({ userId: admin.id });
 		signInAs(admin);
-		const GET = await tenantsRoute();
-		expect((await GET(new Request("http://x/api/health/tenants"))).status).toBe(
-			200,
+		// Static import: re-importing after vi.resetModules() would give the
+		// route a fresh, empty test state.
+		const res = await tenantsHealthRoute(
+			new Request("http://x/api/health/tenants"),
 		);
+		expect(res.status).toBe(200);
 	});
 });
