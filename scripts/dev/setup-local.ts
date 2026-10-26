@@ -14,7 +14,12 @@ import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 
 import { DATA_DIR, LOCAL_DB, localEnv, MAIL_OUTBOX, ROOT } from "./local-env";
-import { DEV_PASSWORD, SEED_TENANTS, SEED_USERS } from "./seed-data";
+import {
+	DEV_PASSWORD,
+	SEED_TENANTS,
+	SEED_USERS,
+	type SeedTenant,
+} from "./seed-data";
 
 Object.assign(process.env, localEnv());
 
@@ -27,6 +32,37 @@ async function migrated(file: string, folder: string): Promise<Client> {
 	const client = createClient({ url: `file:${file}` });
 	await migrate(drizzle(client), { migrationsFolder: path.join(ROOT, folder) });
 	return client;
+}
+
+type TenantSchema = typeof import("~/server/db/schema");
+type SeedTenantDefaults =
+	typeof import("~/server/lib/tenant-seed").seedTenantDefaults;
+
+/** Demo data inside one tenant DB: defaults, drinks and the bill sender. */
+async function seedTenantData(
+	tdb: ReturnType<typeof drizzle<TenantSchema>>,
+	t: SeedTenant,
+	tenant: TenantSchema,
+	seedTenantDefaults: SeedTenantDefaults,
+) {
+	await seedTenantDefaults(tdb);
+	await tdb.update(tenant.kasseConfig).set({ markupPercent: t.markupPercent });
+	await tdb.update(tenant.semesterConfig).set({ name: "Lokales Semester" });
+	for (const d of t.drinks) {
+		await tdb.insert(tenant.drinks).values({
+			id: d.id,
+			name: d.name,
+			price: d.price,
+			isCurrentlyAvailable: d.available ?? true,
+		});
+	}
+	if (t.billing) {
+		const { iban, bic, bankName, ...profile } = t.billing;
+		await tdb.insert(tenant.getraenkeBillingConfig).values(profile);
+		await tdb
+			.insert(tenant.kontos)
+			.values({ kasseType: "Getränkekasse", iban, bic, bankName });
+	}
 }
 
 async function main() {
@@ -88,19 +124,7 @@ async function main() {
 				.values({ tenantId: t.id, key, enabled: true });
 		}
 
-		await seedTenantDefaults(tdb);
-		await tdb
-			.update(tenant.kasseConfig)
-			.set({ markupPercent: t.markupPercent });
-		await tdb.update(tenant.semesterConfig).set({ name: "Lokales Semester" });
-		for (const d of t.drinks) {
-			await tdb.insert(tenant.drinks).values({
-				id: d.id,
-				name: d.name,
-				price: d.price,
-				isCurrentlyAvailable: d.available ?? true,
-			});
-		}
+		await seedTenantData(tdb, t, tenant, seedTenantDefaults);
 	}
 
 	const passwordHash = await bcrypt.hash(DEV_PASSWORD, 12);

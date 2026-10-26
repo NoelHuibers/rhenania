@@ -18,6 +18,16 @@ export type SeedTenant = {
 		price: number;
 		available?: boolean;
 	}>;
+	/** Bill sender and Getränkekasse account (#9). Without it billing is refused. */
+	billing?: {
+		senderName: string;
+		senderStreet: string;
+		senderCity: string;
+		accountHolder: string;
+		iban: string;
+		bic: string;
+		bankName: string;
+	};
 };
 
 export const SEED_TENANTS: SeedTenant[] = [
@@ -35,6 +45,16 @@ export const SEED_TENANTS: SeedTenant[] = [
 			{ id: "drink-rh-wasser", name: "Wasser", price: 0.6 },
 			{ id: "drink-rh-radler", name: "Radler", price: 1.2, available: false },
 		],
+		billing: {
+			senderName: "Corps Rhenania Stuttgart (lokal)",
+			senderStreet: "Musterstraße 1",
+			senderCity: "70173 Stuttgart",
+			accountHolder: "Getränkekasse Rhenania (lokal)",
+			// Test IBAN with a valid checksum, not a real account.
+			iban: "DE89370400440532013000",
+			bic: "COBADEFFXXX",
+			bankName: "Testbank",
+		},
 	},
 	{
 		id: "tenant-hassia",
