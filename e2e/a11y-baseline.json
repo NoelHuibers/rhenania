@@ -1,48 +1,28 @@
 {
 	"admin": {
-		"button-name": 10,
-		"color-contrast": 9,
 		"target-size": 1
 	},
 	"cc-kasse": {
-		"color-contrast": 1,
 		"target-size": 1
 	},
 	"forgot-password": {},
 	"getraenkewart": {
-		"color-contrast": 1,
 		"label-content-name-mismatch": 1
 	},
-	"getraenkewart-kasse": {
-		"aria-allowed-attr": 3,
-		"button-name": 4,
-		"color-contrast": 4
-	},
+	"getraenkewart-kasse": {},
 	"landing-hassia": {
 		"list": 1
 	},
 	"landing-rhenania": {
 		"color-contrast": 4
 	},
-	"leaderboard": {
-		"color-contrast": 1
-	},
-	"profile": {
-		"color-contrast": 3
-	},
-	"rechnungen": {
-		"color-contrast": 1
-	},
-	"semesterprogramm": {
-		"color-contrast": 26
-	},
+	"leaderboard": {},
+	"profile": {},
+	"rechnungen": {},
+	"semesterprogramm": {},
 	"signin": {
 		"target-size": 1
 	},
-	"trinken": {
-		"color-contrast": 11
-	},
-	"trinken-hassia": {
-		"color-contrast": 5
-	}
+	"trinken": {},
+	"trinken-hassia": {}
 }

@@ -11,6 +11,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -20,8 +21,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { formatEur } from "~/lib/cc-kasse-format";
 import { parseDecimalInput } from "~/lib/decimal";
+import { formatDate, formatEUR } from "~/lib/format";
 import {
 	createKostenpunkt,
 	type KostenpunktWithPositions,
@@ -223,7 +224,7 @@ export function KostenpunktDialog({
 								<SelectItem value={NO_EVENT}>Keine</SelectItem>
 								{events.map((ev) => (
 									<SelectItem key={ev.id} value={ev.id}>
-										{ev.title} ({new Date(ev.date).toLocaleDateString("de-DE")})
+										{ev.title} ({formatDate(ev.date)})
 									</SelectItem>
 								))}
 							</SelectContent>
@@ -276,27 +277,26 @@ export function KostenpunktDialog({
 									onChange={(e) => setPos(i, "einnahmen", e.target.value)}
 									placeholder="Einnahmen €"
 								/>
-								<Button
+								<IconButton
+									label="Position entfernen"
 									type="button"
-									variant="ghost"
-									size="icon"
 									onClick={() => removePos(i)}
 									disabled={positions.length === 1}
 									className="col-span-2 justify-self-end sm:col-span-1 sm:justify-self-auto"
 								>
 									<Trash2 className="h-4 w-4" />
-								</Button>
+								</IconButton>
 							</div>
 						))}
 
 						<div className="flex justify-end gap-6 border-t pt-2 text-sm">
 							<span>
 								Budget:{" "}
-								<span className="font-semibold">{formatEur(budgetSum)}</span>
+								<span className="font-semibold">{formatEUR(budgetSum)}</span>
 							</span>
 							<span>
 								Einnahmen:{" "}
-								<span className="font-semibold">{formatEur(incomeSum)}</span>
+								<span className="font-semibold">{formatEUR(incomeSum)}</span>
 							</span>
 						</div>
 					</div>

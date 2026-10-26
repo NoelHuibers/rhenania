@@ -9,6 +9,7 @@ import {
 	TrendingUp,
 	Trophy,
 } from "lucide-react";
+import { formatDate } from "~/lib/format";
 
 type NullableDate = Date | string | null;
 
@@ -60,16 +61,11 @@ function KPIStatCard({
 	);
 }
 
-function formatDateDE(value: NullableDate) {
+function formatLastGame(value: NullableDate) {
 	if (!value) {
 		return "Nie";
 	}
-	const d = new Date(value);
-	return d.toLocaleDateString("de-DE", {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-	});
+	return formatDate(value, "short");
 }
 
 export function KPIGrid({
@@ -90,7 +86,7 @@ export function KPIGrid({
 					{eloTrend !== 0 && (
 						<span
 							className={`inline-flex items-center gap-1 font-medium text-sm ${
-								eloTrend > 0 ? "text-green-600" : "text-red-600"
+								eloTrend > 0 ? "text-success" : "text-destructive"
 							}`}
 						>
 							{eloTrend > 0 ? (
@@ -106,7 +102,7 @@ export function KPIGrid({
 			{/* Peak Elo */}
 			<KPIStatCard
 				icon={Trophy}
-				iconClassName="text-yellow-500"
+				iconClassName="text-warning-muted-foreground"
 				label="Maximale Steilheit"
 			>
 				<p className="font-semibold text-xl">{userStats.peakElo}</p>
@@ -115,22 +111,18 @@ export function KPIGrid({
 			{/* Gesamtspiele */}
 			<KPIStatCard
 				icon={Swords}
-				iconClassName="text-blue-500"
+				iconClassName="text-info"
 				label="Anzahl Schnelle"
 			>
 				<p className="font-semibold text-xl">{userStats.totalGames}</p>
 			</KPIStatCard>
 
 			{/* Win Rate */}
-			<KPIStatCard
-				icon={Target}
-				iconClassName="text-green-600"
-				label="Win Rate"
-			>
-				<p className="font-semibold text-green-600 text-xl">{winRate}%</p>
+			<KPIStatCard icon={Target} iconClassName="text-success" label="Win Rate">
+				<p className="font-semibold text-success text-xl">{winRate}%</p>
 				<div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
 					<div
-						className="h-full rounded-full bg-green-500 transition-all duration-500"
+						className="h-full rounded-full bg-success text-success-foreground transition-all duration-500"
 						style={{ width: `${winRate}%` }}
 					/>
 				</div>
@@ -143,9 +135,9 @@ export function KPIGrid({
 				label="W / L"
 			>
 				<p className="font-semibold text-xl">
-					<span className="text-green-600">{userStats.wins}</span>
+					<span className="text-success">{userStats.wins}</span>
 					<span className="mx-1 text-muted-foreground">/</span>
-					<span className="text-red-600">{userStats.losses}</span>
+					<span className="text-destructive">{userStats.losses}</span>
 				</p>
 			</KPIStatCard>
 
@@ -156,7 +148,7 @@ export function KPIGrid({
 				label="Letztes Schnelles"
 			>
 				<p className="font-medium text-sm">
-					{formatDateDE(userStats.lastGameAt)}
+					{formatLastGame(userStats.lastGameAt)}
 				</p>
 			</KPIStatCard>
 		</div>

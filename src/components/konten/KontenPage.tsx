@@ -17,6 +17,7 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -81,9 +82,9 @@ function KontoForm({
 				<CardTitle className="text-base">
 					{isEditing ? "Konto bearbeiten" : "Neues Konto"}
 				</CardTitle>
-				<Button variant="ghost" size="icon" onClick={onClose}>
+				<IconButton label="Formular schließen" onClick={onClose}>
 					<X className="h-4 w-4" />
-				</Button>
+				</IconButton>
 			</CardHeader>
 			<CardContent>
 				<form onSubmit={onSubmit} className="space-y-4">
@@ -230,18 +231,17 @@ function KontoCard({
 					)}
 				</div>
 				<div className="flex shrink-0 gap-1">
-					<Button variant="ghost" size="icon" onClick={() => onEdit(konto)}>
+					<IconButton label="Kasse bearbeiten" onClick={() => onEdit(konto)}>
 						<Pencil className="h-4 w-4" />
-					</Button>
+					</IconButton>
 					{isAdmin && (
-						<Button
-							variant="ghost"
-							size="icon"
+						<IconButton
+							label="Kasse löschen"
 							onClick={() => onDelete(konto.id)}
 							className="text-destructive hover:text-destructive"
 						>
 							<Trash2 className="h-4 w-4" />
-						</Button>
+						</IconButton>
 					)}
 				</div>
 			</CardContent>
@@ -362,7 +362,7 @@ export function KontenPage({
 						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={confirmDelete}
-							className="bg-destructive text-white hover:bg-destructive/90"
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 						>
 							Löschen
 						</AlertDialogAction>

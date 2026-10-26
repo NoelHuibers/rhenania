@@ -35,7 +35,6 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "~/components/ui/alert-dialog";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import {
@@ -43,6 +42,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "~/components/ui/collapsible";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import {
 	Dialog,
 	DialogContent,
@@ -59,8 +59,10 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { BillStatusBadge, statusClass } from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -71,6 +73,8 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { parseDecimalInput } from "~/lib/decimal";
+import { formatDate, formatDecimalInput, formatEUR } from "~/lib/format";
+import { billStatusStyle } from "~/lib/status";
 import {
 	createNewBilling,
 	updateBillStatus,
@@ -153,17 +157,6 @@ type Props = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fmt(amount: number) {
-	return `${amount.toFixed(2).replace(".", ",")} €`;
-}
-
-function fmtDate(date: Date | null) {
-	if (!date) {
-		return "—";
-	}
-	return new Date(date).toLocaleDateString("de-DE");
-}
-
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 function SummarySection({
@@ -175,9 +168,7 @@ function SummarySection({
 }) {
 	const router = useRouter();
 	const [editingPfand, setEditingPfand] = useState(false);
-	const [pfandInput, setPfandInput] = useState(
-		pfandWert.toFixed(2).replace(".", ","),
-	);
+	const [pfandInput, setPfandInput] = useState(formatDecimalInput(pfandWert));
 	const [isPending, startTransition] = useTransition();
 
 	function handleSavePfand() {
@@ -200,40 +191,40 @@ function SummarySection({
 	const supportingCards = [
 		{
 			label: "Kassenstand",
-			value: fmt(summary.kassenstand),
+			value: formatEUR(summary.kassenstand),
 			icon: Euro,
-			color: "text-blue-600",
+			color: "text-info",
 		},
 		{
 			label: "Lagerwert",
-			value: fmt(summary.lagerwert),
+			value: formatEUR(summary.lagerwert),
 			icon: Warehouse,
 			sub: summary.lagerwertDate
-				? `Letzte Inventur: ${fmtDate(summary.lagerwertDate)}`
+				? `Letzte Inventur: ${formatDate(summary.lagerwertDate)}`
 				: "Keine Inventur",
-			color: "text-orange-500",
+			color: "text-warning-muted-foreground",
 		},
 		{
 			label: "Offene Mitgliederrechnungen",
-			value: fmt(summary.offeneMitglieder),
+			value: formatEUR(summary.offeneMitglieder),
 			icon: Users,
-			color: "text-yellow-600",
+			color: "text-warning-muted-foreground",
 		},
 		{
 			label: "Offene Gruppenrechnungen",
-			value: fmt(summary.offeneGruppen),
+			value: formatEUR(summary.offeneGruppen),
 			icon: Receipt,
 			color: "text-purple-600",
 		},
 		{
 			label: "Externe Verbindlichkeiten",
-			value: fmt(summary.externOffen),
+			value: formatEUR(summary.externOffen),
 			icon: Building2,
-			color: "text-red-600",
+			color: "text-destructive",
 		},
 	];
 
-	const gesamtColor = summary.gesamt >= 0 ? "text-green-600" : "text-red-600";
+	const gesamtColor = summary.gesamt >= 0 ? "text-success" : "text-destructive";
 
 	return (
 		<div className="flex flex-col gap-3">
@@ -243,7 +234,7 @@ function SummarySection({
 					<div>
 						<p className="text-muted-foreground text-sm">Gesamtvermögen</p>
 						<p className={`font-bold text-3xl ${gesamtColor}`}>
-							{fmt(summary.gesamt)}
+							{formatEUR(summary.gesamt)}
 						</p>
 					</div>
 					<Euro className={`size-10 ${gesamtColor}`} />
@@ -273,7 +264,7 @@ function SummarySection({
 				{/* Pfand card — inline editable */}
 				<Card>
 					<CardContent className="flex items-center gap-3 p-4">
-						<Package className="size-5 shrink-0 text-green-600" />
+						<Package className="size-5 shrink-0 text-success" />
 						<div className="min-w-0 flex-1">
 							<p className="text-muted-foreground text-xs">Pfandguthaben</p>
 							{editingPfand ? (
@@ -282,8 +273,9 @@ function SummarySection({
 										inputMode="decimal"
 										value={pfandInput}
 										onChange={(e) => setPfandInput(e.target.value)}
-										className="h-7 w-28 text-sm"
+										className="h-8 w-28 text-sm"
 										placeholder="0,00"
+										aria-label="Pfandwert in Euro"
 										autoFocus
 										onKeyDown={(e) => {
 											if (e.key === "Enter") {
@@ -294,38 +286,35 @@ function SummarySection({
 											}
 										}}
 									/>
-									<Button
-										size="icon"
-										variant="ghost"
-										className="size-6"
+									<IconButton
+										label="Pfandwert speichern"
+										size="icon-sm"
 										onClick={handleSavePfand}
 										disabled={isPending}
 									>
-										<CheckCircle className="size-3.5 text-green-600" />
-									</Button>
-									<Button
-										size="icon"
-										variant="ghost"
-										className="size-6"
+										<CheckCircle className="text-success" />
+									</IconButton>
+									<IconButton
+										label="Bearbeiten abbrechen"
+										size="icon-sm"
 										onClick={() => setEditingPfand(false)}
 										disabled={isPending}
 									>
-										<X className="size-3.5" />
-									</Button>
+										<X />
+									</IconButton>
 								</div>
 							) : (
 								<div className="flex items-center gap-2">
-									<p className="font-bold text-green-600 text-lg">
-										{fmt(summary.pfand)}
+									<p className="font-bold text-lg text-success">
+										{formatEUR(summary.pfand)}
 									</p>
-									<Button
-										size="icon"
-										variant="ghost"
-										className="size-6"
+									<IconButton
+										label="Pfandwert bearbeiten"
+										size="icon-sm"
 										onClick={() => setEditingPfand(true)}
 									>
-										<Pencil className="size-3 text-muted-foreground" />
-									</Button>
+										<Pencil className="text-muted-foreground" />
+									</IconButton>
 								</div>
 							)}
 						</div>
@@ -382,7 +371,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 				toast.success("Eintrag gelöscht");
 				router.refresh();
 			} else {
-				toast.error("Fehler beim Löschen");
+				toast.error(res.error ?? "Fehler beim Löschen");
 			}
 		});
 	}
@@ -404,42 +393,44 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 						</DialogHeader>
 						<div className="grid gap-4 py-2">
 							<div className="grid gap-1.5">
-								<Label>Aktueller Kontostand (€)</Label>
+								<Label htmlFor="bank-balance">Aktueller Kontostand (€)</Label>
 								<Input
+									id="bank-balance"
 									inputMode="decimal"
 									placeholder="z. B. 1250,00"
 									value={amount}
 									onChange={(e) => setAmount(e.target.value)}
 								/>
 								<p className="text-muted-foreground text-xs">
-									Differenz zum letzten Stand ({fmt(balance)}):{" "}
+									Differenz zum letzten Stand ({formatEUR(balance)}):{" "}
 									{diff === null ? (
 										"—"
 									) : (
 										<span
 											className={
 												diff >= 0
-													? "font-medium text-green-600"
-													: "font-medium text-red-600"
+													? "font-medium text-success"
+													: "font-medium text-destructive"
 											}
 										>
-											{diff >= 0 ? "+" : ""}
-											{fmt(diff)}
+											{formatEUR(diff, { signed: true })}
 										</span>
 									)}
 								</p>
 							</div>
 							<div className="grid gap-1.5">
-								<Label>Beschreibung</Label>
+								<Label htmlFor="bank-description">Beschreibung</Label>
 								<Input
+									id="bank-description"
 									placeholder="z. B. Kontostand 04.04."
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 								/>
 							</div>
 							<div className="grid gap-1.5">
-								<Label>Datum</Label>
+								<Label htmlFor="bank-date">Datum</Label>
 								<Input
+									id="bank-date"
 									type="date"
 									value={date}
 									onChange={(e) => setDate(e.target.value)}
@@ -476,13 +467,13 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 							{entries.map((e) => (
 								<TableRow key={e.id}>
 									<TableCell className="hidden text-sm sm:table-cell">
-										{fmtDate(e.date)}
+										{formatDate(e.date)}
 									</TableCell>
 									<TableCell className="text-sm">{e.description}</TableCell>
 									<TableCell className="text-right font-medium text-sm">
 										<span
 											className={
-												e.amount >= 0 ? "text-green-600" : "text-red-600"
+												e.amount >= 0 ? "text-success" : "text-destructive"
 											}
 										>
 											{e.amount >= 0 ? (
@@ -490,19 +481,22 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 											) : (
 												<ArrowDownCircle className="mr-1 inline size-3.5" />
 											)}
-											{fmt(e.amount)}
+											{formatEUR(e.amount)}
 										</span>
 									</TableCell>
 									<TableCell>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="size-7"
-											disabled={isPending}
-											onClick={() => handleDelete(e.id)}
+										<ConfirmAction
+											title="Kasseneintrag löschen?"
+											description={`„${e.description}“ (${formatEUR(e.amount)}) wird aus dem Kassenstandverlauf entfernt. Das lässt sich nicht rückgängig machen.`}
+											onConfirm={() => handleDelete(e.id)}
 										>
-											<Trash2 className="size-3.5 text-red-500" />
-										</Button>
+											<IconButton
+												label={`Eintrag „${e.description}“ löschen`}
+												disabled={isPending}
+											>
+												<Trash2 className="text-destructive" />
+											</IconButton>
+										</ConfirmAction>
 									</TableCell>
 								</TableRow>
 							))}
@@ -519,9 +513,9 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 									Aktueller Stand
 								</TableCell>
 								<TableCell
-									className={`text-right font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}
+									className={`text-right font-bold ${balance >= 0 ? "text-success" : "text-destructive"}`}
 								>
-									{fmt(balance)}
+									{formatEUR(balance)}
 								</TableCell>
 								<TableCell />
 							</TableRow>
@@ -552,29 +546,28 @@ function CollapsibleCard({
 	return (
 		<Card>
 			<Collapsible open={open} onOpenChange={setOpen}>
-				<CollapsibleTrigger asChild>
-					<CardHeader className="flex cursor-pointer flex-row items-center justify-between transition-colors hover:bg-muted/50">
-						<div className="flex items-center gap-2">
-							<CardTitle className="text-base">{title}</CardTitle>
-							{meta}
-						</div>
-						<div className="flex items-center gap-2">
-							{action}
-							<Button
-								variant="ghost"
-								size="icon"
-								className="size-7"
-								tabIndex={-1}
-							>
-								{open ? (
-									<ChevronUp className="size-4" />
-								) : (
-									<ChevronDown className="size-4" />
-								)}
-							</Button>
-						</div>
-					</CardHeader>
-				</CollapsibleTrigger>
+				<CardHeader className="flex flex-row items-center justify-between gap-2 transition-colors hover:bg-muted/50">
+					{/* The title is the toggle (a real button, so it works with the
+					    keyboard); the chevron repeats it for the mouse only. */}
+					<CollapsibleTrigger className="-m-1 flex min-h-9 flex-1 cursor-pointer items-center gap-2 rounded-md p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+						<span className="font-heading font-medium text-base">{title}</span>
+						{meta}
+					</CollapsibleTrigger>
+					<div className="flex items-center gap-2">
+						{action}
+						<CollapsibleTrigger
+							tabIndex={-1}
+							aria-hidden
+							className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-muted"
+						>
+							{open ? (
+								<ChevronUp className="size-4" />
+							) : (
+								<ChevronDown className="size-4" />
+							)}
+						</CollapsibleTrigger>
+					</div>
+				</CardHeader>
 				<CollapsibleContent>
 					<CardContent className="p-0">{children}</CardContent>
 				</CollapsibleContent>
@@ -588,16 +581,7 @@ function CollapsibleCard({
 type BillStatus = "Bezahlt" | "Unbezahlt" | "Gestundet";
 
 function billStatusClass(status: string) {
-	switch (status) {
-		case "Bezahlt":
-			return "border-emerald-300 text-emerald-700 dark:text-emerald-300";
-		case "Gestundet":
-			return "border-amber-300 text-amber-700 dark:text-amber-300";
-		case "Übertragen":
-			return "border-slate-300 text-slate-600 dark:text-slate-300";
-		default:
-			return "border-red-300 text-red-700 dark:text-red-300";
-	}
+	return statusClass(billStatusStyle(status));
 }
 
 function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
@@ -645,7 +629,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 			meta={
 				bills.length > 0 ? (
 					<span className="text-muted-foreground text-xs">
-						{bills.length} • {fmt(total)}
+						{bills.length} • {formatEUR(total)}
 					</span>
 				) : undefined
 			}
@@ -670,8 +654,8 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 								</AlertDialogTitle>
 								<AlertDialogDescription>
 									{bills.length} offene Mitgliederrechnungen über insgesamt{" "}
-									{fmt(total)} werden auf „Bezahlt" gesetzt, auch gestundete.
-									Gruppenrechnungen bleiben unverändert.
+									{formatEUR(total)} werden auf „Bezahlt" gesetzt, auch
+									gestundete. Gruppenrechnungen bleiben unverändert.
 								</AlertDialogDescription>
 							</AlertDialogHeader>
 							<AlertDialogFooter>
@@ -705,7 +689,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 									{b.userName}
 								</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
-									{fmt(b.total)}
+									{formatEUR(b.total)}
 								</TableCell>
 								<TableCell className="text-right">
 									<DropdownMenu>
@@ -747,7 +731,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 						<TableRow>
 							<TableCell className="font-semibold">Gesamt</TableCell>
 							<TableCell className="text-right font-bold">
-								{fmt(total)}
+								{formatEUR(total)}
 							</TableCell>
 							<TableCell />
 						</TableRow>
@@ -840,13 +824,16 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 						{[...unpaid, ...paid].map((b) => (
 							<TableRow
 								key={b.id}
-								className={b.status !== "Unbezahlt" ? "opacity-50" : ""}
+								// Settled rows recede without dropping below 4.5:1 (opacity did).
+								className={
+									b.status !== "Unbezahlt" ? "text-muted-foreground" : ""
+								}
 							>
 								<TableCell className="font-medium text-sm">
 									{b.userName}
 								</TableCell>
 								<TableCell className="hidden text-sm sm:table-cell">
-									{fmtDate(b.createdAt)}
+									{formatDate(b.createdAt)}
 								</TableCell>
 								<TableCell>
 									<DropdownMenu>
@@ -882,19 +869,17 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 									</DropdownMenu>
 								</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
-									{fmt(b.total)}
+									{formatEUR(b.total)}
 								</TableCell>
 								<TableCell>
-									<Button
-										size="icon"
-										variant="ghost"
-										className="size-7"
+									<IconButton
+										size="icon-sm"
+										label={`PDF für ${b.userName} herunterladen`}
 										disabled={downloading === b.id}
 										onClick={() => handleDownload(b)}
-										aria-label={`PDF für ${b.userName} herunterladen`}
 									>
 										<Download className="size-3.5" />
-									</Button>
+									</IconButton>
 								</TableCell>
 							</TableRow>
 						))}
@@ -945,6 +930,8 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			if (res.success) {
 				toast.success("Als bezahlt markiert");
 				router.refresh();
+			} else {
+				toast.error(res.error ?? "Status konnte nicht geändert werden");
 			}
 		});
 	}
@@ -955,6 +942,8 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			if (res.success) {
 				toast.success("Gelöscht");
 				router.refresh();
+			} else {
+				toast.error(res.error ?? "Fehler beim Löschen");
 			}
 		});
 	}
@@ -969,7 +958,7 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			meta={
 				openBills.length > 0 ? (
 					<span className="text-muted-foreground text-xs">
-						{openBills.length} offen • {fmt(openTotal)}
+						{openBills.length} offen • {formatEUR(openTotal)}
 					</span>
 				) : undefined
 			}
@@ -991,24 +980,27 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 						</DialogHeader>
 						<div className="grid gap-4 py-2">
 							<div className="grid gap-1.5">
-								<Label>Gläubiger</Label>
+								<Label htmlFor="ext-creditor">Gläubiger</Label>
 								<Input
+									id="ext-creditor"
 									placeholder="z. B. Getränke Hartmann"
 									value={creditor}
 									onChange={(e) => setCreditor(e.target.value)}
 								/>
 							</div>
 							<div className="grid gap-1.5">
-								<Label>Beschreibung</Label>
+								<Label htmlFor="ext-description">Beschreibung</Label>
 								<Input
+									id="ext-description"
 									placeholder="z. B. Lieferung April"
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 								/>
 							</div>
 							<div className="grid gap-1.5">
-								<Label>Betrag (€)</Label>
+								<Label htmlFor="ext-amount">Betrag (€)</Label>
 								<Input
+									id="ext-amount"
 									inputMode="decimal"
 									placeholder="0,00"
 									value={amount}
@@ -1046,7 +1038,9 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 						{[...openBills, ...paidBills].map((b) => (
 							<TableRow
 								key={b.id}
-								className={b.status === "Bezahlt" ? "opacity-50" : ""}
+								className={
+									b.status === "Bezahlt" ? "text-muted-foreground" : ""
+								}
 							>
 								<TableCell className="font-medium text-sm">
 									{b.creditor}
@@ -1055,41 +1049,34 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 									{b.description}
 								</TableCell>
 								<TableCell className="text-right font-semibold text-sm">
-									{fmt(b.amount)}
+									{formatEUR(b.amount)}
 								</TableCell>
 								<TableCell>
-									<Badge
-										variant={
-											b.status === "Bezahlt" ? "secondary" : "destructive"
-										}
-									>
-										{b.status}
-									</Badge>
+									<BillStatusBadge status={b.status} />
 								</TableCell>
 								<TableCell>
 									<div className="flex gap-1">
 										{b.status === "Offen" && (
-											<Button
-												variant="ghost"
-												size="icon"
-												className="size-7"
+											<IconButton
+												label={`${b.creditor} als bezahlt markieren`}
 												disabled={isPending}
 												onClick={() => handlePaid(b.id)}
-												aria-label="Als bezahlt markieren"
 											>
-												<CheckCircle className="size-3.5 text-green-500" />
-											</Button>
+												<CheckCircle className="text-success" />
+											</IconButton>
 										)}
-										<Button
-											variant="ghost"
-											size="icon"
-											className="size-7"
-											disabled={isPending}
-											onClick={() => handleDelete(b.id)}
-											aria-label="Löschen"
+										<ConfirmAction
+											title="Verbindlichkeit löschen?"
+											description={`${b.creditor}: ${b.description} (${formatEUR(b.amount)}) wird gelöscht. Das lässt sich nicht rückgängig machen.`}
+											onConfirm={() => handleDelete(b.id)}
 										>
-											<Trash2 className="size-3.5 text-red-500" />
-										</Button>
+											<IconButton
+												label={`Verbindlichkeit ${b.creditor} löschen`}
+												disabled={isPending}
+											>
+												<Trash2 className="text-destructive" />
+											</IconButton>
+										</ConfirmAction>
 									</div>
 								</TableCell>
 							</TableRow>

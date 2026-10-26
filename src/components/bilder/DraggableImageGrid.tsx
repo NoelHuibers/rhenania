@@ -23,7 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { Loader2, Trash2 } from "lucide-react";
 import { useCallback, useState } from "react";
-import { Button } from "~/components/ui/button";
+import { IconButton } from "~/components/ui/icon-button";
 import type { ImageItem } from "./OptimizedImagePreview";
 
 interface SortableImageItemProps {
@@ -104,7 +104,7 @@ const SortableImageItem = ({
 					sizeClasses[size]
 				} cursor-move overflow-hidden rounded-lg border-2 transition-all ${
 					image.isActive
-						? "border-green-500 shadow-lg"
+						? "border-success shadow-lg"
 						: "border-border opacity-75"
 				}
         ${isDeleting ? "scale-95 opacity-50" : ""}
@@ -115,16 +115,18 @@ const SortableImageItem = ({
 				onKeyDown={handleToggleKeyDown}
 			>
 				{/* Image with loading states */}
-				<div className="pointer-events-none relative h-full w-full bg-gray-100">
+				<div className="pointer-events-none relative h-full w-full bg-muted">
 					{!imageLoaded && !imageError && (
 						<div className="absolute inset-0 flex items-center justify-center">
-							<Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+							<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
 						</div>
 					)}
 
 					{imageError ? (
-						<div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-							<span className="text-gray-500 text-sm">Fehler beim Laden</span>
+						<div className="absolute inset-0 flex items-center justify-center bg-muted">
+							<span className="text-muted-foreground text-sm">
+								Fehler beim Laden
+							</span>
 						</div>
 					) : (
 						// biome-ignore lint/performance/noImgElement: drag-and-drop context requires native img
@@ -146,7 +148,7 @@ const SortableImageItem = ({
 				<div
 					className={`pointer-events-none absolute top-2 right-2 rounded px-2 py-1 font-medium text-xs ${
 						image.isActive
-							? "bg-green-500 text-white"
+							? "bg-success text-success-foreground"
 							: "bg-gray-500 text-white"
 					}`}
 				>
@@ -154,19 +156,20 @@ const SortableImageItem = ({
 				</div>
 
 				{/* Delete button - Always visible on hover */}
-				<Button
-					size="icon"
+				<IconButton
+					size="icon-sm"
+					label="Bild löschen"
 					variant="destructive"
 					onClick={handleDeleteClick}
 					disabled={isDeleting}
-					className="absolute right-2 bottom-2 z-50 h-8 w-8 cursor-pointer"
+					className="absolute right-2 bottom-2 z-50 cursor-pointer"
 				>
 					{isDeleting ? (
 						<Loader2 className="h-4 w-4 animate-spin" />
 					) : (
 						<Trash2 className="h-4 w-4" />
 					)}
-				</Button>
+				</IconButton>
 
 				{/* Image name */}
 				<div className="pointer-events-none absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/80 to-transparent p-2">
@@ -283,7 +286,7 @@ export const DraggableImageGrid = ({
 									: size === "medium"
 										? "h-48 w-48"
 										: "h-64 w-full"
-							} overflow-hidden rounded-lg border-2 shadow-xl ${activeImage.isActive ? "border-green-500" : "border-border"}`}
+							} overflow-hidden rounded-lg border-2 shadow-xl ${activeImage.isActive ? "border-success" : "border-border"}`}
 						>
 							{/* biome-ignore lint/performance/noImgElement: drag overlay requires native img */}
 							<img
@@ -295,7 +298,7 @@ export const DraggableImageGrid = ({
 							<div
 								className={`absolute top-2 right-2 rounded px-2 py-1 font-medium text-xs ${
 									activeImage.isActive
-										? "bg-green-500 text-white"
+										? "bg-success text-success-foreground"
 										: "bg-gray-500 text-white"
 								}`}
 							>

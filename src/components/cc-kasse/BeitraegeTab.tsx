@@ -46,8 +46,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { formatEur } from "~/lib/cc-kasse-format";
 import { downloadBase64, PDF_MIME } from "~/lib/file-download";
+import { formatDate, formatEUR } from "~/lib/format";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
 import {
 	type BeitragRun,
@@ -63,7 +63,7 @@ import {
 	sendMahnungen,
 } from "~/server/actions/members/semesterbeitrag";
 import { BeitragRunDialog } from "./BeitragRunDialog";
-import { EmptyState, FilterChips, formatDate } from "./KasseUi";
+import { EmptyState, FilterChips } from "./KasseUi";
 
 type KpOption = { id: string; name: string; category: string };
 type ChargeFilter = "offen" | "Bezahlt" | "Gestundet" | "alle";
@@ -73,7 +73,7 @@ function chargeBadge(c: ChargeListItem) {
 		return (
 			<Badge
 				variant="outline"
-				className="border-emerald-200 bg-emerald-50 font-medium text-emerald-700 dark:border-emerald-500/25 dark:bg-emerald-500/10 dark:text-emerald-300"
+				className="border-success/40 bg-success-muted font-medium text-success-muted-foreground"
 			>
 				Bezahlt
 			</Badge>
@@ -83,7 +83,7 @@ function chargeBadge(c: ChargeListItem) {
 		return (
 			<Badge
 				variant="outline"
-				className="border-yellow-200 bg-yellow-50 font-medium text-yellow-700 dark:border-yellow-500/25 dark:bg-yellow-500/10 dark:text-yellow-300"
+				className="border-warning/40 bg-warning-muted font-medium text-warning-muted-foreground"
 			>
 				Gestundet
 			</Badge>
@@ -93,7 +93,7 @@ function chargeBadge(c: ChargeListItem) {
 		return (
 			<Badge
 				variant="outline"
-				className="border-red-200 bg-red-50 font-medium text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300"
+				className="border-danger/40 bg-danger-muted font-medium text-danger-muted-foreground"
 			>
 				Gemahnt
 			</Badge>
@@ -103,7 +103,7 @@ function chargeBadge(c: ChargeListItem) {
 		return (
 			<Badge
 				variant="outline"
-				className="border-amber-200 bg-amber-50 font-medium text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300"
+				className="border-warning/40 bg-warning-muted font-medium text-warning-muted-foreground"
 			>
 				Überfällig
 			</Badge>
@@ -285,10 +285,10 @@ export function BeitraegeTab({
 							<div>
 								<p className="text-muted-foreground text-sm">Eingenommen</p>
 								<p className="font-bold text-2xl tabular-nums tracking-tight sm:text-3xl">
-									{formatEur(totalPaid)}
+									{formatEUR(totalPaid)}
 								</p>
 								<p className="text-muted-foreground text-xs tabular-nums">
-									von {formatEur(totalExpected)} · fällig{" "}
+									von {formatEUR(totalExpected)} · fällig{" "}
 									{formatDate(run.dueDate)}
 								</p>
 							</div>
@@ -300,7 +300,7 @@ export function BeitraegeTab({
 							</div>
 						</div>
 						<Progress
-							className="mt-4 h-2.5 [&>[data-slot=progress-indicator]]:bg-emerald-500"
+							className="mt-4 h-2.5 [&>[data-slot=progress-indicator]]:bg-success"
 							value={charges.length ? (paid / charges.length) * 100 : 0}
 						/>
 						<div className="mt-4 flex flex-wrap gap-2">
@@ -405,9 +405,9 @@ export function BeitraegeTab({
 													{chargeBadge(c)}
 												</div>
 												<div className="text-muted-foreground text-xs tabular-nums">
-													{formatEur(c.total)}
+													{formatEUR(c.total)}
 													{c.mahnungAmount > 0 &&
-														` (inkl. ${formatEur(c.mahnungAmount)} Mahngebühr)`}
+														` (inkl. ${formatEUR(c.mahnungAmount)} Mahngebühr)`}
 													{!c.hasEmail && " · Brief nötig"}
 													{c.emailSentAt && " · Email gesendet"}
 												</div>

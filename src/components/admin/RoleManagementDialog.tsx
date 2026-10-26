@@ -86,7 +86,7 @@ export function RoleManagementDialog({
 										</p>
 									)}
 									{alreadyTaken && (
-										<p className="mt-1 flex items-center gap-1 text-amber-600 text-xs dark:text-amber-400">
+										<p className="mt-1 flex items-center gap-1 text-warning-muted-foreground text-xs">
 											<AlertTriangle className="h-3 w-3" />
 											Bereits vergeben an {holders[0]?.name}
 										</p>

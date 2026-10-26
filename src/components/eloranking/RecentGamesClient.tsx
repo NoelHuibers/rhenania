@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { formatDateTime, formatRelative } from "~/lib/format";
 import type { GameRecord } from "~/server/actions/game/game";
 
 interface RecentGamesClientProps {
@@ -26,25 +27,6 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 
 		return () => clearInterval(interval);
 	}, []);
-
-	const formatTimeAgo = (timestamp: Date | string) => {
-		const gameDate =
-			typeof timestamp === "string" ? new Date(timestamp) : timestamp;
-		const diffInMinutes = Math.floor(
-			(currentTime.getTime() - gameDate.getTime()) / (1000 * 60),
-		);
-
-		if (diffInMinutes < 1) {
-			return "Just now";
-		}
-		if (diffInMinutes < 60) {
-			return `${diffInMinutes}m ago`;
-		}
-		if (diffInMinutes < 1440) {
-			return `${Math.floor(diffInMinutes / 60)}h ago`;
-		}
-		return `${Math.floor(diffInMinutes / 1440)}d ago`;
-	};
 
 	return (
 		<Card>
@@ -69,18 +51,20 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 									<Badge variant="outline" className="text-xs">
 										{game.gameType}
 									</Badge>
-									<span className="text-muted-foreground text-xs">
-										{formatTimeAgo(game.playedAt)}
-									</span>
+									<time
+										dateTime={new Date(game.playedAt).toISOString()}
+										title={formatDateTime(game.playedAt)}
+										className="text-muted-foreground text-xs"
+									>
+										{formatRelative(game.playedAt, currentTime)}
+									</time>
 								</div>
 
 								<div className="space-y-3">
 									{/* Player 1 */}
 									<div
 										className={`flex items-center justify-between rounded p-2 ${
-											player1Won
-												? "bg-green-50 dark:bg-green-950/20"
-												: "bg-red-50 dark:bg-red-950/20"
+											player1Won ? "bg-success-muted" : "bg-danger-muted"
 										}`}
 									>
 										<Link
@@ -110,13 +94,15 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 										</Link>
 										<div className="flex items-center gap-2">
 											{player1Won && (
-												<Badge className="bg-green-500 text-xs">WIN</Badge>
+												<Badge variant="success" className="text-xs">
+													WIN
+												</Badge>
 											)}
 											<div
 												className={`flex items-center gap-1 font-medium text-sm ${
 													player1EloChange > 0
-														? "text-green-600"
-														: "text-red-600"
+														? "text-success"
+														: "text-destructive"
 												}`}
 											>
 												{player1EloChange > 0 ? (
@@ -137,9 +123,7 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 									{/* Player 2 */}
 									<div
 										className={`flex items-center justify-between rounded p-2 ${
-											!player1Won
-												? "bg-green-50 dark:bg-green-950/20"
-												: "bg-red-50 dark:bg-red-950/20"
+											!player1Won ? "bg-success-muted" : "bg-danger-muted"
 										}`}
 									>
 										<Link
@@ -169,13 +153,15 @@ export function RecentGamesClient({ games }: RecentGamesClientProps) {
 										</Link>
 										<div className="flex items-center gap-2">
 											{!player1Won && (
-												<Badge className="bg-green-500 text-xs">WIN</Badge>
+												<Badge variant="success" className="text-xs">
+													WIN
+												</Badge>
 											)}
 											<div
 												className={`flex items-center gap-1 font-medium text-sm ${
 													player2EloChange > 0
-														? "text-green-600"
-														: "text-red-600"
+														? "text-success"
+														: "text-destructive"
 												}`}
 											>
 												{player2EloChange > 0 ? (

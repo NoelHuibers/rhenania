@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { FuchsenwartPage } from "~/components/fuchsenladen/FuchsenwartPage";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { hasAnyRole } from "~/server/actions/admin/userRoles";
 import { auth } from "~/server/auth";
 
@@ -15,11 +14,7 @@ export default async function Page() {
 		redirect("/access-denied");
 	}
 
-	return (
-		<SidebarLayout>
-			<FuchsenwartPage />
-		</SidebarLayout>
-	);
+	return <FuchsenwartPage />;
 }
 
 export const metadata = {

@@ -1,4 +1,6 @@
 // utils.ts
+import type { StatusStyle } from "~/lib/status";
+
 export type StockStatusWithDetails = {
 	drinkId: string;
 	drinkName: string;
@@ -46,25 +48,31 @@ export function calculateLostValue(
 	return lost > 0 ? lost * item.currentPrice : 0;
 }
 
+export type StockStatus = StatusStyle & { label: string };
+
+/**
+ * Counted vs. expected stock as a label and a status style; the severity of a
+ * loss goes from a warning tint to a solid red.
+ */
 export function getStockStatus(
 	item: { calculatedStock: number },
 	actualStock: number,
-) {
+): StockStatus {
 	const difference = actualStock - item.calculatedStock;
 
 	// Handle impossible negative stock (surplus when calculated stock is negative)
 	if (item.calculatedStock < 0 && actualStock >= 0) {
-		return { label: "Überschuss", color: "bg-blue-500" };
+		return { label: "Überschuss", tone: "info" };
 	}
 
 	// Perfect match
 	if (difference === 0) {
-		return { label: "OK", color: "bg-green-500" };
+		return { label: "OK", tone: "success" };
 	}
 
 	// Surplus (more than expected)
 	if (difference > 0) {
-		return { label: "Überschuss", color: "bg-blue-500" };
+		return { label: "Überschuss", tone: "info" };
 	}
 
 	// Calculate loss percentage for better categorization
@@ -74,23 +82,23 @@ export function getStockStatus(
 
 		// Minor loss (up to 5%)
 		if (lossPercentage <= 5) {
-			return { label: "Toleranz", color: "bg-yellow-500" };
+			return { label: "Toleranz", tone: "warning" };
 		}
 
 		// Moderate loss (5-15%)
 		if (lossPercentage <= 15) {
-			return { label: "Warnung", color: "bg-orange-500" };
+			return { label: "Warnung", tone: "warning", strong: true };
 		}
 
 		// Significant loss (15-30%)
 		if (lossPercentage <= 30) {
-			return { label: "Verlust", color: "bg-red-500" };
+			return { label: "Verlust", tone: "danger" };
 		}
 
 		// Critical loss (>30%)
-		return { label: "Kritisch", color: "bg-red-700" };
+		return { label: "Kritisch", tone: "danger", strong: true };
 	}
 
 	// Fallback for edge cases (e.g., calculated stock is 0 but we have losses)
-	return { label: "Verlust", color: "bg-red-500" };
+	return { label: "Verlust", tone: "danger" };
 }

@@ -25,6 +25,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDate, formatEUR } from "~/lib/format";
 import { getUserOrders } from "~/server/actions/orders";
 
 type Order = {
@@ -45,13 +46,6 @@ export function RecentOrders() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const itemsPerPage = 5;
-
-	const dateFormatter = useMemo(() => new Intl.DateTimeFormat("de-DE"), []);
-	const currencyFormatter = useMemo(
-		() =>
-			new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }),
-		[],
-	);
 
 	const hasAnyFilter = useMemo(
 		() => showOutOfBillOnly || !!fromDate || !!toDate,
@@ -147,7 +141,7 @@ export function RecentOrders() {
 				</CardHeader>
 				<CardContent>
 					<div className="flex items-center justify-center py-8">
-						<p className="text-red-500">Fehler: {error}</p>
+						<p className="text-destructive">Fehler: {error}</p>
 					</div>
 				</CardContent>
 			</Card>
@@ -325,14 +319,12 @@ export function RecentOrders() {
 									<div className="flex items-start justify-between gap-3">
 										<div className="min-w-0">
 											<p className="text-muted-foreground text-sm">
-												{dateFormatter.format(d)}
+												{formatDate(d)}
 											</p>
 											<p className="truncate font-medium">{order.drinkName}</p>
 										</div>
 										<div className="text-right">
-											<p className="font-semibold">
-												{currencyFormatter.format(order.total)}
-											</p>
+											<p className="font-semibold">{formatEUR(order.total)}</p>
 											{order.inBill && (
 												<Badge variant="secondary" className="mt-1">
 													Abgerechnet
@@ -385,7 +377,7 @@ export function RecentOrders() {
 									return (
 										<TableRow key={order.id}>
 											<TableCell className="align-top">
-												{dateFormatter.format(d)}
+												{formatDate(d)}
 											</TableCell>
 											<TableCell className="align-top font-medium">
 												{order.drinkName}
@@ -394,7 +386,7 @@ export function RecentOrders() {
 												{order.amount}
 											</TableCell>
 											<TableCell className="text-right align-top">
-												{currencyFormatter.format(order.total)}
+												{formatEUR(order.total)}
 											</TableCell>
 											<TableCell className="align-top">
 												{order.inBill && (

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Switch } from "~/components/ui/switch";
@@ -15,6 +16,7 @@ import {
 	type FeatureFlags,
 	type FeatureKey,
 } from "~/lib/features";
+import { formatDate } from "~/lib/format";
 import {
 	type AuthConfigPatch,
 	addTenantDomainAction,
@@ -51,7 +53,7 @@ export function TenantDetail({ data }: { data: SuperadminTenantDetail }) {
 				<div className="text-muted-foreground text-sm">
 					<span className="font-mono">{data.tenant.slug}</span> ·{" "}
 					{data.memberCount} members · created{" "}
-					{data.tenant.createdAt.toLocaleDateString()}
+					{formatDate(data.tenant.createdAt)}
 				</div>
 				<div className="text-muted-foreground text-xs">
 					DB: <span className="font-mono">{data.tenant.dbUrl}</span>
@@ -131,7 +133,7 @@ function DisplayNameSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-4 font-medium">Display name</h2>
 			<div className="flex max-w-lg gap-2">
 				<Input
@@ -158,12 +160,6 @@ function StatusSection({
 	const isSuspending = next === "suspended";
 
 	const submit = () => {
-		const msg = isSuspending
-			? `Suspend tenant? Existing users will be locked out until reactivated.`
-			: `Reactivate tenant?`;
-		if (!confirm(msg)) {
-			return;
-		}
 		startTransition(async () => {
 			const r = await setTenantStatusAction(tenantId, next);
 			if (r.success) {
@@ -176,19 +172,31 @@ function StatusSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-4 font-medium">Status</h2>
 			<div className="flex items-center gap-3">
 				<span className="text-muted-foreground text-sm">
 					Current: {current}
 				</span>
-				<Button
-					variant={isSuspending ? "destructive" : "default"}
-					onClick={submit}
-					disabled={disabled}
+				<ConfirmAction
+					title={isSuspending ? "Suspend tenant?" : "Reactivate tenant?"}
+					description={
+						isSuspending
+							? "Existing users will be locked out until reactivated."
+							: undefined
+					}
+					confirmLabel={isSuspending ? "Suspend" : "Reactivate"}
+					cancelLabel="Cancel"
+					destructive={isSuspending}
+					onConfirm={submit}
 				>
-					{isSuspending ? "Suspend" : "Reactivate"}
-				</Button>
+					<Button
+						variant={isSuspending ? "destructive" : "default"}
+						disabled={disabled}
+					>
+						{isSuspending ? "Suspend" : "Reactivate"}
+					</Button>
+				</ConfirmAction>
 			</div>
 		</section>
 	);
@@ -216,7 +224,7 @@ function FeaturesSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-1 font-medium">Features</h2>
 			<p className="mb-4 text-muted-foreground text-sm">
 				Off by default. Changes reach all server instances within a minute.
@@ -275,9 +283,6 @@ function DomainsSection({
 	};
 
 	const remove = (id: string, host: string) => {
-		if (!confirm(`Remove domain ${host}?`)) {
-			return;
-		}
 		startTransition(async () => {
 			const r = await removeTenantDomainAction(tenantId, id);
 			if (r.success) {
@@ -290,7 +295,7 @@ function DomainsSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-4 font-medium">Domains</h2>
 			<ul className="mb-4 divide-y rounded border">
 				{domains.length === 0 && (
@@ -308,14 +313,16 @@ function DomainsSection({
 							{d.isPrimary && <Badge variant="default">primary</Badge>}
 							{!d.isCustom && <Badge variant="secondary">dev</Badge>}
 						</div>
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={() => remove(d.id, d.hostname)}
-							disabled={disabled}
+						<ConfirmAction
+							title={`Remove domain ${d.hostname}?`}
+							confirmLabel="Remove"
+							cancelLabel="Cancel"
+							onConfirm={() => remove(d.id, d.hostname)}
 						>
-							Remove
-						</Button>
+							<Button size="sm" variant="ghost" disabled={disabled}>
+								Remove
+							</Button>
+						</ConfirmAction>
 					</li>
 				))}
 			</ul>
@@ -395,7 +402,7 @@ function AuthConfigSection({
 	};
 
 	return (
-		<section className="rounded-md border bg-white p-6">
+		<section className="rounded-md border bg-card p-6">
 			<h2 className="mb-1 font-medium">Microsoft (Azure AD) sign-in</h2>
 			<p className="mb-4 text-muted-foreground text-xs">
 				Provider id: <code>microsoft-{slug}</code>. Register this redirect URI
@@ -476,7 +483,7 @@ function AuthConfigSection({
 					Save auth config
 				</Button>
 
-				<div className="rounded-md bg-amber-50 p-3 text-amber-900 text-xs">
+				<div className="rounded-md bg-warning-muted p-3 text-warning-muted-foreground text-xs">
 					Auth provider configs are loaded at server start. Restart the app
 					after changing these for them to take effect.
 				</div>

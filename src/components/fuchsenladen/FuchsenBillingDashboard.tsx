@@ -4,14 +4,13 @@ import { Download, Loader2, Receipt } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { BillingEntry } from "~/components/rechnungen/BillingDashboard";
-import {
-	BillingTable,
-	formatCurrency,
-} from "~/components/rechnungen/BillingTable";
+import { BillingTable } from "~/components/rechnungen/BillingTable";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { formatDate, formatEUR } from "~/lib/format";
 import { getUserRoles } from "~/server/actions/admin/userRoles";
 import {
 	type FuchsenBillingConfig,
@@ -156,7 +155,7 @@ function MemberBilling({ config }: { config: FuchsenBillingConfig }) {
 					</span>
 					{openTotal > 0 && (
 						<span className="font-bold text-base text-destructive">
-							{formatCurrency(openTotal)} offen
+							{formatEUR(openTotal)} offen
 						</span>
 					)}
 				</CardTitle>
@@ -223,16 +222,6 @@ function FuchsenwartBilling({
 	}, [loadAll]);
 
 	const handleRunBilling = async () => {
-		const unbilledTotal = unbilled.reduce((s, e) => s + e.totalDue, 0);
-		if (
-			!window.confirm(
-				`Neue Abrechnung für ${unbilled.length} Mitglied(er) über ${formatCurrency(
-					unbilledTotal,
-				)} erstellen? Die laufende Periode wird abgeschlossen.`,
-			)
-		) {
-			return;
-		}
 		setIsRunning(true);
 		try {
 			const result = await createNewFuchsenBilling();
@@ -315,21 +304,28 @@ function FuchsenwartBilling({
 							</CardTitle>
 							<p className="mt-1 text-muted-foreground text-sm">
 								Vorschau des nächsten Rechnungslaufs · Summe{" "}
-								{formatCurrency(unbilledTotal)}
+								{formatEUR(unbilledTotal)}
 							</p>
 						</div>
-						<Button
-							onClick={handleRunBilling}
-							disabled={isRunning || unbilled.length === 0}
-							className="gap-2"
+						<ConfirmAction
+							title="Neue Abrechnung erstellen?"
+							description={`Neue Abrechnung für ${unbilled.length} Mitglied(er) über ${formatEUR(unbilledTotal)}. Die laufende Periode wird abgeschlossen.`}
+							confirmLabel="Abrechnung erstellen"
+							destructive={false}
+							onConfirm={handleRunBilling}
 						>
-							{isRunning ? (
-								<Loader2 className="h-4 w-4 animate-spin" />
-							) : (
-								<Receipt className="h-4 w-4" />
-							)}
-							Rechnung erstellen
-						</Button>
+							<Button
+								disabled={isRunning || unbilled.length === 0}
+								className="gap-2"
+							>
+								{isRunning ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : (
+									<Receipt className="h-4 w-4" />
+								)}
+								Rechnung erstellen
+							</Button>
+						</ConfirmAction>
 					</CardHeader>
 					<CardContent>
 						<BillingTable
@@ -352,7 +348,7 @@ function FuchsenwartBilling({
 							</CardTitle>
 							<p className="mt-1 text-muted-foreground text-sm">
 								{currentPeriod
-									? `Gesamtbetrag ${formatCurrency(currentPeriod.totalAmount)}`
+									? `Gesamtbetrag ${formatEUR(currentPeriod.totalAmount)}`
 									: "Noch keine Abrechnung erstellt"}
 							</p>
 						</div>
@@ -391,8 +387,8 @@ function FuchsenwartBilling({
 									Rechnung {period.billNumber}
 								</CardTitle>
 								<p className="mt-1 text-muted-foreground text-sm">
-									{new Date(period.createdAt).toLocaleDateString("de-DE")} ·{" "}
-									{formatCurrency(period.totalAmount)}
+									{formatDate(period.createdAt)} ·{" "}
+									{formatEUR(period.totalAmount)}
 								</p>
 							</div>
 							<Button

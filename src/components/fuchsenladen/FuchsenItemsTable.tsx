@@ -14,6 +14,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatEUR } from "~/lib/format";
 import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
 
 export interface EditingData {
@@ -170,7 +171,7 @@ export function FuchsenItemsTable({
 											className="text-right"
 										/>
 									) : (
-										`€${item.price.toFixed(2)}`
+										formatEUR(item.price)
 									)}
 								</TableCell>
 								<TableCell className="text-center">

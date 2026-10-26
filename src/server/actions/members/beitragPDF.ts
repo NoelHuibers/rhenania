@@ -2,7 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
-import { formatEur } from "~/lib/cc-kasse-format";
+import { formatEUR } from "~/lib/format";
 import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db";
 import { kontos } from "~/server/db/schema";
@@ -111,14 +111,14 @@ export async function generateBeitragPDF(
 
 		const lines = isMahnung
 			? [
-					`unser Semesterbeitrag (${run.name}) in Höhe von ${formatEur(charge.baseAmount)}`,
+					`unser Semesterbeitrag (${run.name}) in Höhe von ${formatEUR(charge.baseAmount)}`,
 					`ist trotz Fälligkeit am ${formatDate(run.dueDate)} noch offen.`,
-					`Wir erlauben uns daher, eine Mahngebühr von ${formatEur(mahnungAmount)} zu berechnen.`,
-					`Offener Gesamtbetrag: ${formatEur(total)}.`,
+					`Wir erlauben uns daher, eine Mahngebühr von ${formatEUR(mahnungAmount)} zu berechnen.`,
+					`Offener Gesamtbetrag: ${formatEUR(total)}.`,
 					"Bitte überweise den Betrag zeitnah auf das unten genannte Konto.",
 				]
 			: [
-					`für ${run.name} bitten wir um deinen Semesterbeitrag in Höhe von ${formatEur(total)}.`,
+					`für ${run.name} bitten wir um deinen Semesterbeitrag in Höhe von ${formatEUR(total)}.`,
 					`Bitte überweise den Betrag innerhalb von 2 Wochen (bis ${formatDate(run.dueDate)})`,
 					"auf das unten genannte Konto.",
 				];

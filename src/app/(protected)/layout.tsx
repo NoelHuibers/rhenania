@@ -1,8 +1,6 @@
-// layout.tsx
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
+import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { TenantProvider } from "~/components/TenantProvider";
-import { ThemeProvider } from "~/components/theme-provider";
 import { defaultFeatureFlags } from "~/lib/features";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 
@@ -10,7 +8,9 @@ export const metadata: Metadata = {
 	robots: { index: false, follow: false },
 };
 
-export default async function RootLayout({
+// The sidebar is mounted here, once, so it keeps its open state and scroll
+// position while the member navigates between pages.
+export default async function ProtectedLayout({
 	children,
 }: {
 	children: React.ReactNode;
@@ -23,18 +23,8 @@ export default async function RootLayout({
 	};
 
 	return (
-		<html lang="de" suppressHydrationWarning>
-			<body>
-				<ThemeProvider
-					attribute="class"
-					defaultTheme="system"
-					enableSystem
-					disableTransitionOnChange
-				>
-					<TenantProvider value={tenantValue}>{children}</TenantProvider>
-					<Toaster position="bottom-right" richColors closeButton />
-				</ThemeProvider>
-			</body>
-		</html>
+		<TenantProvider value={tenantValue}>
+			<SidebarLayout>{children}</SidebarLayout>
+		</TenantProvider>
 	);
 }

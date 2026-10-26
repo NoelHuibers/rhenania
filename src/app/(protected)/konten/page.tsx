@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { KontenPage } from "~/components/konten/KontenPage";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { getKontos } from "~/server/actions/kontos/kontos";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -34,11 +33,7 @@ export default async function KontenRoute() {
 	const initialKontos = result.success ? result.kontos : [];
 	const isAdmin = roleNames.includes("Admin");
 
-	return (
-		<SidebarLayout>
-			<KontenPage initialKontos={initialKontos} isAdmin={isAdmin} />
-		</SidebarLayout>
-	);
+	return <KontenPage initialKontos={initialKontos} isAdmin={isAdmin} />;
 }
 
 export const metadata = {

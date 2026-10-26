@@ -2,6 +2,7 @@ import Link from "next/link";
 import { TenantHealthTable } from "~/components/superadmin/TenantHealthTable";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { formatDate } from "~/lib/format";
 import { listTenantsAction } from "~/server/actions/superadmin/tenants";
 
 export default async function SuperadminHomePage() {
@@ -9,7 +10,7 @@ export default async function SuperadminHomePage() {
 
 	if (!result.success || !result.data) {
 		return (
-			<div className="text-red-600">
+			<div className="text-destructive">
 				Failed to load tenants: {result.error ?? "unknown"}
 			</div>
 		);
@@ -27,13 +28,13 @@ export default async function SuperadminHomePage() {
 			</div>
 
 			{tenants.length === 0 ? (
-				<div className="rounded-md border bg-white p-8 text-center text-muted-foreground">
+				<div className="rounded-md border bg-card p-8 text-center text-muted-foreground">
 					No tenants yet.
 				</div>
 			) : (
-				<div className="overflow-hidden rounded-md border bg-white">
+				<div className="overflow-hidden rounded-md border bg-card">
 					<table className="w-full text-sm">
-						<thead className="border-b bg-gray-50 text-left text-muted-foreground">
+						<thead className="border-b bg-muted/40 text-left text-muted-foreground">
 							<tr>
 								<th className="px-4 py-3 font-medium">Slug</th>
 								<th className="px-4 py-3 font-medium">Display name</th>
@@ -50,7 +51,7 @@ export default async function SuperadminHomePage() {
 									<td className="px-4 py-3">
 										<Link
 											href={`/superadmin/tenants/${t.id}`}
-											className="font-mono text-blue-600 hover:underline"
+											className="font-mono text-info hover:underline"
 										>
 											{t.slug}
 										</Link>
@@ -75,7 +76,7 @@ export default async function SuperadminHomePage() {
 										{t.microsoftEnabled ? "✓" : "—"}
 									</td>
 									<td className="px-4 py-3 text-muted-foreground">
-										{t.createdAt.toLocaleDateString()}
+										{formatDate(t.createdAt)}
 									</td>
 								</tr>
 							))}

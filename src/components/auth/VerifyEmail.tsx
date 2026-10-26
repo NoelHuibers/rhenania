@@ -3,7 +3,6 @@
 import { CheckCircle, Eye, EyeOff, Loader2, XCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { Alert, AlertDescription } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import {
@@ -98,10 +97,7 @@ export function VerifyEmailPage({
 			const result = await verifyEmailAndSetPassword(token, email, password);
 
 			if (result.success) {
-				toast.success("Konto erfolgreich aktiviert!", {
-					description:
-						"Sie können sich jetzt mit Ihrer E-Mail und Ihrem Passwort anmelden.",
-				});
+				// The sign-in page confirms the activation inline.
 				router.push("/auth/signin?message=account-activated");
 			} else {
 				setError(result.error || "Ein Fehler ist aufgetreten.");
@@ -115,10 +111,10 @@ export function VerifyEmailPage({
 
 	if (!token || !email) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-gray-50">
+			<div className="flex min-h-screen items-center justify-center bg-muted/40">
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
-						<XCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
+						<XCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
 						<CardTitle>Ungültiger Link</CardTitle>
 						<CardDescription>
 							Der Verifizierungslink ist ungültig oder abgelaufen.
@@ -138,10 +134,10 @@ export function VerifyEmailPage({
 	}
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+		<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader className="text-center">
-					<CheckCircle className="mx-auto mb-4 h-12 w-12 text-green-500" />
+					<CheckCircle className="mx-auto mb-4 h-12 w-12 text-success" />
 					<CardTitle>Konto aktivieren</CardTitle>
 					<CardDescription>
 						Erstellen Sie ein Passwort für <strong>{email}</strong>
@@ -170,7 +166,10 @@ export function VerifyEmailPage({
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword)}
-									className="absolute top-2.5 right-2 text-gray-500 hover:text-gray-700"
+									aria-label={
+										showPassword ? "Passwort verbergen" : "Passwort anzeigen"
+									}
+									className="absolute top-2.5 right-2 text-muted-foreground hover:text-foreground"
 								>
 									{showPassword ? (
 										<EyeOff className="h-4 w-4" />
@@ -183,15 +182,15 @@ export function VerifyEmailPage({
 							{/* Password Requirements */}
 							{password && (
 								<div className="space-y-1 text-sm">
-									<p className="font-medium text-gray-700">
+									<p className="font-medium text-foreground">
 										Passwort-Anforderungen:
 									</p>
 									<div className="grid grid-cols-1 gap-1">
 										<div
 											className={`flex items-center gap-2 ${
 												passwordValidation.requirements.minLength
-													? "text-green-600"
-													: "text-red-600"
+													? "text-success"
+													: "text-destructive"
 											}`}
 										>
 											{passwordValidation.requirements.minLength ? (
@@ -204,8 +203,8 @@ export function VerifyEmailPage({
 										<div
 											className={`flex items-center gap-2 ${
 												passwordValidation.requirements.hasUpperCase
-													? "text-green-600"
-													: "text-red-600"
+													? "text-success"
+													: "text-destructive"
 											}`}
 										>
 											{passwordValidation.requirements.hasUpperCase ? (
@@ -218,8 +217,8 @@ export function VerifyEmailPage({
 										<div
 											className={`flex items-center gap-2 ${
 												passwordValidation.requirements.hasLowerCase
-													? "text-green-600"
-													: "text-red-600"
+													? "text-success"
+													: "text-destructive"
 											}`}
 										>
 											{passwordValidation.requirements.hasLowerCase ? (
@@ -232,8 +231,8 @@ export function VerifyEmailPage({
 										<div
 											className={`flex items-center gap-2 ${
 												passwordValidation.requirements.hasNumbers
-													? "text-green-600"
-													: "text-red-600"
+													? "text-success"
+													: "text-destructive"
 											}`}
 										>
 											{passwordValidation.requirements.hasNumbers ? (
@@ -262,7 +261,12 @@ export function VerifyEmailPage({
 								<button
 									type="button"
 									onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-									className="absolute top-2.5 right-2 text-gray-500 hover:text-gray-700"
+									aria-label={
+										showConfirmPassword
+											? "Passwort verbergen"
+											: "Passwort anzeigen"
+									}
+									className="absolute top-2.5 right-2 text-muted-foreground hover:text-foreground"
 								>
 									{showConfirmPassword ? (
 										<EyeOff className="h-4 w-4" />
@@ -273,7 +277,7 @@ export function VerifyEmailPage({
 							</div>
 
 							{confirmPassword && password !== confirmPassword && (
-								<p className="flex items-center gap-2 text-red-600 text-sm">
+								<p className="flex items-center gap-2 text-destructive text-sm">
 									<XCircle className="h-3 w-3" />
 									Die Passwörter stimmen nicht überein
 								</p>
@@ -282,7 +286,7 @@ export function VerifyEmailPage({
 							{confirmPassword &&
 								password === confirmPassword &&
 								confirmPassword.length > 0 && (
-									<p className="flex items-center gap-2 text-green-600 text-sm">
+									<p className="flex items-center gap-2 text-sm text-success">
 										<CheckCircle className="h-3 w-3" />
 										Passwörter stimmen überein
 									</p>

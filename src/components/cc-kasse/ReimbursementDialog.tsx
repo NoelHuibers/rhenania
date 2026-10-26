@@ -14,6 +14,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Progress } from "~/components/ui/progress";
@@ -441,15 +442,14 @@ export function ReimbursementDialog({
 										>
 											{r.name}
 										</a>
-										<Button
+										<IconButton
+											label="Beleg entfernen"
 											type="button"
-											variant="ghost"
-											size="icon"
 											disabled={isSubmitting}
 											onClick={() => removeExisting(i)}
 										>
 											<X className="h-4 w-4" />
-										</Button>
+										</IconButton>
 									</div>
 								))}
 							</div>
@@ -469,15 +469,14 @@ export function ReimbursementDialog({
 												{(f.size / 1024 / 1024).toFixed(2)} MB
 											</p>
 										</div>
-										<Button
+										<IconButton
+											label="Datei entfernen"
 											type="button"
-											variant="ghost"
-											size="icon"
 											disabled={isSubmitting}
 											onClick={() => removeFile(i)}
 										>
 											<X className="h-4 w-4" />
-										</Button>
+										</IconButton>
 									</div>
 								))}
 							</div>

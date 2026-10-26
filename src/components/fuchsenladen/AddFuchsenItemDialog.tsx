@@ -14,6 +14,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Progress } from "~/components/ui/progress";
@@ -285,16 +286,16 @@ export function AddFuchsenItemDialog({
 													{(selectedFile.size / 1024 / 1024).toFixed(2)} MB
 												</p>
 											</div>
-											<Button
+											<IconButton
+												size="icon-sm"
+												label="Ausgewähltes Bild entfernen"
 												type="button"
-												variant="ghost"
-												size="sm"
 												onClick={removeFile}
 												disabled={isSubmitting}
 												className="flex-shrink-0"
 											>
 												<X className="h-4 w-4" />
-											</Button>
+											</IconButton>
 										</div>
 										<Input
 											id="fuchsen-picture"

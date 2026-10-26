@@ -23,6 +23,7 @@ import {
 	User as UserIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useChallengeBadge } from "~/components/eloranking/ChallengeBadgeProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
@@ -49,6 +50,7 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	useSidebar,
 } from "~/components/ui/sidebar";
 import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import { signOut } from "~/server/auth/client";
@@ -220,6 +222,16 @@ export function AppSidebarClient({
 
 	const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
 
+	// The sidebar stays mounted across pages now, so the mobile sheet has to
+	// close itself when a link is followed.
+	const pathname = usePathname() ?? "";
+	const { isMobile, setOpenMobile } = useSidebar();
+	const closeMobile = useCallback(() => {
+		if (isMobile) {
+			setOpenMobile(false);
+		}
+	}, [isMobile, setOpenMobile]);
+
 	useEffect(() => {
 		try {
 			const stored = window.localStorage.getItem(COLLAPSED_GROUPS_KEY);
@@ -258,6 +270,17 @@ export function AppSidebarClient({
 				}))
 				.filter((group) => group.items.length > 0),
 		[userRoles],
+	);
+
+	// The most specific nav entry for the current page (/admin/semesterprogramm
+	// wins over /admin).
+	const activeHref = useMemo(
+		() =>
+			filteredGroups
+				.flatMap((g) => g.items.map((i) => i.href))
+				.filter((href) => pathname === href || pathname.startsWith(`${href}/`))
+				.sort((a, b) => b.length - a.length)[0],
+		[filteredGroups, pathname],
 	);
 
 	const handleSignOut = useCallback(async () => {
@@ -305,14 +328,19 @@ export function AppSidebarClient({
 											const Icon = item.icon;
 											const showBadge =
 												item.href === "/challenges" && showChallengeBadge;
+											const isActive = item.href === activeHref;
 											return (
 												<SidebarMenuItem key={item.href}>
-													<SidebarMenuButton asChild>
-														<Link href={item.href}>
+													<SidebarMenuButton asChild isActive={isActive}>
+														<Link
+															href={item.href}
+															aria-current={isActive ? "page" : undefined}
+															onClick={closeMobile}
+														>
 															<Icon />
 															<span>{item.title}</span>
 															{showBadge ? (
-																<span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1.5 font-medium text-white text-xs">
+																<span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-warning px-1.5 font-medium text-warning-foreground text-xs">
 																	{badgeCount}
 																</span>
 															) : null}
@@ -358,13 +386,13 @@ export function AppSidebarClient({
 								</SidebarMenuButton>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent
-								className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+								className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
 								side="bottom"
 								align="end"
 								sideOffset={4}
 							>
 								<DropdownMenuItem asChild>
-									<Link href="/profile">
+									<Link href="/profile" onClick={closeMobile}>
 										<UserIcon className="mr-2 h-4 w-4" />
 										Profil
 									</Link>

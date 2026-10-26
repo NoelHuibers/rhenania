@@ -70,7 +70,7 @@ export function RsvpControls({
 					onClick={() => apply("yes")}
 					icon={<Check className="h-3 w-3 shrink-0" />}
 					label="Zusagen"
-					activeClass="bg-green-600 text-white hover:bg-green-700"
+					activeClass="bg-success text-success-foreground hover:bg-success/90"
 				/>
 				<RsvpButton
 					active={optimistic === "maybe"}
@@ -78,7 +78,7 @@ export function RsvpControls({
 					onClick={() => apply("maybe")}
 					icon={<HelpCircle className="h-3 w-3 shrink-0" />}
 					label="Vielleicht"
-					activeClass="bg-amber-500 text-white hover:bg-amber-600"
+					activeClass="bg-warning text-warning-foreground hover:bg-warning/90"
 				/>
 				<RsvpButton
 					active={optimistic === "no"}
@@ -86,7 +86,7 @@ export function RsvpControls({
 					onClick={() => apply("no")}
 					icon={<X className="h-3 w-3 shrink-0" />}
 					label="Absagen"
-					activeClass="bg-red-600 text-white hover:bg-red-700"
+					activeClass="bg-danger text-danger-foreground hover:bg-danger/90"
 				/>
 				{maxAttendees != null && (
 					<span className="shrink-0 text-muted-foreground text-xs tabular-nums">

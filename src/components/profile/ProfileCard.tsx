@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import {
 	Dialog,
 	DialogContent,
@@ -24,6 +25,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "~/components/ui/dialog";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
@@ -244,6 +246,8 @@ export function ProfileIdentity() {
 					if (user) {
 						setUser({ ...user, image: null });
 					}
+				} else {
+					toast.error(result.message ?? "Fehler beim Löschen des Profilbilds");
 				}
 			} catch (error) {
 				toast.error(
@@ -357,15 +361,24 @@ export function ProfileIdentity() {
 							</AvatarFallback>
 						</Avatar>
 						{user.image && (
-							<Button
-								size="icon"
-								variant="destructive"
-								className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 transition-opacity group-hover:opacity-100"
-								onClick={handleDeleteAvatar}
-								disabled={isPending}
+							<ConfirmAction
+								title="Profilbild entfernen?"
+								description="Dein Profilbild wird gelöscht. Du kannst jederzeit ein neues hochladen."
+								confirmLabel="Entfernen"
+								onConfirm={handleDeleteAvatar}
 							>
-								<X className="h-3 w-3" />
-							</Button>
+								{/* Hidden until hover on a mouse; always shown on touch
+								    screens and when focused with the keyboard. */}
+								<IconButton
+									label="Profilbild entfernen"
+									size="icon-sm"
+									variant="destructive"
+									className="absolute -top-2 -right-2 rounded-full pointer-fine:opacity-0 transition-opacity pointer-fine:focus-visible:opacity-100 pointer-fine:group-hover:opacity-100"
+									disabled={isPending}
+								>
+									<X />
+								</IconButton>
+							</ConfirmAction>
 						)}
 					</div>
 

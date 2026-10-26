@@ -26,21 +26,17 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDateTime, formatEUR } from "~/lib/format";
 import type { InventoryWithItems } from "./utils";
 
 interface HistoryTabProps {
 	history: InventoryWithItems[];
 }
 
-function fmtDate(date: Date) {
-	const d = new Date(date);
-	return `${d.toLocaleDateString("de-DE")} ${d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
-}
-
 function DiffBadge({ difference }: { difference: number }) {
 	if (difference === 0) {
 		return (
-			<Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+			<Badge className="bg-success-muted text-success-muted-foreground">
 				<CheckCircle className="mr-1 h-3 w-3" />
 				OK
 			</Badge>
@@ -48,13 +44,13 @@ function DiffBadge({ difference }: { difference: number }) {
 	}
 	if (difference > 0) {
 		return (
-			<Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+			<Badge className="bg-info-muted text-info-muted-foreground">
 				<TrendingDown className="mr-1 h-3 w-3 rotate-180" />+{difference}
 			</Badge>
 		);
 	}
 	return (
-		<Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+		<Badge className="bg-danger-muted text-danger-muted-foreground">
 			<TrendingDown className="mr-1 h-3 w-3" />
 			{difference}
 		</Badge>
@@ -133,12 +129,12 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										</span>
 										<span className="flex items-center gap-1 text-muted-foreground text-xs">
 											<Calendar className="h-3 w-3" />
-											{fmtDate(record.inventoryDate)}
+											{formatDateTime(record.inventoryDate)}
 										</span>
 										{record.kind === "event" && (
 											<Badge
 												variant="outline"
-												className="shrink-0 border-amber-300 bg-amber-50 text-amber-700 text-xs dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
+												className="shrink-0 border-warning/40 bg-warning-muted text-warning-muted-foreground text-xs"
 											>
 												<PartyPopper className="mr-1 h-3 w-3" />
 												{record.eventName ?? "Veranstaltung"}
@@ -154,7 +150,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{correctItems > 0 && (
 											<Badge
 												variant="outline"
-												className="border-green-300 text-green-600 text-xs"
+												className="border-success/40 text-success text-xs"
 											>
 												{correctItems} OK
 											</Badge>
@@ -162,7 +158,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{itemsWithLoss > 0 && (
 											<Badge
 												variant="outline"
-												className="border-red-300 text-red-600 text-xs"
+												className="border-danger/40 text-destructive text-xs"
 											>
 												{itemsWithLoss} Verlust
 											</Badge>
@@ -170,7 +166,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{itemsWithSurplus > 0 && (
 											<Badge
 												variant="outline"
-												className="border-blue-300 text-blue-600 text-xs"
+												className="border-info/40 text-info text-xs"
 											>
 												{itemsWithSurplus} Überschuss
 											</Badge>
@@ -178,9 +174,9 @@ export function HistoryTab({ history }: HistoryTabProps) {
 										{record.profit !== null && (
 											<Badge
 												variant="outline"
-												className="border-green-300 text-green-600 text-xs"
+												className="border-success/40 text-success text-xs"
 											>
-												Gewinn €{record.profit.toFixed(2)}
+												Gewinn {formatEUR(record.profit)}
 											</Badge>
 										)}
 										<Badge
@@ -189,12 +185,12 @@ export function HistoryTab({ history }: HistoryTabProps) {
 											}
 											className={
 												record.kind === "event"
-													? "border-amber-300 text-amber-700 text-xs dark:text-amber-300"
+													? "border-warning/40 text-warning-muted-foreground text-xs"
 													: "text-xs"
 											}
 										>
-											{record.kind === "event" ? "Verbrauch " : ""}€
-											{record.totalLosses.toFixed(2)}
+											{record.kind === "event" ? "Verbrauch " : ""}
+											{formatEUR(record.totalLosses)}
 										</Badge>
 										<span className="ml-1 inline-flex h-6 w-6 shrink-0 items-center justify-center">
 											{isExpanded ? (
@@ -226,24 +222,24 @@ export function HistoryTab({ history }: HistoryTabProps) {
 											{
 												label: "Korrekte Bestände",
 												value: correctItems,
-												cls: "text-green-600",
+												cls: "text-success",
 											},
 											{
 												label: "Artikel mit Verlust",
 												value: itemsWithLoss,
-												cls: "text-red-600",
+												cls: "text-destructive",
 											},
 											{
 												label: "Gesamtverlust",
-												value: `€${record.totalLosses.toFixed(2)}`,
+												value: formatEUR(record.totalLosses),
 												cls: "text-destructive",
 											},
 											...(record.profit !== null
 												? [
 														{
 															label: "Gewinn aus Aufschlag",
-															value: `€${record.profit.toFixed(2)}`,
-															cls: "text-green-600",
+															value: formatEUR(record.profit),
+															cls: "text-success",
 														},
 													]
 												: []),
@@ -303,9 +299,9 @@ export function HistoryTab({ history }: HistoryTabProps) {
 																<span
 																	className={
 																		item.difference < 0
-																			? "font-semibold text-red-600"
+																			? "font-semibold text-destructive"
 																			: item.difference > 0
-																				? "font-semibold text-blue-600"
+																				? "font-semibold text-info"
 																				: "text-muted-foreground"
 																	}
 																>
@@ -318,8 +314,8 @@ export function HistoryTab({ history }: HistoryTabProps) {
 															</TableCell>
 															<TableCell className="text-right">
 																{item.lossValue > 0 ? (
-																	<span className="font-semibold text-red-600">
-																		€{item.lossValue.toFixed(2)}
+																	<span className="font-semibold text-destructive">
+																		{formatEUR(item.lossValue)}
 																	</span>
 																) : (
 																	<span className="text-muted-foreground">
@@ -342,7 +338,9 @@ export function HistoryTab({ history }: HistoryTabProps) {
 													<TableCell className="hidden sm:table-cell" />
 													<TableCell className="text-right font-bold">
 														<span
-															className={totalDiff < 0 ? "text-red-600" : ""}
+															className={
+																totalDiff < 0 ? "text-destructive" : ""
+															}
 														>
 															{totalDiff > 0 ? "+" : ""}
 															{totalDiff}
@@ -350,7 +348,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 													</TableCell>
 													<TableCell className="hidden sm:table-cell" />
 													<TableCell className="text-right font-bold text-destructive">
-														€{record.totalLosses.toFixed(2)}
+														{formatEUR(record.totalLosses)}
 													</TableCell>
 												</TableRow>
 											</TableFooter>
@@ -359,13 +357,13 @@ export function HistoryTab({ history }: HistoryTabProps) {
 
 									{/* Loss analysis */}
 									{itemsWithLoss > 0 && (
-										<div className="mt-3 flex items-start gap-2 rounded-lg bg-red-50 p-3 dark:bg-red-950/20">
-											<AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+										<div className="mt-3 flex items-start gap-2 rounded-lg bg-danger-muted p-3">
+											<AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
 											<div className="min-w-0">
-												<p className="font-semibold text-red-900 text-sm dark:text-red-400">
+												<p className="font-semibold text-danger-muted-foreground text-sm">
 													Verlustanalyse
 												</p>
-												<p className="mt-1 text-red-800 text-xs dark:text-red-300">
+												<p className="mt-1 text-danger-muted-foreground text-xs">
 													{itemsWithLoss} von {totalItems} Artikeln zeigen
 													Verluste. Größte Verluste:{" "}
 													{record.items
@@ -374,7 +372,7 @@ export function HistoryTab({ history }: HistoryTabProps) {
 														.slice(0, 3)
 														.map(
 															(i) =>
-																`${i.drinkName} (€${i.lossValue.toFixed(2)})`,
+																`${i.drinkName} (${formatEUR(i.lossValue)})`,
 														)
 														.join(", ")}
 												</p>

@@ -31,8 +31,8 @@ export default async function SuperadminLayout({
 	}
 
 	return (
-		<div className="min-h-screen bg-gray-50">
-			<header className="border-b bg-white">
+		<div className="min-h-screen bg-muted/40">
+			<header className="border-b bg-card">
 				<div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
 					<Link href="/superadmin" className="font-semibold text-lg">
 						Superadmin

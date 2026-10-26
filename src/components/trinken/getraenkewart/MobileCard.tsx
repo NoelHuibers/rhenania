@@ -8,6 +8,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Progress } from "~/components/ui/progress";
+import { formatEUR } from "~/lib/format";
 import type { Drink } from "~/server/actions/drinks";
 import { DeleteButton } from "./Deletebutton";
 
@@ -186,7 +187,7 @@ export function DrinksCardsMobile({
 												disabled={isPending}
 											/>
 										) : (
-											<>€{drink.price.toFixed(2)}</>
+											formatEUR(drink.price)
 										)}
 									</span>
 									<span className="inline-block">•</span>

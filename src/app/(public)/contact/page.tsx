@@ -2,7 +2,6 @@ import { Mail, MapPin, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Toaster } from "sonner";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 import { SiteFooter } from "~/tenants/rhenania/sections/site-footer";
 import { SiteHeader } from "~/tenants/rhenania/sections/site-header";
@@ -112,7 +111,6 @@ export default async function ContactPage() {
 			</main>
 
 			<SiteFooter />
-			<Toaster richColors position="top-center" />
 		</div>
 	);
 }

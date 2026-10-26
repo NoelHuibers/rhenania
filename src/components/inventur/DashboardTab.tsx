@@ -11,7 +11,6 @@ import {
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import {
@@ -31,6 +30,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import { StatusBadge } from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -39,6 +39,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDate, formatDateTime, formatEUR } from "~/lib/format";
 import {
 	type ActiveEventInventory,
 	type CloseInventoryAndBillResult,
@@ -127,7 +128,7 @@ function UncountedWarning({
 		return null;
 	}
 	return (
-		<div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+		<div className="rounded-md border border-warning/40 bg-warning-muted p-3 text-sm">
 			<p className="font-medium">
 				{uncounted.length} von {total} Getränken wurden nicht gezählt:
 			</p>
@@ -387,7 +388,7 @@ export function DashboardTab({
 			if (res.success) {
 				const r = res.report;
 				toast.success(
-					`Veranstaltung abgeschlossen — ${r.totalQty} Fl., €${r.totalValue.toFixed(2)} Verbrauch${r.booked ? " · in CC-Kasse gebucht" : ""}`,
+					`Veranstaltung abgeschlossen — ${r.totalQty} Fl., ${formatEUR(r.totalValue)} Verbrauch${r.booked ? " · in CC-Kasse gebucht" : ""}`,
 				);
 				setCountedIds(new Set());
 				setShowFinishEvent(false);
@@ -430,10 +431,10 @@ export function DashboardTab({
 
 	const diffClass = (diff: number) => {
 		if (diff < 0) {
-			return "text-red-600 font-semibold";
+			return "text-destructive font-semibold";
 		}
 		if (diff > 0) {
-			return "text-green-600 font-semibold";
+			return "text-success font-semibold";
 		}
 		return "text-muted-foreground";
 	};
@@ -459,17 +460,17 @@ export function DashboardTab({
 	return (
 		<>
 			{activeEvent && (
-				<div className="mb-4 flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-amber-500/30 dark:bg-amber-500/10">
+				<div className="mb-4 flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning-muted p-4 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex items-start gap-3">
-						<PartyPopper className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+						<PartyPopper className="mt-0.5 h-5 w-5 shrink-0 text-warning-muted-foreground" />
 						<div>
 							<div className="font-semibold">
 								Veranstaltungs-Inventur läuft: {activeEvent.eventName}
 							</div>
 							<div className="text-muted-foreground text-sm">
 								Anfangsbestand erfasst am{" "}
-								{new Date(activeEvent.startedAt).toLocaleString("de-DE")}. Zähle
-								jetzt den Endbestand und schließe ab.
+								{formatDateTime(activeEvent.startedAt)}. Zähle jetzt den
+								Endbestand und schließe ab.
 							</div>
 						</div>
 					</div>
@@ -500,14 +501,14 @@ export function DashboardTab({
 					<div className="mt-2 flex flex-wrap gap-2">
 						<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 							<span className="text-muted-foreground">Verkauft</span>
-							<span className="font-semibold text-red-600">
+							<span className="font-semibold text-destructive">
 								{totalSoldUnits} Fl.
 							</span>
 						</span>
 						{totalPurchasedUnits > 0 && (
 							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 								<span className="text-muted-foreground">Eingekauft</span>
-								<span className="font-semibold text-green-600">
+								<span className="font-semibold text-success">
 									{totalPurchasedUnits} Fl.
 								</span>
 							</span>
@@ -515,14 +516,14 @@ export function DashboardTab({
 						<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 							<span className="text-muted-foreground">Bestandswert</span>
 							<span className="font-semibold text-primary">
-								€{totalInventoryValue.toFixed(2)}
+								{formatEUR(totalInventoryValue)}
 							</span>
 						</span>
 						{profit !== null && (
 							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 								<span className="text-muted-foreground">Gewinn</span>
-								<span className="font-semibold text-green-600">
-									€{profit.toFixed(2)}
+								<span className="font-semibold text-success">
+									{formatEUR(profit)}
 								</span>
 							</span>
 						)}
@@ -530,7 +531,7 @@ export function DashboardTab({
 							<span className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm">
 								<span className="text-muted-foreground">Verluste</span>
 								<span className="font-semibold text-destructive">
-									€{totalLostValue.toFixed(2)}
+									{formatEUR(totalLostValue)}
 								</span>
 							</span>
 						)}
@@ -585,10 +586,10 @@ export function DashboardTab({
 						<TableRow>
 							<TableHead>Getränk</TableHead>
 							<TableHead className="text-right">Letzte Inventur</TableHead>
-							<TableHead className="text-center text-green-600">
+							<TableHead className="text-center text-success">
 								Eingekauft (+)
 							</TableHead>
-							<TableHead className="text-right text-red-600">
+							<TableHead className="text-right text-destructive">
 								Verkauft (−)
 							</TableHead>
 							<TableHead className="text-right">Soll</TableHead>
@@ -617,14 +618,12 @@ export function DashboardTab({
 							return (
 								<TableRow
 									key={item.drinkId}
-									className={
-										isChanged ? "bg-blue-50 dark:bg-blue-950/20" : undefined
-									}
+									className={isChanged ? "bg-info-muted" : undefined}
 								>
 									<TableCell className="font-medium">
 										{item.drinkName}
 										{isChanged && (
-											<span className="ml-2 text-blue-600 text-xs">●</span>
+											<span className="ml-2 text-info text-xs">●</span>
 										)}
 									</TableCell>
 									<TableCell className="text-right">
@@ -633,7 +632,7 @@ export function DashboardTab({
 									<TableCell className="text-center">
 										<div className="flex items-center justify-center gap-1">
 											{p > 0 && (
-												<span className="font-bold text-green-600">+</span>
+												<span className="font-bold text-success">+</span>
 											)}
 											<Input
 												type="number"
@@ -644,7 +643,7 @@ export function DashboardTab({
 														e.target.value === "" ? 0 : Number(e.target.value),
 													)
 												}
-												className={`h-8 w-20 ${p > 0 ? "border-green-500 font-semibold text-green-600" : ""}`}
+												className={`h-8 w-20 ${p > 0 ? "border-success font-semibold text-success" : ""}`}
 												min="0"
 												placeholder="0"
 												disabled={isSaving || isQuickSaving}
@@ -652,7 +651,7 @@ export function DashboardTab({
 										</div>
 									</TableCell>
 									<TableCell className="text-right">
-										<span className="font-semibold text-red-600">
+										<span className="font-semibold text-destructive">
 											−{item.soldSince}
 										</span>
 									</TableCell>
@@ -674,15 +673,15 @@ export function DashboardTab({
 										</span>
 									</TableCell>
 									<TableCell className="text-right">
-										€{item.currentPrice.toFixed(2)}
+										{formatEUR(item.currentPrice)}
 									</TableCell>
 									<TableCell className="text-center">
-										<Badge className={`${status.color} text-white`}>
+										<StatusBadge tone={status.tone} strong={status.strong}>
 											{status.label}
-										</Badge>
+										</StatusBadge>
 									</TableCell>
 									<TableCell className="text-right font-semibold text-destructive">
-										{lostValue > 0 ? `€${lostValue.toFixed(2)}` : "-"}
+										{lostValue > 0 ? formatEUR(lostValue) : "-"}
 									</TableCell>
 								</TableRow>
 							);
@@ -710,9 +709,7 @@ export function DashboardTab({
 						<div
 							key={item.drinkId}
 							className={`rounded-lg border p-3 ${
-								isChanged
-									? "border-blue-300 bg-blue-50 dark:bg-blue-950/20"
-									: "bg-card"
+								isChanged ? "border-info/40 bg-info-muted" : "bg-card"
 							}`}
 						>
 							<button
@@ -723,13 +720,17 @@ export function DashboardTab({
 								<span className="font-medium text-sm">
 									{item.drinkName}
 									{isChanged && (
-										<span className="ml-2 text-blue-600 text-xs">●</span>
+										<span className="ml-2 text-info text-xs">●</span>
 									)}
 								</span>
 								<div className="flex items-center gap-2">
-									<Badge className={`${status.color} text-white text-xs`}>
+									<StatusBadge
+										tone={status.tone}
+										strong={status.strong}
+										className="text-xs"
+									>
 										{status.label}
-									</Badge>
+									</StatusBadge>
 									{isExpanded ? (
 										<ChevronUp className="h-4 w-4 text-muted-foreground" />
 									) : (
@@ -748,7 +749,7 @@ export function DashboardTab({
 								)}
 								{lostValue > 0 && (
 									<span className="text-destructive">
-										-€{lostValue.toFixed(2)}
+										{formatEUR(-lostValue)}
 									</span>
 								)}
 							</div>
@@ -768,14 +769,14 @@ export function DashboardTab({
 											<span className="block text-muted-foreground">
 												Verkauft
 											</span>
-											<span className="font-medium text-red-600">
+											<span className="font-medium text-destructive">
 												−{item.soldSince}
 											</span>
 										</div>
 										<div>
 											<span className="block text-muted-foreground">Preis</span>
 											<span className="font-medium">
-												€{item.currentPrice.toFixed(2)}
+												{formatEUR(item.currentPrice)}
 											</span>
 										</div>
 									</div>
@@ -786,7 +787,7 @@ export function DashboardTab({
 											</span>
 											<div className="flex items-center gap-2">
 												{p > 0 && (
-													<span className="font-bold text-green-600 text-lg">
+													<span className="font-bold text-lg text-success">
 														+
 													</span>
 												)}
@@ -801,7 +802,7 @@ export function DashboardTab({
 																: Number(e.target.value),
 														)
 													}
-													className={`h-8 ${p > 0 ? "border-green-500 font-semibold text-green-600" : ""}`}
+													className={`h-8 ${p > 0 ? "border-success font-semibold text-success" : ""}`}
 													min="0"
 													placeholder="0"
 													disabled={isSaving || isQuickSaving}
@@ -911,7 +912,7 @@ export function DashboardTab({
 								<SelectContent>
 									{events.map((e) => (
 										<SelectItem key={e.id} value={e.id}>
-											{e.title} · {new Date(e.date).toLocaleDateString("de-DE")}
+											{e.title} · {formatDate(e.date)}
 										</SelectItem>
 									))}
 									<SelectItem value="__free__">Andere (Freitext)…</SelectItem>
@@ -984,7 +985,7 @@ export function DashboardTab({
 										>
 											<span>{x.name}</span>
 											<span className="text-muted-foreground">
-												{x.consumed} Fl. · €{x.value.toFixed(2)}
+												{x.consumed} Fl. · {formatEUR(x.value)}
 											</span>
 										</li>
 									))}
@@ -993,7 +994,7 @@ export function DashboardTab({
 							<div className="flex items-center justify-between border-t px-3 py-2 font-semibold">
 								<span>Gesamt</span>
 								<span>
-									{previewQty} Fl. · €{previewValue.toFixed(2)}
+									{previewQty} Fl. · {formatEUR(previewValue)}
 								</span>
 							</div>
 						</div>

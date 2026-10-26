@@ -8,12 +8,11 @@ import { PaymentInfo } from "~/components/profile/PaymentInfo";
 import { Preferences } from "~/components/profile/Preferences";
 import { ProfileIdentity } from "~/components/profile/ProfileCard";
 import { RecentOrders } from "~/components/profile/RecentOrders";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 
 export default function ProfilePage() {
 	return (
-		<SidebarLayout>
+		<>
 			<SiteHeader title="Nutzerprofil" />
 			<div className="flex-1 bg-background p-4 md:p-6">
 				<div className="mx-auto max-w-7xl">
@@ -35,6 +34,6 @@ export default function ProfilePage() {
 					</div>
 				</div>
 			</div>
-		</SidebarLayout>
+		</>
 	);
 }

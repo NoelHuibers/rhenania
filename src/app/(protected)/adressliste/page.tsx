@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { AdresslistePage } from "~/components/members/AdresslistePage";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import {
 	listMemberStatusOptions,
@@ -40,13 +39,11 @@ export default async function AdresslisteRoute() {
 	]);
 
 	return (
-		<SidebarLayout>
-			<AdresslistePage
-				members={members}
-				canEdit={canEdit}
-				statusOptions={statusOptions.length > 0 ? statusOptions : undefined}
-			/>
-		</SidebarLayout>
+		<AdresslistePage
+			members={members}
+			canEdit={canEdit}
+			statusOptions={statusOptions.length > 0 ? statusOptions : undefined}
+		/>
 	);
 }
 

@@ -15,17 +15,12 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDate, formatEUR } from "~/lib/format";
 import type { FuchsenOrder } from "~/server/actions/fuchsenladen/orders";
 import {
 	getMyFuchsenOrders,
 	getMyFuchsenSummary,
 } from "~/server/actions/fuchsenladen/orders";
-
-const currencyFormatter = new Intl.NumberFormat("de-DE", {
-	style: "currency",
-	currency: "EUR",
-});
-const dateFormatter = new Intl.DateTimeFormat("de-DE");
 
 export function FuchsenBillingOverview() {
 	const [orders, setOrders] = useState<FuchsenOrder[]>([]);
@@ -133,7 +128,7 @@ export function FuchsenBillingOverview() {
 							Offener Betrag
 						</p>
 						<p className="font-bold text-xl md:text-2xl">
-							{currencyFormatter.format(summary.openTotal)}
+							{formatEUR(summary.openTotal)}
 						</p>
 					</div>
 					<div>
@@ -141,7 +136,7 @@ export function FuchsenBillingOverview() {
 							Bereits bezahlt
 						</p>
 						<p className="font-semibold text-base text-muted-foreground md:text-lg">
-							{currencyFormatter.format(summary.paidTotal)}
+							{formatEUR(summary.paidTotal)}
 						</p>
 					</div>
 				</div>
@@ -166,9 +161,7 @@ export function FuchsenBillingOverview() {
 								<TableBody>
 									{openOrders.map((order) => (
 										<TableRow key={order.id}>
-											<TableCell>
-												{dateFormatter.format(new Date(order.createdAt))}
-											</TableCell>
+											<TableCell>{formatDate(order.createdAt)}</TableCell>
 											<TableCell className="font-medium">
 												{order.itemName}
 											</TableCell>
@@ -176,7 +169,7 @@ export function FuchsenBillingOverview() {
 												{order.amount}
 											</TableCell>
 											<TableCell className="text-right">
-												{currencyFormatter.format(order.total)}
+												{formatEUR(order.total)}
 											</TableCell>
 										</TableRow>
 									))}
@@ -204,9 +197,7 @@ export function FuchsenBillingOverview() {
 								<TableBody>
 									{paidOrders.map((order) => (
 										<TableRow key={order.id}>
-											<TableCell>
-												{dateFormatter.format(new Date(order.createdAt))}
-											</TableCell>
+											<TableCell>{formatDate(order.createdAt)}</TableCell>
 											<TableCell className="font-medium">
 												{order.itemName}
 											</TableCell>
@@ -214,7 +205,7 @@ export function FuchsenBillingOverview() {
 												{order.amount}
 											</TableCell>
 											<TableCell className="text-right">
-												{currencyFormatter.format(order.total)}
+												{formatEUR(order.total)}
 											</TableCell>
 										</TableRow>
 									))}

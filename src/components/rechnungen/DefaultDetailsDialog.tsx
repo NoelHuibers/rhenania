@@ -1,4 +1,6 @@
 // DefaultDetailsDialog.tsx
+
+import { formatEUR } from "~/lib/format";
 import { Button } from "../ui/button";
 import {
 	Dialog,
@@ -16,7 +18,6 @@ import {
 	TableRow,
 } from "../ui/table";
 import type { BillingEntry } from "./BillingDashboard";
-import { formatCurrency } from "./BillingTable";
 
 export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 	<Dialog>
@@ -49,10 +50,10 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 									<TableCell className="font-medium">{item.name}</TableCell>
 									<TableCell className="text-right">{item.quantity}</TableCell>
 									<TableCell className="text-right">
-										{formatCurrency(item.unitPrice)}
+										{formatEUR(item.unitPrice)}
 									</TableCell>
 									<TableCell className="text-right font-medium">
-										{formatCurrency(item.subtotal)}
+										{formatEUR(item.subtotal)}
 									</TableCell>
 								</TableRow>
 							))}
@@ -77,7 +78,7 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 										Einzelpreis:
 									</span>
 									<span className="font-medium">
-										{formatCurrency(item.unitPrice)}
+										{formatEUR(item.unitPrice)}
 									</span>
 								</div>
 								<div className="flex items-center justify-between border-border border-t pt-1.5">
@@ -85,7 +86,7 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 										Zwischensumme:
 									</span>
 									<span className="font-semibold text-sm">
-										{formatCurrency(item.subtotal)}
+										{formatEUR(item.subtotal)}
 									</span>
 								</div>
 							</div>
@@ -95,8 +96,8 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 
 				<div className="flex items-center justify-between border-border border-t pt-4">
 					<span className="font-semibold text-base sm:text-lg">Gesamt:</span>
-					<span className="font-bold text-green-600 text-lg sm:text-xl dark:text-green-400">
-						{formatCurrency(entry.totalDue)}
+					<span className="font-bold text-lg text-success sm:text-xl">
+						{formatEUR(entry.totalDue)}
 					</span>
 				</div>
 			</div>

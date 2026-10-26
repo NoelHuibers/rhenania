@@ -92,10 +92,10 @@ export function ResetPassword() {
 
 	if (invalidLink) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+			<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
-						<XCircle className="mx-auto mb-4 h-12 w-12 text-red-600" />
+						<XCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
 						<CardTitle>Reset-Link ungültig</CardTitle>
 						<CardDescription>
 							Der Link ist abgelaufen, wurde bereits verwendet oder ist
@@ -118,7 +118,7 @@ export function ResetPassword() {
 	}
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+		<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader className="text-center">
 					<CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-primary" />
@@ -227,7 +227,7 @@ export function ResetPassword() {
 							{confirmPassword && (
 								<p
 									className={`flex items-center gap-1 text-xs ${
-										passwordsMatch ? "text-green-600" : "text-red-600"
+										passwordsMatch ? "text-success" : "text-destructive"
 									}`}
 								>
 									{passwordsMatch ? (
@@ -275,7 +275,7 @@ function Requirement({
 	return (
 		<p
 			className={`flex items-center gap-1 ${
-				fulfilled ? "text-green-600" : "text-red-600"
+				fulfilled ? "text-success" : "text-destructive"
 			}`}
 		>
 			{fulfilled ? (

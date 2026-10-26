@@ -27,6 +27,7 @@ import {
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Label } from "~/components/ui/label";
+import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -36,7 +37,7 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { Textarea } from "~/components/ui/textarea";
-import { formatEur } from "~/lib/cc-kasse-format";
+import { formatDate, formatEUR } from "~/lib/format";
 import { formatIban } from "~/lib/iban";
 import {
 	approveReimbursement,
@@ -44,7 +45,7 @@ import {
 	type QueueReimbursement,
 	rejectReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
-import { EmptyState, FilterChips, formatDate } from "./KasseUi";
+import { EmptyState, FilterChips } from "./KasseUi";
 import { ReceiptLinks } from "./ReceiptLinks";
 import {
 	type EditingReimbursement,
@@ -52,7 +53,6 @@ import {
 	ReimbursementDialog,
 	toEditing,
 } from "./ReimbursementDialog";
-import { ReimbursementStatusBadge } from "./ReimbursementStatusBadge";
 
 type Filter =
 	| "offen"
@@ -236,7 +236,7 @@ export function ReimbursementQueueTab({
 						{filtered.length} {filtered.length === 1 ? "Eintrag" : "Einträge"} ·
 						Summe{" "}
 						<span className="font-medium text-foreground">
-							{formatEur(filteredSum)}
+							{formatEUR(filteredSum)}
 						</span>
 					</p>
 				)}
@@ -263,7 +263,7 @@ export function ReimbursementQueueTab({
 								<div className="space-y-2 p-4">
 									<div className="flex items-start justify-between gap-3">
 										<div className="font-bold text-xl tabular-nums tracking-tight">
-											{formatEur(r.amount)}
+											{formatEUR(r.amount)}
 										</div>
 										<ReimbursementStatusBadge status={r.status} />
 									</div>
@@ -280,7 +280,7 @@ export function ReimbursementQueueTab({
 									</p>
 
 									{r.status === "Abgelehnt" && r.rejectionReason && (
-										<p className="rounded-lg bg-red-50 px-3 py-2 text-red-700 text-xs dark:bg-red-500/10 dark:text-red-300">
+										<p className="rounded-lg bg-danger-muted px-3 py-2 text-danger-muted-foreground text-xs">
 											{r.rejectionReason}
 										</p>
 									)}
@@ -347,7 +347,7 @@ export function ReimbursementQueueTab({
 												{formatDate(r.expenseDate)} · {submitterLabel(r)}
 											</div>
 											{r.status === "Abgelehnt" && r.rejectionReason && (
-												<div className="mt-1 text-red-600 text-xs dark:text-red-400">
+												<div className="mt-1 text-destructive text-xs">
 													{r.rejectionReason}
 												</div>
 											)}
@@ -374,7 +374,7 @@ export function ReimbursementQueueTab({
 											/>
 										</TableCell>
 										<TableCell className="text-right font-semibold tabular-nums">
-											{formatEur(r.amount)}
+											{formatEUR(r.amount)}
 										</TableCell>
 										<TableCell>
 											<ReimbursementStatusBadge status={r.status} />

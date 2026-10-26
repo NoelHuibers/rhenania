@@ -4,7 +4,6 @@ import { GetraenkewartPage } from "~/components/getraenkewart/GetraenkewartPage"
 import { KasseTab } from "~/components/getraenkewart/KasseTab";
 import { DashboardTab } from "~/components/inventur/DashboardTab";
 import { HistoryTab } from "~/components/inventur/HistoryTab";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { GetraenkePage } from "~/components/trinken/getraenkewart/GetraenkePage";
 import {
 	getBankEntries,
@@ -88,29 +87,27 @@ function Loading() {
 
 export default function Page() {
 	return (
-		<SidebarLayout>
-			<Suspense fallback={<Loading />}>
-				<GetraenkewartPage
-					getraenkeTab={<GetraenkePage />}
-					inventurTab={
-						<Suspense fallback={<Loading />}>
-							<InventurTabData />
-						</Suspense>
-					}
-					verlaufTab={
-						<Suspense fallback={<Loading />}>
-							<VerlaufTabData />
-						</Suspense>
-					}
-					kasseTab={
-						<Suspense fallback={<Loading />}>
-							<KasseTabData />
-						</Suspense>
-					}
-					buchungTab={<BookingTab />}
-				/>
-			</Suspense>
-		</SidebarLayout>
+		<Suspense fallback={<Loading />}>
+			<GetraenkewartPage
+				getraenkeTab={<GetraenkePage />}
+				inventurTab={
+					<Suspense fallback={<Loading />}>
+						<InventurTabData />
+					</Suspense>
+				}
+				verlaufTab={
+					<Suspense fallback={<Loading />}>
+						<VerlaufTabData />
+					</Suspense>
+				}
+				kasseTab={
+					<Suspense fallback={<Loading />}>
+						<KasseTabData />
+					</Suspense>
+				}
+				buchungTab={<BookingTab />}
+			/>
+		</Suspense>
 	);
 }
 

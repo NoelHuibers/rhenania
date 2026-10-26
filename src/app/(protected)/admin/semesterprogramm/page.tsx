@@ -3,7 +3,6 @@ import { EventsManager } from "~/components/admin/semesterprogramm/EventsManager
 import { RecurringEventsManager } from "~/components/admin/semesterprogramm/RecurringEventsManager";
 import { SemProGenerieren } from "~/components/admin/semesterprogramm/SemProGenerieren";
 import { VenuesManager } from "~/components/admin/semesterprogramm/VenuesManager";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { getAllEvents } from "~/server/actions/events/events";
@@ -29,7 +28,7 @@ export default async function AdminSemesterprogrammPage() {
 	const semproUrl = `${protocol}://${host}/api/calendar`;
 
 	return (
-		<SidebarLayout>
+		<>
 			<SiteHeader title="Veranstaltungen" />
 			<div className="mx-auto max-w-4xl p-4 sm:p-6">
 				<Tabs defaultValue="events" className="gap-4 sm:gap-2">
@@ -59,6 +58,6 @@ export default async function AdminSemesterprogrammPage() {
 					</TabsContent>
 				</Tabs>
 			</div>
-		</SidebarLayout>
+		</>
 	);
 }

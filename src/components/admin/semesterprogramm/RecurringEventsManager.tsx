@@ -15,6 +15,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -546,9 +547,9 @@ export function RecurringEventsManager({
 				<CardTitle className="text-sm">
 					{editingId ? "Vorlage bearbeiten" : "Neue Vorlage"}
 				</CardTitle>
-				<Button variant="ghost" size="icon" onClick={closeForm}>
+				<IconButton label="Formular schließen" onClick={closeForm}>
 					<X className="h-4 w-4" />
-				</Button>
+				</IconButton>
 			</CardHeader>
 			<CardContent>{formContent(true)}</CardContent>
 		</Card>
@@ -595,7 +596,7 @@ export function RecurringEventsManager({
 						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={confirmDelete}
-							className="bg-destructive text-white hover:bg-destructive/90"
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 						>
 							Löschen
 						</AlertDialogAction>
@@ -664,29 +665,27 @@ export function RecurringEventsManager({
 										)}
 									</div>
 									<div className="flex shrink-0 gap-1">
-										<Button
-											variant="ghost"
-											size="icon"
-											title={r.isActive ? "Deaktivieren" : "Aktivieren"}
+										<IconButton
+											label={
+												r.isActive ? "Serie deaktivieren" : "Serie aktivieren"
+											}
 											onClick={() => handleToggleActive(r.id)}
 										>
 											<Power className="h-4 w-4" />
-										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
+										</IconButton>
+										<IconButton
+											label="Serie bearbeiten"
 											onClick={() => openEdit(r)}
 										>
 											<Pencil className="h-4 w-4" />
-										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
+										</IconButton>
+										<IconButton
+											label="Serie löschen"
 											onClick={() => setDeleteId(r.id)}
 											className="text-destructive hover:text-destructive"
 										>
 											<Trash2 className="h-4 w-4" />
-										</Button>
+										</IconButton>
 									</div>
 								</div>
 

@@ -15,6 +15,8 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "~/components/ui/drawer";
+import { IconButton } from "~/components/ui/icon-button";
+import { formatEUR } from "~/lib/format";
 import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
 import { createFuchsenOrder } from "~/server/actions/fuchsenladen/orders";
 
@@ -65,9 +67,7 @@ export function FuchsenOrderDrawer({
 				if (result.success) {
 					handleClose();
 					toast.success(
-						`${quantity}x ${item.name} bestellt (€${(
-							item.price * quantity
-						).toFixed(2)})`,
+						`${quantity}x ${item.name} bestellt (${formatEUR(item.price * quantity)})`,
 					);
 				} else {
 					toast.error(result.error || "Ein Fehler ist aufgetreten.");
@@ -101,10 +101,10 @@ export function FuchsenOrderDrawer({
 					</div>
 					<DrawerTitle className="font-bold text-lg">{item.name}</DrawerTitle>
 					<DrawerDescription className="flex items-center justify-center gap-2 text-sm">
-						<Badge className="h-5 bg-green-500 text-white text-xs">
+						<Badge variant="success" className="h-5 text-xs">
 							Verfügbar
 						</Badge>
-						<span>€{item.price.toFixed(2)} pro Stück</span>
+						<span>{formatEUR(item.price)} pro Stück</span>
 					</DrawerDescription>
 				</DrawerHeader>
 
@@ -117,15 +117,15 @@ export function FuchsenOrderDrawer({
 
 					<div className="space-y-3">
 						<div className="flex items-center justify-center gap-3">
-							<Button
+							<IconButton
+								label="Menge verringern"
 								variant="outline"
-								size="icon"
 								onClick={() => adjustQuantity(-1)}
 								disabled={quantity <= 1 || isPending}
 								className="h-9 w-9"
 							>
 								<Minus className="h-4 w-4" />
-							</Button>
+							</IconButton>
 
 							<NumericInput
 								value={quantity}
@@ -136,15 +136,15 @@ export function FuchsenOrderDrawer({
 								max={200}
 							/>
 
-							<Button
+							<IconButton
+								label="Menge erhöhen"
 								variant="outline"
-								size="icon"
 								onClick={() => adjustQuantity(1)}
 								disabled={isPending}
 								className="h-9 w-9"
 							>
 								<Plus className="h-4 w-4" />
-							</Button>
+							</IconButton>
 						</div>
 					</div>
 
@@ -153,13 +153,11 @@ export function FuchsenOrderDrawer({
 							<span>
 								{quantity}x {item.name}
 							</span>
-							<span>€{totalPrice.toFixed(2)}</span>
+							<span>{formatEUR(totalPrice)}</span>
 						</div>
 						<div className="mt-1 flex justify-between border-t pt-1 font-bold text-base">
 							<span>Gesamt</span>
-							<span className="text-emerald-600 dark:text-emerald-400">
-								€{totalPrice.toFixed(2)}
-							</span>
+							<span className="text-success">{formatEUR(totalPrice)}</span>
 						</div>
 					</div>
 				</div>
@@ -175,7 +173,7 @@ export function FuchsenOrderDrawer({
 					</Button>
 					<Button
 						onClick={handleConfirm}
-						className="flex-1 bg-green-500 hover:bg-green-600"
+						className="flex-1"
 						disabled={isPending}
 					>
 						<ShoppingCart className="mr-2 h-4 w-4" />

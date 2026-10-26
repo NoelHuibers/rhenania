@@ -13,6 +13,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
+import { formatDate, formatEUR } from "~/lib/format";
 import type { FuchsenOrder } from "~/server/actions/fuchsenladen/orders";
 import {
 	type FuchsenUserBill,
@@ -21,12 +22,6 @@ import {
 	markAllUserFuchsenOrdersPaid,
 	updateFuchsenOrderStatus,
 } from "~/server/actions/fuchsenladen/orders";
-
-const currencyFormatter = new Intl.NumberFormat("de-DE", {
-	style: "currency",
-	currency: "EUR",
-});
-const dateFormatter = new Intl.DateTimeFormat("de-DE");
 
 export function FuchsenBillsManagement() {
 	const [bills, setBills] = useState<FuchsenUserBill[]>([]);
@@ -158,16 +153,16 @@ export function FuchsenBillsManagement() {
 									<TableCell className="text-right">
 										{bill.openTotal > 0 ? (
 											<Badge variant="destructive">
-												{currencyFormatter.format(bill.openTotal)}
+												{formatEUR(bill.openTotal)}
 											</Badge>
 										) : (
 											<span className="text-muted-foreground">
-												{currencyFormatter.format(0)}
+												{formatEUR(0)}
 											</span>
 										)}
 									</TableCell>
 									<TableCell className="text-right text-muted-foreground">
-										{currencyFormatter.format(bill.paidTotal)}
+										{formatEUR(bill.paidTotal)}
 									</TableCell>
 									<TableCell className="text-right">
 										{bill.totalCount}
@@ -214,9 +209,7 @@ export function FuchsenBillsManagement() {
 															{orders.map((order) => (
 																<TableRow key={order.id}>
 																	<TableCell>
-																		{dateFormatter.format(
-																			new Date(order.createdAt),
-																		)}
+																		{formatDate(new Date(order.createdAt))}
 																	</TableCell>
 																	<TableCell className="font-medium">
 																		{order.itemName}
@@ -225,7 +218,7 @@ export function FuchsenBillsManagement() {
 																		{order.amount}
 																	</TableCell>
 																	<TableCell className="text-right">
-																		{currencyFormatter.format(order.total)}
+																		{formatEUR(order.total)}
 																	</TableCell>
 																	<TableCell>
 																		<Badge

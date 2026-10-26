@@ -63,10 +63,10 @@ export function ForgotPassword() {
 
 	if (submittedEmail) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+			<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 				<Card className="w-full max-w-md">
 					<CardHeader className="text-center">
-						<CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-green-600" />
+						<CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-success" />
 						<CardTitle>E-Mail prüfen</CardTitle>
 						<CardDescription>
 							Falls ein Konto für <strong>{submittedEmail}</strong> existiert,
@@ -96,7 +96,7 @@ export function ForgotPassword() {
 	}
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+		<div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
 			<Card className="w-full max-w-md">
 				<CardHeader className="text-center">
 					<Mail className="mx-auto mb-4 h-12 w-12 text-primary" />

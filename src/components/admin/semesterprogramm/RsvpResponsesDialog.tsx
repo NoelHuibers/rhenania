@@ -8,6 +8,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
+import { formatDateWith } from "~/lib/format";
 import { getEventRsvps } from "~/server/actions/events/rsvp";
 
 type Row = Awaited<ReturnType<typeof getEventRsvps>>[number];
@@ -16,17 +17,17 @@ const STATUS_META = {
 	yes: {
 		label: "Zugesagt",
 		icon: <Check className="h-3 w-3" />,
-		className: "bg-green-100 text-green-700",
+		className: "bg-success-muted text-success-muted-foreground",
 	},
 	maybe: {
 		label: "Vielleicht",
 		icon: <HelpCircle className="h-3 w-3" />,
-		className: "bg-amber-100 text-amber-700",
+		className: "bg-warning-muted text-warning-muted-foreground",
 	},
 	no: {
 		label: "Abgesagt",
 		icon: <X className="h-3 w-3" />,
-		className: "bg-red-100 text-red-700",
+		className: "bg-danger-muted text-danger-muted-foreground",
 	},
 } as const;
 
@@ -122,13 +123,10 @@ export function RsvpResponsesDialog({
 													)}
 												</div>
 												<div className="shrink-0 text-muted-foreground text-xs">
-													{(r.updatedAt ?? r.createdAt).toLocaleDateString(
-														"de-DE",
-														{
-															day: "2-digit",
-															month: "short",
-														},
-													)}
+													{formatDateWith(r.updatedAt ?? r.createdAt, {
+														day: "2-digit",
+														month: "short",
+													})}
 												</div>
 											</li>
 										))}

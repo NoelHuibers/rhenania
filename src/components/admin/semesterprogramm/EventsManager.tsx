@@ -34,6 +34,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -155,9 +156,9 @@ function EventFormCard({
 				<CardTitle className="text-base">
 					{isEditing ? "Veranstaltung bearbeiten" : "Neue Veranstaltung"}
 				</CardTitle>
-				<Button variant="ghost" size="icon" onClick={onClose}>
+				<IconButton label="Formular schließen" onClick={onClose}>
 					<X className="h-4 w-4" />
-				</Button>
+				</IconButton>
 			</CardHeader>
 			<CardContent>
 				<form onSubmit={onSubmit} className="space-y-4">
@@ -449,7 +450,7 @@ export function EventsManager({
 						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={confirmDelete}
-							className="bg-destructive text-white hover:bg-destructive/90"
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 						>
 							Löschen
 						</AlertDialogAction>
@@ -576,10 +577,10 @@ function EventRow({
 					)}
 				</div>
 				<div className="hidden shrink-0 gap-1 sm:flex">
-					<Button
-						variant="ghost"
-						size="icon"
-						title={event.isCancelled ? "Absage rückgängig" : "Absagen"}
+					<IconButton
+						label={
+							event.isCancelled ? "Absage rückgängig machen" : "Termin absagen"
+						}
 						onClick={() => onToggleCancel(event.id)}
 					>
 						{event.isCancelled ? (
@@ -587,24 +588,23 @@ function EventRow({
 						) : (
 							<Ban className="h-4 w-4" />
 						)}
-					</Button>
-					<Button variant="ghost" size="icon" onClick={() => onEdit(event)}>
+					</IconButton>
+					<IconButton label="Termin bearbeiten" onClick={() => onEdit(event)}>
 						<Pencil className="h-4 w-4" />
-					</Button>
-					<Button
-						variant="ghost"
-						size="icon"
+					</IconButton>
+					<IconButton
+						label="Termin löschen"
 						onClick={() => onDelete(event.id)}
 						className="text-destructive hover:text-destructive"
 					>
 						<Trash2 className="h-4 w-4" />
-					</Button>
+					</IconButton>
 				</div>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild className="shrink-0 sm:hidden">
-						<Button variant="ghost" size="icon" className="-mt-1 -mr-2">
+						<IconButton label="Weitere Aktionen" className="-mt-1 -mr-2">
 							<MoreHorizontal className="h-4 w-4" />
-						</Button>
+						</IconButton>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
 						<DropdownMenuItem onClick={() => onToggleCancel(event.id)}>

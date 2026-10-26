@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { GamesElo } from "~/components/profile/GamesElo";
 import { PublicAchievements } from "~/components/profile/PublicAchievements";
 import { PublicProfileIdentity } from "~/components/profile/PublicProfileIdentity";
-import { SidebarLayout } from "~/components/sidebar/SidebarLayout";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Card, CardContent } from "~/components/ui/card";
 import { getPublicProfile } from "~/server/actions/profile/public-profile";
@@ -27,7 +26,7 @@ export default async function PublicProfilePage({
 	}
 
 	return (
-		<SidebarLayout>
+		<>
 			<SiteHeader title="Mitgliedsprofil" />
 			<div className="flex-1 bg-background p-4 md:p-6">
 				<div className="mx-auto max-w-7xl space-y-6">
@@ -59,7 +58,7 @@ export default async function PublicProfilePage({
 								/>
 								<Card>
 									<CardContent className="flex items-center gap-3 py-6">
-										<Beer className="h-8 w-8 text-amber-500" />
+										<Beer className="h-8 w-8 text-warning-muted-foreground" />
 										<div>
 											<p className="font-semibold text-2xl">
 												{profile.drinkStats.litersLast6Months} L
@@ -87,6 +86,6 @@ export default async function PublicProfilePage({
 					)}
 				</div>
 			</div>
-		</SidebarLayout>
+		</>
 	);
 }

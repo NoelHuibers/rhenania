@@ -4,6 +4,8 @@ import { Analytics } from "@vercel/analytics/react";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import { Geist, Inter } from "next/font/google";
+import { AppThemeProvider } from "~/components/theme-provider";
+import { Toaster } from "~/components/ui/sonner";
 import { cn } from "~/lib/utils";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 
@@ -29,12 +31,16 @@ const geist = Geist({
 	variable: "--font-geist-sans",
 });
 
+// The only document root. Nested layouts render fragments, never <html> or
+// <body>, so the theme class and `lang` always land on the real element.
 export default function RootLayout({
 	children,
 }: Readonly<{ children: React.ReactNode }>) {
 	return (
 		<html
 			lang="de"
+			// next-themes sets the theme class before hydration.
+			suppressHydrationWarning
 			className={cn(
 				geist.variable,
 				"font-sans",
@@ -42,9 +48,15 @@ export default function RootLayout({
 				geistHeading.variable,
 			)}
 		>
-			<body>{children}</body>
-			<Analytics />
-			<SpeedInsights />
+			<body>
+				<AppThemeProvider>
+					{children}
+					{/* Top-center keeps toasts clear of the thumb zone on phones. */}
+					<Toaster position="top-center" richColors closeButton />
+				</AppThemeProvider>
+				<Analytics />
+				<SpeedInsights />
+			</body>
 		</html>
 	);
 }

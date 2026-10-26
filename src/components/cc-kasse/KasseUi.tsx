@@ -101,14 +101,14 @@ export function BudgetBar({
 			<div
 				className={cn(
 					"h-full transition-all",
-					over ? "bg-red-500" : "bg-primary",
+					over ? "bg-danger text-danger-foreground" : "bg-primary",
 				)}
 				style={{ width: pct(ausgegeben) }}
 			/>
 			<div
 				className={cn(
 					"h-full transition-all",
-					over ? "bg-red-400/50" : "bg-primary/40",
+					over ? "bg-danger/50" : "bg-primary/40",
 				)}
 				style={{ width: pct(genehmigt) }}
 			/>
@@ -179,12 +179,4 @@ export function EmptyState({
 			)}
 		</div>
 	);
-}
-
-export function formatDate(d: Date | string | number): string {
-	return new Date(d).toLocaleDateString("de-DE", {
-		day: "2-digit",
-		month: "2-digit",
-		year: "numeric",
-	});
 }

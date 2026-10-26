@@ -123,7 +123,7 @@ export function SemProGenerieren({
 							</div>
 						</div>
 						{error && <p className="text-destructive text-sm">{error}</p>}
-						{saved && <p className="text-green-600 text-sm">Gespeichert.</p>}
+						{saved && <p className="text-sm text-success">Gespeichert.</p>}
 						<Button type="submit" disabled={saving}>
 							{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 							{saving ? "Speichern..." : "Speichern"}

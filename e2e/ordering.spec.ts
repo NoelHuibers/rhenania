@@ -6,7 +6,7 @@ test.describe("ordering drinks", () => {
 	test("a member orders a Pils @mobile", async ({ page }) => {
 		await signIn(page, USERS.rhMember);
 		const toast = await orderDrink(page, "Pils");
-		expect(toast).toContain("€1.20");
+		expect(toast).toMatch(/1,20\s€/);
 		expect(toast).toContain("eigene Kosten");
 	});
 
@@ -22,6 +22,6 @@ test.describe("ordering drinks", () => {
 		await signIn(page, USERS.haMember, HASSIA);
 		const toast = await orderDrink(page, "Pils", HASSIA);
 		// 1.30 € purchase price + 10 % markup
-		expect(toast).toContain("€1.43");
+		expect(toast).toMatch(/1,43\s€/);
 	});
 });

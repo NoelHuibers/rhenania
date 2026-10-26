@@ -9,6 +9,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
+import { formatEUR } from "~/lib/format";
 import { applyMarkup } from "~/lib/pricing";
 import {
 	createChallenge,
@@ -163,8 +164,8 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 										onClick={() => setSelectedDrinkId(d.id)}
 										className={`flex min-w-0 flex-col items-center gap-1 rounded-lg border-2 p-2 transition-colors ${
 											selected
-												? "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
-												: "border-border hover:border-orange-300"
+												? "border-warning bg-warning-muted"
+												: "border-border hover:border-warning/40"
 										}`}
 									>
 										<div className="relative h-12 w-12 sm:h-14 sm:w-14">
@@ -180,7 +181,7 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 											{d.name}
 										</div>
 										<div className="text-[10px] text-muted-foreground">
-											€{d.price.toFixed(2)}
+											{formatEUR(d.price)}
 										</div>
 									</button>
 								);
@@ -270,8 +271,8 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 							key={opt.value}
 							className={`flex items-start gap-2 rounded-lg border-2 p-2 transition-colors sm:p-2.5 ${
 								payment === opt.value
-									? "border-orange-500 bg-orange-50 dark:bg-orange-950/20"
-									: "border-border hover:border-orange-300"
+									? "border-warning bg-warning-muted"
+									: "border-border hover:border-warning/40"
 							}`}
 						>
 							<RadioGroupItem
@@ -298,7 +299,7 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 			<Button
 				onClick={handleSubmit}
 				disabled={!canSubmit}
-				className="w-full bg-orange-500 hover:bg-orange-600"
+				className="w-full bg-warning text-warning-foreground hover:bg-warning/90"
 			>
 				{isPending
 					? "Sende…"

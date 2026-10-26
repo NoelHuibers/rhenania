@@ -15,6 +15,8 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "~/components/ui/drawer";
+import { IconButton } from "~/components/ui/icon-button";
+import { formatEUR } from "~/lib/format";
 import type { MenuItem } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
 import type { BillingOption } from "./Billingselector";
@@ -68,9 +70,7 @@ export function OrderDrawer({
 				if (orderResult.success) {
 					handleClose();
 					toast.success(
-						`${quantity}x ${drink.name} bestellt (€${(
-							drink.price * quantity
-						).toFixed(2)}) - Abrechnung auf ${
+						`${quantity}x ${drink.name} bestellt (${formatEUR(drink.price * quantity)}) - Abrechnung auf ${
 							selectedBilling ? selectedBilling : "eigene Kosten"
 						}`,
 					);
@@ -111,23 +111,23 @@ export function OrderDrawer({
 					</div>
 					<DrawerTitle className="font-bold text-lg">{drink.name}</DrawerTitle>
 					<DrawerDescription className="flex items-center justify-center gap-2 text-sm">
-						<Badge className="h-5 bg-green-500 text-white text-xs">
+						<Badge variant="success" className="h-5 text-xs">
 							Verfügbar
 						</Badge>
-						<span>€{drink.price.toFixed(2)} pro Stück</span>
+						<span>{formatEUR(drink.price)} pro Stück</span>
 					</DrawerDescription>
 				</DrawerHeader>
 
 				<div className="flex-1 space-y-4 overflow-y-auto px-6 pb-2">
 					{selectedBilling ? (
-						<div className="rounded-lg border border-blue-200 bg-blue-50 p-2">
+						<div className="rounded-lg border border-info/40 bg-info-muted p-2">
 							<div className="flex items-center justify-between">
-								<span className="font-medium text-blue-900 text-sm">
+								<span className="font-medium text-info-muted-foreground text-sm">
 									Abrechnung:
 								</span>
 								<Badge
 									variant="secondary"
-									className="h-5 bg-blue-100 text-blue-900 text-xs"
+									className="h-5 bg-info-muted text-info-muted-foreground text-xs"
 								>
 									{selectedBilling}
 								</Badge>
@@ -138,15 +138,15 @@ export function OrderDrawer({
 					{/* Quantity Controls */}
 					<div className="space-y-3">
 						<div className="flex items-center justify-center gap-3">
-							<Button
+							<IconButton
+								label="Menge verringern"
 								variant="outline"
-								size="icon"
 								onClick={() => adjustQuantity(-1)}
 								disabled={quantity <= 1 || isPending}
 								className="h-9 w-9"
 							>
 								<Minus className="h-4 w-4" />
-							</Button>
+							</IconButton>
 
 							<NumericInput
 								value={quantity}
@@ -157,15 +157,15 @@ export function OrderDrawer({
 								max={200}
 							/>
 
-							<Button
+							<IconButton
+								label="Menge erhöhen"
 								variant="outline"
-								size="icon"
 								onClick={() => adjustQuantity(1)}
 								disabled={isPending}
 								className="h-9 w-9"
 							>
 								<Plus className="h-4 w-4" />
-							</Button>
+							</IconButton>
 						</div>
 
 						{/* Preset Buttons */}
@@ -187,13 +187,11 @@ export function OrderDrawer({
 							<span>
 								{quantity}x {drink.name}
 							</span>
-							<span>€{totalPrice.toFixed(2)}</span>
+							<span>{formatEUR(totalPrice)}</span>
 						</div>
 						<div className="mt-1 flex justify-between border-t pt-1 font-bold text-base">
 							<span>Gesamt</span>
-							<span className="text-emerald-600 dark:text-emerald-400">
-								€{totalPrice.toFixed(2)}
-							</span>
+							<span className="text-success">{formatEUR(totalPrice)}</span>
 						</div>
 					</div>
 				</div>
@@ -209,7 +207,7 @@ export function OrderDrawer({
 					</Button>
 					<Button
 						onClick={handleConfirm}
-						className="flex-1 bg-green-500 hover:bg-green-600"
+						className="flex-1"
 						disabled={isPending}
 					>
 						<ShoppingCart className="mr-2 h-4 w-4" />

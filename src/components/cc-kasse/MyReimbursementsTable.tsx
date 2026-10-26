@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
+import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import {
 	Table,
 	TableBody,
@@ -12,13 +13,12 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
-import { formatEur } from "~/lib/cc-kasse-format";
+import { formatDate, formatEUR } from "~/lib/format";
 import {
 	cancelMyReimbursement,
 	type MyReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
 import { ReceiptLinks } from "./ReceiptLinks";
-import { ReimbursementStatusBadge } from "./ReimbursementStatusBadge";
 
 export function MyReimbursementsTable({
 	reimbursements,
@@ -89,13 +89,13 @@ export function MyReimbursementsTable({
 						</div>
 						<div className="flex items-center justify-between text-sm">
 							<span className="text-muted-foreground">
-								{new Date(r.expenseDate).toLocaleDateString("de-DE")}
+								{formatDate(r.expenseDate)}
 							</span>
-							<span className="font-semibold">{formatEur(r.amount)}</span>
+							<span className="font-semibold">{formatEUR(r.amount)}</span>
 						</div>
 						<p className="text-sm">{r.description}</p>
 						{r.status === "Abgelehnt" && r.rejectionReason && (
-							<p className="text-red-700 text-xs">
+							<p className="text-danger-muted-foreground text-xs">
 								Abgelehnt: {r.rejectionReason}
 							</p>
 						)}
@@ -129,7 +129,7 @@ export function MyReimbursementsTable({
 						{reimbursements.map((r) => (
 							<TableRow key={r.id}>
 								<TableCell className="whitespace-nowrap">
-									{new Date(r.expenseDate).toLocaleDateString("de-DE")}
+									{formatDate(r.expenseDate)}
 								</TableCell>
 								<TableCell>
 									<span className="text-muted-foreground text-xs">
@@ -141,13 +141,13 @@ export function MyReimbursementsTable({
 								<TableCell className="max-w-[220px]">
 									<span className="line-clamp-2">{r.description}</span>
 									{r.status === "Abgelehnt" && r.rejectionReason && (
-										<span className="mt-1 block text-red-700 text-xs">
+										<span className="mt-1 block text-danger-muted-foreground text-xs">
 											Abgelehnt: {r.rejectionReason}
 										</span>
 									)}
 								</TableCell>
 								<TableCell className="text-right font-medium">
-									{formatEur(r.amount)}
+									{formatEUR(r.amount)}
 								</TableCell>
 								<TableCell>
 									<ReimbursementStatusBadge status={r.status} />
