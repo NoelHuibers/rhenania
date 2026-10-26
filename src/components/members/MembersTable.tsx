@@ -42,6 +42,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import {
 	Select,
@@ -410,22 +411,21 @@ export function MembersTable({
 			cell: ({ row }) =>
 				canEdit ? (
 					<div className="flex justify-end gap-0.5 px-1">
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-8 w-8"
+						<IconButton
+							size="icon-sm"
+							label="Mitglied bearbeiten"
 							onClick={() => onEditFull(row.original)}
 						>
 							<Pencil className="h-4 w-4" />
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="h-8 w-8 text-muted-foreground hover:text-destructive"
+						</IconButton>
+						<IconButton
+							size="icon-sm"
+							label="Mitglied löschen"
+							className="text-muted-foreground hover:text-destructive"
 							onClick={() => onRequestDelete(row.original)}
 						>
 							<Trash2 className="h-4 w-4" />
-						</Button>
+						</IconButton>
 					</div>
 				) : null,
 			meta: {
@@ -649,14 +649,13 @@ export function MembersTable({
 										>
 											<Pencil className="mr-1 h-4 w-4" /> Bearbeiten
 										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
+										<IconButton
+											label="Mitglied löschen"
 											className="text-muted-foreground hover:text-destructive"
 											onClick={() => onRequestDelete(m)}
 										>
 											<Trash2 className="h-4 w-4" />
-										</Button>
+										</IconButton>
 									</div>
 								)}
 							</div>

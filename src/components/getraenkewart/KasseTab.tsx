@@ -42,6 +42,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "~/components/ui/collapsible";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import {
 	Dialog,
 	DialogContent,
@@ -58,6 +59,7 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { BillStatusBadge, statusClass } from "~/components/ui/status-badge";
@@ -271,8 +273,9 @@ function SummarySection({
 										inputMode="decimal"
 										value={pfandInput}
 										onChange={(e) => setPfandInput(e.target.value)}
-										className="h-7 w-28 text-sm"
+										className="h-8 w-28 text-sm"
 										placeholder="0,00"
+										aria-label="Pfandwert in Euro"
 										autoFocus
 										onKeyDown={(e) => {
 											if (e.key === "Enter") {
@@ -283,38 +286,35 @@ function SummarySection({
 											}
 										}}
 									/>
-									<Button
-										size="icon"
-										variant="ghost"
-										className="size-6"
+									<IconButton
+										label="Pfandwert speichern"
+										size="icon-sm"
 										onClick={handleSavePfand}
 										disabled={isPending}
 									>
-										<CheckCircle className="size-3.5 text-success" />
-									</Button>
-									<Button
-										size="icon"
-										variant="ghost"
-										className="size-6"
+										<CheckCircle className="text-success" />
+									</IconButton>
+									<IconButton
+										label="Bearbeiten abbrechen"
+										size="icon-sm"
 										onClick={() => setEditingPfand(false)}
 										disabled={isPending}
 									>
-										<X className="size-3.5" />
-									</Button>
+										<X />
+									</IconButton>
 								</div>
 							) : (
 								<div className="flex items-center gap-2">
 									<p className="font-bold text-lg text-success">
 										{formatEUR(summary.pfand)}
 									</p>
-									<Button
-										size="icon"
-										variant="ghost"
-										className="size-6"
+									<IconButton
+										label="Pfandwert bearbeiten"
+										size="icon-sm"
 										onClick={() => setEditingPfand(true)}
 									>
-										<Pencil className="size-3 text-muted-foreground" />
-									</Button>
+										<Pencil className="text-muted-foreground" />
+									</IconButton>
 								</div>
 							)}
 						</div>
@@ -371,7 +371,7 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 				toast.success("Eintrag gelöscht");
 				router.refresh();
 			} else {
-				toast.error("Fehler beim Löschen");
+				toast.error(res.error ?? "Fehler beim Löschen");
 			}
 		});
 	}
@@ -393,8 +393,9 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 						</DialogHeader>
 						<div className="grid gap-4 py-2">
 							<div className="grid gap-1.5">
-								<Label>Aktueller Kontostand (€)</Label>
+								<Label htmlFor="bank-balance">Aktueller Kontostand (€)</Label>
 								<Input
+									id="bank-balance"
 									inputMode="decimal"
 									placeholder="z. B. 1250,00"
 									value={amount}
@@ -418,16 +419,18 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 								</p>
 							</div>
 							<div className="grid gap-1.5">
-								<Label>Beschreibung</Label>
+								<Label htmlFor="bank-description">Beschreibung</Label>
 								<Input
+									id="bank-description"
 									placeholder="z. B. Kontostand 04.04."
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 								/>
 							</div>
 							<div className="grid gap-1.5">
-								<Label>Datum</Label>
+								<Label htmlFor="bank-date">Datum</Label>
 								<Input
+									id="bank-date"
 									type="date"
 									value={date}
 									onChange={(e) => setDate(e.target.value)}
@@ -482,15 +485,18 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 										</span>
 									</TableCell>
 									<TableCell>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="size-7"
-											disabled={isPending}
-											onClick={() => handleDelete(e.id)}
+										<ConfirmAction
+											title="Kasseneintrag löschen?"
+											description={`„${e.description}“ (${formatEUR(e.amount)}) wird aus dem Kassenstandverlauf entfernt. Das lässt sich nicht rückgängig machen.`}
+											onConfirm={() => handleDelete(e.id)}
 										>
-											<Trash2 className="size-3.5 text-destructive" />
-										</Button>
+											<IconButton
+												label={`Eintrag „${e.description}“ löschen`}
+												disabled={isPending}
+											>
+												<Trash2 className="text-destructive" />
+											</IconButton>
+										</ConfirmAction>
 									</TableCell>
 								</TableRow>
 							))}
@@ -540,29 +546,28 @@ function CollapsibleCard({
 	return (
 		<Card>
 			<Collapsible open={open} onOpenChange={setOpen}>
-				<CollapsibleTrigger asChild>
-					<CardHeader className="flex cursor-pointer flex-row items-center justify-between transition-colors hover:bg-muted/50">
-						<div className="flex items-center gap-2">
-							<CardTitle className="text-base">{title}</CardTitle>
-							{meta}
-						</div>
-						<div className="flex items-center gap-2">
-							{action}
-							<Button
-								variant="ghost"
-								size="icon"
-								className="size-7"
-								tabIndex={-1}
-							>
-								{open ? (
-									<ChevronUp className="size-4" />
-								) : (
-									<ChevronDown className="size-4" />
-								)}
-							</Button>
-						</div>
-					</CardHeader>
-				</CollapsibleTrigger>
+				<CardHeader className="flex flex-row items-center justify-between gap-2 transition-colors hover:bg-muted/50">
+					{/* The title is the toggle (a real button, so it works with the
+					    keyboard); the chevron repeats it for the mouse only. */}
+					<CollapsibleTrigger className="-m-1 flex min-h-9 flex-1 cursor-pointer items-center gap-2 rounded-md p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+						<span className="font-heading font-medium text-base">{title}</span>
+						{meta}
+					</CollapsibleTrigger>
+					<div className="flex items-center gap-2">
+						{action}
+						<CollapsibleTrigger
+							tabIndex={-1}
+							aria-hidden
+							className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-muted"
+						>
+							{open ? (
+								<ChevronUp className="size-4" />
+							) : (
+								<ChevronDown className="size-4" />
+							)}
+						</CollapsibleTrigger>
+					</div>
+				</CardHeader>
 				<CollapsibleContent>
 					<CardContent className="p-0">{children}</CardContent>
 				</CollapsibleContent>
@@ -867,16 +872,14 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 									{formatEUR(b.total)}
 								</TableCell>
 								<TableCell>
-									<Button
-										size="icon"
-										variant="ghost"
-										className="size-7"
+									<IconButton
+										size="icon-sm"
+										label={`PDF für ${b.userName} herunterladen`}
 										disabled={downloading === b.id}
 										onClick={() => handleDownload(b)}
-										aria-label={`PDF für ${b.userName} herunterladen`}
 									>
 										<Download className="size-3.5" />
-									</Button>
+									</IconButton>
 								</TableCell>
 							</TableRow>
 						))}
@@ -927,6 +930,8 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			if (res.success) {
 				toast.success("Als bezahlt markiert");
 				router.refresh();
+			} else {
+				toast.error(res.error ?? "Status konnte nicht geändert werden");
 			}
 		});
 	}
@@ -937,6 +942,8 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			if (res.success) {
 				toast.success("Gelöscht");
 				router.refresh();
+			} else {
+				toast.error(res.error ?? "Fehler beim Löschen");
 			}
 		});
 	}
@@ -973,24 +980,27 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 						</DialogHeader>
 						<div className="grid gap-4 py-2">
 							<div className="grid gap-1.5">
-								<Label>Gläubiger</Label>
+								<Label htmlFor="ext-creditor">Gläubiger</Label>
 								<Input
+									id="ext-creditor"
 									placeholder="z. B. Getränke Hartmann"
 									value={creditor}
 									onChange={(e) => setCreditor(e.target.value)}
 								/>
 							</div>
 							<div className="grid gap-1.5">
-								<Label>Beschreibung</Label>
+								<Label htmlFor="ext-description">Beschreibung</Label>
 								<Input
+									id="ext-description"
 									placeholder="z. B. Lieferung April"
 									value={description}
 									onChange={(e) => setDescription(e.target.value)}
 								/>
 							</div>
 							<div className="grid gap-1.5">
-								<Label>Betrag (€)</Label>
+								<Label htmlFor="ext-amount">Betrag (€)</Label>
 								<Input
+									id="ext-amount"
 									inputMode="decimal"
 									placeholder="0,00"
 									value={amount}
@@ -1047,27 +1057,26 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 								<TableCell>
 									<div className="flex gap-1">
 										{b.status === "Offen" && (
-											<Button
-												variant="ghost"
-												size="icon"
-												className="size-7"
+											<IconButton
+												label={`${b.creditor} als bezahlt markieren`}
 												disabled={isPending}
 												onClick={() => handlePaid(b.id)}
-												aria-label="Als bezahlt markieren"
 											>
-												<CheckCircle className="size-3.5 text-success" />
-											</Button>
+												<CheckCircle className="text-success" />
+											</IconButton>
 										)}
-										<Button
-											variant="ghost"
-											size="icon"
-											className="size-7"
-											disabled={isPending}
-											onClick={() => handleDelete(b.id)}
-											aria-label="Löschen"
+										<ConfirmAction
+											title="Verbindlichkeit löschen?"
+											description={`${b.creditor}: ${b.description} (${formatEUR(b.amount)}) wird gelöscht. Das lässt sich nicht rückgängig machen.`}
+											onConfirm={() => handleDelete(b.id)}
 										>
-											<Trash2 className="size-3.5 text-destructive" />
-										</Button>
+											<IconButton
+												label={`Verbindlichkeit ${b.creditor} löschen`}
+												disabled={isPending}
+											>
+												<Trash2 className="text-destructive" />
+											</IconButton>
+										</ConfirmAction>
 									</div>
 								</TableCell>
 							</TableRow>

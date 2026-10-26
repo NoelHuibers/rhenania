@@ -35,6 +35,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { IconButton } from "~/components/ui/icon-button";
 import { formatDate, formatEUR } from "~/lib/format";
 import {
 	deleteEinnahme,
@@ -455,13 +456,12 @@ export function EtaplanEditorTab({
 																{isTreasury && (
 																	<DropdownMenu>
 																		<DropdownMenuTrigger asChild>
-																			<Button
-																				variant="ghost"
-																				size="icon-xs"
-																				aria-label="Einnahme-Aktionen"
+																			<IconButton
+																				size="icon-sm"
+																				label="Einnahme-Aktionen"
 																			>
 																				<MoreVertical />
-																			</Button>
+																			</IconButton>
 																		</DropdownMenuTrigger>
 																		<DropdownMenuContent align="end">
 																			<DropdownMenuItem

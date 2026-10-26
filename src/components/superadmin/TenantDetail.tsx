@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Switch } from "~/components/ui/switch";
@@ -159,12 +160,6 @@ function StatusSection({
 	const isSuspending = next === "suspended";
 
 	const submit = () => {
-		const msg = isSuspending
-			? `Suspend tenant? Existing users will be locked out until reactivated.`
-			: `Reactivate tenant?`;
-		if (!confirm(msg)) {
-			return;
-		}
 		startTransition(async () => {
 			const r = await setTenantStatusAction(tenantId, next);
 			if (r.success) {
@@ -183,13 +178,25 @@ function StatusSection({
 				<span className="text-muted-foreground text-sm">
 					Current: {current}
 				</span>
-				<Button
-					variant={isSuspending ? "destructive" : "default"}
-					onClick={submit}
-					disabled={disabled}
+				<ConfirmAction
+					title={isSuspending ? "Suspend tenant?" : "Reactivate tenant?"}
+					description={
+						isSuspending
+							? "Existing users will be locked out until reactivated."
+							: undefined
+					}
+					confirmLabel={isSuspending ? "Suspend" : "Reactivate"}
+					cancelLabel="Cancel"
+					destructive={isSuspending}
+					onConfirm={submit}
 				>
-					{isSuspending ? "Suspend" : "Reactivate"}
-				</Button>
+					<Button
+						variant={isSuspending ? "destructive" : "default"}
+						disabled={disabled}
+					>
+						{isSuspending ? "Suspend" : "Reactivate"}
+					</Button>
+				</ConfirmAction>
 			</div>
 		</section>
 	);
@@ -276,9 +283,6 @@ function DomainsSection({
 	};
 
 	const remove = (id: string, host: string) => {
-		if (!confirm(`Remove domain ${host}?`)) {
-			return;
-		}
 		startTransition(async () => {
 			const r = await removeTenantDomainAction(tenantId, id);
 			if (r.success) {
@@ -309,14 +313,16 @@ function DomainsSection({
 							{d.isPrimary && <Badge variant="default">primary</Badge>}
 							{!d.isCustom && <Badge variant="secondary">dev</Badge>}
 						</div>
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={() => remove(d.id, d.hostname)}
-							disabled={disabled}
+						<ConfirmAction
+							title={`Remove domain ${d.hostname}?`}
+							confirmLabel="Remove"
+							cancelLabel="Cancel"
+							onConfirm={() => remove(d.id, d.hostname)}
 						>
-							Remove
-						</Button>
+							<Button size="sm" variant="ghost" disabled={disabled}>
+								Remove
+							</Button>
+						</ConfirmAction>
 					</li>
 				))}
 			</ul>

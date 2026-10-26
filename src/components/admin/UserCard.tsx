@@ -1,4 +1,5 @@
 import { Loader2, Pencil, Trash2 } from "lucide-react";
+import { IconButton } from "~/components/ui/icon-button";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -89,15 +90,14 @@ export function UserCard({
 }: UserCardProps) {
 	const actions = (
 		<div className="flex shrink-0 gap-1">
-			<Button
-				variant="ghost"
-				size="icon"
-				className="h-8 w-8"
+			<IconButton
+				size="icon-sm"
+				label="Benutzer bearbeiten"
 				onClick={() => onEdit(user)}
 				disabled={isPending}
 			>
 				<Pencil className="h-3.5 w-3.5" />
-			</Button>
+			</IconButton>
 			<Button
 				variant="ghost"
 				size="sm"
@@ -111,15 +111,15 @@ export function UserCard({
 					"Rollen"
 				)}
 			</Button>
-			<Button
-				variant="ghost"
-				size="icon"
-				className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+			<IconButton
+				size="icon-sm"
+				label="Benutzer löschen"
+				className="text-destructive hover:bg-destructive/10 hover:text-destructive"
 				onClick={() => onDelete(user)}
 				disabled={isPending}
 			>
 				<Trash2 className="h-3.5 w-3.5" />
-			</Button>
+			</IconButton>
 		</div>
 	);
 

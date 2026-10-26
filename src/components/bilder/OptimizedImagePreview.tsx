@@ -3,7 +3,7 @@
 
 import { Loader2, Trash2 } from "lucide-react";
 import { memo, useCallback, useState } from "react";
-import { Button } from "~/components/ui/button";
+import { IconButton } from "~/components/ui/icon-button";
 import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
 
 export interface ImageItem {
@@ -127,19 +127,20 @@ export const OptimizedImagePreview = memo<ImagePreviewProps>(
 					{image.isActive ? "Aktiv" : "Inaktiv"}
 				</div>
 
-				<Button
-					size="icon"
+				<IconButton
+					size="icon-sm"
+					label="Bild löschen"
 					variant="destructive"
 					onClick={handleDeleteClick}
 					disabled={isDeleting}
-					className="absolute right-2 bottom-2 z-50 h-8 w-8 cursor-pointer"
+					className="absolute right-2 bottom-2 z-50 cursor-pointer"
 				>
 					{isDeleting ? (
 						<Loader2 className="h-4 w-4 animate-spin" />
 					) : (
 						<Trash2 className="h-4 w-4" />
 					)}
-				</Button>
+				</IconButton>
 
 				{/* Image name */}
 				<div className="pointer-events-none absolute right-0 bottom-0 left-0 bg-linear-to-t from-black/80 to-transparent p-2">

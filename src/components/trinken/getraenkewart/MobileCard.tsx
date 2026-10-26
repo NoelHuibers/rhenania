@@ -187,7 +187,7 @@ export function DrinksCardsMobile({
 												disabled={isPending}
 											/>
 										) : (
-											<>{formatEUR(drink.price)}</>
+											formatEUR(drink.price)
 										)}
 									</span>
 									<span className="inline-block">•</span>

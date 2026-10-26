@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "~/components/ui/button";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { createTenantAction } from "~/server/actions/superadmin/tenants";
@@ -14,16 +15,16 @@ export function NewTenantForm() {
 	const [isPending, startTransition] = useTransition();
 	const [slug, setSlug] = useState("");
 	const [displayName, setDisplayName] = useState("");
+	const [confirming, setConfirming] = useState(false);
 
+	// Submitting (after the browser's own validation) only asks; the
+	// confirm dialog provisions.
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-		if (
-			!confirm(
-				`Provision a new Turso DB and tenant for "${slug}"? This is hard to undo.`,
-			)
-		) {
-			return;
-		}
+		setConfirming(true);
+	};
+
+	const provision = () => {
 		startTransition(async () => {
 			const result = await createTenantAction({ slug, displayName });
 			if (!result.success || !result.data) {
@@ -40,53 +41,64 @@ export function NewTenantForm() {
 	};
 
 	return (
-		<form
-			onSubmit={handleSubmit}
-			className="max-w-lg space-y-4 rounded-md border bg-card p-6"
-		>
-			<div className="space-y-1">
-				<Label htmlFor="slug">Slug</Label>
-				<Input
-					id="slug"
-					value={slug}
-					onChange={(e) => setSlug(e.target.value.toLowerCase())}
-					placeholder="hassia"
-					pattern="[a-z][a-z0-9-]{2,30}"
-					required
-					disabled={isPending}
-				/>
-				<p className="text-muted-foreground text-xs">
-					Lowercase letters, digits, dashes. 3–31 chars, must start with a
-					letter. Becomes part of the Turso DB name (
-					<code>corps-&lt;slug&gt;</code>) and the Microsoft providerId (
-					<code>microsoft-&lt;slug&gt;</code>).
-				</p>
-			</div>
+		<>
+			<ConfirmAction
+				open={confirming}
+				onOpenChange={setConfirming}
+				title={`Provision tenant "${slug}"?`}
+				description="This creates a new Turso database and tenant. It is hard to undo."
+				confirmLabel="Provision"
+				cancelLabel="Cancel"
+				onConfirm={provision}
+			/>
+			<form
+				onSubmit={handleSubmit}
+				className="max-w-lg space-y-4 rounded-md border bg-card p-6"
+			>
+				<div className="space-y-1">
+					<Label htmlFor="slug">Slug</Label>
+					<Input
+						id="slug"
+						value={slug}
+						onChange={(e) => setSlug(e.target.value.toLowerCase())}
+						placeholder="hassia"
+						pattern="[a-z][a-z0-9-]{2,30}"
+						required
+						disabled={isPending}
+					/>
+					<p className="text-muted-foreground text-xs">
+						Lowercase letters, digits, dashes. 3–31 chars, must start with a
+						letter. Becomes part of the Turso DB name (
+						<code>corps-&lt;slug&gt;</code>) and the Microsoft providerId (
+						<code>microsoft-&lt;slug&gt;</code>).
+					</p>
+				</div>
 
-			<div className="space-y-1">
-				<Label htmlFor="displayName">Display name</Label>
-				<Input
-					id="displayName"
-					value={displayName}
-					onChange={(e) => setDisplayName(e.target.value)}
-					placeholder="Corps Hassia Bonn"
-					required
-					disabled={isPending}
-				/>
-			</div>
+				<div className="space-y-1">
+					<Label htmlFor="displayName">Display name</Label>
+					<Input
+						id="displayName"
+						value={displayName}
+						onChange={(e) => setDisplayName(e.target.value)}
+						placeholder="Corps Hassia Bonn"
+						required
+						disabled={isPending}
+					/>
+				</div>
 
-			<div className="flex items-center justify-between rounded-md bg-warning-muted p-3 text-sm text-warning-muted-foreground">
-				<span>
-					This will provision a new Turso DB in the <code>corps</code> group,
-					run all migrations, and seed default roles.
-				</span>
-			</div>
+				<div className="flex items-center justify-between rounded-md bg-warning-muted p-3 text-sm text-warning-muted-foreground">
+					<span>
+						This will provision a new Turso DB in the <code>corps</code> group,
+						run all migrations, and seed default roles.
+					</span>
+				</div>
 
-			<div className="flex justify-end gap-2">
-				<Button type="submit" disabled={isPending}>
-					{isPending ? "Provisioning…" : "Create tenant"}
-				</Button>
-			</div>
-		</form>
+				<div className="flex justify-end gap-2">
+					<Button type="submit" disabled={isPending}>
+						{isPending ? "Provisioning…" : "Create tenant"}
+					</Button>
+				</div>
+			</form>
+		</>
 	);
 }

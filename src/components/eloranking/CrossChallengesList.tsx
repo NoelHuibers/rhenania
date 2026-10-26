@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import {
 	type CrossChallengeFeed,
 	type CrossChallengeView,
@@ -205,9 +206,6 @@ function OutgoingPendingRow({
 }) {
 	const [isPending, startTransition] = useTransition();
 	const cancel = () => {
-		if (!confirm("Herausforderung zurückziehen?")) {
-			return;
-		}
 		startTransition(async () => {
 			const r = await cancelCrossTenantChallenge(c.id);
 			if (r.success) {
@@ -220,9 +218,16 @@ function OutgoingPendingRow({
 	};
 	return (
 		<RowSummary c={c} extra="Wartet auf Antwort">
-			<Button size="sm" variant="outline" onClick={cancel} disabled={isPending}>
-				Zurückziehen
-			</Button>
+			<ConfirmAction
+				title="Herausforderung zurückziehen?"
+				description="Die Gegenseite kann sie danach nicht mehr annehmen."
+				confirmLabel="Zurückziehen"
+				onConfirm={cancel}
+			>
+				<Button size="sm" variant="outline" disabled={isPending}>
+					Zurückziehen
+				</Button>
+			</ConfirmAction>
 		</RowSummary>
 	);
 }

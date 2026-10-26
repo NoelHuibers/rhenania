@@ -119,6 +119,158 @@ describe("money and dates go through src/lib/format.ts (#83)", () => {
 	});
 });
 
+/** Index of the `>` closing the tag that starts at `from`, skipping `>`
+ *  inside {…} expressions and string literals. */
+function openingTagEnd(source: string, from: number): number {
+	let depth = 0;
+	let quote: string | null = null;
+	for (let i = from; i < source.length; i++) {
+		const c = source[i] as string;
+		if (quote) {
+			quote = c === quote ? null : quote;
+		} else if (`"'\``.includes(c)) {
+			quote = c;
+		} else if (c === "{" || c === "}") {
+			depth += c === "{" ? 1 : -1;
+		} else if (c === ">" && depth === 0) {
+			return i;
+		}
+	}
+	return source.length;
+}
+
+/** Opening tag (attributes) and children of every `<Tag …>…</Tag>`. */
+function elements(
+	source: string,
+	tag: string,
+): Array<{ attrs: string; children: string; line: number }> {
+	const out: Array<{ attrs: string; children: string; line: number }> = [];
+	const open = new RegExp(`<${tag}(?=[\\s>])`, "g");
+	for (const m of source.matchAll(open)) {
+		const i = openingTagEnd(source, (m.index ?? 0) + tag.length + 1);
+		const attrs = source.slice(m.index, i + 1);
+		if (attrs.endsWith("/>")) {
+			continue;
+		}
+		const close = source.indexOf(`</${tag}>`, i);
+		const children = close < 0 ? "" : source.slice(i + 1, close);
+		const line = source.slice(0, m.index).split("\n").length;
+		out.push({ attrs, children, line });
+	}
+	return out;
+}
+
+/** Component names a file imports from an icon library. */
+function iconNames(source: string): Set<string> {
+	const names = new Set<string>();
+	for (const m of source.matchAll(
+		/import\s*\{([^}]*)\}\s*from\s*"(?:lucide-react|react-icons\/[\w-]+)"/g,
+	)) {
+		for (const part of (m[1] as string).split(",")) {
+			const name = part
+				.split(/\s+as\s+/)
+				.pop()
+				?.trim();
+			if (name) {
+				names.add(name);
+			}
+		}
+	}
+	return names;
+}
+
+/** True when the children render no text: only icons, spinners, comments. */
+function iconOnly(children: string, icons: Set<string>): boolean {
+	if (/sr-only/.test(children)) {
+		return false;
+	}
+	// Any other component (a badge, an avatar…) may render text.
+	for (const m of children.matchAll(/<([A-Z][\w.]*)/g)) {
+		if (!icons.has(m[1] as string)) {
+			return false;
+		}
+	}
+	// Drop comments and every JSX tag (icons, fragments, wrappers).
+	const s = children
+		.replace(/\{\/\*[\s\S]*?\*\/\}/g, "")
+		.replace(
+			/<\/?(?:[A-Za-z][\w.]*(?:\s(?:[^<>{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)?)?\/?>/g,
+			" ",
+		);
+	if (/["'`]/.test(s)) {
+		return false; // a string literal is rendered somewhere
+	}
+	// Split into JSX text and top-level {expressions}.
+	let depth = 0;
+	let text = "";
+	let expr = "";
+	const exprs: string[] = [];
+	for (const c of s) {
+		if (c === "{") {
+			depth++;
+			if (depth === 1) {
+				expr = "";
+				continue;
+			}
+		} else if (c === "}") {
+			depth--;
+			if (depth === 0) {
+				exprs.push(expr);
+				continue;
+			}
+		}
+		if (depth === 0) {
+			text += c;
+		} else {
+			expr += c;
+		}
+	}
+	if (text.trim()) {
+		return false;
+	}
+	// `{busy ? <Spinner/> : <Trash/>}` renders no text; `{label}` does.
+	return exprs.every((e) => {
+		const parts = e.split(/\?|:|&&|\|\|/);
+		const results = parts.length > 1 ? parts.slice(1) : parts;
+		return results.every((p) =>
+			/^(null|undefined|false)?$/.test(p.replace(/[()\s]/g, "")),
+		);
+	});
+}
+
+describe("icon-only and destructive actions (#77)", () => {
+	test("every icon-only button has an accessible name", () => {
+		const unnamed: string[] = [];
+		for (const file of UI_FILES) {
+			const source = readFileSync(path.join(ROOT, file), "utf8");
+			const icons = iconNames(source);
+			for (const tag of ["Button", "button"]) {
+				for (const el of elements(source, tag)) {
+					if (
+						iconOnly(el.children, icons) &&
+						!/aria-label(ledby)?=/.test(el.attrs)
+					) {
+						unnamed.push(`${file}:${el.line}`);
+					}
+				}
+			}
+		}
+		expect(unnamed).toEqual([]);
+	});
+
+	test("no window.confirm; destructive actions use ConfirmAction", () => {
+		expect(offending(UI_FILES, /\b(window\.)?confirm\(/)).toEqual([]);
+	});
+
+	test("the sidebar toggle is labelled in German", () => {
+		const sidebar = readFileSync(
+			path.join(ROOT, "src/components/ui/sidebar.tsx"),
+			"utf8",
+		);
+		expect(sidebar).not.toMatch(/Toggle Sidebar/);
+	});
+});
+
 describe("the app shell lives in the protected layout (#82)", () => {
 	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
 	const LAYOUT = path.join("src", "app", "(protected)", "layout.tsx");

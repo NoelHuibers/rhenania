@@ -15,6 +15,7 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 } from "~/components/ui/drawer";
+import { IconButton } from "~/components/ui/icon-button";
 import { formatEUR } from "~/lib/format";
 import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
 import { createFuchsenOrder } from "~/server/actions/fuchsenladen/orders";
@@ -116,15 +117,15 @@ export function FuchsenOrderDrawer({
 
 					<div className="space-y-3">
 						<div className="flex items-center justify-center gap-3">
-							<Button
+							<IconButton
+								label="Menge verringern"
 								variant="outline"
-								size="icon"
 								onClick={() => adjustQuantity(-1)}
 								disabled={quantity <= 1 || isPending}
 								className="h-9 w-9"
 							>
 								<Minus className="h-4 w-4" />
-							</Button>
+							</IconButton>
 
 							<NumericInput
 								value={quantity}
@@ -135,15 +136,15 @@ export function FuchsenOrderDrawer({
 								max={200}
 							/>
 
-							<Button
+							<IconButton
+								label="Menge erhöhen"
 								variant="outline"
-								size="icon"
 								onClick={() => adjustQuantity(1)}
 								disabled={isPending}
 								className="h-9 w-9"
 							>
 								<Plus className="h-4 w-4" />
-							</Button>
+							</IconButton>
 						</div>
 					</div>
 

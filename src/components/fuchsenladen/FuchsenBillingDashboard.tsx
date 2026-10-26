@@ -8,6 +8,7 @@ import { BillingTable } from "~/components/rechnungen/BillingTable";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { formatDate, formatEUR } from "~/lib/format";
 import { getUserRoles } from "~/server/actions/admin/userRoles";
@@ -221,16 +222,6 @@ function FuchsenwartBilling({
 	}, [loadAll]);
 
 	const handleRunBilling = async () => {
-		const unbilledTotal = unbilled.reduce((s, e) => s + e.totalDue, 0);
-		if (
-			!window.confirm(
-				`Neue Abrechnung für ${unbilled.length} Mitglied(er) über ${formatEUR(
-					unbilledTotal,
-				)} erstellen? Die laufende Periode wird abgeschlossen.`,
-			)
-		) {
-			return;
-		}
 		setIsRunning(true);
 		try {
 			const result = await createNewFuchsenBilling();
@@ -316,18 +307,25 @@ function FuchsenwartBilling({
 								{formatEUR(unbilledTotal)}
 							</p>
 						</div>
-						<Button
-							onClick={handleRunBilling}
-							disabled={isRunning || unbilled.length === 0}
-							className="gap-2"
+						<ConfirmAction
+							title="Neue Abrechnung erstellen?"
+							description={`Neue Abrechnung für ${unbilled.length} Mitglied(er) über ${formatEUR(unbilledTotal)}. Die laufende Periode wird abgeschlossen.`}
+							confirmLabel="Abrechnung erstellen"
+							destructive={false}
+							onConfirm={handleRunBilling}
 						>
-							{isRunning ? (
-								<Loader2 className="h-4 w-4 animate-spin" />
-							) : (
-								<Receipt className="h-4 w-4" />
-							)}
-							Rechnung erstellen
-						</Button>
+							<Button
+								disabled={isRunning || unbilled.length === 0}
+								className="gap-2"
+							>
+								{isRunning ? (
+									<Loader2 className="h-4 w-4 animate-spin" />
+								) : (
+									<Receipt className="h-4 w-4" />
+								)}
+								Rechnung erstellen
+							</Button>
+						</ConfirmAction>
 					</CardHeader>
 					<CardContent>
 						<BillingTable

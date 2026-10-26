@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import {
 	Sheet,
@@ -139,14 +140,15 @@ const HeaderControls = ({
 
 			{/* Mobile Filter Button */}
 			{onOpenFilters && (
-				<Button
+				<IconButton
+					size="icon-sm"
+					label="Filter"
 					onClick={onOpenFilters}
 					variant="outline"
-					size="sm"
 					className="sm:hidden"
 				>
 					<Filter className="h-4 w-4" />
-				</Button>
+				</IconButton>
 			)}
 		</div>
 	</div>

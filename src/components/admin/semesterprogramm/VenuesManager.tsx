@@ -15,6 +15,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -46,9 +47,9 @@ function VenueForm({
 				<CardTitle className="text-base">
 					{initial.shortName ? "Ort bearbeiten" : "Neuer Ort"}
 				</CardTitle>
-				<Button variant="ghost" size="icon" onClick={onClose}>
+				<IconButton label="Formular schließen" onClick={onClose}>
 					<X className="h-4 w-4" />
-				</Button>
+				</IconButton>
 			</CardHeader>
 			<CardContent>
 				<form
@@ -223,9 +224,8 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 										</div>
 									</div>
 									<div className="flex shrink-0 gap-1">
-										<Button
-											variant="ghost"
-											size="icon"
+										<IconButton
+											label="Ort bearbeiten"
 											onClick={() => {
 												setEditingId(venue.id);
 												setShowCreate(false);
@@ -233,15 +233,14 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 											}}
 										>
 											<Pencil className="h-4 w-4" />
-										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
+										</IconButton>
+										<IconButton
+											label="Ort löschen"
 											onClick={() => setDeleteId(venue.id)}
 											className="text-destructive hover:text-destructive"
 										>
 											<Trash2 className="h-4 w-4" />
-										</Button>
+										</IconButton>
 									</div>
 								</div>
 							)}

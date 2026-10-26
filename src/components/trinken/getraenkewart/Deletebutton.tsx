@@ -1,17 +1,7 @@
 import { Trash2 } from "lucide-react";
 
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
+import { ConfirmAction } from "~/components/ui/confirm-action";
+import { IconButton } from "~/components/ui/icon-button";
 
 export function DeleteButton({
 	onConfirm,
@@ -23,35 +13,14 @@ export function DeleteButton({
 	label?: string;
 }) {
 	return (
-		<AlertDialog>
-			<AlertDialogTrigger asChild>
-				<Button
-					variant="ghost"
-					size="sm"
-					disabled={disabled}
-					aria-label={label || "Löschen"}
-				>
-					<Trash2 className="h-4 w-4" />
-				</Button>
-			</AlertDialogTrigger>
-			<AlertDialogContent>
-				<AlertDialogHeader>
-					<AlertDialogTitle>Sind Sie sicher?</AlertDialogTitle>
-					<AlertDialogDescription>
-						Diese Aktion kann nicht rückgängig gemacht werden. Das Getränk wird
-						dauerhaft aus Ihrer Karte entfernt.
-					</AlertDialogDescription>
-				</AlertDialogHeader>
-				<AlertDialogFooter>
-					<AlertDialogCancel>Abbrechen</AlertDialogCancel>
-					<AlertDialogAction
-						onClick={onConfirm}
-						className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-					>
-						Löschen
-					</AlertDialogAction>
-				</AlertDialogFooter>
-			</AlertDialogContent>
-		</AlertDialog>
+		<ConfirmAction
+			title="Getränk löschen?"
+			description="Das Getränk wird dauerhaft aus der Karte entfernt. Das lässt sich nicht rückgängig machen."
+			onConfirm={onConfirm}
+		>
+			<IconButton label={label || "Löschen"} disabled={disabled}>
+				<Trash2 />
+			</IconButton>
+		</ConfirmAction>
 	);
 }

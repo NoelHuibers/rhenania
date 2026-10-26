@@ -11,6 +11,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
+import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -276,16 +277,15 @@ export function KostenpunktDialog({
 									onChange={(e) => setPos(i, "einnahmen", e.target.value)}
 									placeholder="Einnahmen €"
 								/>
-								<Button
+								<IconButton
+									label="Position entfernen"
 									type="button"
-									variant="ghost"
-									size="icon"
 									onClick={() => removePos(i)}
 									disabled={positions.length === 1}
 									className="col-span-2 justify-self-end sm:col-span-1 sm:justify-self-auto"
 								>
 									<Trash2 className="h-4 w-4" />
-								</Button>
+								</IconButton>
 							</div>
 						))}
 

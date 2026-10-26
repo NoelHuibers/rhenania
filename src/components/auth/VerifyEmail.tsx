@@ -166,6 +166,9 @@ export function VerifyEmailPage({
 								<button
 									type="button"
 									onClick={() => setShowPassword(!showPassword)}
+									aria-label={
+										showPassword ? "Passwort verbergen" : "Passwort anzeigen"
+									}
 									className="absolute top-2.5 right-2 text-muted-foreground hover:text-foreground"
 								>
 									{showPassword ? (
@@ -258,6 +261,11 @@ export function VerifyEmailPage({
 								<button
 									type="button"
 									onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+									aria-label={
+										showConfirmPassword
+											? "Passwort verbergen"
+											: "Passwort anzeigen"
+									}
 									className="absolute top-2.5 right-2 text-muted-foreground hover:text-foreground"
 								>
 									{showConfirmPassword ? (
