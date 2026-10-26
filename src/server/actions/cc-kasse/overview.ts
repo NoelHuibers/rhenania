@@ -1,6 +1,7 @@
 "use server";
 
 import { and, eq, sql } from "drizzle-orm";
+import { roundToCent } from "~/lib/money";
 import { db } from "~/server/db";
 import {
 	einnahmen,
@@ -59,15 +60,11 @@ export type EtaplanOverview = {
 	geplanterZuschuss: number;
 };
 
-function round2(n: number) {
-	return Math.round(n * 100) / 100;
-}
-
 function ratioPct(ausgegeben: number, budget: number): number {
 	if (budget <= 0) {
 		return ausgegeben > 0 ? 100 : 0;
 	}
-	return round2((ausgegeben / budget) * 100);
+	return roundToCent((ausgegeben / budget) * 100);
 }
 
 /**
@@ -174,9 +171,9 @@ export async function getEtaplanOverview(
 		}
 
 		const kpOverviews: KostenpunktOverview[] = kps.map((kp) => {
-			const ausgegeben = round2(ausMap.get(kp.id) ?? 0);
-			const genehmigt = round2(genMap.get(kp.id) ?? 0);
-			const budget = round2(kp.budget);
+			const ausgegeben = roundToCent(ausMap.get(kp.id) ?? 0);
+			const genehmigt = roundToCent(genMap.get(kp.id) ?? 0);
+			const budget = roundToCent(kp.budget);
 			return {
 				id: kp.id,
 				name: kp.name,
@@ -184,11 +181,11 @@ export async function getEtaplanOverview(
 				categoryOrder: kp.categoryOrder,
 				eventId: kp.eventId,
 				budget,
-				income: round2(kp.income),
-				istEinnahmen: round2(incomeMap.get(kp.id) ?? 0),
+				income: roundToCent(kp.income),
+				istEinnahmen: roundToCent(incomeMap.get(kp.id) ?? 0),
 				ausgegeben,
 				genehmigt,
-				verbleibend: round2(budget - ausgegeben),
+				verbleibend: roundToCent(budget - ausgegeben),
 				auslastung: ratioPct(ausgegeben, budget),
 				status: statusFor(ausgegeben, budget),
 			};
@@ -199,11 +196,13 @@ export async function getEtaplanOverview(
 		for (const kp of kpOverviews) {
 			const existing = catMap.get(kp.category);
 			if (existing) {
-				existing.budget = round2(existing.budget + kp.budget);
-				existing.income = round2(existing.income + kp.income);
-				existing.istEinnahmen = round2(existing.istEinnahmen + kp.istEinnahmen);
-				existing.ausgegeben = round2(existing.ausgegeben + kp.ausgegeben);
-				existing.genehmigt = round2(existing.genehmigt + kp.genehmigt);
+				existing.budget = roundToCent(existing.budget + kp.budget);
+				existing.income = roundToCent(existing.income + kp.income);
+				existing.istEinnahmen = roundToCent(
+					existing.istEinnahmen + kp.istEinnahmen,
+				);
+				existing.ausgegeben = roundToCent(existing.ausgegeben + kp.ausgegeben);
+				existing.genehmigt = roundToCent(existing.genehmigt + kp.genehmigt);
 			} else {
 				catMap.set(kp.category, {
 					category: kp.category,
@@ -222,19 +221,27 @@ export async function getEtaplanOverview(
 		const categories = [...catMap.values()]
 			.map((c) => ({
 				...c,
-				verbleibend: round2(c.budget - c.ausgegeben),
+				verbleibend: roundToCent(c.budget - c.ausgegeben),
 				auslastung: ratioPct(c.ausgegeben, c.budget),
 				status: statusFor(c.ausgegeben, c.budget),
 			}))
 			.sort((a, b) => a.categoryOrder - b.categoryOrder);
 
-		const totalBudget = round2(kpOverviews.reduce((s, k) => s + k.budget, 0));
-		const totalIncome = round2(kpOverviews.reduce((s, k) => s + k.income, 0));
-		const totalIst = round2(
+		const totalBudget = roundToCent(
+			kpOverviews.reduce((s, k) => s + k.budget, 0),
+		);
+		const totalIncome = roundToCent(
+			kpOverviews.reduce((s, k) => s + k.income, 0),
+		);
+		const totalIst = roundToCent(
 			kpOverviews.reduce((s, k) => s + k.istEinnahmen, 0),
 		);
-		const totalAus = round2(kpOverviews.reduce((s, k) => s + k.ausgegeben, 0));
-		const totalGen = round2(kpOverviews.reduce((s, k) => s + k.genehmigt, 0));
+		const totalAus = roundToCent(
+			kpOverviews.reduce((s, k) => s + k.ausgegeben, 0),
+		);
+		const totalGen = roundToCent(
+			kpOverviews.reduce((s, k) => s + k.genehmigt, 0),
+		);
 
 		return {
 			kostenpunkte: kpOverviews,
@@ -245,12 +252,12 @@ export async function getEtaplanOverview(
 				istEinnahmen: totalIst,
 				ausgegeben: totalAus,
 				genehmigt: totalGen,
-				verbleibend: round2(totalBudget - totalAus),
+				verbleibend: roundToCent(totalBudget - totalAus),
 				auslastung: ratioPct(totalAus, totalBudget),
 				status: statusFor(totalAus, totalBudget),
 			},
 			geplanteEinnahmen: totalIncome,
-			geplanterZuschuss: round2(totalBudget - totalIncome),
+			geplanterZuschuss: roundToCent(totalBudget - totalIncome),
 		};
 	} catch (error) {
 		console.error("Error building etaplan overview:", error);

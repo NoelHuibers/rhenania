@@ -3,13 +3,10 @@
 import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { roundToCent } from "~/lib/money";
 import { db } from "~/server/db";
 import { einnahmen } from "~/server/db/schema";
 import { EDIT_ROLES, requireRoles, TREASURY_ROLES } from "./_guards";
-
-function round2(n: number) {
-	return Math.round(n * 100) / 100;
-}
 
 const einnahmeSchema = z.object({
 	kostenpunktId: z.string().min(1, "Kostenpunkt ist erforderlich"),
@@ -49,7 +46,7 @@ export async function createEinnahme(input: {
 			kostenpunktId: kp.id,
 			etaplanId: kp.etaplanId,
 			description: parsed.description,
-			amount: round2(parsed.amount),
+			amount: roundToCent(parsed.amount),
 			incomeDate: parsed.incomeDate,
 			bookedBy: guard.userId,
 		});
@@ -105,7 +102,7 @@ export async function updateEinnahme(
 				kostenpunktId: kp.id,
 				etaplanId: kp.etaplanId,
 				description: parsed.description,
-				amount: round2(parsed.amount),
+				amount: roundToCent(parsed.amount),
 				incomeDate: parsed.incomeDate,
 			})
 			.where(eq(einnahmen.id, id));

@@ -2,6 +2,7 @@
 
 import { and, count, desc, eq, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
+import { fromCents, pctOf, roundToCent, sumMoney, toCents } from "~/lib/money";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -136,7 +137,8 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 			// user — not just the last one. A member without new orders gets skipped
 			// by intermediate billing runs, so their debt can sit several periods
 			// back (and would otherwise never be carried over).
-			const unpaidAmountMap = new Map<string, number>();
+			// Kept in whole cents so legacy sub-cent totals can't add up to drift.
+			const unpaidCentsMap = new Map<string, number>();
 			const deferredStatusMap = new Map<string, boolean>();
 			const outstandingUserNameMap = new Map<string, string>();
 
@@ -157,9 +159,10 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				if (row.userId.startsWith("event-")) {
 					continue;
 				}
-				unpaidAmountMap.set(
+				unpaidCentsMap.set(
 					row.userId,
-					(unpaidAmountMap.get(row.userId) ?? 0) + (Number(row.total) || 0),
+					(unpaidCentsMap.get(row.userId) ?? 0) +
+						toCents(Number(row.total) || 0),
 				);
 				outstandingUserNameMap.set(row.userId, row.userName);
 				// Track if any of this user's outstanding bills was deferred
@@ -192,7 +195,7 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 			const userBillingSummaries: UserBillingSummary[] = [];
 			const createdBills: string[] = [];
 			const createdEventBills: string[] = [];
-			let totalBillingAmount = 0;
+			let totalBillingCents = 0;
 
 			// Calculate Umlage based on inventory loss
 			const hausbewohnerCountResult = await tx
@@ -202,7 +205,14 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				.where(eq(roles.name, "Hausbewohner"))
 				.execute();
 			const hausbewohnerCount = hausbewohnerCountResult[0]?.count || 1;
-			const umlage = totalInventoryLoss / hausbewohnerCount;
+			// Rounded to whole cents; how the loss is split is unchanged (#10/#11).
+			const umlage = roundToCent(totalInventoryLoss / hausbewohnerCount);
+
+			// 10 % late fee on a carried amount above 5 €, unless it was deferred.
+			// Every stored amount is whole cents and the total is the sum of the
+			// stored parts, so the PDF lines always add up to the total (#13).
+			const lateFee = (oldBillingAmount: number, wasDeferred: boolean) =>
+				!wasDeferred && oldBillingAmount > 5 ? pctOf(oldBillingAmount, 10) : 0;
 
 			// The rolled-in old bills are settled as "Übertragen" so the member
 			// isn't listed (and counted) twice. Everything outstanding outside the
@@ -225,21 +235,19 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 					userOrders.length > 0 ? (userOrders[0]?.userName ?? "") : "";
 
 				// Calculate totals for this user
-				const drinksTotal = userOrders.reduce(
-					(sum, order) => sum + order.total,
-					0,
-				);
+				const drinksTotal = sumMoney(userOrders.map((order) => order.total));
 
-				const oldBillingAmount = unpaidAmountMap.get(userId) || 0;
+				const oldBillingAmount = fromCents(unpaidCentsMap.get(userId) ?? 0);
 
 				const wasDeferred = deferredStatusMap.get(userId) || false;
-				const fees = wasDeferred
-					? 0
-					: oldBillingAmount > 5
-						? oldBillingAmount * 0.1
-						: 0;
+				const fees = lateFee(oldBillingAmount, wasDeferred);
 
-				const finalTotal = drinksTotal + oldBillingAmount + fees + umlage;
+				const finalTotal = sumMoney([
+					drinksTotal,
+					oldBillingAmount,
+					fees,
+					umlage,
+				]);
 
 				// Create the bill
 				const billId = crypto.randomUUID();
@@ -281,13 +289,16 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 							// biome-ignore lint/style/noNonNullAssertion: guarded by has() check above
 							const existing = drinkSummary.get(key)!;
 							existing.totalAmount += order.amount;
-							existing.totalPrice += order.total;
+							existing.totalPrice = sumMoney([
+								existing.totalPrice,
+								order.total,
+							]);
 						} else {
 							drinkSummary.set(key, {
 								drinkName: order.drinkName,
 								totalAmount: order.amount,
 								pricePerUnit: order.pricePerUnit,
-								totalPrice: order.total,
+								totalPrice: roundToCent(order.total),
 							});
 						}
 					}
@@ -318,30 +329,27 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				});
 
 				createdBills.push(billId);
-				totalBillingAmount += finalTotal;
+				totalBillingCents += toCents(finalTotal);
 			}
 
 			// 7b. Members with outstanding debt but NO new orders: create a
 			// carry-over-only bill so the Altbetrag always moves into the newest
 			// Abrechnung. Without this, their old bill stays behind and the next
 			// run (which only sees the new period) would lose track of it.
-			for (const [userId, oldBillingAmount] of unpaidAmountMap.entries()) {
+			for (const [userId, unpaidCents] of unpaidCentsMap.entries()) {
 				if (userOrderMap.has(userId)) {
 					continue; // already rolled in above
 				}
-				if (oldBillingAmount <= 0) {
+				if (unpaidCents <= 0) {
 					continue;
 				}
 
+				const oldBillingAmount = fromCents(unpaidCents);
 				const userName = outstandingUserNameMap.get(userId) ?? "";
 				const wasDeferred = deferredStatusMap.get(userId) || false;
-				const fees = wasDeferred
-					? 0
-					: oldBillingAmount > 5
-						? oldBillingAmount * 0.1
-						: 0;
+				const fees = lateFee(oldBillingAmount, wasDeferred);
 				// No drinks, no Umlage — this bill only carries the old amount.
-				const finalTotal = oldBillingAmount + fees;
+				const finalTotal = sumMoney([oldBillingAmount, fees]);
 
 				const billId = crypto.randomUUID();
 				await tx.insert(bills).values({
@@ -370,15 +378,14 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				});
 
 				createdBills.push(billId);
-				totalBillingAmount += finalTotal;
+				totalBillingCents += toCents(finalTotal);
 			}
 
 			// 8. Process event bills - Create one bill per event
 			for (const [eventName, eventOrdersList] of eventOrderMap.entries()) {
 				// Calculate totals for this event
-				const drinksTotal = eventOrdersList.reduce(
-					(sum, order) => sum + order.total,
-					0,
+				const drinksTotal = sumMoney(
+					eventOrdersList.map((order) => order.total),
 				);
 
 				const finalTotal = drinksTotal; // Events don't have old billing or fees
@@ -420,13 +427,13 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 						// biome-ignore lint/style/noNonNullAssertion: guarded by has() check above
 						const existing = drinkSummary.get(key)!;
 						existing.totalAmount += order.amount;
-						existing.totalPrice += order.total;
+						existing.totalPrice = sumMoney([existing.totalPrice, order.total]);
 					} else {
 						drinkSummary.set(key, {
 							drinkName: order.drinkName,
 							totalAmount: order.amount,
 							pricePerUnit: order.pricePerUnit,
-							totalPrice: order.total,
+							totalPrice: roundToCent(order.total),
 						});
 					}
 				}
@@ -445,10 +452,11 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 				}
 
 				createdEventBills.push(billId);
-				totalBillingAmount += finalTotal;
+				totalBillingCents += toCents(finalTotal);
 			}
 
 			// 9. Update the bill period with total amount
+			const totalBillingAmount = fromCents(totalBillingCents);
 			await tx
 				.update(billPeriods)
 				.set({

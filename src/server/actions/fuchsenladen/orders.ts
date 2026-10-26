@@ -1,9 +1,10 @@
 "use server";
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { addMoney, roundToCent, sumMoney } from "~/lib/money";
 import { auth } from "~/server/auth";
-import { fuchsenOrders } from "~/server/db/schema";
+import { fuchsenBills, fuchsenOrders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { hasRole } from "../admin/userRoles";
 import { getUserName } from "../getUserName";
@@ -65,7 +66,7 @@ export async function createFuchsenOrder(
 				itemName: data.itemName,
 				amount: data.amount,
 				pricePerUnit: data.pricePerUnit,
-				total: data.total,
+				total: roundToCent(data.total),
 			})
 			.returning();
 
@@ -117,12 +118,12 @@ export async function getMyFuchsenSummary() {
 			.from(fuchsenOrders)
 			.where(eq(fuchsenOrders.userId, session.user.id));
 
-		const openTotal = orders
-			.filter((o) => o.status === "Offen")
-			.reduce((sum, o) => sum + o.total, 0);
-		const paidTotal = orders
-			.filter((o) => o.status === "Bezahlt")
-			.reduce((sum, o) => sum + o.total, 0);
+		const openTotal = sumMoney(
+			orders.filter((o) => o.status === "Offen").map((o) => o.total),
+		);
+		const paidTotal = sumMoney(
+			orders.filter((o) => o.status === "Bezahlt").map((o) => o.total),
+		);
 		const openCount = orders.filter((o) => o.status === "Offen").length;
 
 		return { openTotal, paidTotal, openCount };
@@ -173,10 +174,10 @@ export async function getFuchsenBillsByUser(): Promise<FuchsenUserBill[]> {
 			};
 			existing.totalCount += 1;
 			if (order.status === "Offen") {
-				existing.openTotal += order.total;
+				existing.openTotal = addMoney(existing.openTotal, order.total);
 				existing.openCount += 1;
 			} else {
-				existing.paidTotal += order.total;
+				existing.paidTotal = addMoney(existing.paidTotal, order.total);
 			}
 			byUser.set(order.userId, existing);
 		}
@@ -231,6 +232,24 @@ export async function updateFuchsenOrderStatus(
 		}
 
 		const db = await getCurrentTenantDb();
+		const [order] = await db
+			.select({ billId: fuchsenOrders.billId })
+			.from(fuchsenOrders)
+			.where(eq(fuchsenOrders.id, orderId))
+			.limit(1);
+		if (!order) {
+			return { success: false, error: "Bestellung nicht gefunden" };
+		}
+		// A billed order is part of its bill's total; paying it alone would
+		// leave the bill open and the amount would be carried again (#143).
+		if (order.billId) {
+			return {
+				success: false,
+				error:
+					"Bestellung ist bereits abgerechnet. Bitte den Status der Rechnung ändern.",
+			};
+		}
+
 		const [updated] = await db
 			.update(fuchsenOrders)
 			.set({
@@ -240,10 +259,6 @@ export async function updateFuchsenOrderStatus(
 			})
 			.where(eq(fuchsenOrders.id, orderId))
 			.returning();
-
-		if (!updated) {
-			return { success: false, error: "Bestellung nicht gefunden" };
-		}
 
 		revalidatePath("/fuchsenwart");
 		revalidatePath("/profile");
@@ -263,20 +278,36 @@ export async function markAllUserFuchsenOrdersPaid(userId: string) {
 		}
 
 		const db = await getCurrentTenantDb();
-		const result = await db
-			.update(fuchsenOrders)
-			.set({
-				status: "Bezahlt",
-				paidAt: new Date(),
-				updatedAt: new Date(),
-			})
-			.where(
-				and(
-					eq(fuchsenOrders.userId, userId),
-					eq(fuchsenOrders.status, "Offen"),
-				),
-			)
-			.returning();
+		const now = new Date();
+		// "Alle bezahlt" settles everything the member owes: every open order
+		// and every bill that is still open or was carried into a later one,
+		// so the next billing run carries nothing forward (#143).
+		const result = await db.transaction(async (tx) => {
+			const paid = await tx
+				.update(fuchsenOrders)
+				.set({ status: "Bezahlt", paidAt: now, updatedAt: now })
+				.where(
+					and(
+						eq(fuchsenOrders.userId, userId),
+						eq(fuchsenOrders.status, "Offen"),
+					),
+				)
+				.returning({ id: fuchsenOrders.id });
+			await tx
+				.update(fuchsenBills)
+				.set({ status: "Bezahlt", paidAt: now, updatedAt: now })
+				.where(
+					and(
+						eq(fuchsenBills.userId, userId),
+						inArray(fuchsenBills.status, [
+							"Unbezahlt",
+							"Gestundet",
+							"Übertragen",
+						]),
+					),
+				);
+			return paid;
+		});
 
 		revalidatePath("/fuchsenwart");
 		revalidatePath("/profile");

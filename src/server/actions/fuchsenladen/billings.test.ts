@@ -212,9 +212,9 @@ describe("createNewFuchsenBilling", () => {
 		expect(await tenantDb().select().from(fuchsenBills)).toHaveLength(0);
 	});
 
-	// A carried-over bill stays "Unbezahlt", so its amount is counted twice:
-	// once on the old bill and again as oldBillingAmount on the new one.
-	test.fails("counts carried-over debt only once in the pending total (#12)", async () => {
+	// The carried-over bill is closed out as "Übertragen", so its amount is
+	// counted once: as oldBillingAmount on the new bill.
+	test("counts carried-over debt only once in the pending total (#12)", async () => {
 		await setup();
 		const member = await createUser();
 		const item = await createFuchsenItem({ price: 5 });
@@ -228,9 +228,9 @@ describe("createNewFuchsenBilling", () => {
 		expect(stats?.pendingBillsAmount).toBe(10);
 	});
 
-	// Only the immediately preceding period is consulted, so a member who
-	// skipped one period loses their older debt.
-	test.fails("keeps debt from periods before the last one (#12)", async () => {
+	// Debt from every earlier period is carried, also for a member who
+	// skipped a period.
+	test("keeps debt from periods before the last one (#12)", async () => {
 		await setup();
 		const debtor = await createUser({ name: "Debtor" });
 		const other = await createUser({ name: "Other" });
@@ -265,7 +265,7 @@ describe("createNewFuchsenBilling", () => {
 		expect(billNumberOf(result)).toBe("KW-53-26");
 	});
 
-	test.fails("sums line items without floating-point residue (#13)", async () => {
+	test("sums line items without floating-point residue (#13)", async () => {
 		await setup();
 		const member = await createUser();
 		await createFuchsenOrder({
@@ -283,9 +283,9 @@ describe("createNewFuchsenBilling", () => {
 		expect(bill?.total).toBe(0.3);
 	});
 
-	// "Alle bezahlt" in the per-member view only flips order status; the
-	// billing run picks those orders up again as an unpaid bill.
-	test.fails("does not bill orders that were already marked paid (#143)", async () => {
+	// Orders paid in the per-member view ("Alle bezahlt") are settled and
+	// must not end up on a new unpaid bill.
+	test("does not bill orders that were already marked paid (#143)", async () => {
 		await setup();
 		const member = await createUser();
 		const item = await createFuchsenItem({ price: 3 });
@@ -299,9 +299,9 @@ describe("createNewFuchsenBilling", () => {
 		expect(bill?.total).toBe(6);
 	});
 
-	// Paying a billed member's orders in the per-member view leaves their bill
-	// "Unbezahlt", so the next run charges the amount again as old balance.
-	test.fails("does not carry forward a bill whose orders were all paid (#143)", async () => {
+	// Paying a billed member's orders in the per-member view settles their
+	// bill, so the next run carries nothing forward.
+	test("does not carry forward a bill whose orders were all paid (#143)", async () => {
 		await setup();
 		const member = await createUser();
 		const item = await createFuchsenItem({ price: 3 });
@@ -314,6 +314,252 @@ describe("createNewFuchsenBilling", () => {
 
 		const bills = await billsOf(member);
 		expect(bills.at(-1)?.oldBillingAmount).toBe(0);
+	});
+});
+
+describe("carry-over across periods (#12, #143)", () => {
+	const RUN_4 = new Date("2026-12-09T11:00:00Z");
+
+	async function ordersOf(user: TestUser) {
+		return tenantDb()
+			.select()
+			.from(fuchsenOrders)
+			.where(eq(fuchsenOrders.userId, user.id))
+			.orderBy(fuchsenOrders.createdAt);
+	}
+
+	/** Sum of a member's open bills and of their open billed orders. */
+	async function openAmounts(user: TestUser) {
+		const bills = await billsOf(user);
+		const orders = await ordersOf(user);
+		const cents = (n: number) => Math.round(n * 100);
+		return {
+			bills: bills
+				.filter((b) => b.status === "Unbezahlt" || b.status === "Gestundet")
+				.reduce((s, b) => s + cents(b.total), 0),
+			orders: orders
+				.filter((o) => o.status === "Offen" && o.billId !== null)
+				.reduce((s, o) => s + cents(o.total), 0),
+		};
+	}
+
+	test("rolls the debt forward once and settles every carried bill on payment", async () => {
+		await setup();
+		const member = await createUser({ name: "Fux" });
+		const item = await createFuchsenItem({ price: 2.5 });
+
+		// P1: 10 € (4 × 2.50 €).
+		await createFuchsenOrder({ user: member, item, amount: 4 });
+		await runAt(RUN_1);
+		// P2: +5 €, carries 10 €.
+		vi.setSystemTime(RUN_2);
+		await createFuchsenOrder({ user: member, item, amount: 2 });
+		await runAt(RUN_2);
+		// P3: +2.50 €, carries 15 €.
+		vi.setSystemTime(RUN_3);
+		await createFuchsenOrder({ user: member, item, amount: 1 });
+		await runAt(RUN_3);
+
+		let bills = await billsOf(member);
+		expect(
+			bills.map((b) => [b.status, b.itemsTotal, b.oldBillingAmount, b.total]),
+		).toEqual([
+			["Übertragen", 10, 0, 10],
+			["Übertragen", 5, 10, 15],
+			["Unbezahlt", 2.5, 15, 17.5],
+		]);
+		expect((await getFuchsenBillingStatistics())?.pendingBillsAmount).toBe(
+			17.5,
+		);
+		expect(await openAmounts(member)).toEqual({ bills: 1750, orders: 1750 });
+
+		// Carried bills can't be paid on their own: they live on in P3.
+		const [p1, , p3] = bills;
+		expect(await updateFuchsenBillStatus(p1?.id ?? "", "Bezahlt")).toEqual({
+			success: false,
+			error:
+				"Diese Rechnung wurde in eine spätere Rechnung übertragen und wird dort bezahlt",
+		});
+
+		vi.setSystemTime(RUN_4);
+		expect(await updateFuchsenBillStatus(p3?.id ?? "", "Bezahlt")).toEqual({
+			success: true,
+		});
+
+		bills = await billsOf(member);
+		expect(bills.map((b) => b.status)).toEqual([
+			"Bezahlt",
+			"Bezahlt",
+			"Bezahlt",
+		]);
+		expect(bills.every((b) => b.paidAt?.getTime() === RUN_4.getTime())).toBe(
+			true,
+		);
+		expect((await ordersOf(member)).every((o) => o.status === "Bezahlt")).toBe(
+			true,
+		);
+		expect((await getFuchsenBillingStatistics())?.pendingBillsAmount).toBe(0);
+
+		// A later run starts from a clean slate.
+		await createFuchsenOrder({ user: member, item, amount: 1 });
+		await runAt(new Date("2026-12-16T11:00:00Z"));
+		expect((await billsOf(member)).at(-1)).toMatchObject({
+			oldBillingAmount: 0,
+			total: 2.5,
+		});
+	});
+
+	test("undoing the payment of a consolidated bill reopens what it carried", async () => {
+		await setup();
+		const member = await createUser();
+		const item = await createFuchsenItem({ price: 3 });
+		await createFuchsenOrder({ user: member, item });
+		await runAt(RUN_1);
+		vi.setSystemTime(RUN_2);
+		await createFuchsenOrder({ user: member, item });
+		await runAt(RUN_2);
+		const [, consolidated] = await billsOf(member);
+		vi.setSystemTime(RUN_3);
+		await updateFuchsenBillStatus(consolidated?.id ?? "", "Bezahlt");
+
+		await updateFuchsenBillStatus(consolidated?.id ?? "", "Unbezahlt");
+
+		expect(
+			(await billsOf(member)).map((b) => [b.status, b.paidAt, b.total]),
+		).toEqual([
+			["Übertragen", null, 3],
+			["Unbezahlt", null, 6],
+		]);
+		expect((await ordersOf(member)).map((o) => o.status)).toEqual([
+			"Offen",
+			"Offen",
+		]);
+		expect(await openAmounts(member)).toEqual({ bills: 600, orders: 600 });
+	});
+
+	test("gives members with debt but no new orders a carry-only bill", async () => {
+		await setup();
+		const debtor = await createUser({ name: "Debtor" });
+		const deferred = await createUser({ name: "Deferred" });
+		const other = await createUser({ name: "Other" });
+		const item = await createFuchsenItem({ price: 4 });
+		await createFuchsenOrder({ user: debtor, item });
+		await createFuchsenOrder({ user: deferred, item, amount: 2 });
+		await runAt(RUN_1);
+		const [deferredBill] = await billsOf(deferred);
+		await updateFuchsenBillStatus(deferredBill?.id ?? "", "Gestundet");
+		await createFuchsenOrder({ user: other, item });
+
+		const result = await runAt(RUN_2);
+
+		expect(result).toMatchObject({ billsCreated: 3, totalAmount: 16 });
+		const latest = await getLatestFuchsenBillPeriod();
+		expect(latest?.totalAmount).toBe(16);
+		const bills = await getFuchsenBillsForPeriod(latest?.id ?? "");
+		expect(
+			bills.map((b) => [
+				b.name,
+				b.status,
+				b.itemsTotal,
+				b.oldBillingAmount,
+				b.totalDue,
+				b.items.length,
+			]),
+		).toEqual([
+			["Debtor", "Unbezahlt", 0, 4, 4, 0],
+			["Deferred", "Unbezahlt", 0, 8, 8, 0],
+			["Other", "Unbezahlt", 4, 0, 4, 1],
+		]);
+		expect((await billsOf(debtor))[0]?.status).toBe("Übertragen");
+		expect((await billsOf(deferred))[0]?.status).toBe("Übertragen");
+
+		// P3: the debt moves on from the carry-only bill exactly once.
+		await createFuchsenOrder({ user: debtor, item });
+		await runAt(RUN_3);
+		expect((await billsOf(debtor)).map((b) => [b.status, b.total])).toEqual([
+			["Übertragen", 4],
+			["Übertragen", 4],
+			["Unbezahlt", 8],
+		]);
+		expect(await openAmounts(debtor)).toEqual({ bills: 800, orders: 800 });
+	});
+
+	test("open bills always equal open billed orders over several runs", async () => {
+		await setup();
+		const members = [
+			await createUser({ name: "A" }),
+			await createUser({ name: "B" }),
+			await createUser({ name: "C" }),
+		];
+		const items = [
+			await createFuchsenItem({ price: 0.1 }),
+			await createFuchsenItem({ price: 1.15 }),
+			await createFuchsenItem({ price: 2.35 }),
+		];
+		const runs = [RUN_1, RUN_2, RUN_3, RUN_4];
+		for (const [r, run] of runs.entries()) {
+			vi.setSystemTime(run);
+			for (const [m, member] of members.entries()) {
+				// Not everyone orders every period.
+				if ((r + m) % 3 !== 2) {
+					const item = items[(r * 2 + m) % items.length];
+					if (item) {
+						await createFuchsenOrder({ user: member, item, amount: r + m + 1 });
+					}
+				}
+			}
+			await runAt(run);
+			// Member A pays their latest bill after the second run.
+			if (r === 1) {
+				const latest = (await billsOf(members[0] as TestUser)).at(-1);
+				await updateFuchsenBillStatus(latest?.id ?? "", "Bezahlt");
+			}
+			for (const member of members) {
+				const open = await openAmounts(member);
+				expect(open.bills).toBe(open.orders);
+				const outstanding = (await billsOf(member)).filter(
+					(b) => b.status === "Unbezahlt" || b.status === "Gestundet",
+				);
+				// At most one open bill per member: older ones are carried.
+				expect(outstanding.length).toBeLessThanOrEqual(1);
+				for (const bill of await billsOf(member)) {
+					expect(bill.total).toBe(Math.round(bill.total * 100) / 100);
+				}
+			}
+		}
+	});
+
+	test("leaves orders paid before billing out of the preview and the statistics", async () => {
+		await setup();
+		const member = await createUser({ name: "Paid" });
+		const item = await createFuchsenItem({ price: 3 });
+		await createFuchsenOrder({ user: member, item, status: "Bezahlt" });
+		await createFuchsenOrder({ user: member, item, amount: 2 });
+
+		expect(await getUnbilledFuchsenOrdersGrouped()).toEqual([
+			expect.objectContaining({ name: "Paid", totalDue: 6 }),
+		]);
+		expect((await getFuchsenBillingStatistics())?.unbilledOrders).toEqual({
+			count: 1,
+			totalAmount: 6,
+		});
+
+		await createNewFuchsenBilling();
+
+		const orders = await ordersOf(member);
+		expect(orders.find((o) => o.status === "Bezahlt")?.billId).toBeNull();
+		expect(await getUnbilledFuchsenOrdersGrouped()).toEqual([]);
+		// Nothing billable left: a second run creates no period.
+		expect(await runAt(RUN_2)).toMatchObject({ billsCreated: 0 });
+	});
+
+	test("refuses status changes of unknown bills", async () => {
+		await setup();
+
+		expect(await updateFuchsenBillStatus("missing", "Bezahlt")).toEqual({
+			success: false,
+			error: "Rechnung nicht gefunden",
+		});
 	});
 });
 

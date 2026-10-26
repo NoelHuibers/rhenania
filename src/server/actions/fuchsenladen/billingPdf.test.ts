@@ -1,6 +1,6 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
-
-import { fuchsenBillItems } from "~/server/db/schema";
+import { fuchsenBillItems, fuchsenBills } from "~/server/db/schema";
 import { createFuchsenBillPeriod } from "../../../../test/factories/fuchsenladen";
 import {
 	createTenant,
@@ -77,6 +77,20 @@ describe("generateFuchsenBillPDF", () => {
 		signInAs(await createUser({ roles: ["Fuchs"] }));
 
 		expect((await generateFuchsenBillPDF(bill.id)).success).toBe(true);
+	});
+
+	test("marks a carried-over bill as transferred (#12)", async () => {
+		await createTenant();
+		const bill = await billFor(await createUser());
+		await tenantDb()
+			.update(fuchsenBills)
+			.set({ status: "Übertragen" })
+			.where(eq(fuchsenBills.id, bill.id));
+		signInAs(await createUser({ roles: ["Fuchs"] }));
+
+		const result = await generateFuchsenBillPDF(bill.id);
+
+		expect(pdfText(result.base64)).toContain("IN EINE SP");
 	});
 
 	test("refuses other members' bills, unknown bills and anonymous callers", async () => {

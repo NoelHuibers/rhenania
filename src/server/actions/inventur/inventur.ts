@@ -3,6 +3,7 @@
 
 import { and, desc, eq, gte, isNotNull, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { addMoney, roundToCent } from "~/lib/money";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -16,8 +17,6 @@ import {
 	orders,
 } from "~/server/db/schema";
 import { hasFeature } from "~/server/lib/features";
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export type EventInfo = {
 	eventId?: string | null;
@@ -75,7 +74,7 @@ async function sumMarkupProfit(from: Date | null, to: Date | null) {
 				to ? lt(orders.createdAt, to) : undefined,
 			),
 		);
-	return round2(Number(row?.profit ?? 0));
+	return roundToCent(Number(row?.profit ?? 0));
 }
 
 /**
@@ -300,9 +299,9 @@ export async function saveInventoryCount(
 						);
 						const difference = validatedCountedStock - expectedStock;
 						if (difference < 0) {
-							itemLoss = Math.abs(difference) * drink[0].price;
+							itemLoss = roundToCent(Math.abs(difference) * drink[0].price);
 						}
-						totalInventoryLoss += itemLoss;
+						totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
 
 						await tx
 							.update(inventoryItems)
@@ -334,9 +333,9 @@ export async function saveInventoryCount(
 						);
 						const difference = validatedCountedStock - expectedStock;
 						if (difference < 0) {
-							itemLoss = Math.abs(difference) * drink[0].price;
+							itemLoss = roundToCent(Math.abs(difference) * drink[0].price);
 						}
-						totalInventoryLoss += itemLoss;
+						totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
 
 						await tx.insert(inventoryItems).values({
 							inventoryId: activeInv.id,
@@ -749,9 +748,9 @@ export async function finishEventInventory(
 
 				const expected = Math.max(0, previousStock + purchased - sold);
 				const consumed = Math.max(0, expected - counted);
-				const value = round2(consumed * drink.price);
+				const value = roundToCent(consumed * drink.price);
 				totalQty += consumed;
-				totalValue = round2(totalValue + value);
+				totalValue = roundToCent(totalValue + value);
 				if (consumed > 0) {
 					reportItems.push({ drinkName: drink.name, consumed, value });
 				}

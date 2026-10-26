@@ -3,6 +3,7 @@
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { roundToCent } from "~/lib/money";
 import { db } from "~/server/db";
 import {
 	einnahmen,
@@ -36,10 +37,6 @@ const updateSchema = createSchema.omit({ etaplanId: true });
 
 export type PositionInput = z.input<typeof positionSchema>;
 
-function round2(n: number) {
-	return Math.round(n * 100) / 100;
-}
-
 function buildPositionRows(
 	kostenpunktId: string,
 	positionen: z.infer<typeof positionSchema>[],
@@ -47,8 +44,8 @@ function buildPositionRows(
 	return positionen.map((p, i) => ({
 		kostenpunktId,
 		bemerkung: p.bemerkung?.trim() ? p.bemerkung.trim() : null,
-		ausgaben: round2(p.ausgaben ?? 0),
-		einnahmen: round2(p.einnahmen ?? 0),
+		ausgaben: roundToCent(p.ausgaben ?? 0),
+		einnahmen: roundToCent(p.einnahmen ?? 0),
 		displayOrder: p.displayOrder ?? i,
 	}));
 }
@@ -72,8 +69,8 @@ export async function createKostenpunkt(input: {
 		const parsed = createSchema.parse(input);
 		const id = crypto.randomUUID();
 		const rows = buildPositionRows(id, parsed.positionen);
-		const budget = round2(rows.reduce((s, p) => s + p.ausgaben, 0));
-		const income = round2(rows.reduce((s, p) => s + p.einnahmen, 0));
+		const budget = roundToCent(rows.reduce((s, p) => s + p.ausgaben, 0));
+		const income = roundToCent(rows.reduce((s, p) => s + p.einnahmen, 0));
 
 		const insertKp = db.insert(kostenpunkte).values({
 			id,
@@ -129,8 +126,8 @@ export async function updateKostenpunkt(
 	try {
 		const parsed = updateSchema.parse(input);
 		const rows = buildPositionRows(id, parsed.positionen);
-		const budget = round2(rows.reduce((s, p) => s + p.ausgaben, 0));
-		const income = round2(rows.reduce((s, p) => s + p.einnahmen, 0));
+		const budget = roundToCent(rows.reduce((s, p) => s + p.ausgaben, 0));
+		const income = roundToCent(rows.reduce((s, p) => s + p.einnahmen, 0));
 
 		const updateKp = db
 			.update(kostenpunkte)

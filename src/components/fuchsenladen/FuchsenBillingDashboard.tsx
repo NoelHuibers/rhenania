@@ -107,9 +107,9 @@ export function FuchsenBillingDashboard() {
 
 /** Factory: a details dialog bound to the current billing config. */
 function makeDetails(config: FuchsenBillingConfig) {
-	// The shared BillingTable types detailsComponent for BillingEntry (whose
-	// status union includes the carry-over "Übertragen"). Fuchsen bills only ever
-	// carry the narrower FuchsenBillingEntry shape, so narrow it back here.
+	// The shared BillingTable types detailsComponent for BillingEntry. Fuchsen
+	// bills carry the FuchsenBillingEntry shape (items total instead of drinks
+	// and fees), so narrow it back here.
 	return function Details({ entry }: { entry: BillingEntry }) {
 		return (
 			<FuchsenBillDetailsDialog
@@ -254,8 +254,8 @@ function FuchsenwartBilling({
 		billId: string,
 		newStatus: BillingEntry["status"],
 	) => {
-		// "Übertragen" is a carry-over status the shared table never emits for
-		// fuchsen bills (the status button disables it); guard so the type narrows.
+		// "Übertragen" is set by the billing run only (the status button
+		// disables it); guard so the type narrows.
 		if (!newStatus || newStatus === "Übertragen") {
 			return;
 		}

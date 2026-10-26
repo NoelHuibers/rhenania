@@ -2,6 +2,7 @@
 "use server";
 
 import { and, eq, sql } from "drizzle-orm";
+import { addMoney } from "~/lib/money";
 import { orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 
@@ -59,7 +60,7 @@ export async function getCurrentOrders(): Promise<BillingEntry[]> {
 				if (existingItem) {
 					// If drink exists with same price, add to quantity and update subtotal
 					existingItem.quantity += order.amount;
-					existingItem.subtotal += order.total;
+					existingItem.subtotal = addMoney(existingItem.subtotal, order.total);
 				} else {
 					// If new drink or different price, create new item
 					acc[key].items.push({
@@ -71,7 +72,7 @@ export async function getCurrentOrders(): Promise<BillingEntry[]> {
 					});
 				}
 
-				acc[key].totalDue += order.total;
+				acc[key].totalDue = addMoney(acc[key].totalDue, order.total);
 				return acc;
 			},
 			{} as Record<string, BillingEntry>,
@@ -102,7 +103,7 @@ export async function getCurrentOrders(): Promise<BillingEntry[]> {
 				if (existingItem) {
 					// If drink exists with same price, add to quantity and update subtotal
 					existingItem.quantity += order.amount;
-					existingItem.subtotal += order.total;
+					existingItem.subtotal = addMoney(existingItem.subtotal, order.total);
 				} else {
 					// If new drink or different price, create new item
 					acc[key].items.push({
@@ -114,7 +115,7 @@ export async function getCurrentOrders(): Promise<BillingEntry[]> {
 					});
 				}
 
-				acc[key].totalDue += order.total;
+				acc[key].totalDue = addMoney(acc[key].totalDue, order.total);
 				return acc;
 			},
 			{} as Record<string, BillingEntry>,
@@ -172,7 +173,7 @@ export async function getCurrentEventOrders(): Promise<
 
 				if (existingItem) {
 					existingItem.quantity += order.amount;
-					existingItem.subtotal += order.total;
+					existingItem.subtotal = addMoney(existingItem.subtotal, order.total);
 				} else {
 					acc[eventName].items.push({
 						id: order.id,
@@ -183,7 +184,10 @@ export async function getCurrentEventOrders(): Promise<
 					});
 				}
 
-				acc[eventName].totalAmount += order.total;
+				acc[eventName].totalAmount = addMoney(
+					acc[eventName].totalAmount,
+					order.total,
+				);
 				return acc;
 			},
 			// biome-ignore lint/suspicious/noExplicitAny: complex reducer accumulator shape

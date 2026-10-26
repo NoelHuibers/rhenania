@@ -497,8 +497,8 @@ describe("createNewBilling", () => {
 		expect(collected).toBeLessThanOrEqual(30);
 	});
 
-	// #13: fees (and therefore totals) are stored with sub-cent fractions.
-	test.fails("rounds fees and totals to whole cents (#13)", async () => {
+	// #13: fees (and therefore totals) must not carry sub-cent fractions.
+	test("rounds fees and totals to whole cents (#13)", async () => {
 		await setupKasse();
 		const member = await createUser();
 		const old = await createBillPeriodRow();
@@ -515,6 +515,72 @@ describe("createNewBilling", () => {
 		);
 		expect(bill?.fees).toBe(0.78);
 		expect(bill?.total).toBe(10.05);
+	});
+
+	// #13: the bill lines (Übertrag, Gebühren, Umlage, Getränke) printed with
+	// two decimals must add up to the stored total, for awkward inputs too.
+	test("stores whole-cent parts whose sum is the total (#13)", async () => {
+		await setupKasse();
+		const isWholeCents = (n: number) => n === Math.round(n * 100) / 100;
+		const cases = [
+			{ old: 5.05, price: 1.1, amount: 3 },
+			{ old: 13.37, price: 0.7, amount: 7 },
+			{ old: 29.99, price: 1.15, amount: 1 },
+			{ old: 0.1 + 0.2, price: 2.35, amount: 3 },
+		];
+		const members: Array<{ id: string; name: string | null }> = [];
+		const old = await createBillPeriodRow();
+		for (const [i, c] of cases.entries()) {
+			// Three Hausbewohner share the loss; the last member is not one.
+			const member = await createUser({
+				roles: i < 3 ? ["Hausbewohner"] : [],
+			});
+			members.push(member);
+			await createBillRow({
+				periodId: old.id,
+				user: member,
+				drinksTotal: c.old,
+			});
+			await createOrderRow({
+				user: member,
+				drink: await createDrink({ price: c.price }),
+				amount: c.amount,
+			});
+		}
+
+		// 10 € loss over 3 Hausbewohner: 3.333… € is stored as 3.33 €.
+		const result = await runBilling(10);
+
+		let periodCents = 0;
+		for (const member of members) {
+			const bill = (await billsOf(member.id)).find(
+				(b) => b.billPeriodId === result.billPeriod.id,
+			);
+			if (!bill) {
+				throw new Error("missing bill");
+			}
+			const parts = [
+				bill.drinksTotal,
+				bill.oldBillingAmount,
+				bill.fees,
+				bill.umlage,
+			];
+			for (const part of [...parts, bill.total]) {
+				expect(isWholeCents(part)).toBe(true);
+			}
+			const partCents = parts.reduce((s, p) => s + Math.round(p * 100), 0);
+			expect(Math.round(bill.total * 100)).toBe(partCents);
+			expect(bill.total).toBe(partCents / 100);
+			periodCents += partCents;
+		}
+		const [first] = await billsOf(members[0]?.id ?? "");
+		expect(first?.status).toBe("Übertragen");
+		// Old balance 5.05 € → 10 % fee of 0.505 € is charged as 0.51 €.
+		const firstNew = (await billsOf(members[0]?.id ?? "")).at(-1);
+		expect(firstNew).toMatchObject({ oldBillingAmount: 5.05, fees: 0.51 });
+		expect(firstNew?.umlage).toBe(3.33);
+		const period = await periodByNumber(result.billPeriod.billNumber);
+		expect(period?.totalAmount).toBe(periodCents / 100);
 	});
 
 	test("uses the ISO week-year at the turn of the year (#15)", async () => {

@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { fuchsenOrders } from "~/server/db/schema";
+import { fuchsenBills, fuchsenOrders } from "~/server/db/schema";
 import {
+	createFuchsenBillPeriod,
 	createFuchsenItem,
 	createFuchsenOrder,
 } from "../../../../test/factories/fuchsenladen";
@@ -255,6 +256,74 @@ describe("markAllUserFuchsenOrdersPaid", () => {
 		const mine = await getFuchsenOrdersForUser(member.id);
 		expect(mine.every((o) => o.status === "Bezahlt")).toBe(true);
 		expect((await orderRow(othersOrder.id))?.status).toBe("Offen");
+	});
+});
+
+describe("paying orders of billed members (#143)", () => {
+	test("single billed orders can't be toggled; the bill status decides", async () => {
+		await createTenant();
+		const member = await createUser();
+		const item = await createFuchsenItem({ price: 3 });
+		const { bills } = await createFuchsenBillPeriod({
+			bills: [{ user: member, itemsTotal: 3 }],
+		});
+		const billed = await createFuchsenOrder({
+			user: member,
+			item,
+			billId: bills[0]?.id,
+		});
+		signInAs(await createUser({ roles: ["Fuchs"] }));
+
+		expect(await updateFuchsenOrderStatus(billed.id, "Bezahlt")).toEqual({
+			success: false,
+			error:
+				"Bestellung ist bereits abgerechnet. Bitte den Status der Rechnung ändern.",
+		});
+		expect((await orderRow(billed.id))?.status).toBe("Offen");
+	});
+
+	test("'Alle bezahlt' settles open and carried bills along with the orders", async () => {
+		await createTenant();
+		const member = await createUser();
+		const other = await createUser();
+		const item = await createFuchsenItem({ price: 2 });
+		const { bills: old } = await createFuchsenBillPeriod({
+			createdAt: new Date("2026-10-01T11:00:00Z"),
+			bills: [
+				{ user: member, itemsTotal: 2 },
+				{ user: other, itemsTotal: 2 },
+			],
+		});
+		const { bills: current } = await createFuchsenBillPeriod({
+			bills: [{ user: member, itemsTotal: 2, oldBillingAmount: 2 }],
+		});
+		await tenantDb()
+			.update(fuchsenBills)
+			.set({ status: "Übertragen" })
+			.where(eq(fuchsenBills.id, old[0]?.id ?? ""));
+		await createFuchsenOrder({ user: member, item, billId: old[0]?.id });
+		await createFuchsenOrder({ user: member, item, billId: current[0]?.id });
+		await createFuchsenOrder({ user: member, item });
+		signInAs(await createUser({ roles: ["Fuchs"] }));
+
+		expect(await markAllUserFuchsenOrdersPaid(member.id)).toEqual({
+			success: true,
+			count: 3,
+		});
+
+		const bills = await tenantDb().select().from(fuchsenBills);
+		const statusOf = (id: string | undefined) =>
+			bills.find((b) => b.id === id)?.status;
+		expect(statusOf(old[0]?.id)).toBe("Bezahlt");
+		expect(statusOf(current[0]?.id)).toBe("Bezahlt");
+		expect(statusOf(old[1]?.id)).toBe("Unbezahlt");
+		expect(
+			bills
+				.filter((b) => b.userId === member.id)
+				.every((b) => b.paidAt?.getTime() === NOW.getTime()),
+		).toBe(true);
+		const mine = await getFuchsenOrdersForUser(member.id);
+		expect(mine.every((o) => o.status === "Bezahlt")).toBe(true);
 	});
 });
 
