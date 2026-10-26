@@ -1,5 +1,6 @@
 import { desc, eq, or, sql } from "drizzle-orm";
 import type { UserStats } from "~/components/profile/KPIGrid";
+import { dayKeyInTZ } from "~/lib/time";
 import { controlDb } from "~/server/db/control";
 import { userStats } from "~/server/db/control-schema";
 import { db } from "~/server/db/index";
@@ -97,7 +98,7 @@ export async function getEloStatsForUser(
 	const eloHistory = recentGames
 		.filter((game) => game.playedAt)
 		.map((game) => ({
-			date: game.playedAt?.toISOString().split("T")[0] ?? "",
+			date: game.playedAt ? dayKeyInTZ(game.playedAt) : "",
 			elo:
 				game.player1Id === userId
 					? (game.player1EloAfter ?? 1200)
