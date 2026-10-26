@@ -5,6 +5,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { achievementProgress } from "~/server/db/schema";
+import { requireTenantId } from "~/server/lib/tenant-context";
 import {
 	createDrinkWith,
 	freezeClock,
@@ -53,6 +54,9 @@ describe("achievement tracking query budget (#22)", () => {
 	test("an order costs 3 round trips (was ~50), however long the history", async () => {
 		const { user, pils } = await setup();
 		await insertOrder({ user, drink: pils, amount: 3 });
+		// The tenant is resolved from the request host once and then cached;
+		// warm that cache so only the tracking itself is counted.
+		await requireTenantId();
 
 		const first = await countQueries(() => orderEvent(user, pils));
 
@@ -83,6 +87,7 @@ describe("achievement tracking query budget (#22)", () => {
 			player2Id: rival.id,
 			winnerId: user.id,
 		});
+		await requireTenantId(); // warm the host → tenant cache, see above
 
 		const played = await countQueries(() =>
 			checkAndUnlockAchievements(user.id, "game_played"),

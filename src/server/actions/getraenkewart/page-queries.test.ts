@@ -119,6 +119,7 @@ async function addFuchsenBills(user: TestUser, n: number) {
 describe("Getränkewart page query budget (#25)", () => {
 	test("the page load does not grow with drinks, inventories and bills (was 31 → 71)", async () => {
 		await createTenant({ features: ["drinks.markup"] });
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 		await createInventory({ createdAt: daysAgo(3) });
 		await addHistory(2);
 		await loadGetraenkewartPage(); // warm the tenant and feature caches
@@ -127,8 +128,11 @@ describe("Getränkewart page query budget (#25)", () => {
 		await addHistory(8);
 		const large = await countQueries(loadGetraenkewartPage);
 
-		// 21: the Kasse summary sums all open bill totals in one query (#139).
-		expect(small.total).toBe(21);
+		// 21 data queries (the Kasse summary sums all open bill totals in one
+		// query, #139) plus 26 for the 13 guarded loaders' auth() calls. In
+		// production auth() is memoized per request (React cache), so the
+		// guards cost 2 lookups per page there; the test mock is not memoized.
+		expect(small.total).toBe(21 + 26);
 		expect(large.total).toBe(small.total);
 		expect(large.writes).toBe(0);
 
@@ -151,7 +155,8 @@ describe("Getränkewart page query budget (#25)", () => {
 
 	test("bill lists do not grow with the number of bills (was 11 → 31)", async () => {
 		await createTenant();
-		const member = await createUser();
+		// Reading a whole Fuchsen period is for the Fuchsenwart (the Fuchs role).
+		const member = await createUser({ roles: ["Fuchs"] });
 		signInAs(member);
 		const period = await addHistory(2);
 		const fuchsen = await addFuchsenBills(member, 2);
@@ -169,8 +174,10 @@ describe("Getränkewart page query budget (#25)", () => {
 			mine: await getMyFuchsenBills(),
 		}));
 
-		// Three loaders, one round trip each, plus the session lookup.
-		expect(small.total).toBe(5);
+		// Three loaders, one round trip each, plus the session lookup (2), plus
+		// each loader's guard (2 each in tests; memoized per request in
+		// production).
+		expect(small.total).toBe(5 + 6);
 		expect(large.total).toBe(small.total);
 		expect(large.result.bills).toHaveLength(8);
 		expect(large.result.bills.every((b) => b.items.length === 1)).toBe(true);

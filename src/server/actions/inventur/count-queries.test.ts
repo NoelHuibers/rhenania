@@ -55,9 +55,10 @@ describe("saveInventoryCount query budget (#25)", () => {
 		const counted = await countSave(5);
 
 		expect(counted.result).toEqual({ success: true, totalInventoryLoss: 5 });
-		// Session (2), then one transaction: 4 reads, an UPDATE per counted
-		// drink, close, open, one insert of all opening items, commit.
-		expect(counted.total).toBe(2 + 4 + 5 + 4);
+		// Role guard (2) and session (2), then one transaction: 4 reads, an
+		// UPDATE per counted drink, close, open, one insert of all opening
+		// items, commit. (Production memoizes auth() per request.)
+		expect(counted.total).toBe(2 + 2 + 4 + 5 + 4);
 		const items = await tenantDb().select().from(inventoryItems);
 		// Five closed items with a loss of 1 each, five opening items of 8.
 		expect(items.filter((i) => i.lossValue === 1)).toHaveLength(5);
