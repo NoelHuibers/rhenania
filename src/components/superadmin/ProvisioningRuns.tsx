@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import {
 	abandonTenantProvisioningAction,
 	createTenantAction,
@@ -37,14 +38,7 @@ export function ProvisioningRuns({ runs }: { runs: UnfinishedProvisioning[] }) {
 			router.refresh();
 		});
 
-	const abandon = (run: UnfinishedProvisioning) => {
-		if (
-			!confirm(
-				`Abandon '${run.slug}'? This deletes its Turso DB and any rows created so far.`,
-			)
-		) {
-			return;
-		}
+	const abandon = (run: UnfinishedProvisioning) =>
 		startTransition(async () => {
 			const result = await abandonTenantProvisioningAction(run.slug);
 			if (result.success) {
@@ -56,14 +50,13 @@ export function ProvisioningRuns({ runs }: { runs: UnfinishedProvisioning[] }) {
 			}
 			router.refresh();
 		});
-	};
 
 	return (
 		<section className="space-y-2">
 			<h2 className="font-semibold text-lg">Unfinished provisioning</h2>
-			<div className="overflow-hidden rounded-md border bg-white">
+			<div className="overflow-hidden rounded-md border bg-card">
 				<table className="w-full text-sm">
-					<thead className="border-b bg-gray-50 text-left text-muted-foreground">
+					<thead className="border-b bg-muted/40 text-left text-muted-foreground">
 						<tr>
 							<th className="px-4 py-3 font-medium">Slug</th>
 							<th className="px-4 py-3 font-medium">Last completed step</th>
@@ -93,14 +86,21 @@ export function ProvisioningRuns({ runs }: { runs: UnfinishedProvisioning[] }) {
 									>
 										Resume
 									</Button>
-									<Button
-										size="sm"
-										variant="outline"
-										disabled={isPending || run.running}
-										onClick={() => abandon(run)}
+									<ConfirmAction
+										title={`Abandon '${run.slug}'?`}
+										description="This deletes its Turso DB and any rows created so far."
+										confirmLabel="Abandon"
+										cancelLabel="Cancel"
+										onConfirm={() => abandon(run)}
 									>
-										Abandon
-									</Button>
+										<Button
+											size="sm"
+											variant="outline"
+											disabled={isPending || run.running}
+										>
+											Abandon
+										</Button>
+									</ConfirmAction>
 								</td>
 							</tr>
 						))}
