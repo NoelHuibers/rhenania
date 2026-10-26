@@ -66,13 +66,10 @@ async function resolveCurrentClient(): Promise<Client> {
 		);
 	}
 
-	const { getTenantDb: _getTenantDb } = await import("./tenants");
-	// `getTenantDb` returns the drizzle instance, not the raw client. We want
-	// the raw client so drizzle's queries (built off the proxy below) execute
-	// on the right network connection.
-	void _getTenantDb;
-	const { resolveTenantClient } = await import("./tenants");
-	return resolveTenantClient(tenantId);
+	// The raw client behind `getTenantDb`, so drizzle's queries (built off
+	// the proxy below) execute on the right network connection.
+	const { getTenantClient } = await import("./tenants");
+	return getTenantClient(tenantId);
 }
 
 // libSQL `Client` proxy: passes through property access; intercepts the

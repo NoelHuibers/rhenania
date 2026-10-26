@@ -5,33 +5,27 @@
 // header. Server components and actions read it back via `getTenantId()` /
 // `requireTenantId()`.
 //
-// Resolutions are cached in-process for a short TTL so steady-state traffic
-// hits the control DB at most once per host per minute.
+// Host lookups and tenant config are cached by the tenant-config service
+// (`tenant-config.ts`), which also defines how fast changes propagate.
 
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 
-import {
-	defaultFeatureFlags,
-	type FeatureFlags,
-	resolveFeatureFlags,
-} from "~/lib/features";
+import type { FeatureFlags } from "~/lib/features";
 import { controlDb } from "~/server/db/control";
 import {
 	type TenantBranding,
-	tenantDomains,
-	tenantFeatures,
 	tenantMemberships,
-	tenants,
 } from "~/server/db/control-schema";
 import { protocolForHost } from "~/server/lib/local-host";
+import {
+	getTenantConfig,
+	invalidateHostLookups,
+	invalidateTenantConfig,
+	lookupTenantIdByHost,
+} from "~/server/lib/tenant-config";
 
 export const TENANT_HEADER = "x-tenant-id";
-
-const HOST_CACHE_TTL_MS = 60_000;
-
-type CacheEntry = { tenantId: string | null; expiresAt: number };
-const hostCache = new Map<string, CacheEntry>();
 
 function normalizeHost(host: string): string {
 	const noPort = host.split(":")[0] ?? host;
@@ -48,26 +42,12 @@ export async function resolveTenantByHost(
 	if (!host) {
 		return null;
 	}
-
-	const cached = hostCache.get(host);
-	if (cached && cached.expiresAt > Date.now()) {
-		return cached.tenantId;
-	}
-
-	const [row] = await controlDb
-		.select({ tenantId: tenantDomains.tenantId, status: tenants.status })
-		.from(tenantDomains)
-		.innerJoin(tenants, eq(tenants.id, tenantDomains.tenantId))
-		.where(eq(tenantDomains.hostname, host))
-		.limit(1);
-
-	const tenantId = row && row.status !== "suspended" ? row.tenantId : null;
-	hostCache.set(host, { tenantId, expiresAt: Date.now() + HOST_CACHE_TTL_MS });
-	return tenantId;
+	return lookupTenantIdByHost(host);
 }
 
+/** Forgets this instance's host lookups (hits and misses). */
 export function clearTenantHostCache() {
-	hostCache.clear();
+	invalidateHostLookups();
 }
 
 export async function getTenantId(): Promise<string | null> {
@@ -94,70 +74,23 @@ export type TenantContext = {
 	features: FeatureFlags;
 };
 
-const tenantByIdCache = new Map<
-	string,
-	{ value: TenantContext; expiresAt: number }
->();
-const TENANT_CACHE_TTL_MS = 60_000;
-
-// Flags ride along with the cached tenant, so checking one costs no extra
-// query. If the flag table can't be read (e.g. the control migration hasn't
-// run yet) every flag stays off — the app then behaves as it did before
-// flags existed instead of failing every request.
-async function loadFeatureFlags(tenantId: string): Promise<FeatureFlags> {
-	try {
-		const rows = await controlDb
-			.select({ key: tenantFeatures.key, enabled: tenantFeatures.enabled })
-			.from(tenantFeatures)
-			.where(eq(tenantFeatures.tenantId, tenantId));
-		return resolveFeatureFlags(rows);
-	} catch (error) {
-		console.error("Failed to load tenant feature flags:", error);
-		return defaultFeatureFlags();
-	}
-}
-
-/** Drops the cached tenant so a flag change is visible on the next request. */
+/** Drops the cached tenant so a change is visible on the next request. */
 export function clearTenantCache(tenantId?: string) {
-	if (tenantId) {
-		tenantByIdCache.delete(tenantId);
-	} else {
-		tenantByIdCache.clear();
-	}
+	invalidateTenantConfig(tenantId);
 }
 
 export async function getTenantById(id: string): Promise<TenantContext | null> {
-	const cached = tenantByIdCache.get(id);
-	if (cached && cached.expiresAt > Date.now()) {
-		return cached.value;
-	}
-
-	const [row] = await controlDb
-		.select({
-			id: tenants.id,
-			slug: tenants.slug,
-			displayName: tenants.displayName,
-			branding: tenants.branding,
-		})
-		.from(tenants)
-		.where(eq(tenants.id, id))
-		.limit(1);
-
-	if (!row) {
+	const config = await getTenantConfig(id);
+	if (!config) {
 		return null;
 	}
-	const value: TenantContext = {
-		id: row.id,
-		slug: row.slug,
-		displayName: row.displayName,
-		branding: row.branding ?? null,
-		features: await loadFeatureFlags(row.id),
+	return {
+		id: config.id,
+		slug: config.slug,
+		displayName: config.displayName,
+		branding: config.branding,
+		features: config.features,
 	};
-	tenantByIdCache.set(id, {
-		value,
-		expiresAt: Date.now() + TENANT_CACHE_TTL_MS,
-	});
-	return value;
 }
 
 export async function getCurrentTenant(): Promise<TenantContext | null> {

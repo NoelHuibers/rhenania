@@ -130,7 +130,7 @@ vi.mock("~/server/db/tenants", async () => {
 			}
 			return get(testState.tenantId).db;
 		},
-		resolveTenantClient: async (tenantId: string) => get(tenantId).client,
+		getTenantClient: async (tenantId: string) => get(tenantId).client,
 		clearTenantDbCache: () => {},
 	};
 });
