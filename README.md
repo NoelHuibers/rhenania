@@ -44,6 +44,11 @@ abhängigkeiten auf bekannte Sicherheitslücken. Overrides in `package.json`
 (`pnpm.overrides`) quartalsweise mit `pnpm why <paket>` überprüfen und
 entfernen, sobald upstream gepatcht ist.
 
+PR-Titel folgen Conventional Commits (`feat(getraenke): …`, `fix(billing): …`),
+weil Squash-Merges den Titel als Commit-Nachricht nehmen. release-please hält
+daraus einen Release-PR mit Changelog und Versionsnummer offen; sein Merge
+setzt den Tag `vX.Y.Z`.
+
 CI (`.github/workflows/ci.yml`) führt Lint, Typecheck, Tests (TZ=Europe/Berlin
 und UTC, mit Coverage) und einen Build gegen lokal migrierte `file:`-DBs aus.
 CI bekommt keine Produktions-Zugangsdaten.
