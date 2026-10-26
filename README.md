@@ -38,6 +38,12 @@ Non-null-Assertions, Block-Statements, keine Default-Exports außerhalb von
 DB-Zugriffe aus Komponenten. Ein Pre-Commit-Hook (lefthook, wird mit
 `pnpm install` eingerichtet) formatiert und prüft die gestagten Dateien.
 
+Abhängigkeiten: Dependabot öffnet montags gruppierte Update-PRs
+(`.github/dependabot.yml`), `audit.yml` prüft wöchentlich die Produktions-
+abhängigkeiten auf bekannte Sicherheitslücken. Overrides in `package.json`
+(`pnpm.overrides`) quartalsweise mit `pnpm why <paket>` überprüfen und
+entfernen, sobald upstream gepatcht ist.
+
 CI (`.github/workflows/ci.yml`) führt Lint, Typecheck, Tests (TZ=Europe/Berlin
 und UTC, mit Coverage) und einen Build gegen lokal migrierte `file:`-DBs aus.
 CI bekommt keine Produktions-Zugangsdaten.

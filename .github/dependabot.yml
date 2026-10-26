@@ -1,0 +1,36 @@
+# Weekly grouped dependency updates; every PR runs the full CI (lint,
+# typecheck, unit tests in two time zones, migrations, build, E2E, visual).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 6
+    groups:
+      next-react:
+        patterns: ["next", "react", "react-dom", "@types/react", "@types/react-dom"]
+      auth:
+        patterns: ["better-auth"]
+      drizzle-libsql:
+        # drizzle-orm and drizzle-kit must always move together.
+        patterns: ["drizzle-orm", "drizzle-kit", "@libsql/*"]
+      radix:
+        patterns: ["@radix-ui/*", "radix-ui"]
+      testing:
+        # Bumping @playwright/test also needs the image tag in
+        # .github/workflows/ci.yml (test/ci-config.test.ts enforces it) and
+        # usually new visual baselines (pnpm test:visual:update).
+        patterns: ["vitest", "@vitest/*", "@playwright/test", "@axe-core/playwright", "@stryker-mutator/*"]
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
