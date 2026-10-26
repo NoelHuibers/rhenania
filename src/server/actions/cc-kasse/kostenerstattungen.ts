@@ -4,6 +4,7 @@ import { and, desc, eq, type SQL } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ibanSchema } from "~/lib/iban";
+import { roundToCent } from "~/lib/money";
 import { db } from "~/server/db";
 import { kostenerstattungen } from "~/server/db/schema";
 import {
@@ -28,10 +29,6 @@ const TRANSITIONS: Record<ErstattungStatus, ErstattungStatus[]> = {
 
 function canTransition(from: ErstattungStatus, to: ErstattungStatus): boolean {
 	return TRANSITIONS[from]?.includes(to) ?? false;
-}
-
-function round2(n: number) {
-	return Math.round(n * 100) / 100;
 }
 
 const receiptsSchema = z
@@ -89,7 +86,7 @@ export async function submitReimbursement(input: {
 			source: "Antrag",
 			status: "Eingereicht",
 			description: parsed.description,
-			amount: round2(parsed.amount),
+			amount: roundToCent(parsed.amount),
 			submittedBy: guard.userId,
 			recipientName: parsed.recipientName,
 			iban: parsed.iban,
@@ -202,7 +199,7 @@ export async function updateMyReimbursement(
 				kostenpunktId: kp.id,
 				etaplanId: kp.etaplanId,
 				description: parsed.description,
-				amount: round2(parsed.amount),
+				amount: roundToCent(parsed.amount),
 				recipientName: parsed.recipientName,
 				iban: parsed.iban,
 				receipts: parsed.receipts ?? null,
@@ -363,7 +360,7 @@ export async function createDirectBooking(input: {
 			source: "Direktbuchung",
 			status: "Ausgezahlt",
 			description: parsed.description,
-			amount: round2(parsed.amount),
+			amount: roundToCent(parsed.amount),
 			submittedBy: null,
 			recipientName: parsed.recipientName,
 			iban: parsed.iban ?? null,
@@ -422,7 +419,7 @@ export async function updateReimbursement(
 		patch.description = input.description;
 	}
 	if (input.amount !== undefined) {
-		patch.amount = round2(input.amount);
+		patch.amount = roundToCent(input.amount);
 	}
 	if (input.recipientName !== undefined) {
 		patch.recipientName = input.recipientName;

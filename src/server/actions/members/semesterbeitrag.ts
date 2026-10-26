@@ -3,6 +3,7 @@
 import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { roundToCent } from "~/lib/money";
 import {
 	sendBeitragEmail,
 	sendMahnungEmail,
@@ -20,10 +21,6 @@ import {
 } from "~/server/lib/member-statuses";
 import { BEITRAG_ROLES, requireRoles } from "./_guards";
 import { generateBeitragPDF } from "./beitragPDF";
-
-function round2(n: number) {
-	return Math.round(n * 100) / 100;
-}
 
 // ─── Runs ─────────────────────────────────────────────────────────────────────
 
@@ -77,7 +74,7 @@ async function insertCharges(
 				runId,
 				memberId: m.id,
 				memberName: `${m.firstName} ${m.lastName}`,
-				baseAmount: round2(baseAmount),
+				baseAmount: roundToCent(baseAmount),
 			})),
 		)
 		.onConflictDoNothing();
@@ -120,8 +117,8 @@ export async function createBeitragRun(input: {
 			name: parsed.name,
 			etaplanId: parsed.etaplanId,
 			kostenpunktId: parsed.kostenpunktId,
-			amount: round2(parsed.amount),
-			mahnungFee: round2(parsed.mahnungFee),
+			amount: roundToCent(parsed.amount),
+			mahnungFee: roundToCent(parsed.mahnungFee),
 			dueDate: parsed.dueDate,
 			createdBy: guard.userId,
 		});
@@ -230,7 +227,7 @@ export async function listChargesForRun(runId: string) {
 		run,
 		charges: charges.map((c) => ({
 			...c,
-			total: round2(c.baseAmount + c.mahnungAmount),
+			total: roundToCent(c.baseAmount + c.mahnungAmount),
 			hasEmail: !!c.member?.email,
 			ueberfaellig: c.status === "Offen" && due < now,
 		})),

@@ -2,6 +2,7 @@
 
 import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { addMoney, roundToCent, sumMoney } from "~/lib/money";
 import { auth } from "~/server/auth";
 import { fuchsenOrders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
@@ -65,7 +66,7 @@ export async function createFuchsenOrder(
 				itemName: data.itemName,
 				amount: data.amount,
 				pricePerUnit: data.pricePerUnit,
-				total: data.total,
+				total: roundToCent(data.total),
 			})
 			.returning();
 
@@ -117,12 +118,12 @@ export async function getMyFuchsenSummary() {
 			.from(fuchsenOrders)
 			.where(eq(fuchsenOrders.userId, session.user.id));
 
-		const openTotal = orders
-			.filter((o) => o.status === "Offen")
-			.reduce((sum, o) => sum + o.total, 0);
-		const paidTotal = orders
-			.filter((o) => o.status === "Bezahlt")
-			.reduce((sum, o) => sum + o.total, 0);
+		const openTotal = sumMoney(
+			orders.filter((o) => o.status === "Offen").map((o) => o.total),
+		);
+		const paidTotal = sumMoney(
+			orders.filter((o) => o.status === "Bezahlt").map((o) => o.total),
+		);
 		const openCount = orders.filter((o) => o.status === "Offen").length;
 
 		return { openTotal, paidTotal, openCount };
@@ -173,10 +174,10 @@ export async function getFuchsenBillsByUser(): Promise<FuchsenUserBill[]> {
 			};
 			existing.totalCount += 1;
 			if (order.status === "Offen") {
-				existing.openTotal += order.total;
+				existing.openTotal = addMoney(existing.openTotal, order.total);
 				existing.openCount += 1;
 			} else {
-				existing.paidTotal += order.total;
+				existing.paidTotal = addMoney(existing.paidTotal, order.total);
 			}
 			byUser.set(order.userId, existing);
 		}

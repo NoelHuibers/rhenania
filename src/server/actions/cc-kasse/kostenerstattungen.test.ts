@@ -152,7 +152,7 @@ describe("submitReimbursement", () => {
 		});
 	});
 
-	test.fails("rounds amounts half-up to whole cents (#13)", async () => {
+	test("rounds amounts half-up to whole cents (#13)", async () => {
 		const { member, kp } = await setup();
 		signInAs(member);
 

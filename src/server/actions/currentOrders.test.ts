@@ -103,8 +103,8 @@ describe("getCurrentOrders", () => {
 		expect(await getCurrentOrders()).toEqual([]);
 	});
 
-	// Three 1.10 € orders add up to 3.3000000000000003.
-	test.fails("adds up amounts due in whole cents (#13)", async () => {
+	// Three 1.10 € orders add up to 3.3000000000000003 in floating point.
+	test("adds up amounts due in whole cents (#13)", async () => {
 		const pils = await createDrink({ price: 1.1 });
 		for (let i = 0; i < 3; i++) {
 			await createOrderRow({ drink: pils, user: max, amount: 1 });

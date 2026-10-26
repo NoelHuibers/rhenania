@@ -265,7 +265,7 @@ describe("createNewFuchsenBilling", () => {
 		expect(billNumberOf(result)).toBe("KW-53-26");
 	});
 
-	test.fails("sums line items without floating-point residue (#13)", async () => {
+	test("sums line items without floating-point residue (#13)", async () => {
 		await setup();
 		const member = await createUser();
 		await createFuchsenOrder({

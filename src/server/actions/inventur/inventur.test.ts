@@ -321,8 +321,8 @@ describe("saveInventoryCount", () => {
 		]);
 	});
 
-	// Loss = 3 × 1.10 € is stored as 3.3000000000000003.
-	test.fails("stores losses rounded to whole cents (#13)", async () => {
+	// Loss = 3 × 1.10 € is 3.3000000000000003 in floating point.
+	test("stores losses rounded to whole cents (#13)", async () => {
 		const pils = await createDrink({ price: 1.1 });
 		await createInventory({
 			createdAt: daysAgo(7),

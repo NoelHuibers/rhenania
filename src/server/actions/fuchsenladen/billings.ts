@@ -1,7 +1,17 @@
 "use server";
 
 import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
+
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
+
+import {
+	addMoney,
+	fromCents,
+	roundToCent,
+	sumMoney,
+	toCents,
+} from "~/lib/money";
+
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -142,7 +152,7 @@ export async function createNewFuchsenBilling() {
 						),
 					);
 				for (const row of outstanding) {
-					oldBalanceMap.set(row.userId, Number(row.total) || 0);
+					oldBalanceMap.set(row.userId, roundToCent(Number(row.total) || 0));
 				}
 			}
 
@@ -154,14 +164,14 @@ export async function createNewFuchsenBilling() {
 				userOrderMap.set(order.userId, list);
 			}
 
-			let totalBillingAmount = 0;
+			let totalBillingCents = 0;
 			let billsCreated = 0;
 
 			for (const [userId, userOrders] of userOrderMap.entries()) {
 				const userName = userOrders[0]?.userName ?? "";
-				const itemsTotal = userOrders.reduce((sum, o) => sum + o.total, 0);
+				const itemsTotal = sumMoney(userOrders.map((o) => o.total));
 				const oldBillingAmount = oldBalanceMap.get(userId) ?? 0;
-				const total = itemsTotal + oldBillingAmount;
+				const total = sumMoney([itemsTotal, oldBillingAmount]);
 
 				const billId = crypto.randomUUID();
 				await tx.insert(fuchsenBills).values({
@@ -186,13 +196,13 @@ export async function createNewFuchsenBilling() {
 					const existing = itemSummary.get(key);
 					if (existing) {
 						existing.amount += order.amount;
-						existing.total += order.total;
+						existing.total = sumMoney([existing.total, order.total]);
 					} else {
 						itemSummary.set(key, {
 							name: order.itemName,
 							amount: order.amount,
 							price: order.pricePerUnit,
-							total: order.total,
+							total: roundToCent(order.total),
 						});
 					}
 				}
@@ -217,8 +227,10 @@ export async function createNewFuchsenBilling() {
 					);
 
 				billsCreated += 1;
-				totalBillingAmount += total;
+				totalBillingCents += toCents(total);
 			}
+
+			const totalBillingAmount = fromCents(totalBillingCents);
 
 			await tx
 				.update(fuchsenBillPeriods)
@@ -333,13 +345,13 @@ export async function getUnbilledFuchsenOrdersGrouped(): Promise<
 				totalDue: 0,
 				items: [],
 			};
-			entry.totalDue += order.total;
+			entry.totalDue = addMoney(entry.totalDue, order.total);
 			const existing = entry.items.find(
 				(i) => i.name === order.itemName && i.unitPrice === order.pricePerUnit,
 			);
 			if (existing) {
 				existing.quantity += order.amount;
-				existing.subtotal += order.total;
+				existing.subtotal = addMoney(existing.subtotal, order.total);
 			} else {
 				entry.items.push({
 					id: order.id,
