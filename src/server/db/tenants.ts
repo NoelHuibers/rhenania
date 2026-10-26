@@ -16,7 +16,7 @@ import { tenants } from "./control-schema";
 import { createClient } from "./libsql";
 import * as schema from "./schema";
 
-type TenantDb = LibSQLDatabase<typeof schema>;
+export type TenantDb = LibSQLDatabase<typeof schema>;
 
 type TenantDbCacheEntry = {
 	client: Client;

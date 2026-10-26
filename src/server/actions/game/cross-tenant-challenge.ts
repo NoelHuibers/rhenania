@@ -7,6 +7,7 @@
 
 import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 
 import { auth } from "~/server/auth";
 import { controlDb } from "~/server/db/control";
@@ -17,9 +18,14 @@ import {
 	tenants,
 	users,
 } from "~/server/db/control-schema";
-import { applyEloOutcome } from "~/server/lib/user-stats";
+import { getTenantDb } from "~/server/db/tenants";
+import { readEloEnabled } from "~/server/lib/elo-preference";
+import {
+	applyEloOutcome,
+	type EloOutcome,
+	revertEloOutcome,
+} from "~/server/lib/user-stats";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
-import { isEloEnabledForUser } from "../profile/preferences";
 
 const RESPOND_WINDOW_MS = 30 * 60 * 1000;
 const PLAY_WINDOW_MS = 6 * 60 * 60 * 1000;
@@ -31,7 +37,7 @@ export type CrossChallengeStatus =
 	| "pending"
 	| "accepted"
 	| "result_proposed"
-	| "confirmed"
+	| "confirmed" // claimed: settlement in progress (see settle below)
 	| "settled"
 	| "declined"
 	| "expired"
@@ -113,6 +119,18 @@ async function challengerTenantId(
 	return m?.tenantId ?? null;
 }
 
+async function isEloEnabledInCorps(
+	userId: string,
+	tenantId: string,
+): Promise<boolean> {
+	try {
+		return await readEloEnabled(await getTenantDb(tenantId), userId);
+	} catch {
+		// Corps DB unavailable (e.g. suspended): no ranked games with it.
+		return false;
+	}
+}
+
 // ---------- Create ----------
 
 export async function createCrossTenantChallenge(input: {
@@ -160,11 +178,11 @@ export async function createCrossTenantChallenge(input: {
 		};
 	}
 
-	// Both players must have ELO enabled (preference is per-tenant; check
-	// against the relevant tenant's preference table — challenger uses theirs).
+	// Both players must have ELO enabled. The preference is per Corps, so
+	// each player's is read from their own Corps' DB.
 	const [challengerEnabled, opponentEnabled] = await Promise.all([
-		isEloEnabledForUser(challengerId),
-		isEloEnabledForUser(input.opponentId),
+		isEloEnabledInCorps(challengerId, myTenantId),
+		isEloEnabledInCorps(input.opponentId, input.opponentTenantId),
 	]);
 	if (!challengerEnabled) {
 		return {
@@ -321,10 +339,22 @@ export async function cancelCrossTenantChallenge(
 		};
 	}
 
-	await controlDb
+	const [cancelled] = await controlDb
 		.update(crossTenantChallenges)
 		.set({ status: "cancelled" })
-		.where(eq(crossTenantChallenges.id, challengeId));
+		.where(
+			and(
+				eq(crossTenantChallenges.id, challengeId),
+				inArray(crossTenantChallenges.status, ["pending", "accepted"]),
+			),
+		)
+		.returning({ id: crossTenantChallenges.id });
+	if (!cancelled) {
+		return {
+			success: false,
+			error: "Diese Herausforderung kann nicht mehr abgebrochen werden",
+		};
+	}
 
 	revalidatePath("/eloranking");
 	return { success: true };
@@ -416,7 +446,12 @@ export async function confirmCrossTenantResult(
 		await controlDb
 			.update(crossTenantChallenges)
 			.set({ status: "expired" })
-			.where(eq(crossTenantChallenges.id, row.id));
+			.where(
+				and(
+					eq(crossTenantChallenges.id, row.id),
+					eq(crossTenantChallenges.status, "result_proposed"),
+				),
+			);
 		return { success: false, error: "Bestätigungsfrist abgelaufen" };
 	}
 
@@ -456,10 +491,20 @@ export async function disputeCrossTenantResult(
 		return { success: false, error: "Keine Berechtigung" };
 	}
 
-	await controlDb
+	// Only while still proposed: a confirm may claim it meanwhile.
+	const [disputed] = await controlDb
 		.update(crossTenantChallenges)
 		.set({ status: "disputed" })
-		.where(eq(crossTenantChallenges.id, challengeId));
+		.where(
+			and(
+				eq(crossTenantChallenges.id, challengeId),
+				eq(crossTenantChallenges.status, "result_proposed"),
+			),
+		)
+		.returning({ id: crossTenantChallenges.id });
+	if (!disputed) {
+		return { success: false, error: "Kein Ergebnisvorschlag offen" };
+	}
 
 	revalidatePath("/eloranking");
 	return { success: true };
@@ -467,18 +512,38 @@ export async function disputeCrossTenantResult(
 
 // ---------- Settle ----------
 
+/** Hands a claimed challenge back so the result can be confirmed again. */
+async function releaseCrossClaim(challengeId: string) {
+	await controlDb
+		.update(crossTenantChallenges)
+		.set({ status: "result_proposed" })
+		.where(
+			and(
+				eq(crossTenantChallenges.id, challengeId),
+				eq(crossTenantChallenges.status, "confirmed"),
+			),
+		);
+}
+
 async function settleCrossTenantChallenge(
 	challengeId: string,
 ): Promise<{ success: boolean; error?: string; gameId?: string }> {
+	// Claim the row atomically: of concurrent confirms exactly one continues.
 	const [row] = await controlDb
-		.select()
-		.from(crossTenantChallenges)
-		.where(eq(crossTenantChallenges.id, challengeId))
-		.limit(1);
+		.update(crossTenantChallenges)
+		.set({ status: "confirmed" })
+		.where(
+			and(
+				eq(crossTenantChallenges.id, challengeId),
+				eq(crossTenantChallenges.status, "result_proposed"),
+			),
+		)
+		.returning();
 	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
+		return { success: false, error: "Es liegt kein Ergebnisvorschlag vor" };
 	}
 	if (row.proposedWinnerId == null) {
+		await releaseCrossClaim(row.id);
 		return { success: false, error: "Kein Gewinner vorgeschlagen" };
 	}
 
@@ -487,55 +552,95 @@ async function settleCrossTenantChallenge(
 		winnerId === row.challengerId ? row.opponentId : row.challengerId;
 
 	// Apply ELO outcome — same unified userStats as intra-Corps games.
-	const eloResult = await applyEloOutcome(winnerId, loserId);
-	const challengerIsWinner = row.challengerId === winnerId;
-	const player1EloBefore = challengerIsWinner
-		? eloResult.winnerEloBefore
-		: eloResult.loserEloBefore;
-	const player2EloBefore = challengerIsWinner
-		? eloResult.loserEloBefore
-		: eloResult.winnerEloBefore;
-	const player1EloAfter = challengerIsWinner
-		? eloResult.winnerEloAfter
-		: eloResult.loserEloAfter;
-	const player2EloAfter = challengerIsWinner
-		? eloResult.loserEloAfter
-		: eloResult.winnerEloAfter;
-
-	const [newGame] = await controlDb
-		.insert(crossTenantGames)
-		.values({
-			player1Id: row.challengerId,
-			player1TenantId: row.challengerTenantId,
-			player2Id: row.opponentId,
-			player2TenantId: row.opponentTenantId,
-			winnerId,
-			player1EloBefore,
-			player2EloBefore,
-			player1EloAfter,
-			player2EloAfter,
-			challengeId: row.id,
-		})
-		.returning({ id: crossTenantGames.id });
-
-	if (!newGame) {
-		return { success: false, error: "Spiel konnte nicht erstellt werden" };
+	let elo: EloOutcome;
+	try {
+		elo = await applyEloOutcome(winnerId, loserId);
+	} catch (error) {
+		await releaseCrossClaim(row.id);
+		throw error;
 	}
 
-	await controlDb
-		.update(crossTenantChallenges)
-		.set({ status: "settled", gameId: newGame.id })
-		.where(eq(crossTenantChallenges.id, row.id));
+	const challengerIsWinner = row.challengerId === winnerId;
+	const gameId = crypto.randomUUID();
+	try {
+		await controlDb.batch([
+			controlDb.insert(crossTenantGames).values({
+				id: gameId,
+				player1Id: row.challengerId,
+				player1TenantId: row.challengerTenantId,
+				player2Id: row.opponentId,
+				player2TenantId: row.opponentTenantId,
+				winnerId,
+				player1EloBefore: challengerIsWinner
+					? elo.winnerEloBefore
+					: elo.loserEloBefore,
+				player2EloBefore: challengerIsWinner
+					? elo.loserEloBefore
+					: elo.winnerEloBefore,
+				player1EloAfter: challengerIsWinner
+					? elo.winnerEloAfter
+					: elo.loserEloAfter,
+				player2EloAfter: challengerIsWinner
+					? elo.loserEloAfter
+					: elo.winnerEloAfter,
+				challengeId: row.id,
+			}),
+			controlDb
+				.update(crossTenantChallenges)
+				.set({ status: "settled", gameId })
+				.where(
+					and(
+						eq(crossTenantChallenges.id, row.id),
+						eq(crossTenantChallenges.status, "confirmed"),
+					),
+				),
+		]);
+	} catch (error) {
+		// Take the ELO back first; if that fails too, the claim stays so
+		// nobody applies it a second time.
+		await revertEloOutcome(winnerId, loserId, elo);
+		await releaseCrossClaim(row.id);
+		throw error;
+	}
 
-	void Promise.all([
-		checkAndUnlockAchievements(row.challengerId, "game_played"),
-		checkAndUnlockAchievements(row.opponentId, "game_played"),
-		checkAndUnlockAchievements(winnerId, "game_won"),
-		checkAndUnlockAchievements(loserId, "game_lost"),
-	]);
+	// Each player's achievements live in their own Corps' DB.
+	const corpsOf = (userId: string) => ({
+		tenantId:
+			userId === row.challengerId
+				? row.challengerTenantId
+				: row.opponentTenantId,
+	});
+	after(() =>
+		Promise.all([
+			checkAndUnlockAchievements(
+				row.challengerId,
+				"game_played",
+				undefined,
+				corpsOf(row.challengerId),
+			),
+			checkAndUnlockAchievements(
+				row.opponentId,
+				"game_played",
+				undefined,
+				corpsOf(row.opponentId),
+			),
+			checkAndUnlockAchievements(
+				winnerId,
+				"game_won",
+				undefined,
+				corpsOf(winnerId),
+			),
+			checkAndUnlockAchievements(
+				loserId,
+				"game_lost",
+				undefined,
+				corpsOf(loserId),
+			),
+		]),
+	);
 
 	revalidatePath("/eloranking");
-	return { success: true, gameId: newGame.id };
+	return { success: true, gameId };
 }
 
 // ---------- Sweep expired ----------

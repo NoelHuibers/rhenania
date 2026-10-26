@@ -33,16 +33,28 @@ import {
 	respondToChallenge,
 } from "./challenge";
 
-// Achievements run fire-and-forget after the response; they have their own tests.
+// Achievements run after the response; they have their own tests.
 vi.mock("~/server/actions/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
+}));
+
+// `after()` needs a Next.js request scope; run the task right away instead.
+const afterTasks = vi.hoisted(() => [] as unknown[]);
+vi.mock("next/server", async (importOriginal) => ({
+	...(await importOriginal<typeof import("next/server")>()),
+	after: (task: (() => unknown) | Promise<unknown>) => {
+		afterTasks.push(typeof task === "function" ? task() : task);
+	},
 }));
 
 setupTestDatabases();
 
 const START = "2026-10-26T20:00:00Z";
 
-beforeEach(() => freezeClock(START));
+beforeEach(() => {
+	freezeClock(START);
+	afterTasks.length = 0;
+});
 afterEach(() => vi.useRealTimers());
 
 async function challengeRow(id: string) {
@@ -54,10 +66,10 @@ async function challengeRow(id: string) {
 }
 
 async function setup(opts: { features?: "drinks.markup"[] } = {}) {
-	await createTenant({ features: opts.features });
+	const tenant = await createTenant({ features: opts.features });
 	const [anna, bert] = await createPlayers(2);
 	const drink = await createDrink({ name: "Pils", price: 1.5 });
-	return { anna, bert, drink };
+	return { tenant, anna, bert, drink };
 }
 
 describe("createChallenge", () => {
@@ -301,7 +313,7 @@ describe("respond, propose, confirm", () => {
 	});
 
 	test("confirmation settles: game row, unified ELO, loser pays two drinks", async () => {
-		const { anna, bert, drink } = await setup();
+		const { tenant, anna, bert, drink } = await setup();
 		await setUserStats(anna.id, {
 			currentElo: 1400,
 			totalGames: 12,
@@ -360,14 +372,15 @@ describe("respond, propose, confirm", () => {
 			}),
 		]);
 
-		expect(vi.mocked(checkAndUnlockAchievements).mock.calls).toEqual(
-			expect.arrayContaining([
-				[anna.id, "game_played"],
-				[bert.id, "game_played"],
-				[bert.id, "game_won"],
-				[anna.id, "game_lost"],
-			]),
-		);
+		// Scheduled with `after()` and bound to this Corps explicitly
+		const inCorps = { tenantId: tenant.id };
+		expect(afterTasks).toHaveLength(1);
+		expect(vi.mocked(checkAndUnlockAchievements).mock.calls).toEqual([
+			[anna.id, "game_played", undefined, inCorps],
+			[bert.id, "game_played", undefined, inCorps],
+			[bert.id, "game_won", undefined, inCorps],
+			[anna.id, "game_lost", undefined, inCorps],
+		]);
 	});
 
 	test.each([
@@ -632,8 +645,7 @@ describe("getMyChallenges", () => {
 });
 
 describe("settlement races", () => {
-	// Status is checked before settling but not claimed atomically.
-	test.fails("a double-clicked confirm settles exactly once (#16)", async () => {
+	test("a double-clicked confirm settles exactly once (#16)", async () => {
 		const { anna, bert, drink } = await setup();
 		const { challengeId } = await playChallenge({
 			challenger: anna,
@@ -650,7 +662,7 @@ describe("settlement races", () => {
 	});
 
 	// Two page loads after the confirm deadline both run the auto-settle sweep.
-	test.fails("concurrent sweeps auto-settle exactly once (#16)", async () => {
+	test("concurrent sweeps auto-settle exactly once (#16)", async () => {
 		const { anna, bert, drink } = await setup();
 		await playChallenge({
 			challenger: anna,
@@ -665,5 +677,140 @@ describe("settlement races", () => {
 
 		expect(await tenantDb().select().from(games)).toHaveLength(1);
 		expect((await getUserStatsRow(anna.id))?.totalGames).toBe(1);
+	});
+
+	test("the slower of two confirms is told there is nothing left to confirm", async () => {
+		const { anna, bert, drink } = await setup();
+		const { challengeId } = await playChallenge({
+			challenger: anna,
+			opponent: bert,
+			drink,
+			winner: anna,
+		});
+
+		const results = await Promise.all([
+			confirmResult(challengeId),
+			confirmResult(challengeId),
+			confirmResult(challengeId),
+		]);
+
+		expect(results.filter((r) => r.success)).toHaveLength(1);
+		expect(results.filter((r) => !r.success)).toEqual([
+			{ success: false, error: "Kein Ergebnis zum Bestätigen" },
+			{ success: false, error: "Kein Ergebnis zum Bestätigen" },
+		]);
+		expect(await getUserStatsRow(bert.id)).toMatchObject({
+			totalGames: 1,
+			losses: 1,
+		});
+	});
+
+	test("a confirm racing a cancel either settles or cancels, never both", async () => {
+		const { anna, bert, drink } = await setup();
+		const { challengeId } = await playChallenge({
+			challenger: anna,
+			opponent: bert,
+			drink,
+			winner: anna,
+		});
+
+		const [confirmed, cancelled] = await Promise.all([
+			confirmResult(challengeId),
+			cancelChallenge(challengeId),
+		]);
+
+		expect(confirmed.success).not.toBe(cancelled.success);
+		const row = await challengeRow(challengeId);
+		const booked = await tenantDb().select().from(games);
+		if (confirmed.success) {
+			expect(row?.status).toBe("settled");
+			expect(booked).toHaveLength(1);
+		} else {
+			expect(row?.status).toBe("cancelled");
+			expect(booked).toHaveLength(0);
+		}
+	});
+
+	test("a confirm racing a dispute either settles or disputes, never both", async () => {
+		const { anna, bert, drink } = await setup();
+		const { challengeId } = await playChallenge({
+			challenger: anna,
+			opponent: bert,
+			drink,
+			winner: anna,
+		});
+
+		const [confirmed, disputed] = await Promise.all([
+			confirmResult(challengeId),
+			disputeResult(challengeId),
+		]);
+
+		expect(confirmed.success).not.toBe(disputed.success);
+		expect((await challengeRow(challengeId))?.status).toBe(
+			confirmed.success ? "settled" : "disputed",
+		);
+	});
+
+	test("a failed booking takes the ELO back and the result can be confirmed again", async () => {
+		const { anna, bert, drink } = await setup();
+		await setUserStats(anna.id, { currentElo: 1300, totalGames: 4, wins: 2 });
+		const { challengeId } = await playChallenge({
+			challenger: anna,
+			opponent: bert,
+			drink,
+			winner: anna,
+		});
+		const batch = vi
+			.spyOn(tenantDb(), "batch")
+			.mockRejectedValueOnce(new Error("connection reset"));
+
+		await expect(confirmResult(challengeId)).rejects.toThrow(
+			"connection reset",
+		);
+
+		expect((await challengeRow(challengeId))?.status).toBe("result_proposed");
+		expect(await tenantDb().select().from(games)).toHaveLength(0);
+		expect(await tenantDb().select().from(orders)).toHaveLength(0);
+		expect(await getUserStatsRow(anna.id)).toMatchObject({
+			currentElo: 1300,
+			totalGames: 4,
+			wins: 2,
+		});
+		expect(await getUserStatsRow(bert.id)).toMatchObject({
+			currentElo: 1200,
+			totalGames: 0,
+		});
+		expect(afterTasks).toHaveLength(0);
+
+		batch.mockRestore();
+		expect((await confirmResult(challengeId)).success).toBe(true);
+		expect(await tenantDb().select().from(games)).toHaveLength(1);
+		expect((await getUserStatsRow(anna.id))?.totalGames).toBe(5);
+	});
+
+	test("a failed auto-settle is logged and the feed still loads", async () => {
+		const { anna, bert, drink } = await setup();
+		const { challengeId } = await playChallenge({
+			challenger: anna,
+			opponent: bert,
+			drink,
+			winner: anna,
+		});
+		advanceClock(11 * MINUTE);
+		vi.spyOn(tenantDb(), "batch").mockRejectedValueOnce(new Error("timeout"));
+		const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const feed = await getMyChallenges();
+
+		expect(feed.awaitingMyConfirm.map((c) => c.id)).toEqual([challengeId]);
+		expect(logged).toHaveBeenCalledWith(
+			expect.stringContaining("challenge auto-settle failed"),
+		);
+		expect(await getUserStatsRow(anna.id)).toMatchObject({ totalGames: 0 });
+
+		// The next poll settles it.
+		await getMyChallenges();
+		expect((await challengeRow(challengeId))?.status).toBe("settled");
+		logged.mockRestore();
 	});
 });

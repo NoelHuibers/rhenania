@@ -72,6 +72,16 @@ vi.mock("~/server/actions/achievements/tracking", async (importOriginal) => {
 	};
 });
 
+// `after()` needs a Next.js request scope; run the task right away instead.
+vi.mock("next/server", async (importOriginal) => ({
+	...(await importOriginal<typeof import("next/server")>()),
+	after: (task: (() => unknown) | Promise<unknown>) => {
+		if (typeof task === "function") {
+			task();
+		}
+	},
+}));
+
 setupTestDatabases();
 
 const START = "2026-10-26T20:00:00Z";
@@ -235,8 +245,7 @@ describe("createCrossTenantChallenge", () => {
 		});
 	});
 
-	// The opponent's preference is read from the challenger's Corps DB.
-	test.fails("respects the opponent's opt-out stored in their own Corps (#16)", async () => {
+	test("respects the opponent's opt-out stored in their own Corps (#16)", async () => {
 		const { a, b } = await twoCorps();
 		await setEloEnabled(b.player.id, false, b.tenant.id);
 		signInAs(a.player);
@@ -495,11 +504,12 @@ describe("cross-Corps lifecycle", () => {
 
 		expect(await unlockedKeys(a.player.id, a.tenant.id)).toEqual([
 			"deutschland",
+			"erstersieg",
+			"tierlunge",
 		]);
 	});
 
-	// Game counters only read the tenant `game` table; cross-Corps games live in the control DB.
-	test.fails("a cross-Corps win counts towards game achievements (#141)", async () => {
+	test("a cross-Corps win counts towards game achievements (#141)", async () => {
 		const { a, b } = await twoCorps();
 		await seedAchievementDefinitions(a.tenant.id);
 		const id = await proposedCrossChallenge(a, b, a.player, "opponent");
@@ -515,8 +525,7 @@ describe("cross-Corps lifecycle", () => {
 		]);
 	});
 
-	// Settlement evaluates both players' achievements in the confirming player's Corps DB.
-	test.fails("unlocks each player's achievement in their own Corps (#16)", async () => {
+	test("unlocks each player's achievement in their own Corps (#16)", async () => {
 		freezeClock("2026-10-03T15:00:00Z");
 		const { a, b } = await twoCorps();
 		await seedAchievementDefinitions(a.tenant.id);
@@ -537,8 +546,7 @@ describe("cross-Corps lifecycle", () => {
 		);
 	});
 
-	// Status is checked before settling but not claimed atomically.
-	test.fails("a double-clicked confirm settles exactly once (#16)", async () => {
+	test("a double-clicked confirm settles exactly once (#16)", async () => {
 		const { a, b } = await twoCorps();
 		const id = await proposedCrossChallenge(a, b, a.player);
 
@@ -549,6 +557,70 @@ describe("cross-Corps lifecycle", () => {
 
 		expect(await controlDb().select().from(crossTenantGames)).toHaveLength(1);
 		expect((await getUserStatsRow(a.player.id))?.totalGames).toBe(1);
+	});
+
+	test("the slower confirm is told there is no proposal left", async () => {
+		const { a, b } = await twoCorps();
+		const id = await proposedCrossChallenge(a, b, a.player);
+
+		const results = await Promise.all([
+			confirmCrossTenantResult(id),
+			confirmCrossTenantResult(id),
+		]);
+
+		expect(results.filter((r) => r.success)).toHaveLength(1);
+		expect(results.find((r) => !r.success)).toEqual({
+			success: false,
+			error: "Es liegt kein Ergebnisvorschlag vor",
+		});
+	});
+
+	test("a confirm racing a dispute either settles or disputes, never both", async () => {
+		const { a, b } = await twoCorps();
+		const id = await proposedCrossChallenge(a, b, a.player);
+
+		const [confirmed, disputed] = await Promise.all([
+			confirmCrossTenantResult(id),
+			disputeCrossTenantResult(id),
+		]);
+
+		expect(confirmed.success).not.toBe(disputed.success);
+		expect((await crossRow(id))?.status).toBe(
+			confirmed.success ? "settled" : "disputed",
+		);
+		expect(await controlDb().select().from(crossTenantGames)).toHaveLength(
+			confirmed.success ? 1 : 0,
+		);
+	});
+
+	test("a failed booking takes the ELO back and the result can be confirmed again", async () => {
+		const { a, b } = await twoCorps();
+		await setUserStats(a.player.id, { currentElo: 1400, totalGames: 5 });
+		const id = await proposedCrossChallenge(a, b, a.player);
+		const batch = vi
+			.spyOn(controlDb(), "batch")
+			.mockRejectedValueOnce(new Error("connection reset"));
+
+		await expect(confirmCrossTenantResult(id)).rejects.toThrow(
+			"connection reset",
+		);
+
+		expect((await crossRow(id))?.status).toBe("result_proposed");
+		expect(await controlDb().select().from(crossTenantGames)).toHaveLength(0);
+		expect(await getUserStatsRow(a.player.id)).toMatchObject({
+			currentElo: 1400,
+			totalGames: 5,
+			wins: 0,
+		});
+		expect(await getUserStatsRow(b.player.id)).toMatchObject({
+			currentElo: 1200,
+			totalGames: 0,
+			losses: 0,
+		});
+
+		batch.mockRestore();
+		expect((await confirmCrossTenantResult(id)).success).toBe(true);
+		expect((await getUserStatsRow(a.player.id))?.totalGames).toBe(6);
 	});
 });
 

@@ -35,6 +35,7 @@
 		"diag:control-journal": "tsx scripts/diag/inspect-control-journal.ts",
 		"diag:migration-journal": "tsx scripts/diag/inspect-migration-journal.ts",
 		"diag:member-statuses": "tsx scripts/diag/list-member-statuses.ts",
+		"diag:duplicate-settlements": "tsx scripts/diag/duplicate-settlements.ts",
 		"preview": "next build && next start",
 		"start": "next start",
 		"typecheck": "tsc --noEmit",

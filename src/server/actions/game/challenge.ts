@@ -2,12 +2,19 @@
 
 import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { db } from "~/server/db";
 import { challenges, drinks, games, orders, users } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
-import { applyEloOutcome } from "~/server/lib/user-stats";
+import { log } from "~/server/lib/log";
+import { requireTenantId } from "~/server/lib/tenant-context";
+import {
+	applyEloOutcome,
+	type EloOutcome,
+	revertEloOutcome,
+} from "~/server/lib/user-stats";
 import { auth } from "../../auth";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
 import { isEloEnabledForUser } from "../profile/preferences";
@@ -23,7 +30,7 @@ export type ChallengeStatus =
 	| "pending"
 	| "accepted"
 	| "result_proposed"
-	| "confirmed"
+	| "confirmed" // claimed: settlement in progress (see settle below)
 	| "settled"
 	| "declined"
 	| "expired"
@@ -264,10 +271,20 @@ export async function cancelChallenge(
 		return { success: false, error: "Kann nicht mehr abgebrochen werden" };
 	}
 
-	await db
+	// Only from the status checked above: a settlement may claim it meanwhile.
+	const [cancelled] = await db
 		.update(challenges)
 		.set({ status: "cancelled" })
-		.where(eq(challenges.id, challengeId));
+		.where(
+			and(
+				eq(challenges.id, challengeId),
+				inArray(challenges.status, [...OPEN_STATUSES]),
+			),
+		)
+		.returning({ id: challenges.id });
+	if (!cancelled) {
+		return { success: false, error: "Kann nicht mehr abgebrochen werden" };
+	}
 
 	revalidatePath("/eloranking");
 	revalidatePath("/challenges");
@@ -395,10 +412,19 @@ export async function disputeResult(
 		return { success: false, error: "Keine Berechtigung" };
 	}
 
-	await db
+	const [disputed] = await db
 		.update(challenges)
 		.set({ status: "disputed" })
-		.where(eq(challenges.id, challengeId));
+		.where(
+			and(
+				eq(challenges.id, challengeId),
+				eq(challenges.status, "result_proposed"),
+			),
+		)
+		.returning({ id: challenges.id });
+	if (!disputed) {
+		return { success: false, error: "Nichts anzufechten" };
+	}
 
 	revalidatePath("/eloranking");
 	revalidatePath("/challenges");
@@ -407,26 +433,49 @@ export async function disputeResult(
 
 // ---------- Settle (internal) ----------
 
-async function settleChallenge(
-	challengeId: string,
-): Promise<{ success: boolean; error?: string; gameId?: string }> {
-	const row = await db.query.challenges.findFirst({
-		where: (t, { eq }) => eq(t.id, challengeId),
-	});
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.proposedWinnerId == null) {
-		return { success: false, error: "Kein Gewinner vorgeschlagen" };
-	}
+/**
+ * Atomically moves a proposed result into settlement. Of any number of
+ * concurrent callers (double-tapped confirm, two auto-settle sweeps) exactly
+ * one gets the row back; everyone else gets `undefined` and books nothing.
+ */
+async function claimProposedResult(challengeId: string) {
+	const [row] = await db
+		.update(challenges)
+		.set({ status: "confirmed" })
+		.where(
+			and(
+				eq(challenges.id, challengeId),
+				eq(challenges.status, "result_proposed"),
+			),
+		)
+		.returning();
+	return row;
+}
 
+/** Hands a claimed challenge back so the result can be confirmed again. */
+async function releaseClaim(challengeId: string) {
+	await db
+		.update(challenges)
+		.set({ status: "result_proposed" })
+		.where(
+			and(eq(challenges.id, challengeId), eq(challenges.status, "confirmed")),
+		);
+}
+
+type ClaimedChallenge = typeof challenges.$inferSelect;
+
+type PlannedOrder = { userId: string; userName: string; amount: number };
+
+/** Reads what settling needs; returns an error message if something is missing. */
+async function planSettlement(row: ClaimedChallenge) {
+	if (row.proposedWinnerId == null) {
+		return { error: "Kein Gewinner vorgeschlagen" } as const;
+	}
 	const winnerId = row.proposedWinnerId;
 	const loserId =
 		winnerId === row.challengerId ? row.opponentId : row.challengerId;
 
-	// Fetch drink + both users in parallel. ELO/stats are read inside
-	// `applyEloOutcome` against the unified control-DB userStats.
-	const [drink, winner, loser] = await Promise.all([
+	const [drink, winner, loser, pricing] = await Promise.all([
 		db.query.drinks.findFirst({
 			where: (t, { eq }) => eq(t.id, row.drinkId),
 		}),
@@ -438,21 +487,17 @@ async function settleChallenge(
 			where: (t, { eq }) => eq(t.id, loserId),
 			columns: { id: true, name: true, email: true },
 		}),
+		getDrinkPricingConfig(),
 	]);
-
 	if (!drink) {
-		return { success: false, error: "Getränk nicht gefunden" };
+		return { error: "Getränk nicht gefunden" } as const;
 	}
 	if (!winner || !loser) {
-		return { success: false, error: "Spieler nicht gefunden" };
+		return { error: "Spieler nicht gefunden" } as const;
 	}
 
 	// Orders per payment rule
-	const ordersToCreate: Array<{
-		userId: string;
-		userName: string;
-		amount: number;
-	}> = [];
+	const planned: PlannedOrder[] = [];
 	const challengerIsWinner = row.challengerId === winnerId;
 	const winnerName = winner.name || winner.email || "Unbekannt";
 	const loserName = loser.name || loser.email || "Unbekannt";
@@ -461,14 +506,14 @@ async function settleChallenge(
 
 	switch (row.payment) {
 		case "challenger":
-			ordersToCreate.push({
+			planned.push({
 				userId: challengerUserId,
 				userName: challengerName,
 				amount: row.quantity,
 			});
 			break;
 		case "loser":
-			ordersToCreate.push({
+			planned.push({
 				userId: loserId,
 				userName: loserName,
 				amount: row.quantity,
@@ -478,29 +523,26 @@ async function settleChallenge(
 			const each = Math.floor(row.quantity / 2);
 			const rem = row.quantity - each * 2;
 			// Even split; if odd remainder, challenger absorbs it
-			ordersToCreate.push({
+			planned.push({
 				userId: challengerUserId,
 				userName: challengerName,
 				amount: each + rem,
 			});
-			ordersToCreate.push({
-				userId: challengerUserId === winnerId ? loserId : winnerId,
-				userName: challengerUserId === winnerId ? loserName : winnerName,
+			planned.push({
+				userId: challengerIsWinner ? loserId : winnerId,
+				userName: challengerIsWinner ? loserName : winnerName,
 				amount: each,
 			});
 			break;
 		}
 	}
 
-	// Insert orders. Challenge drinks are personal orders, so they carry the
-	// tenant's markup when that feature is on.
-	const pricing = await getDrinkPricingConfig();
+	// Challenge drinks are personal orders, so they carry the tenant's markup
+	// when that feature is on.
 	const pricePerUnit = unitPriceFor(drink.price, pricing.markupPercent, null);
-	for (const o of ordersToCreate) {
-		if (o.amount <= 0) {
-			continue;
-		}
-		await db.insert(orders).values({
+	const orderRows = planned
+		.filter((o) => o.amount > 0)
+		.map((o) => ({
 			userId: o.userId,
 			userName: o.userName,
 			drinkId: drink.id,
@@ -510,64 +552,96 @@ async function settleChallenge(
 			costPerUnit: pricing.enabled ? drink.price : null,
 			total: orderTotal(pricePerUnit, o.amount, pricing.markupPercent),
 			bookingFor: null,
-		});
+		}));
+
+	return { winnerId, loserId, challengerIsWinner, orderRows } as const;
+}
+
+async function settleChallenge(
+	challengeId: string,
+): Promise<{ success: boolean; error?: string; gameId?: string }> {
+	const tenantId = await requireTenantId();
+	const row = await claimProposedResult(challengeId);
+	if (!row) {
+		return { success: false, error: "Kein Ergebnis zum Bestätigen" };
 	}
 
-	// Apply ELO outcome against the unified userStats (control DB).
-	// `applyEloOutcome` updates both players atomically and returns the
-	// before/after numbers so we can persist them on the game row.
-	const eloResult = await applyEloOutcome(winnerId, loserId);
-	const challengerEloBefore = challengerIsWinner
-		? eloResult.winnerEloBefore
-		: eloResult.loserEloBefore;
-	const opponentEloBefore = challengerIsWinner
-		? eloResult.loserEloBefore
-		: eloResult.winnerEloBefore;
-	const challengerEloAfter = challengerIsWinner
-		? eloResult.winnerEloAfter
-		: eloResult.loserEloAfter;
-	const opponentEloAfter = challengerIsWinner
-		? eloResult.loserEloAfter
-		: eloResult.winnerEloAfter;
-
-	// Insert game record (tenant DB)
-	const [newGame] = await db
-		.insert(games)
-		.values({
-			player1Id: row.challengerId,
-			player2Id: row.opponentId,
-			winnerId,
-			player1EloBefore: challengerEloBefore,
-			player2EloBefore: opponentEloBefore,
-			player1EloAfter: challengerEloAfter,
-			player2EloAfter: opponentEloAfter,
-			challengeId: row.id,
-		})
-		.returning({ id: games.id });
-
-	if (!newGame) {
-		return { success: false, error: "Spiel konnte nicht erstellt werden" };
+	// Until the ELO is applied, giving the claim back undoes everything.
+	let plan: Awaited<ReturnType<typeof planSettlement>>;
+	let elo: EloOutcome;
+	try {
+		plan = await planSettlement(row);
+		if ("error" in plan) {
+			await releaseClaim(row.id);
+			return { success: false, error: plan.error };
+		}
+		// Unified userStats (control DB), atomic for both players.
+		elo = await applyEloOutcome(plan.winnerId, plan.loserId);
+	} catch (error) {
+		await releaseClaim(row.id);
+		throw error;
 	}
 
-	// Mark challenge settled
-	await db
-		.update(challenges)
-		.set({ status: "settled", gameId: newGame.id })
-		.where(eq(challenges.id, row.id));
+	const { winnerId, loserId, challengerIsWinner, orderRows } = plan;
+	const gameId = crypto.randomUUID();
+	const tenantDb = await getCurrentTenantDb();
+	try {
+		// Orders, game and final status land together or not at all.
+		await tenantDb.batch([
+			tenantDb.insert(games).values({
+				id: gameId,
+				player1Id: row.challengerId,
+				player2Id: row.opponentId,
+				winnerId,
+				player1EloBefore: challengerIsWinner
+					? elo.winnerEloBefore
+					: elo.loserEloBefore,
+				player2EloBefore: challengerIsWinner
+					? elo.loserEloBefore
+					: elo.winnerEloBefore,
+				player1EloAfter: challengerIsWinner
+					? elo.winnerEloAfter
+					: elo.loserEloAfter,
+				player2EloAfter: challengerIsWinner
+					? elo.loserEloAfter
+					: elo.winnerEloAfter,
+				challengeId: row.id,
+			}),
+			tenantDb
+				.update(challenges)
+				.set({ status: "settled", gameId })
+				.where(
+					and(eq(challenges.id, row.id), eq(challenges.status, "confirmed")),
+				),
+			...orderRows.map((o) => tenantDb.insert(orders).values(o)),
+		]);
+	} catch (error) {
+		// Take the ELO back first; if that fails too, the claim stays so
+		// nobody applies it a second time.
+		await revertEloOutcome(winnerId, loserId, elo);
+		await releaseClaim(row.id);
+		throw error;
+	}
 
-	// Fire achievements (non-blocking)
-	void Promise.all([
-		checkAndUnlockAchievements(row.challengerId, "game_played"),
-		checkAndUnlockAchievements(row.opponentId, "game_played"),
-		checkAndUnlockAchievements(winnerId, "game_won"),
-		checkAndUnlockAchievements(loserId, "game_lost"),
-	]);
+	// Achievements run after the response, against this Corps explicitly.
+	after(() =>
+		Promise.all([
+			checkAndUnlockAchievements(row.challengerId, "game_played", undefined, {
+				tenantId,
+			}),
+			checkAndUnlockAchievements(row.opponentId, "game_played", undefined, {
+				tenantId,
+			}),
+			checkAndUnlockAchievements(winnerId, "game_won", undefined, { tenantId }),
+			checkAndUnlockAchievements(loserId, "game_lost", undefined, { tenantId }),
+		]),
+	);
 
 	revalidatePath("/eloranking");
 	revalidatePath("/challenges");
 	revalidatePath("/rechnung");
 
-	return { success: true, gameId: newGame.id };
+	return { success: true, gameId };
 }
 
 // Local `getOrCreateUserStats` / `updateUserStats` helpers were removed —
@@ -743,7 +817,16 @@ export async function sweepExpiredChallenges(): Promise<void> {
 			),
 		);
 
+	// Each settlement claims its row first, so concurrent sweeps (every open
+	// page polls this) book every challenge exactly once.
 	for (const { id } of autoConfirm) {
-		await settleChallenge(id);
+		try {
+			await settleChallenge(id);
+		} catch (error) {
+			log.error("challenge auto-settle failed", {
+				challengeId: id,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
 	}
 }

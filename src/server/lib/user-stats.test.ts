@@ -7,10 +7,12 @@ import {
 	setUserStats,
 } from "../../../test/factories/game";
 import { controlDb, setupTestDatabases } from "../../../test/harness";
+import { calculateEloChange } from "./elo";
 import {
 	applyEloOutcome,
 	getOrCreateUserStats,
 	getOrCreateUserStatsBatch,
+	revertEloOutcome,
 } from "./user-stats";
 
 setupTestDatabases();
@@ -115,13 +117,101 @@ describe("applyEloOutcome", () => {
 		});
 	});
 
-	// Read-modify-write without a transaction: the second update overwrites the first.
-	test.fails("two games of the same player at once both count (#16)", async () => {
+	test("two games of the same player at once both count (#16)", async () => {
 		await Promise.all([applyEloOutcome("a", "b"), applyEloOutcome("a", "c")]);
 
 		expect(await getUserStatsRow("a")).toMatchObject({
 			totalGames: 2,
 			wins: 2,
+		});
+	});
+
+	test("concurrent games of one player end as if booked one after the other (#16)", async () => {
+		await setUserStats("a", { currentElo: 1300, totalGames: 10 });
+		await setUserStats("c", { currentElo: 1250, totalGames: 3 });
+
+		// a beats b and loses to c at the same time
+		const [win, loss] = await Promise.all([
+			applyEloOutcome("a", "b"),
+			applyEloOutcome("c", "a"),
+		]);
+
+		const winFirst = calculateEloChange(1300, 1200, 10, 0, true).player1NewElo;
+		const winThenLoss = calculateEloChange(
+			1250,
+			winFirst,
+			3,
+			11,
+			true,
+		).player2NewElo;
+		const lossFirst = calculateEloChange(1250, 1300, 3, 10, true).player2NewElo;
+		const lossThenWin = calculateEloChange(
+			lossFirst,
+			1200,
+			11,
+			0,
+			true,
+		).player1NewElo;
+		// Whichever game was booked second started from the first one's result.
+		const expected =
+			loss.loserEloBefore === win.winnerEloAfter ? winThenLoss : lossThenWin;
+		expect([win.winnerEloBefore, loss.loserEloBefore]).toContain(1300);
+		expect(await getUserStatsRow("a")).toMatchObject({
+			currentElo: expected,
+			totalGames: 12,
+			wins: 1,
+			losses: 1,
+		});
+		expect(await getUserStatsRow("b")).toMatchObject({
+			totalGames: 1,
+			losses: 1,
+		});
+		expect(await getUserStatsRow("c")).toMatchObject({
+			totalGames: 4,
+			wins: 1,
+		});
+	});
+
+	test("many simultaneous games keep every counter exact (#16)", async () => {
+		await Promise.all([
+			applyEloOutcome("a", "b"),
+			applyEloOutcome("c", "b"),
+			applyEloOutcome("b", "d"),
+			applyEloOutcome("a", "d"),
+		]);
+
+		const rows = await controlDb().select().from(userStats);
+		const byId = new Map(rows.map((r) => [r.userId, r]));
+		expect(byId.get("a")).toMatchObject({ totalGames: 2, wins: 2, losses: 0 });
+		expect(byId.get("b")).toMatchObject({ totalGames: 3, wins: 1, losses: 2 });
+		expect(byId.get("c")).toMatchObject({ totalGames: 1, wins: 1, losses: 0 });
+		expect(byId.get("d")).toMatchObject({ totalGames: 2, wins: 0, losses: 2 });
+		// All players are new (same K), so every game moves as many points
+		// to the winner as it takes from the loser: the pool stays 4 x 1200.
+		const pool = rows.reduce((sum, r) => sum + r.currentElo, 0);
+		expect(pool).toBe(4800);
+	});
+});
+
+describe("revertEloOutcome", () => {
+	test("takes a booked outcome back off both players", async () => {
+		await setUserStats("w", { currentElo: 1300, totalGames: 5, wins: 3 });
+		await setUserStats("l", { currentElo: 1250, totalGames: 7, losses: 4 });
+		const outcome = await applyEloOutcome("w", "l");
+
+		await revertEloOutcome("w", "l", outcome);
+
+		expect(await getUserStatsRow("w")).toMatchObject({
+			currentElo: 1300,
+			totalGames: 5,
+			wins: 3,
+			losses: 0,
+		});
+		expect(await getUserStatsRow("l")).toMatchObject({
+			currentElo: 1250,
+			totalGames: 7,
+			wins: 0,
+			losses: 4,
 		});
 	});
 });
