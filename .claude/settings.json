@@ -1,0 +1,30 @@
+{
+	"$schema": "https://json.schemastore.org/claude-code-settings.json",
+	"permissions": {
+		"deny": [
+			"Bash(pnpm db:push*)",
+			"Bash(pnpm db:control:push*)",
+			"Bash(pnpm drizzle-kit push*)",
+			"Bash(pnpm exec drizzle-kit push*)",
+			"Bash(npx drizzle-kit push*)",
+			"Bash(pnpm db:migrate*)",
+			"Bash(pnpm db:control:migrate*)",
+			"Bash(pnpm db:control:seed*)",
+			"Bash(pnpm grant-superadmin*)",
+			"Bash(pnpm grant-tenant-admin*)",
+			"Bash(pnpm db:backfill-tenant-config*)",
+			"Bash(CONFIRM_PROD=*)"
+		],
+		"allow": [
+			"Bash(pnpm check*)",
+			"Bash(pnpm typecheck*)",
+			"Bash(pnpm test*)",
+			"Bash(pnpm exec biome*)",
+			"Bash(pnpm db:check*)",
+			"Bash(pnpm db:generate*)",
+			"Bash(pnpm db:control:generate*)",
+			"Bash(pnpm db:local:reset*)",
+			"Bash(pnpm dev:local*)"
+		]
+	}
+}
