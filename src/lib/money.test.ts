@@ -5,6 +5,7 @@ import {
 	fromCents,
 	pctOf,
 	roundToCent,
+	shareDown,
 	sumMoney,
 	toCents,
 } from "./money";
@@ -159,6 +160,32 @@ describe("allocate", () => {
 			for (let i = 1; i < abs.length; i++) {
 				expect(abs[i]).toBeLessThanOrEqual(abs[i - 1] ?? 0);
 			}
+		}
+	});
+});
+
+describe("shareDown", () => {
+	test("gives every part the same whole cents, rounded down", () => {
+		expect(shareDown(12_000, 6)).toBe(2000);
+		expect(shareDown(10_000, 3)).toBe(3333);
+		expect(shareDown(2, 3)).toBe(0);
+		expect(shareDown(0, 4)).toBe(0);
+	});
+
+	test("rejects fractional or negative cents and empty splits", () => {
+		expect(() => shareDown(10.5, 2)).toThrow(RangeError);
+		expect(() => shareDown(-10, 2)).toThrow(RangeError);
+		expect(() => shareDown(10, 0)).toThrow(RangeError);
+		expect(() => shareDown(10, 1.5)).toThrow(RangeError);
+	});
+
+	test("the parts never exceed the amount and miss it by less than a cent each", () => {
+		for (let run = 0; run < 5_000; run++) {
+			const cents = randomInt(0, 1_000_000);
+			const n = randomInt(1, 60);
+			const charged = shareDown(cents, n) * n;
+			expect(charged).toBeLessThanOrEqual(cents);
+			expect(cents - charged).toBeLessThan(n);
 		}
 	});
 });

@@ -18,7 +18,7 @@ export type BillData = {
 	oldBalance: number;
 	billNumber: string;
 	lastUpdated: string;
-	umlage?: number;
+	umlage: number;
 	billId: string;
 	userName: string;
 };
@@ -82,6 +82,7 @@ export async function getUserBillingData(): Promise<{
 			drinksTotal: bill.drinksTotal,
 			fees: bill.fees,
 			oldBalance: bill.oldBillingAmount,
+			umlage: bill.umlage,
 			billNumber: billPeriod?.billNumber?.toString() ?? "N/A",
 			lastUpdated: dayKeyInTZ(bill.updatedAt ?? bill.createdAt),
 			billId: bill.id,
@@ -157,6 +158,7 @@ export async function getAllUserBills(): Promise<
 				drinksTotal: bill.drinksTotal,
 				fees: bill.fees,
 				oldBalance: bill.oldBillingAmount,
+				umlage: bill.umlage,
 				billNumber: billPeriod?.billNumber?.toString() ?? "N/A",
 				lastUpdated: dayKeyInTZ(bill.updatedAt ?? bill.createdAt),
 				billId: bill.id,
@@ -237,6 +239,7 @@ export async function getBillById(billId: string): Promise<{
 			drinksTotal: bill.drinksTotal,
 			fees: bill.fees,
 			oldBalance: bill.oldBillingAmount,
+			umlage: bill.umlage,
 			billNumber: billPeriod?.billNumber?.toString() ?? "N/A",
 			lastUpdated: dayKeyInTZ(bill.updatedAt ?? bill.createdAt),
 			billId: bill.id,

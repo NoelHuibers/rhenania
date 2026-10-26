@@ -64,6 +64,7 @@ describe("getUserBillingData", () => {
 			drinksTotal: 8.4,
 			fees: 2,
 			oldBalance: 5,
+			umlage: 0,
 			billNumber: "KW-43-26",
 			lastUpdated: "2026-10-22",
 			billId: bill.id,

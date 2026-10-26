@@ -19,6 +19,16 @@ import {
 } from "../ui/table";
 import type { BillingEntry } from "./BillingDashboard";
 
+/** The non-zero bill parts besides the drinks, so the lines add up to Gesamt. */
+function billExtras(entry: BillingEntry): Array<[string, number]> {
+	const extras: Array<[string, number | undefined]> = [
+		["Übertrag", entry.oldBillingAmount],
+		["Mahnung", entry.fees],
+		["Umlage", entry.umlage],
+	];
+	return extras.filter((extra): extra is [string, number] => !!extra[1]);
+}
+
 export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 	<Dialog>
 		<DialogTrigger asChild>
@@ -93,6 +103,17 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 						</div>
 					))}
 				</div>
+
+				{billExtras(entry).length > 0 && (
+					<dl className="space-y-1 border-border border-t pt-4 text-sm">
+						{billExtras(entry).map(([label, amount]) => (
+							<div key={label} className="flex items-center justify-between">
+								<dt className="text-muted-foreground">{label}</dt>
+								<dd className="font-medium">{formatEUR(amount)}</dd>
+							</div>
+						))}
+					</dl>
+				)}
 
 				<div className="flex items-center justify-between border-border border-t pt-4">
 					<span className="font-semibold text-base sm:text-lg">Gesamt:</span>
