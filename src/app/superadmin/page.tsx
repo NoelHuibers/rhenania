@@ -1,5 +1,5 @@
 import Link from "next/link";
-
+import { TenantHealthTable } from "~/components/superadmin/TenantHealthTable";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { listTenantsAction } from "~/server/actions/superadmin/tenants";
@@ -83,6 +83,7 @@ export default async function SuperadminHomePage() {
 					</table>
 				</div>
 			)}
+			<TenantHealthTable />
 		</div>
 	);
 }

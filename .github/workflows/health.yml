@@ -1,0 +1,31 @@
+name: Health
+
+# Daily check that production answers and every tenant DB is reachable and on
+# the schema this build expects. Needs the repository secret HEALTH_TOKEN
+# (same value as the HEALTH_TOKEN env var on Vercel) and optionally the
+# variable HEALTH_URL; does nothing until they're configured.
+on:
+  schedule:
+    - cron: "47 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
+      HEALTH_URL: ${{ vars.HEALTH_URL || 'https://rhenania-stuttgart.de' }}
+    steps:
+      - name: Liveness and tenant schema drift
+        run: |
+          if [ -z "$HEALTH_TOKEN" ]; then
+            echo "::notice::HEALTH_TOKEN is not configured; skipping."
+            exit 0
+          fi
+          curl -fsS "$HEALTH_URL/api/health" | jq .
+          curl -sS -H "Authorization: Bearer $HEALTH_TOKEN" "$HEALTH_URL/api/health/tenants" | tee tenants.json | jq .
+          jq -e '.healthy' tenants.json > /dev/null
