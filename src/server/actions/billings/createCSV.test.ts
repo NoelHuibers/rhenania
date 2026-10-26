@@ -173,6 +173,43 @@ describe("generateBillPeriodCSV", () => {
 		);
 	});
 
+	test("defuses formulas in names but keeps negative amounts (#91)", async () => {
+		await createTenant();
+		const period = await createBillPeriodRow();
+		await createBillRow({
+			periodId: period.id,
+			user: { id: "u1", name: '=HYPERLINK("http://x","Klick")' },
+			drinksTotal: 2,
+			oldBillingAmount: -5,
+		});
+		await createBillRow({
+			periodId: period.id,
+			user: { id: "u2", name: "@Admin" },
+			drinksTotal: 1,
+		});
+
+		const result = await generateBillPeriodCSV(period.id, { delimiter: ";" });
+
+		const rows = (result.csvContent ?? "").split("\n").map((l) => l.split(";"));
+		const hyperlink = rows.find((r) => r[0]?.includes("HYPERLINK"));
+		expect(hyperlink?.[0]).toBe('"\'=HYPERLINK(""http://x"",""Klick"")"');
+		expect(hyperlink?.slice(1, 6)).toEqual([
+			"2,00 EUR",
+			"-5,00 EUR",
+			"0,00 EUR",
+			"0,00 EUR",
+			"-3,00 EUR",
+		]);
+		expect(rows.find((r) => r[0]?.includes("Admin"))?.[0]).toBe("'@Admin");
+		// No cell anywhere starts with a formula character, except numbers.
+		for (const cell of rows.flat()) {
+			expect(cell.replace(/^"/, "")).not.toMatch(/^[=+@\t\r]/);
+			if (cell.startsWith("-")) {
+				expect(cell).toMatch(/^-\d+,\d{2} (EUR|%)$/);
+			}
+		}
+	});
+
 	test("reports unknown periods and periods without bills", async () => {
 		await createTenant();
 		const empty = await createBillPeriodRow();

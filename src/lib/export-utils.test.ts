@@ -85,11 +85,18 @@ describe("exportToCSV", () => {
 		expect(row).toContain('"5","","","1"');
 	});
 
-	test.fails("escapes quotes inside values (#57)", async () => {
+	test("escapes quotes inside values (#57)", async () => {
 		exportToCSV([item('Pils "Export"')]);
 
 		const [, row] = await csvLines();
 		expect(row?.startsWith('"Pils ""Export""",')).toBe(true);
+	});
+
+	test("defuses formulas in product names (#91)", async () => {
+		exportToCSV([item("=1+1")]);
+
+		const [, row] = await csvLines();
+		expect(row?.startsWith(`"'=1+1","Bier",`)).toBe(true);
 	});
 });
 

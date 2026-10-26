@@ -1,3 +1,4 @@
+import { csvRow } from "./csv";
 import type { InventoryItem } from "./types";
 
 export function exportToCSV(
@@ -42,7 +43,7 @@ export function exportToCSV(
 
 	// Combine headers and rows
 	const csvContent = [headers, ...rows]
-		.map((row) => row.map((field) => `"${field}"`).join(","))
+		.map((row) => csvRow(row, ",", { alwaysQuote: true }))
 		.join("\n");
 
 	// Create and download file

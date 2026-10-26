@@ -2,6 +2,7 @@
 "use server";
 
 import { eq, sql } from "drizzle-orm";
+import { csvCell } from "~/lib/csv";
 import { sumMoney } from "~/lib/money";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills, drinks } from "~/server/db/schema";
@@ -187,22 +188,11 @@ export async function generateBillPeriodCSV(
 }
 
 /**
- * Escapes a CSV field value by wrapping in quotes and escaping internal quotes
+ * One CSV field: quoted when needed and guarded against formula injection
+ * (names come from members and would otherwise run in Excel).
  */
 function escapeCSVField(value: string, delimiter: string): string {
-	// If the value contains the delimiter, quotes, or newlines, we need to escape it
-	if (
-		value.includes(delimiter) ||
-		value.includes('"') ||
-		value.includes("\n") ||
-		value.includes("\r")
-	) {
-		// Escape quotes by doubling them
-		const escapedValue = value.replace(/"/g, '""');
-		// Wrap in quotes
-		return `"${escapedValue}"`;
-	}
-	return value;
+	return csvCell(value, delimiter);
 }
 
 /**
