@@ -51,6 +51,18 @@ sind standardmäßig aus, ein Corps ohne Einträge verhält sich wie bisher.
   in der Tenant-DB (`kasse_config`) und werden vom Getränkewart in der Kasse
   gepflegt.
 
+Migrationen werden in CI geprüft (`pnpm db:check`, Job „Migrations“):
+
+- Journal-Einträge brauchen streng steigende `when`-Werte, sonst überspringt
+  der Drizzle-Migrator sie still.
+- Bereits angewendete Migrationen werden nie geändert, neue nur angehängt.
+  Nach einem Rebase daher neu generieren.
+- Das Schema muss zu den committeten Migrationen passen (`pnpm db:generate`
+  bzw. `pnpm db:control:generate` erzeugt keine neuen Dateien).
+- Destruktive Statements (`DROP`/`RENAME`) nur nach dem Expand/Contract-Prinzip:
+  erst wenn kein laufender Code die alte Struktur mehr braucht. Der PR bekommt
+  dann das Label `migration:contract`.
+
 Vor einem Deploy mit Schemaänderungen zuerst migrieren:
 
 ```bash
