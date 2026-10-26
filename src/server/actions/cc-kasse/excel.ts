@@ -27,6 +27,28 @@ function round2(n: number) {
 	return Math.round(n * 100) / 100;
 }
 
+/**
+ * Read an amount cell. Numeric cells (and formula cells with a numeric
+ * result) carry the exact value; only text cells hold a German-formatted
+ * string. Parsing `cell.text` of a number cell would read "12.5" with the "."
+ * as a thousands separator and book 125 (#148).
+ */
+function cellAmount(cell: ExcelJS.Cell): number {
+	const value = cell.value;
+	if (typeof value === "number") {
+		return parseGermanNumber(value);
+	}
+	if (
+		value !== null &&
+		typeof value === "object" &&
+		"result" in value &&
+		typeof value.result === "number"
+	) {
+		return parseGermanNumber(value.result);
+	}
+	return parseGermanNumber(cell.text);
+}
+
 type ParsedPosition = {
 	bemerkung: string | null;
 	ausgaben: number;
@@ -250,8 +272,8 @@ export async function importEtaplanXlsx(input: {
 		for (let row = BODY_START_ROW; row <= lastRow; row++) {
 			const nameCell = text(row, COL.name);
 			const bemerkung = text(row, COL.bemerkung);
-			const ausgaben = parseGermanNumber(ws.getCell(row, COL.ausgaben).text);
-			const einnahmen = parseGermanNumber(ws.getCell(row, COL.einnahmen).text);
+			const ausgaben = cellAmount(ws.getCell(row, COL.ausgaben));
+			const einnahmen = cellAmount(ws.getCell(row, COL.einnahmen));
 
 			if (nameCell) {
 				if (isGrandTotalLabel(nameCell) || isSubsidyLabel(nameCell)) {

@@ -246,10 +246,10 @@ describe("importEtaplanXlsx", () => {
 		expect(await snapshot(target.id)).toEqual(await snapshot(source.id));
 	});
 
-	// The import reads `cell.text`, which for a numeric cell is the raw JS
-	// number ("12.5"); parseGermanNumber then strips the "." as a thousands
-	// separator and books 125 instead of 12.50.
-	test.fails("round-trips amounts with cents (#148)", async () => {
+	// Numeric cells must be read by value: their `cell.text` is the raw JS
+	// number ("12.5"), whose "." parseGermanNumber would strip as a thousands
+	// separator and book 125 instead of 12.50.
+	test("round-trips amounts with cents (#148)", async () => {
 		await setup();
 		const source = await createEtaplan();
 		await createKostenpunkt(source.id, {
@@ -361,6 +361,44 @@ describe("importEtaplanXlsx", () => {
 				income: 1,
 				positionen: [[null, 3, 1]],
 			},
+		]);
+	});
+
+	test("reads number and formula cells by value, text cells as German numbers (#148)", async () => {
+		await setup();
+		const plan = await createEtaplan();
+		const wb = await loadWorkbook(
+			await sheet([
+				["Kneipe", null, "Zahl", 1234.56, 0.99],
+				[null, null, "Text", "1.234,56 €", "0,99"],
+				[null, null, "Formel", null, null],
+				["Summe Kneipen"],
+			]),
+		);
+		const ws = wb.getWorksheet(SHEET_NAME);
+		if (!ws) {
+			throw new Error("sheet missing");
+		}
+		ws.getCell(5, 4).value = { formula: "D3*2", result: 2469.12 };
+		ws.getCell(5, 5).value = { formula: "E3", result: 0.99 };
+
+		const result = await importEtaplanXlsx({
+			etaplanId: plan.id,
+			base64: await toBase64(wb),
+		});
+
+		expect(result).toMatchObject({ success: true, created: 1 });
+		expect(await snapshot(plan.id)).toEqual([
+			expect.objectContaining({
+				name: "Kneipe",
+				budget: 4938.24,
+				income: 2.97,
+				positionen: [
+					["Zahl", 1234.56, 0.99],
+					["Text", 1234.56, 0.99],
+					["Formel", 2469.12, 0.99],
+				],
+			}),
 		]);
 	});
 
