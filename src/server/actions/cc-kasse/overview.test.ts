@@ -145,6 +145,7 @@ describe("getEtaplanOverview", () => {
 		[79.99, "on-track"],
 		[80, "warning"],
 		[100, "warning"],
+		[100.01, "over-budget"],
 		[101, "over-budget"],
 	])("spending %s of 100 is %s", async (spent, status) => {
 		const plan = await setup();
@@ -157,10 +158,10 @@ describe("getEtaplanOverview", () => {
 		expect(overview?.total.status).toBe(status);
 	});
 
-	// statusFor() allows a relative 0.01 % overshoot before flagging, so on a
-	// 10 000 € budget up to 1 € of overspending still shows as "warning"
-	// while Verbleibend is already negative.
-	test.fails("a negative Verbleibend is always over budget (#151)", async () => {
+	// statusFor() used to allow a relative 0.01 % overshoot, so on a 10 000 €
+	// budget up to 1 € of overspending still showed as "warning" while
+	// Verbleibend was already negative.
+	test("a negative Verbleibend is always over budget (#151)", async () => {
 		const plan = await setup();
 		const kp = await createKostenpunkt(plan.id, { budget: 10_000 });
 		await createReimbursement(kp, { status: "Ausgezahlt", amount: 10_000.5 });

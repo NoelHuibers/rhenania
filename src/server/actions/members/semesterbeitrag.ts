@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
@@ -9,6 +9,7 @@ import {
 } from "~/server/actions/newuser/email";
 import { db } from "~/server/db";
 import {
+	kostenpunkte,
 	members,
 	semesterbeitragCharges,
 	semesterbeitragRuns,
@@ -97,6 +98,22 @@ export async function createBeitragRun(input: {
 	}
 	try {
 		const parsed = createRunSchema.parse(input);
+		// Paid charges count as Ist-Einnahmen of the Kostenpunkt within the run's
+		// Etatplan; a Kostenpunkt of another plan would hide them from both.
+		const [kp] = await db
+			.select({ etaplanId: kostenpunkte.etaplanId })
+			.from(kostenpunkte)
+			.where(eq(kostenpunkte.id, parsed.kostenpunktId))
+			.limit(1);
+		if (!kp) {
+			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
+		}
+		if (kp.etaplanId !== parsed.etaplanId) {
+			return {
+				success: false as const,
+				error: "Der Kostenpunkt gehört nicht zum gewählten Etatplan.",
+			};
+		}
 		const runId = crypto.randomUUID();
 		await db.insert(semesterbeitragRuns).values({
 			id: runId,
@@ -293,8 +310,12 @@ export async function sendBeitragEmails(
 		return { success: false as const, error: "Lauf nicht gefunden" };
 	}
 
+	// Paid charges never get an invoice (again).
 	const charges = await db.query.semesterbeitragCharges.findMany({
-		where: (t, { eq }) => eq(t.runId, runId),
+		where: and(
+			eq(semesterbeitragCharges.runId, runId),
+			ne(semesterbeitragCharges.status, "Bezahlt"),
+		),
 		with: { member: { columns: { email: true } } },
 	});
 
@@ -374,17 +395,11 @@ export async function sendMahnungen(runId: string) {
 		if (c.mahnungSentAt) {
 			continue;
 		}
+		processed++;
 		try {
-			await db
-				.update(semesterbeitragCharges)
-				.set({
-					status: "Gemahnt",
-					mahnungAmount: run.mahnungFee,
-					mahnungSentAt: new Date(),
-				})
-				.where(eq(semesterbeitragCharges.id, c.id));
-			processed++;
-
+			// Build and deliver first; the charge only becomes Gemahnt (with fee
+			// and mahnungSentAt) once that succeeded, so a failed reminder stays
+			// Offen and is retried on the next run.
 			const pdf = await generateBeitragPDF(c.id, { isMahnung: true });
 			if (!pdf.success) {
 				failed++;
@@ -400,16 +415,27 @@ export async function sendMahnungen(runId: string) {
 					pdf.pdfContent,
 					pdf.fileName,
 				);
-				await db
-					.update(semesterbeitragCharges)
-					.set({ deliveryMethod: "email" })
-					.where(eq(semesterbeitragCharges.id, c.id));
+			}
+			// Guarded so a payment booked while the reminder was being sent is
+			// not overwritten.
+			await db
+				.update(semesterbeitragCharges)
+				.set({
+					status: "Gemahnt",
+					mahnungAmount: run.mahnungFee,
+					mahnungSentAt: new Date(),
+					deliveryMethod: email ? "email" : "letter",
+				})
+				.where(
+					and(
+						eq(semesterbeitragCharges.id, c.id),
+						eq(semesterbeitragCharges.status, "Offen"),
+						isNull(semesterbeitragCharges.mahnungSentAt),
+					),
+				);
+			if (email) {
 				emailed++;
 			} else {
-				await db
-					.update(semesterbeitragCharges)
-					.set({ deliveryMethod: "letter" })
-					.where(eq(semesterbeitragCharges.id, c.id));
 				lettersPending++;
 			}
 		} catch (err) {
