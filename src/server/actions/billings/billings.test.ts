@@ -517,8 +517,7 @@ describe("createNewBilling", () => {
 		expect(bill?.total).toBe(10.05);
 	});
 
-	// #15: the year part uses the calendar year, not the ISO week-year.
-	test.fails("uses the ISO week-year at the turn of the year (#15)", async () => {
+	test("uses the ISO week-year at the turn of the year (#15)", async () => {
 		await setupKasse();
 		await createOrderRow({ user: await createUser() });
 
@@ -528,20 +527,16 @@ describe("createNewBilling", () => {
 		expect(result.billPeriod?.billNumber).toBe("KW-53-26");
 	});
 
-	// #15: the week is computed in the server's timezone. Correct (and
-	// passing) under Europe/Berlin, wrong on a UTC server.
-	(process.env.TZ === "UTC" ? test.fails : test)(
-		"numbers the week in German time, not server time (#15)",
-		async () => {
-			await setupKasse();
-			await createOrderRow({ user: await createUser() });
+	// CI runs this file under TZ=Europe/Berlin and TZ=UTC.
+	test("numbers the week in German time, not server time (#15)", async () => {
+		await setupKasse();
+		await createOrderRow({ user: await createUser() });
 
-			// Sunday 23:30 UTC is already Monday of week 44 in Germany.
-			const result = await billAt("2026-10-25T23:30:00Z");
+		// Sunday 23:30 UTC is already Monday of week 44 in Germany.
+		const result = await billAt("2026-10-25T23:30:00Z");
 
-			expect(result.billPeriod?.billNumber).toBe("KW-44-26");
-		},
-	);
+		expect(result.billPeriod?.billNumber).toBe("KW-44-26");
+	});
 });
 
 describe("createNewBilling mails", () => {

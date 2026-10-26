@@ -251,9 +251,9 @@ describe("createNewFuchsenBilling", () => {
 		});
 	});
 
-	// Week 53 of 2026 runs into January 2027; the year is taken from the
-	// calendar date instead of the ISO week-year.
-	test.fails("uses the ISO week-year in the bill number (#15)", async () => {
+	// Week 53 of 2026 runs into January 2027; the year is the ISO week-year,
+	// not the calendar year.
+	test("uses the ISO week-year in the bill number (#15)", async () => {
 		await setup();
 		await createFuchsenOrder({
 			user: await createUser(),
