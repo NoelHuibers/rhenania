@@ -50,7 +50,14 @@ export async function generateBeitragPDF(
 		const tenant = await getCurrentTenant();
 		const tenantName = tenant?.displayName ?? "Corps";
 		const isMahnung = opts?.isMahnung ?? false;
-		const total = charge.baseAmount + charge.mahnungAmount;
+		// A reminder that has not been sent yet is built *before* the charge is
+		// switched to Gemahnt (so a failed send stays retryable), hence it shows
+		// the run's fee rather than the still-unset stored one.
+		const mahnungAmount =
+			isMahnung && !charge.mahnungSentAt
+				? run.mahnungFee
+				: charge.mahnungAmount;
+		const total = charge.baseAmount + mahnungAmount;
 
 		const doc = new jsPDF({
 			orientation: "portrait",
@@ -106,7 +113,7 @@ export async function generateBeitragPDF(
 			? [
 					`unser Semesterbeitrag (${run.name}) in Höhe von ${formatEur(charge.baseAmount)}`,
 					`ist trotz Fälligkeit am ${formatDate(run.dueDate)} noch offen.`,
-					`Wir erlauben uns daher, eine Mahngebühr von ${formatEur(charge.mahnungAmount)} zu berechnen.`,
+					`Wir erlauben uns daher, eine Mahngebühr von ${formatEur(mahnungAmount)} zu berechnen.`,
 					`Offener Gesamtbetrag: ${formatEur(total)}.`,
 					"Bitte überweise den Betrag zeitnah auf das unten genannte Konto.",
 				]

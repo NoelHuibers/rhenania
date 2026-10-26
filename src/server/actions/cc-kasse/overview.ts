@@ -70,15 +70,21 @@ function ratioPct(ausgegeben: number, budget: number): number {
 	return round2((ausgegeben / budget) * 100);
 }
 
+/**
+ * Compared in whole cents, so float drift (0.1 + 0.2) never flags a plan and
+ * any overspend of at least one cent (negative Verbleibend) always does.
+ */
 function statusFor(ausgegeben: number, budget: number): BudgetStatus {
-	if (budget <= 0) {
-		return ausgegeben > 0 ? "over-budget" : "on-track";
+	const spentCents = Math.round(ausgegeben * 100);
+	const budgetCents = Math.round(budget * 100);
+	if (budgetCents <= 0) {
+		return spentCents > 0 ? "over-budget" : "on-track";
 	}
-	const ratio = ausgegeben / budget;
-	if (ratio > 1.0001) {
+	if (spentCents > budgetCents) {
 		return "over-budget";
 	}
-	if (ratio >= 0.8) {
+	// spent / budget >= 80 %, in integers.
+	if (spentCents * 5 >= budgetCents * 4) {
 		return "warning";
 	}
 	return "on-track";

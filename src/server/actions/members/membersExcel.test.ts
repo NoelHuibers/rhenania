@@ -290,10 +290,9 @@ describe("importMembersXlsx", () => {
 		expect(await allMembers()).toHaveLength(0);
 	});
 
-	// Import keeps unknown columns in `members.extra` ("lossless round-trip"),
-	// but export only writes the three SharePoint keys from COLUMNS. Re-importing
-	// the export then overwrites `extra` and the custom columns are gone.
-	test.fails("export → import keeps custom extra columns (#149)", async () => {
+	// Import keeps unknown columns in `members.extra`; export must write them
+	// back out or a re-import would lose them.
+	test("export → import keeps custom extra columns (#149)", async () => {
 		await signInEditor();
 		await createMember({
 			...fullMember,
@@ -311,10 +310,9 @@ describe("importMembersXlsx", () => {
 		});
 	});
 
-	// Columns missing from the file are written as null/false on matched
-	// members, so re-importing the original Corpsverzeichnis (which lacks the
-	// app-managed Hausnummer/Notizen/… columns) wipes them.
-	test.fails("columns absent from the file leave stored values alone (#149)", async () => {
+	// Re-importing the original Corpsverzeichnis (which lacks the app-managed
+	// Hausnummer/Notizen/… columns) must not wipe them on matched members.
+	test("columns absent from the file leave stored values alone (#149)", async () => {
 		await signInEditor();
 		await createMember({
 			externalId: "4711",
@@ -336,5 +334,116 @@ describe("importMembersXlsx", () => {
 			notes: "Zahlt bar",
 			addressNeedsUpdate: true,
 		});
+	});
+
+	test("a sheet missing columns updates only the columns it carries (#149)", async () => {
+		const { user } = await signInEditor();
+		const m = await createMember({
+			...fullMember,
+			extra: { ...fullMember.extra, Lieblingsbier: "Pils", Zimmer: "3" },
+		});
+		const base64 = await workbook(
+			["ID", "Nachname", "Vorname", "Adresse privat: Ort", "Pfad", "Zimmer"],
+			[["4711", "Muster", "Max", "Leipzig", "", "7"]],
+		);
+
+		const result = await importMembersXlsx({ base64 });
+
+		expect(result).toMatchObject({ success: true, created: 0, updated: 1 });
+		const [row] = await allMembers();
+		expect(row).toEqual({
+			...m,
+			city: "Leipzig",
+			// A present but empty column clears its key, absent keys stay.
+			extra: {
+				Geändert: "2026-01-01",
+				Elementtyp: "Element",
+				Lieblingsbier: "Pils",
+				Zimmer: "7",
+			},
+			updatedBy: user.id,
+			updatedAt: expect.any(Date),
+		});
+	});
+
+	test("a sheet without extra columns keeps the stored extra (#149)", async () => {
+		await signInEditor();
+		await createMember({
+			firstName: "Max",
+			lastName: "Muster",
+			extra: { Lieblingsbier: "Pils" },
+		});
+		const base64 = await workbook(
+			["Nachname", "Vorname", "Abteilung"],
+			[["Muster", "Max", "CB"]],
+		);
+
+		await importMembersXlsx({ base64 });
+
+		expect((await allMembers())[0]).toMatchObject({
+			status: "CB",
+			extra: { Lieblingsbier: "Pils" },
+		});
+	});
+
+	test("clearing the last extra value stores null (#149)", async () => {
+		await signInEditor();
+		await createMember({
+			firstName: "Max",
+			lastName: "Muster",
+			extra: { Lieblingsbier: "Pils" },
+		});
+		const base64 = await workbook(
+			["Nachname", "Vorname", "Lieblingsbier"],
+			[["Muster", "Max", ""]],
+		);
+
+		await importMembersXlsx({ base64 });
+
+		expect((await allMembers())[0]?.extra).toBeNull();
+	});
+
+	test("export writes custom extra keys as sorted extra columns (#149)", async () => {
+		await signInEditor();
+		await createMember({
+			firstName: "Anna",
+			lastName: "Alt",
+			extra: { Zimmer: "3", Lieblingsbier: "Pils", Pfad: "/Liste" },
+		});
+		await createMember({
+			firstName: "Bert",
+			lastName: "Bau",
+			extra: { Ämterhistorie: "x" },
+		});
+		await createMember({ firstName: "Carl", lastName: "Clean" });
+
+		const exported = await exportMembersXlsx();
+		if (!exported.success) {
+			throw new Error(exported.error);
+		}
+		const wb = new ExcelJS.Workbook();
+		await wb.xlsx.load(
+			Buffer.from(exported.base64, "base64") as unknown as Parameters<
+				typeof wb.xlsx.load
+			>[0],
+		);
+		const ws = wb.getWorksheet(SHEET_NAME);
+		if (!ws) {
+			throw new Error("sheet missing");
+		}
+		const extraHeaders = [1, 2, 3, 4].map(
+			(i) => ws.getCell(1, COLUMNS.length + i).text,
+		);
+		expect(extraHeaders).toEqual([
+			"Ämterhistorie",
+			"Lieblingsbier",
+			"Zimmer",
+			"",
+		]);
+		const extraRow = (r: number) =>
+			[1, 2, 3].map((i) => ws.getCell(r, COLUMNS.length + i).text);
+		expect(extraRow(2)).toEqual(["", "Pils", "3"]);
+		expect(extraRow(3)).toEqual(["x", "", ""]);
+		expect(extraRow(4)).toEqual(["", "", ""]);
 	});
 });

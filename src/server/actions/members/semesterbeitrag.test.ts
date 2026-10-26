@@ -195,7 +195,7 @@ describe("createBeitragRun", () => {
 	// The run's paid charges count as Ist-Einnahmen of `run.kostenpunktId`
 	// within `run.etaplanId`; a Kostenpunkt of another plan makes them vanish
 	// from both overviews.
-	test.fails("rejects a Kostenpunkt that belongs to another Etatplan (#151)", async () => {
+	test("rejects a Kostenpunkt that belongs to another Etatplan (#151)", async () => {
 		const { kp } = await setup();
 		const otherPlan = await createEtaplan();
 
@@ -208,7 +208,30 @@ describe("createBeitragRun", () => {
 			dueDate: FUTURE_DUE,
 		});
 
-		expect(result.success).toBe(false);
+		expect(result).toEqual({
+			success: false,
+			error: "Der Kostenpunkt gehört nicht zum gewählten Etatplan.",
+		});
+		expect(await tenantDb().select().from(semesterbeitragRuns)).toHaveLength(0);
+	});
+
+	test("rejects an unknown Kostenpunkt (#151)", async () => {
+		const { kp } = await setup();
+
+		const result = await createBeitragRun({
+			name: "X",
+			etaplanId: kp.etaplanId,
+			kostenpunktId: "missing",
+			amount: 28,
+			mahnungFee: 5,
+			dueDate: FUTURE_DUE,
+		});
+
+		expect(result).toEqual({
+			success: false,
+			error: "Kostenpunkt nicht gefunden",
+		});
+		expect(await tenantDb().select().from(semesterbeitragRuns)).toHaveLength(0);
 	});
 });
 
@@ -502,11 +525,11 @@ describe("sendBeitragEmails", () => {
 		});
 	});
 
-	test.fails("does not send an invoice for an already paid Beitrag (#151)", async () => {
+	test("does not send an invoice for an already paid Beitrag (#151)", async () => {
 		const { kp } = await setup();
 		await createKonto();
 		const run = await seedRun(kp);
-		await createCharge(
+		const paid = await createCharge(
 			run.id,
 			await createMember({ email: "paid@example.test" }),
 			{
@@ -515,9 +538,43 @@ describe("sendBeitragEmails", () => {
 			},
 		);
 
-		await sendBeitragEmails(run.id);
+		const result = await sendBeitragEmails(run.id);
 
+		expect(result).toEqual({
+			success: true,
+			emailed: 0,
+			lettersPending: 0,
+			failed: 0,
+		});
 		expect(sendTenantMail).not.toHaveBeenCalled();
+		expect(await chargeRow(paid.id)).toMatchObject({
+			emailSentAt: null,
+			deliveryMethod: null,
+		});
+	});
+
+	test("paid charges are skipped even when re-sending to everyone (#151)", async () => {
+		const { kp } = await setup();
+		await createKonto();
+		const run = await seedRun(kp);
+		await createCharge(
+			run.id,
+			await createMember({ email: "paid@example.test" }),
+			{ status: "Bezahlt", emailSentAt: PAST_DUE },
+		);
+		await createCharge(
+			run.id,
+			await createMember({ email: "deferred@example.test" }),
+			{ status: "Gestundet", emailSentAt: PAST_DUE },
+		);
+
+		const result = await sendBeitragEmails(run.id, { onlyUnsent: false });
+
+		expect(result).toMatchObject({ emailed: 1, failed: 0 });
+		expect(sendTenantMail).toHaveBeenCalledTimes(1);
+		expect(sendTenantMail).toHaveBeenCalledWith(
+			expect.objectContaining({ to: "deferred@example.test" }),
+		);
 	});
 });
 
@@ -606,12 +663,9 @@ describe("sendMahnungen", () => {
 		expect(sendTenantMail).not.toHaveBeenCalled();
 	});
 
-	// The charge is switched to Gemahnt (+fee, mahnungSentAt) before the PDF
-	// and mail are attempted. When either fails it is reported as failed but
-	// stays Gemahnt, so it is never picked up again (only "Offen" charges
-	// without mahnungSentAt are reminded) and markChargeUnpaid returns it to
-	// Gemahnt, not Offen.
-	test.fails("a failed reminder can be retried (#151)", async () => {
+	// The charge only becomes Gemahnt (+fee, mahnungSentAt) after the PDF and
+	// mail succeeded; a failed reminder stays Offen and is picked up again.
+	test("a failed reminder can be retried (#151)", async () => {
 		const { kp } = await setup();
 		const run = await seedRun(kp, { dueDate: PAST_DUE });
 		const charge = await createCharge(
@@ -629,6 +683,112 @@ describe("sendMahnungen", () => {
 		expect(retry).toMatchObject({ emailed: 1 });
 		expect(sendTenantMail).toHaveBeenCalledTimes(1);
 		expect((await chargeRow(charge.id))?.mahnungSentAt).toEqual(NOW);
+	});
+
+	test("a failed PDF leaves the charge untouched (#151)", async () => {
+		const { kp } = await setup();
+		const run = await seedRun(kp, { dueDate: PAST_DUE, mahnungFee: 5 });
+		const charge = await createCharge(
+			run.id,
+			await createMember({ email: "a@example.test" }),
+		);
+
+		expect(await sendMahnungen(run.id)).toEqual({
+			success: true,
+			processed: 1,
+			emailed: 0,
+			lettersPending: 0,
+			failed: 1,
+		});
+
+		expect(await chargeRow(charge.id)).toMatchObject({
+			status: "Offen",
+			mahnungAmount: 0,
+			mahnungSentAt: null,
+			deliveryMethod: null,
+		});
+		expect(sendTenantMail).not.toHaveBeenCalled();
+	});
+
+	test("after a mail failure the retry reminds with the fee once (#151)", async () => {
+		const { kp } = await setup();
+		await createKonto();
+		const run = await seedRun(kp, {
+			name: "SS 2026",
+			dueDate: PAST_DUE,
+			mahnungFee: 5,
+		});
+		const charge = await createCharge(
+			run.id,
+			await createMember({ email: "a@example.test" }),
+		);
+		vi.mocked(sendTenantMail).mockRejectedValueOnce(new Error("SMTP down"));
+		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(await sendMahnungen(run.id)).toMatchObject({
+			processed: 1,
+			emailed: 0,
+			failed: 1,
+		});
+		expect(await chargeRow(charge.id)).toMatchObject({
+			status: "Offen",
+			mahnungAmount: 0,
+			mahnungSentAt: null,
+		});
+
+		expect(await sendMahnungen(run.id)).toMatchObject({
+			processed: 1,
+			emailed: 1,
+			failed: 0,
+		});
+		expect(await chargeRow(charge.id)).toMatchObject({
+			status: "Gemahnt",
+			mahnungAmount: 5,
+			mahnungSentAt: NOW,
+			deliveryMethod: "email",
+		});
+		expect(sendTenantMail).toHaveBeenCalledTimes(2);
+		expect(vi.mocked(sendTenantMail).mock.calls[1]?.[0]?.text).toContain(
+			"33,00€",
+		);
+	});
+
+	test("un-paying a charge whose reminder failed returns it to Offen (#151)", async () => {
+		const { kp } = await setup();
+		const run = await seedRun(kp, { dueDate: PAST_DUE });
+		const charge = await createCharge(run.id, await createMember());
+
+		// No CC-Kasse account: the reminder fails.
+		expect(await sendMahnungen(run.id)).toMatchObject({ failed: 1 });
+		await markChargePaid(charge.id);
+		await markChargeUnpaid(charge.id);
+
+		expect(await chargeRow(charge.id)).toMatchObject({
+			status: "Offen",
+			mahnungAmount: 0,
+			mahnungSentAt: null,
+		});
+	});
+
+	test("a payment booked while the reminder is sent is kept (#151)", async () => {
+		const { kp } = await setup();
+		await createKonto();
+		const run = await seedRun(kp, { dueDate: PAST_DUE });
+		const charge = await createCharge(
+			run.id,
+			await createMember({ email: "a@example.test" }),
+		);
+		vi.mocked(sendTenantMail).mockImplementationOnce(async () => {
+			await markChargePaid(charge.id);
+		});
+
+		await sendMahnungen(run.id);
+
+		expect(await chargeRow(charge.id)).toMatchObject({
+			status: "Bezahlt",
+			mahnungAmount: 0,
+			mahnungSentAt: null,
+		});
 	});
 });
 
@@ -667,6 +827,31 @@ describe("downloadChargePdf", () => {
 		expect(
 			Buffer.from(invoice.base64, "base64").subarray(0, 5).toString(),
 		).toBe("%PDF-");
+	});
+
+	test("a reminder not sent yet shows the run fee, a sent one the stored fee (#151)", async () => {
+		const { kp } = await setup();
+		await createKonto();
+		const run = await seedRun(kp, { mahnungFee: 5 });
+		const open = await createCharge(run.id, await createMember());
+		const reminded = await createCharge(run.id, await createMember(), {
+			status: "Gemahnt",
+			mahnungAmount: 7,
+			mahnungSentAt: PAST_DUE,
+		});
+		const pdfText = async (chargeId: string) => {
+			const pdf = await downloadChargePdf(chargeId, { isMahnung: true });
+			if (!pdf.success) {
+				throw new Error(pdf.error);
+			}
+			return Buffer.from(pdf.base64, "base64").toString("latin1");
+		};
+
+		const openText = await pdfText(open.id);
+		const remindedText = await pdfText(reminded.id);
+
+		expect(openText).toContain("Gesamtbetrag: 33,00");
+		expect(remindedText).toContain("Gesamtbetrag: 35,00");
 	});
 
 	test("explains a missing CC-Kasse account or charge", async () => {
