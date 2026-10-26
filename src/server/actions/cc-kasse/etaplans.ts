@@ -1,10 +1,17 @@
 "use server";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
-import { etaplans, kostenerstattungen } from "~/server/db/schema";
+import {
+	einnahmen,
+	etaplans,
+	kostenerstattungen,
+	kostenpunkte,
+	semesterbeitragCharges,
+	semesterbeitragRuns,
+} from "~/server/db/schema";
 import { EDIT_ROLES, requireRoles } from "./_guards";
 
 export type Etaplan = typeof etaplans.$inferSelect;
@@ -152,6 +159,53 @@ export async function deleteEtaplan(id: string) {
 				success: false as const,
 				error:
 					"Etatplan hat genehmigte/ausgezahlte Erstattungen. Bitte stattdessen abschließen.",
+			};
+		}
+
+		// Paid Semesterbeiträge and booked Einnahmen are financial records: the
+		// cascade below would silently erase them, so refuse like
+		// deleteBeitragRun / deleteKostenpunkt do.
+		const planKostenpunkte = db
+			.select({ id: kostenpunkte.id })
+			.from(kostenpunkte)
+			.where(eq(kostenpunkte.etaplanId, id));
+		const [paidCharges] = await db
+			.select({ c: sql<number>`count(*)` })
+			.from(semesterbeitragCharges)
+			.innerJoin(
+				semesterbeitragRuns,
+				eq(semesterbeitragCharges.runId, semesterbeitragRuns.id),
+			)
+			.where(
+				and(
+					eq(semesterbeitragCharges.status, "Bezahlt"),
+					or(
+						eq(semesterbeitragRuns.etaplanId, id),
+						inArray(semesterbeitragRuns.kostenpunktId, planKostenpunkte),
+					),
+				),
+			);
+		if (Number(paidCharges?.c ?? 0) > 0) {
+			return {
+				success: false as const,
+				error:
+					"Etatplan hat bereits bezahlte Semesterbeiträge und kann nicht gelöscht werden. Bitte stattdessen abschließen.",
+			};
+		}
+		const [booked] = await db
+			.select({ c: sql<number>`count(*)` })
+			.from(einnahmen)
+			.where(
+				or(
+					eq(einnahmen.etaplanId, id),
+					inArray(einnahmen.kostenpunktId, planKostenpunkte),
+				),
+			);
+		if (Number(booked?.c ?? 0) > 0) {
+			return {
+				success: false as const,
+				error:
+					"Etatplan hat gebuchte Einnahmen und kann nicht gelöscht werden. Bitte stattdessen abschließen.",
 			};
 		}
 

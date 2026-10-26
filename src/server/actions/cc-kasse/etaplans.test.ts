@@ -222,13 +222,34 @@ describe("deleteEtaplan", () => {
 		);
 	});
 
-	// deleteBeitragRun refuses to drop paid charges ("financial records"),
-	// but deleting the whole plan cascades them away without a check.
-	test.fails("refuses while paid Semesterbeiträge exist (#150)", async () => {
+	// Like deleteBeitragRun, deleting the whole plan must not cascade paid
+	// charges ("financial records") away.
+	test("refuses while paid Semesterbeiträge exist (#150)", async () => {
 		await signInSenior();
 		const plan = await seedEtaplan();
 		const kp = await createKostenpunkt(plan.id);
 		const run = await createBeitragRun(kp);
+		await createCharge(run.id, await createMember(), { status: "Bezahlt" });
+
+		const result = await deleteEtaplan(plan.id);
+
+		expect(result).toEqual({
+			success: false,
+			error:
+				"Etatplan hat bereits bezahlte Semesterbeiträge und kann nicht gelöscht werden. Bitte stattdessen abschließen.",
+		});
+		expect(await tenantDb().select().from(semesterbeitragCharges)).toHaveLength(
+			1,
+		);
+		expect(await tenantDb().select().from(etaplans)).toHaveLength(1);
+	});
+
+	test("refuses while a paid Beitrag of a foreign run books onto its Kostenpunkt (#150)", async () => {
+		await signInSenior();
+		const plan = await seedEtaplan();
+		const other = await seedEtaplan();
+		const kp = await createKostenpunkt(plan.id);
+		const run = await createBeitragRun({ ...kp, etaplanId: other.id });
 		await createCharge(run.id, await createMember(), { status: "Bezahlt" });
 
 		const result = await deleteEtaplan(plan.id);
@@ -239,7 +260,7 @@ describe("deleteEtaplan", () => {
 		);
 	});
 
-	test.fails("refuses while booked Einnahmen exist (#150)", async () => {
+	test("refuses while booked Einnahmen exist (#150)", async () => {
 		await signInSenior();
 		const plan = await seedEtaplan();
 		const kp = await createKostenpunkt(plan.id);
@@ -247,8 +268,13 @@ describe("deleteEtaplan", () => {
 
 		const result = await deleteEtaplan(plan.id);
 
-		expect(result.success).toBe(false);
+		expect(result).toEqual({
+			success: false,
+			error:
+				"Etatplan hat gebuchte Einnahmen und kann nicht gelöscht werden. Bitte stattdessen abschließen.",
+		});
 		expect(await tenantDb().select().from(einnahmen)).toHaveLength(1);
+		expect(await tenantDb().select().from(etaplans)).toHaveLength(1);
 	});
 });
 
