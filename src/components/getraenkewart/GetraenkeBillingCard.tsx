@@ -121,31 +121,29 @@ export function GetraenkeBillingCard({
 	return (
 		<Card>
 			<Collapsible open={open} onOpenChange={setOpen}>
-				<CollapsibleTrigger asChild>
-					<CardHeader className="flex cursor-pointer flex-row items-center justify-between transition-colors hover:bg-muted/50">
-						<div className="flex items-center gap-2">
-							<CardTitle className="text-base">Absender und Konto</CardTitle>
-							{incomplete ? (
-								<Badge variant="destructive">Unvollständig</Badge>
-							) : (
-								<Badge variant="secondary">Vollständig</Badge>
-							)}
-						</div>
-						<Button
-							variant="ghost"
-							size="icon"
-							className="size-7"
-							tabIndex={-1}
-							aria-hidden
-						>
-							{open ? (
-								<ChevronUp className="size-4" />
-							) : (
-								<ChevronDown className="size-4" />
-							)}
-						</Button>
-					</CardHeader>
-				</CollapsibleTrigger>
+				<CardHeader className="flex flex-row items-center justify-between gap-2 transition-colors hover:bg-muted/50">
+					{/* Same pattern as the other Kasse cards: the title is the keyboard
+					    toggle, the chevron repeats it for the mouse only. */}
+					<CollapsibleTrigger className="-m-1 flex min-h-9 flex-1 cursor-pointer items-center gap-2 rounded-md p-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+						<CardTitle className="text-base">Absender und Konto</CardTitle>
+						{incomplete ? (
+							<Badge variant="destructive">Unvollständig</Badge>
+						) : (
+							<Badge variant="secondary">Vollständig</Badge>
+						)}
+					</CollapsibleTrigger>
+					<CollapsibleTrigger
+						tabIndex={-1}
+						aria-hidden
+						className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-muted"
+					>
+						{open ? (
+							<ChevronUp className="size-4" />
+						) : (
+							<ChevronDown className="size-4" />
+						)}
+					</CollapsibleTrigger>
+				</CardHeader>
 				<CollapsibleContent>
 					<CardContent className="space-y-5">
 						{incomplete && (
