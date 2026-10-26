@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
+import { csvRow } from "~/lib/csv";
 import {
 	addMoney,
 	fromCents,
@@ -722,17 +723,20 @@ export async function getFuchsenBillPeriodCSV(billPeriodId: string) {
 
 		const fmt = (n: number) => n.toFixed(2).replace(".", ",");
 		const lines = [
-			["Name", "Status", "Artikel", "Alter Saldo", "Gesamt"].join(";"),
+			csvRow(["Name", "Status", "Artikel", "Alter Saldo", "Gesamt"], ";"),
 			...billsData.map((b) =>
-				[
-					b.userName,
-					b.status,
-					fmt(b.itemsTotal),
-					fmt(b.oldBillingAmount),
-					fmt(b.total),
-				].join(";"),
+				csvRow(
+					[
+						b.userName,
+						b.status,
+						fmt(b.itemsTotal),
+						fmt(b.oldBillingAmount),
+						fmt(b.total),
+					],
+					";",
+				),
 			),
-			["Gesamt", "", "", "", fmt(period.totalAmount)].join(";"),
+			csvRow(["Gesamt", "", "", "", fmt(period.totalAmount)], ";"),
 		];
 
 		return {

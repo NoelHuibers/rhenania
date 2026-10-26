@@ -2,9 +2,11 @@
 "use server";
 
 import { eq, sql } from "drizzle-orm";
+import { csvCell } from "~/lib/csv";
 import { sumMoney } from "~/lib/money";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills, drinks } from "~/server/db/schema";
+import { getGetraenkekassePayment } from "~/server/lib/getraenkekasse-payment";
 
 interface BillWithItems {
 	id: string;
@@ -75,8 +77,11 @@ export async function generateBillPeriodCSV(
 	},
 ): Promise<CSVGenerationResult> {
 	try {
+		// The tenant's own PayPal (same as on the bill PDF); no link without one.
 		const paypalBaseUrl =
-			options?.paypalBaseUrl || "https://paypal.me/YourHandle";
+			options?.paypalBaseUrl ||
+			(await getGetraenkekassePayment())?.paypalBaseUrl ||
+			null;
 		const delimiter = options?.delimiter || ",";
 
 		// 1. Get the bill period information
@@ -183,22 +188,11 @@ export async function generateBillPeriodCSV(
 }
 
 /**
- * Escapes a CSV field value by wrapping in quotes and escaping internal quotes
+ * One CSV field: quoted when needed and guarded against formula injection
+ * (names come from members and would otherwise run in Excel).
  */
 function escapeCSVField(value: string, delimiter: string): string {
-	// If the value contains the delimiter, quotes, or newlines, we need to escape it
-	if (
-		value.includes(delimiter) ||
-		value.includes('"') ||
-		value.includes("\n") ||
-		value.includes("\r")
-	) {
-		// Escape quotes by doubling them
-		const escapedValue = value.replace(/"/g, '""');
-		// Wrap in quotes
-		return `"${escapedValue}"`;
-	}
-	return value;
+	return csvCell(value, delimiter);
 }
 
 /**
@@ -210,7 +204,7 @@ function generateCSVContent(
 	drinkPrices: Record<string, number>,
 	_billNumber: string,
 	options: {
-		paypalBaseUrl: string;
+		paypalBaseUrl: string | null;
 		delimiter: string;
 	},
 ): string {
@@ -287,11 +281,13 @@ function generateCSVContent(
 		row.push(escapeCSVField(bill.userName, delimiter)); // nix (using userName as identifier)
 		row.push(escapeCSVField(formatPercentage(mahnfaktor), delimiter)); // Mahnfaktor
 
-		// Generate PayPal link if amount > 0 and not paid
-		const paypalLink =
-			bill.total > 0 && bill.status !== "Bezahlt"
+		// PayPal link if amount > 0 and not paid (empty without a PayPal)
+		const due = bill.total > 0 && bill.status !== "Bezahlt";
+		const paypalLink = !due
+			? "#####"
+			: paypalBaseUrl
 				? `${paypalBaseUrl}/${bill.total.toFixed(2)}EUR`
-				: "#####";
+				: "";
 		row.push(escapeCSVField(paypalLink, delimiter));
 
 		// Payment status

@@ -10,6 +10,7 @@ import {
 	billItems,
 	bills,
 	externalBills,
+	getraenkeBillingConfig,
 	inventories,
 	inventoryItems,
 	kasseConfig,
@@ -17,6 +18,11 @@ import {
 	userRoles,
 } from "~/server/db/schema";
 import { FeatureDisabledError, hasFeature } from "~/server/lib/features";
+import {
+	getGetraenkeBillingProfile,
+	getGetraenkekasseAccount,
+	resolveGetraenkeBillSender,
+} from "~/server/lib/getraenkekasse-payment";
 import { groupBy } from "~/server/lib/group-by";
 import { updateBillStatus } from "../billings/billings";
 import { generateUserBillPDF } from "../billings/createUserPDF";
@@ -454,6 +460,86 @@ export async function setBillRecipient(
 			target: kasseConfig.id,
 			set: { ...values, updatedBy: gate.userId },
 		});
+	return { success: true };
+}
+
+// ─── Absender und Konto der Getränkerechnungen ──────────────────────────────
+//
+// The letterhead and account holder of the bill PDF. Billing refuses to run
+// until they and an active Getränkekasse konto are set up.
+
+const billingProfileSchema = z.object({
+	senderName: z.string().trim().max(255),
+	senderStreet: z.string().trim().max(255),
+	senderCity: z.string().trim().max(255),
+	location: z.string().trim().max(255),
+	website: z.string().trim().max(255),
+	accountHolder: z.string().trim().max(255),
+	paymentDueDays: z
+		.number()
+		.int()
+		.min(1, "Zahlungsziel: 1 bis 90 Tage")
+		.max(90, "Zahlungsziel: 1 bis 90 Tage"),
+});
+
+export type GetraenkeBillingProfileInput = z.infer<typeof billingProfileSchema>;
+
+export type GetraenkeBillingSettings = {
+	profile: GetraenkeBillingProfileInput;
+	/** What members are asked to pay into, from the Getränkekasse konto. */
+	payment: { iban: string; paypalBaseUrl: string | null } | null;
+	/** Labels of what is still missing before billing can run. */
+	missing: string[];
+};
+
+/** For the Getränkewart only; null for everybody else. */
+export async function getGetraenkeBillingSettings(): Promise<GetraenkeBillingSettings | null> {
+	const gate = await requireGetraenkewart();
+	if (!gate.ok) {
+		return null;
+	}
+	const [profile, account, sender] = await Promise.all([
+		getGetraenkeBillingProfile(),
+		getGetraenkekasseAccount(),
+		resolveGetraenkeBillSender(),
+	]);
+	return {
+		profile: {
+			senderName: profile.senderName,
+			senderStreet: profile.senderStreet,
+			senderCity: profile.senderCity,
+			location: profile.location,
+			website: profile.website,
+			accountHolder: profile.accountHolder,
+			paymentDueDays: profile.paymentDueDays,
+		},
+		payment: account
+			? { iban: account.iban, paypalBaseUrl: account.paypalBaseUrl }
+			: null,
+		missing: sender.ok ? [] : sender.missing,
+	};
+}
+
+export async function updateGetraenkeBillingProfile(
+	input: GetraenkeBillingProfileInput,
+): Promise<ActionResult> {
+	const gate = await requireGetraenkewart();
+	if (!gate.ok) {
+		return { success: false, error: gate.error };
+	}
+	const parsed = billingProfileSchema.safeParse(input);
+	if (!parsed.success) {
+		return {
+			success: false,
+			error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe",
+		};
+	}
+
+	const values = { ...parsed.data, updatedBy: gate.userId };
+	await db
+		.insert(getraenkeBillingConfig)
+		.values({ id: "singleton", ...values })
+		.onConflictDoUpdate({ target: getraenkeBillingConfig.id, set: values });
 	return { success: true };
 }
 

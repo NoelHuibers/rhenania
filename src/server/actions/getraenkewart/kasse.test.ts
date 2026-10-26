@@ -12,7 +12,10 @@ import {
 	billsOf,
 	createBillPeriodRow,
 	createBillRow,
+	createKontoRow,
 	eventUser,
+	setUpGetraenkeBilling,
+	TEST_BILLING_PROFILE,
 } from "../../../../test/factories/billing";
 import {
 	createDrink,
@@ -32,6 +35,7 @@ import {
 	downloadEntityBillPDF,
 	getBankEntries,
 	getExternalBills,
+	getGetraenkeBillingSettings,
 	getGetraenkeSettings,
 	getKasseSummary,
 	getOpenEntityBills,
@@ -42,6 +46,7 @@ import {
 	setBillRecipient,
 	setMarkupPercent,
 	setPfandWert,
+	updateGetraenkeBillingProfile,
 } from "./kasse";
 
 setupTestDatabases();
@@ -353,6 +358,7 @@ describe("open bills", () => {
 
 	test("Getränkewart downloads a group bill PDF as base64", async () => {
 		await signInWart();
+		await setUpGetraenkeBilling();
 		const period = await createBillPeriodRow({ billNumber: "KW-43-26" });
 		const bill = await createBillRow({
 			periodId: period.id,
@@ -387,6 +393,75 @@ describe("open bills", () => {
 		signInAs(await createUser());
 
 		expect(await downloadEntityBillPDF(bill.id)).toEqual({
+			success: false,
+			error: "Keine Berechtigung",
+		});
+	});
+});
+
+describe("Absender und Konto (#9)", () => {
+	const input = { ...TEST_BILLING_PROFILE, location: "", website: "" };
+
+	test("the Getränkewart sees what is missing, then fills it in", async () => {
+		await signInWart();
+
+		expect(await getGetraenkeBillingSettings()).toEqual({
+			profile: {
+				senderName: "",
+				senderStreet: "",
+				senderCity: "",
+				location: "",
+				website: "",
+				accountHolder: "",
+				paymentDueDays: 14,
+			},
+			payment: null,
+			missing: [
+				"Absender",
+				"Straße",
+				"PLZ und Ort",
+				"Kontoinhaber",
+				"Getränkekasse-Konto mit gültiger IBAN",
+			],
+		});
+
+		expect(
+			await updateGetraenkeBillingProfile({
+				...input,
+				senderName: "  Erika Kassenwart ",
+			}),
+		).toEqual({ success: true });
+		await createKontoRow({ paypalLink: null });
+
+		const settings = await getGetraenkeBillingSettings();
+		expect(settings?.profile.senderName).toBe("Erika Kassenwart");
+		expect(settings?.payment).toEqual({
+			iban: "DE89 3704 0044 0532 0130 00",
+			paypalBaseUrl: null,
+		});
+		expect(settings?.missing).toEqual([]);
+
+		// Saving again updates the singleton.
+		await updateGetraenkeBillingProfile({ ...input, paymentDueDays: 21 });
+		expect((await getGetraenkeBillingSettings())?.profile.paymentDueDays).toBe(
+			21,
+		);
+	});
+
+	test("rejects invalid due days", async () => {
+		await signInWart();
+
+		expect(
+			await updateGetraenkeBillingProfile({ ...input, paymentDueDays: 0 }),
+		).toEqual({ success: false, error: "Zahlungsziel: 1 bis 90 Tage" });
+	});
+
+	test("is only for the Getränkewart", async () => {
+		await createTenant();
+		signInAs(await createUser());
+
+		expect(await getGetraenkeBillingSettings()).toBeNull();
+		expect(await updateGetraenkeBillingProfile(input)).toEqual({
 			success: false,
 			error: "Keine Berechtigung",
 		});

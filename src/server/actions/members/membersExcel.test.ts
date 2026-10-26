@@ -121,6 +121,41 @@ describe("exportMembersXlsx", () => {
 		expect(ws.getCell(2, col("Weiterleitung")).text).toBe("0");
 		expect(ws.getCell(3, col("Pfad")).text).toBe("/Liste");
 	});
+
+	// XLSX cells are typed: a string that looks like a formula is stored as
+	// text and never evaluated, so (unlike CSV) it needs no `'` prefix, and
+	// phone numbers like "+49 …" survive an export → import round trip.
+	test("writes formula-like values as plain text cells (#91)", async () => {
+		await signInEditor();
+		await createMember({
+			firstName: '=HYPERLINK("http://x","Klick")',
+			lastName: "@Muster",
+		});
+
+		const result = await exportMembersXlsx();
+		if (!result.success) {
+			throw new Error(result.error);
+		}
+		const wb = new ExcelJS.Workbook();
+		await wb.xlsx.load(
+			Buffer.from(result.base64, "base64") as unknown as Parameters<
+				typeof wb.xlsx.load
+			>[0],
+		);
+		const ws = wb.getWorksheet(SHEET_NAME);
+		const cells: ExcelJS.Cell[] = [];
+		ws?.eachRow((row) => {
+			row.eachCell((cell) => {
+				cells.push(cell);
+			});
+		});
+		expect(cells.length).toBeGreaterThan(0);
+		expect(cells.filter((c) => c.type === ExcelJS.ValueType.Formula)).toEqual(
+			[],
+		);
+		const first = cells.find((c) => String(c.value).startsWith("=HYPERLINK"));
+		expect(first?.type).toBe(ExcelJS.ValueType.String);
+	});
 });
 
 describe("importMembersXlsx", () => {

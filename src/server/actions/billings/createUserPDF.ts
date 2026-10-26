@@ -3,38 +3,18 @@
 
 import { eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
+import { lateFeeSentence } from "~/lib/late-fee";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills } from "~/server/db/schema";
 import {
-	DEFAULT_GETRAENKEKASSE_PAYMENT,
-	getGetraenkekassePayment,
+	type GetraenkeBillSender,
+	incompleteBillingMessage,
+	resolveGetraenkeBillSender,
 } from "~/server/lib/getraenkekasse-payment";
-import { getCurrentTenant } from "~/server/lib/tenant-context";
-
-interface UserBillData {
-	bill: {
-		id: string;
-		userId: string;
-		userName: string;
-		status: string;
-		oldBillingAmount: number;
-		fees: number;
-		drinksTotal: number;
-		total: number;
-		paidAt: Date | null;
-	};
-	billPeriod: {
-		billNumber: string;
-		createdAt: Date;
-	};
-	items: Array<{
-		drinkName: string;
-		amount: number;
-		pricePerDrink: number;
-		totalPricePerDrink: number;
-	}>;
-	umlage: number;
-}
+import {
+	buildUserBillData,
+	type UserBillData,
+} from "~/server/lib/user-bill-data";
 
 interface PDFGenerationResult {
 	success: boolean;
@@ -42,41 +22,6 @@ interface PDFGenerationResult {
 	fileName?: string;
 	error?: string;
 }
-
-type SenderInfo = {
-	name: string;
-	street: string;
-	city: string;
-	location: string;
-	iban: string;
-	accountHolder: string;
-	paypalBaseUrl: string;
-	website: string;
-	paymentDueDays: number;
-	lateFeePercent: number;
-	lateFeeMinAmount: number;
-};
-
-// Default sender configuration used as a fallback. The bank/payment fields
-// (iban, paypalBaseUrl) are overridden by `getGetraenkekassePayment()` from
-// the active Getränkekasse `konto` row when one exists; `website` comes from
-// `tenants.branding`. The treasurer-specific address fields
-// (name/street/city/accountHolder) are not yet tenant-configurable — they need
-// their own per-tenant treasurer-config table before non-Rhenania tenants can
-// ship bills. Tracked as MVP follow-up.
-const DEFAULT_SENDER_INFO: SenderInfo = {
-	name: "Noel Huibers",
-	street: "Unterbibergerstraße 72",
-	city: "81737 München",
-	location: "München",
-	iban: DEFAULT_GETRAENKEKASSE_PAYMENT.iban,
-	accountHolder: DEFAULT_GETRAENKEKASSE_PAYMENT.accountHolder,
-	paypalBaseUrl: DEFAULT_GETRAENKEKASSE_PAYMENT.paypalBaseUrl,
-	website: "www.rhenania-stuttgart.de/trinken",
-	paymentDueDays: 14,
-	lateFeePercent: 20,
-	lateFeeMinAmount: 5,
-};
 
 /**
  * Generates a PDF invoice for a specific bill
@@ -121,34 +66,20 @@ export async function generateUserBillPDF(
 			.where(eq(billItems.billId, billId))
 			.orderBy(billItems.drinkName);
 
-		// 4. Calculate umlage (you'll need to implement this based on your business logic)
-		const umlage = 0; // Placeholder - implement your calculation
+		// 4. What the PDF shows: the stored parts of the bill, Umlage included,
+		// which add up to the stored total.
+		const billData = buildUserBillData(userBill, billPeriod, billItemsData);
 
-		// 5. Prepare data for PDF
-		const billData: UserBillData = {
-			bill: userBill,
-			billPeriod: {
-				billNumber: billPeriod.billNumber,
-				createdAt: billPeriod.createdAt,
-			},
-			items: billItemsData,
-			umlage,
-		};
-
-		// 6. Resolve sender overrides. Bank account (IBAN) and PayPal come from
-		// the shared Getränkekasse resolver (same data the profile page shows);
-		// website from tenant branding.
-		const [tenant, payment] = await Promise.all([
-			getCurrentTenant(),
-			getGetraenkekassePayment(),
-		]);
-		const senderInfo: SenderInfo = {
-			...DEFAULT_SENDER_INFO,
-			iban: payment.iban,
-			accountHolder: payment.accountHolder,
-			paypalBaseUrl: payment.paypalBaseUrl,
-			website: tenant?.branding?.billingWebsite ?? DEFAULT_SENDER_INFO.website,
-		};
+		// 6. Sender and payment target: the tenant's own Getränkekasse setup
+		// (same data the profile page shows). No fallback to anybody else's.
+		const resolved = await resolveGetraenkeBillSender();
+		if (!resolved.ok) {
+			return {
+				success: false,
+				error: incompleteBillingMessage(resolved.missing),
+			};
+		}
+		const senderInfo = resolved.sender;
 
 		// 7. Generate PDF content
 		const pdfBuffer = await generatePDFContent(billData, senderInfo);
@@ -178,8 +109,9 @@ export async function generateUserBillPDF(
  */
 async function generatePDFContent(
 	data: UserBillData,
-	senderInfo: SenderInfo,
+	senderInfo: GetraenkeBillSender,
 ): Promise<Buffer> {
+	const { payment } = senderInfo;
 	const doc = new jsPDF({
 		orientation: "portrait",
 		unit: "mm",
@@ -222,8 +154,10 @@ async function generatePDFContent(
 
 	// Payment instructions
 	const paymentText = [
-		`Bitte überweise mir den Betrag mit dem Paypal-Link oder auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`,
-		`Tagen. Ansonsten gibt es, ab ${senderInfo.lateFeeMinAmount}€ Rechnungsbetrag, eine Mahnung in Höhe von ${senderInfo.lateFeePercent}% auf die nächste`,
+		payment.paypalBaseUrl
+			? `Bitte überweise mir den Betrag mit dem Paypal-Link oder auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`
+			: `Bitte überweise mir den Betrag auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`,
+		`Tagen. ${lateFeeSentence()}`,
 		"Rechnung.",
 	];
 
@@ -236,19 +170,21 @@ async function generatePDFContent(
 	yPos += 10;
 	doc.text("Mit freundlichen Grüßen,", 20, yPos);
 	yPos += 10;
-	doc.text(senderInfo.accountHolder, 20, yPos);
+	doc.text(senderInfo.name, 20, yPos);
 
 	// Payment details at bottom of first page
-	yPos = 250;
-	const paypalLink = `${senderInfo.paypalBaseUrl}/${formatPayPalAmount(
-		data.bill.total,
-	)}`;
+	const paypalLink = payment.paypalBaseUrl
+		? `${payment.paypalBaseUrl}/${formatPayPalAmount(data.bill.total)}`
+		: null;
+	yPos = paypalLink ? 250 : 257;
 	doc.setFontSize(11);
-	doc.text(paypalLink, 20, yPos);
+	if (paypalLink) {
+		doc.text(paypalLink, 20, yPos);
+		yPos += 7;
+	}
+	doc.text(payment.iban, 20, yPos);
 	yPos += 7;
-	doc.text(senderInfo.iban, 20, yPos);
-	yPos += 7;
-	doc.text(senderInfo.accountHolder, 20, yPos);
+	doc.text(payment.accountHolder, 20, yPos);
 
 	// ========== PAGE 2: Invoice Details ==========
 	doc.addPage();
@@ -290,28 +226,13 @@ async function generatePDFContent(
 	doc.line(20, yPosition, 190, yPosition);
 	yPosition += 10;
 
-	// Summary Section
-	doc.setFont("helvetica", "bold");
-	doc.text("Rechnungsbetrag:", 20, yPosition);
-	doc.text(formatCurrency(data.bill.drinksTotal), 160, yPosition, {
-		align: "right",
-	});
-	yPosition += 7;
-
-	doc.setFont("helvetica", "normal");
-	doc.text("Alte Rechnung:", 20, yPosition);
-	doc.text(formatCurrency(data.bill.oldBillingAmount), 160, yPosition, {
-		align: "right",
-	});
-	yPosition += 7;
-
-	doc.text("Mahnung:", 20, yPosition);
-	doc.text(formatCurrency(data.bill.fees), 160, yPosition, { align: "right" });
-	yPosition += 7;
-
-	doc.text("Umlage:", 20, yPosition);
-	doc.text(formatCurrency(data.umlage), 160, yPosition, { align: "right" });
-	yPosition += 7;
+	// Summary Section: the stored parts of the bill (they add up to the total)
+	for (const [i, line] of data.summary.entries()) {
+		doc.setFont("helvetica", i === 0 ? "bold" : "normal");
+		doc.text(line.label, 20, yPosition);
+		doc.text(formatCurrency(line.amount), 160, yPosition, { align: "right" });
+		yPosition += 7;
+	}
 
 	// Total line
 	doc.line(20, yPosition, 190, yPosition);
@@ -320,7 +241,7 @@ async function generatePDFContent(
 	doc.setFont("helvetica", "bold");
 	doc.setFontSize(14);
 	doc.text("Gesamtbetrag:", 20, yPosition);
-	doc.text(formatCurrency(data.bill.total), 160, yPosition, { align: "right" });
+	doc.text(formatCurrency(data.total), 160, yPosition, { align: "right" });
 
 	// Payment status (if applicable)
 	yPosition += 15;
@@ -344,12 +265,15 @@ async function generatePDFContent(
 	doc.setFontSize(11);
 	doc.setFont("helvetica", "normal");
 
-	const paypalLinkFooter = `${senderInfo.paypalBaseUrl}/${formatPayPalAmount(
-		data.bill.total,
-	)}`;
-	doc.text(paypalLinkFooter, 105, footerY, { align: "center" });
-	doc.text(senderInfo.iban, 105, footerY + 7, { align: "center" });
-	doc.text(senderInfo.accountHolder, 105, footerY + 14, { align: "center" });
+	const footerLines = [
+		...(paypalLink ? [paypalLink] : []),
+		payment.iban,
+		payment.accountHolder,
+	];
+	const footerStart = footerY + (3 - footerLines.length) * 7;
+	for (const [i, line] of footerLines.entries()) {
+		doc.text(line, 105, footerStart + i * 7, { align: "center" });
+	}
 
 	// Convert to buffer
 	const pdfBuffer = Buffer.from(doc.output("arraybuffer"));

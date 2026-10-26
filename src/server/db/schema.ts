@@ -1072,6 +1072,29 @@ export const kasseConfig = createTable("kasse_config", (d) => ({
 		.references(() => users.id, { onDelete: "set null" }),
 }));
 
+// Singleton row with the sender of the Getränke bills (letterhead of the PDF)
+// and the holder of the Getränkekasse account. IBAN and PayPal stay on the
+// active Getränkekasse `konto`. Empty until the Getränkewart fills it in;
+// billing refuses to run while anything required is missing.
+export const getraenkeBillingConfig = createTable(
+	"getraenke_billing_config",
+	(d) => ({
+		id: d.text({ length: 50 }).notNull().primaryKey().default("singleton"),
+		senderName: d.text({ length: 255 }).notNull().default(""),
+		senderStreet: d.text({ length: 255 }).notNull().default(""),
+		senderCity: d.text({ length: 255 }).notNull().default(""),
+		// Place in the date line ("<location> den 21.10.26").
+		location: d.text({ length: 255 }).notNull().default(""),
+		website: d.text({ length: 255 }).notNull().default(""),
+		accountHolder: d.text({ length: 255 }).notNull().default(""),
+		paymentDueDays: d.integer().notNull().default(14),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+		updatedBy: d
+			.text({ length: 255 })
+			.references(() => users.id, { onDelete: "set null" }),
+	}),
+);
+
 // ─── Semester Config ──────────────────────────────────────────────────────────
 export const semesterConfig = createTable("semester_config", (d) => ({
 	id: d.text({ length: 50 }).notNull().primaryKey().default("singleton"),

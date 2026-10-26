@@ -8,6 +8,7 @@ import {
 	createKontoRow,
 	pdfText,
 	pdfValueAfter,
+	setUpGetraenkeBilling,
 } from "../../../../test/factories/billing";
 import {
 	createTenant,
@@ -77,9 +78,73 @@ describe("generateUserBillPDF", () => {
 		});
 	});
 
+	test("refuses without the tenant's sender and account (#9)", async () => {
+		await createTenant();
+		const { bill } = await memberBill();
+
+		expect(await generateUserBillPDF(bill.id)).toEqual({
+			success: false,
+			error:
+				"Bitte Absender und Konto in der Kasse hinterlegen (fehlt: Absender, Straße, PLZ und Ort, Kontoinhaber, Getränkekasse-Konto mit gültiger IBAN).",
+		});
+
+		// A konto alone is not enough either: the sender is missing.
+		await createKontoRow();
+		expect((await generateUserBillPDF(bill.id)).error).toBe(
+			"Bitte Absender und Konto in der Kasse hinterlegen (fehlt: Absender, Straße, PLZ und Ort, Kontoinhaber).",
+		);
+	});
+
+	test("prints the tenant's own sender and account holder (#9)", async () => {
+		await createTenant();
+		await setUpGetraenkeBilling({
+			profile: {
+				senderName: "Hans Hassia",
+				senderStreet: "Am Markt 3",
+				senderCity: "35390 Gießen",
+				location: "",
+				accountHolder: "Corps Hassia e.V.",
+				paymentDueDays: 10,
+			},
+		});
+		const { bill } = await memberBill();
+
+		const text = pdfText(
+			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
+		);
+
+		expect(text.slice(0, 4)).toEqual([
+			"Hans Hassia",
+			"Am Markt 3",
+			"35390 Gießen",
+			"Gießen den 21.10.26",
+		]);
+		expect(text.some((t) => t.endsWith("innerhalb von 10"))).toBe(true);
+		expect(text.filter((t) => t === "Corps Hassia e.V.")).toHaveLength(2);
+		expect(text).not.toContain("Noel Huibers");
+	});
+
+	test("leaves out the PayPal link when the tenant has none", async () => {
+		await createTenant();
+		await setUpGetraenkeBilling({ konto: { paypalLink: null } });
+		const { bill } = await memberBill();
+
+		const text = pdfText(
+			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
+		);
+
+		expect(text.some((t) => t.includes("paypal"))).toBe(false);
+		expect(text).toContain(
+			"Bitte überweise mir den Betrag auf das genannte Konto innerhalb von 14",
+		);
+		expect(
+			text.filter((t) => t === "DE89 3704 0044 0532 0130 00"),
+		).toHaveLength(2);
+	});
+
 	test("renders the letter, items, summary and the Getränkekasse payment target", async () => {
 		await createTenant();
-		await createKontoRow({ paypalLink: "@corpskasse" });
+		await setUpGetraenkeBilling();
 		const { bill } = await memberBill();
 
 		const result = await generateUserBillPDF(bill.id);
@@ -90,7 +155,7 @@ describe("generateUserBillPDF", () => {
 		expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
 		const text = pdfText(pdf);
 		expect(text).toContain("Lieber Max Muster,");
-		expect(text).toContain("München den 21.10.26");
+		expect(text).toContain("Stuttgart den 21.10.26");
 		expect(text.some((t) => t.startsWith("in Höhe von: 25,00"))).toBe(true);
 		expect(text).toContain("https://paypal.me/corpskasse/025,00");
 		expect(text).toContain("DE89 3704 0044 0532 0130 00");
@@ -112,6 +177,7 @@ describe("generateUserBillPDF", () => {
 
 	test("marks paid and deferred bills", async () => {
 		await createTenant();
+		await setUpGetraenkeBilling();
 		const { bill: paid } = await memberBill({
 			status: "Bezahlt",
 			paidAt: new Date("2026-11-05T12:00:00Z"),
@@ -136,19 +202,31 @@ describe("generateUserBillPDF", () => {
 		expect(deferredText).not.toContain("BEZAHLT");
 	});
 
-	// #11: the Umlage line is hard-coded to 0.
-	test.fails("prints the bill's Umlage (#11)", async () => {
+	test("prints the bill's Umlage, so the lines add up to the total (#11)", async () => {
 		await createTenant();
+		await setUpGetraenkeBilling();
 		const { bill } = await memberBill({ umlage: 3.5 });
 
 		const pdf = (await generateUserBillPDF(bill.id)).pdfContent as Buffer;
 
 		expect(pdfValueAfter(pdf, "Umlage:")).toMatch(/^3,50/);
+		const cents = (label: string) =>
+			Math.round(
+				Number.parseFloat((pdfValueAfter(pdf, label) ?? "").replace(",", ".")) *
+					100,
+			);
+		expect(
+			cents("Rechnungsbetrag:") +
+				cents("Alte Rechnung:") +
+				cents("Mahnung:") +
+				cents("Umlage:"),
+		).toBe(cents("Gesamtbetrag:"));
+		expect(cents("Gesamtbetrag:")).toBe(2850);
 	});
 
-	// #11: the letter announces a 20% Mahnung while billing charges 10%.
-	test.fails("states the 10% fee that billing actually charges (#11)", async () => {
+	test("states the 10% fee that billing actually charges (#11)", async () => {
 		await createTenant();
+		await setUpGetraenkeBilling();
 		const { bill } = await memberBill();
 
 		const text = pdfText(
@@ -162,6 +240,7 @@ describe("generateUserBillPDF", () => {
 describe("saveUserBillPDF", () => {
 	test("uploads the member's own bill once and records it", async () => {
 		const tenant = await createTenant();
+		await setUpGetraenkeBilling();
 		const { member, bill } = await memberBill();
 		signInAs(member);
 
@@ -199,6 +278,7 @@ describe("saveUserBillPDF", () => {
 
 	test("regenerates when the stored blob is gone", async () => {
 		await createTenant();
+		await setUpGetraenkeBilling();
 		const { member, bill } = await memberBill();
 		signInAs(member);
 		await saveUserBillPDF(bill.id);

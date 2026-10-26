@@ -6,6 +6,7 @@ import {
 	createBillPeriodRow,
 	createBillRow,
 	eventUser,
+	setUpGetraenkeBilling,
 } from "../../../../test/factories/billing";
 import {
 	createDrink,
@@ -149,9 +150,64 @@ describe("generateBillPeriodCSV", () => {
 
 		const lines = (result.csvContent ?? "").split("\n");
 		expect(lines[0]?.startsWith("Name,Rechnungsbetrag,")).toBe(true);
+		// No PayPal configured: no link, and never a placeholder handle (#9).
 		expect(lines[1]).toBe(
-			'Solo,"4,50 EUR","0,00 EUR","0,00 EUR","0,00 EUR","4,50 EUR",Solo,"0,00 %",https://paypal.me/YourHandle/4.50EUR,',
+			'Solo,"4,50 EUR","0,00 EUR","0,00 EUR","0,00 EUR","4,50 EUR",Solo,"0,00 %",,',
 		);
+	});
+
+	test("links the tenant's own PayPal by default (#9)", async () => {
+		await createTenant();
+		await setUpGetraenkeBilling();
+		const period = await createBillPeriodRow();
+		await createBillRow({
+			periodId: period.id,
+			user: { id: "u1", name: "Solo" },
+			drinksTotal: 4.5,
+		});
+
+		const result = await generateBillPeriodCSV(period.id);
+
+		expect(result.csvContent?.split("\n")[1]).toMatch(
+			/,https:\/\/paypal\.me\/corpskasse\/4\.50EUR,$/,
+		);
+	});
+
+	test("defuses formulas in names but keeps negative amounts (#91)", async () => {
+		await createTenant();
+		const period = await createBillPeriodRow();
+		await createBillRow({
+			periodId: period.id,
+			user: { id: "u1", name: '=HYPERLINK("http://x","Klick")' },
+			drinksTotal: 2,
+			oldBillingAmount: -5,
+		});
+		await createBillRow({
+			periodId: period.id,
+			user: { id: "u2", name: "@Admin" },
+			drinksTotal: 1,
+		});
+
+		const result = await generateBillPeriodCSV(period.id, { delimiter: ";" });
+
+		const rows = (result.csvContent ?? "").split("\n").map((l) => l.split(";"));
+		const hyperlink = rows.find((r) => r[0]?.includes("HYPERLINK"));
+		expect(hyperlink?.[0]).toBe('"\'=HYPERLINK(""http://x"",""Klick"")"');
+		expect(hyperlink?.slice(1, 6)).toEqual([
+			"2,00 EUR",
+			"-5,00 EUR",
+			"0,00 EUR",
+			"0,00 EUR",
+			"-3,00 EUR",
+		]);
+		expect(rows.find((r) => r[0]?.includes("Admin"))?.[0]).toBe("'@Admin");
+		// No cell anywhere starts with a formula character, except numbers.
+		for (const cell of rows.flat()) {
+			expect(cell.replace(/^"/, "")).not.toMatch(/^[=+@\t\r]/);
+			if (cell.startsWith("-")) {
+				expect(cell).toMatch(/^-\d+,\d{2} (EUR|%)$/);
+			}
+		}
 	});
 
 	test("reports unknown periods and periods without bills", async () => {

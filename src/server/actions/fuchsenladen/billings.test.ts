@@ -728,6 +728,26 @@ describe("getFuchsenBillPeriodCSV", () => {
 		]);
 	});
 
+	test("quotes names with semicolons and defuses formulas (#91)", async () => {
+		await setup();
+		const { period } = await createFuchsenBillPeriod({
+			bills: [
+				{
+					user: await createUser({ name: '=HYPERLINK("http://x";"Hi")' }),
+					itemsTotal: 1,
+				},
+				{ user: await createUser({ name: "Müller; Max" }), itemsTotal: 2 },
+			],
+		});
+
+		const result = await getFuchsenBillPeriodCSV(period.id);
+
+		expect(result.csvContent?.slice(1).split("\r\n").slice(1, 3)).toEqual([
+			'"\'=HYPERLINK(""http://x"";""Hi"")";Unbezahlt;1,00;0,00;1,00',
+			'"Müller; Max";Unbezahlt;2,00;0,00;2,00',
+		]);
+	});
+
 	test("reports unknown periods", async () => {
 		await setup();
 

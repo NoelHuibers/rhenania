@@ -8,6 +8,7 @@ import {
 	billItems,
 	billPeriods,
 	bills,
+	getraenkeBillingConfig,
 	kontos,
 	orders,
 	userPreferences,
@@ -162,6 +163,41 @@ export async function createKontoRow(
 		throw new Error("Could not create konto");
 	}
 	return row;
+}
+
+/** A complete Getränke bill sender for the current tenant (no konto). */
+export const TEST_BILLING_PROFILE = {
+	senderName: "Erika Kassenwart",
+	senderStreet: "Hauptstraße 1",
+	senderCity: "70173 Stuttgart",
+	location: "Stuttgart",
+	website: "",
+	accountHolder: "Corps Test e.V.",
+	paymentDueDays: 14,
+};
+
+export async function setGetraenkeBillingProfile(
+	values: Partial<typeof getraenkeBillingConfig.$inferInsert> = {},
+) {
+	const row = { ...TEST_BILLING_PROFILE, ...values };
+	await tenantDb()
+		.insert(getraenkeBillingConfig)
+		.values(row)
+		.onConflictDoUpdate({ target: getraenkeBillingConfig.id, set: row });
+}
+
+/**
+ * Sets up what billing needs: the sender profile and an active
+ * Getränkekasse konto (VALID_IBAN, PayPal `@corpskasse`).
+ */
+export async function setUpGetraenkeBilling(
+	opts: {
+		profile?: Partial<typeof getraenkeBillingConfig.$inferInsert>;
+		konto?: Partial<typeof kontos.$inferInsert>;
+	} = {},
+) {
+	await setGetraenkeBillingProfile(opts.profile);
+	return createKontoRow({ paypalLink: "@corpskasse", ...opts.konto });
 }
 
 export async function billsOf(userId: string) {

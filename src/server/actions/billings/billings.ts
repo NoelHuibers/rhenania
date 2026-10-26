@@ -2,7 +2,8 @@
 
 import { and, count, desc, eq, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
-import { fromCents, pctOf, roundToCent, sumMoney, toCents } from "~/lib/money";
+import { lateFeeFor } from "~/lib/late-fee";
+import { fromCents, roundToCent, sumMoney, toCents } from "~/lib/money";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -16,6 +17,10 @@ import {
 	users,
 } from "~/server/db/schema";
 import { getBillRecipient } from "~/server/lib/getraenke-settings";
+import {
+	incompleteBillingMessage,
+	resolveGetraenkeBillSender,
+} from "~/server/lib/getraenkekasse-payment";
 import { groupBy } from "~/server/lib/group-by";
 import { log } from "~/server/lib/log";
 import {
@@ -70,6 +75,20 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 	}
 
 	const createdByUserId = session.user.id;
+
+	// Bills print the tenant's sender and account. Without them, refuse
+	// before any bill exists rather than mailing bills without a payee.
+	const sender = await resolveGetraenkeBillSender();
+	if (!sender.ok) {
+		const message = incompleteBillingMessage(sender.missing);
+		return {
+			success: false,
+			message,
+			error: message,
+			billsCreated: 0,
+			totalAmount: 0,
+		};
+	}
 
 	try {
 		const result = await db.transaction(async (tx) => {
@@ -209,11 +228,11 @@ export async function createNewBilling(totalInventoryLoss: number = 0) {
 			// Rounded to whole cents; how the loss is split is unchanged (#10/#11).
 			const umlage = roundToCent(totalInventoryLoss / hausbewohnerCount);
 
-			// 10 % late fee on a carried amount above 5 €, unless it was deferred.
-			// Every stored amount is whole cents and the total is the sum of the
-			// stored parts, so the PDF lines always add up to the total (#13).
-			const lateFee = (oldBillingAmount: number, wasDeferred: boolean) =>
-				!wasDeferred && oldBillingAmount > 5 ? pctOf(oldBillingAmount, 10) : 0;
+			// Late fee on a carried amount (LATE_FEE, the same rule the bill
+			// letter states), unless it was deferred. Every stored amount is
+			// whole cents and the total is the sum of the stored parts, so the
+			// PDF lines always add up to the total (#13).
+			const lateFee = lateFeeFor;
 
 			// The rolled-in old bills are settled as "Übertragen" so the member
 			// isn't listed (and counted) twice. Everything outstanding outside the
