@@ -12,6 +12,9 @@
 // Once every tenant sends via Graph, the Gmail path (and its env vars) can
 // be deleted.
 
+import { randomUUID } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { eq } from "drizzle-orm";
 import nodemailer from "nodemailer";
 
@@ -208,11 +211,52 @@ async function sendViaGmail(
 }
 
 /**
+ * Local dev / E2E outbox: when `MAIL_OUTBOX_DIR` is set, mails are written as
+ * JSON files instead of being sent, so nothing leaves the machine. Never
+ * active on Vercel production.
+ */
+async function writeToOutbox(
+	dir: string,
+	tenant: TenantContext | null,
+	mail: TenantMail,
+): Promise<void> {
+	if (process.env.VERCEL_ENV === "production") {
+		throw new Error("MAIL_OUTBOX_DIR must not be set in production.");
+	}
+	await mkdir(dir, { recursive: true });
+	const file = path.join(dir, `${Date.now()}-${randomUUID()}.json`);
+	await writeFile(
+		file,
+		JSON.stringify(
+			{
+				tenant: tenant?.slug ?? null,
+				to: mail.to,
+				subject: mail.subject,
+				text: mail.text,
+				html: mail.html ?? null,
+				replyTo: mail.replyTo ?? null,
+				attachments: (mail.attachments ?? []).map((a) => ({
+					filename: a.filename,
+					contentType: a.contentType,
+					size: a.content.length,
+				})),
+			},
+			null,
+			2,
+		),
+	);
+}
+
+/**
  * Send an email on behalf of the CURRENT tenant. Graph (tenant's own
  * mailbox) when configured, legacy Gmail otherwise.
  */
 export async function sendTenantMail(mail: TenantMail): Promise<void> {
 	const tenant = await getCurrentTenant();
+	if (env.MAIL_OUTBOX_DIR) {
+		await writeToOutbox(env.MAIL_OUTBOX_DIR, tenant, mail);
+		return;
+	}
 	const graphCfg = tenant ? await getGraphMailConfig(tenant.id) : null;
 	if (graphCfg) {
 		await sendViaGraph(graphCfg, tenant, mail);

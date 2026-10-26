@@ -5,25 +5,38 @@ description: How to drive this app end-to-end locally for verification (login, t
 
 # Verifying changes in the running app
 
-## Launch
+## Launch (local databases — the default)
 
-- `pnpm dev` (Turbopack, ready in ~3s on http://localhost:3000).
-- `localhost` resolves to the **rhenania** tenant via the control DB's
-  `tenant_domains` table — the dev server runs against the REAL Turso
-  control + tenant DBs from `.env`. Anything you create is production
-  data: label it clearly and delete it afterwards.
+- `pnpm db:local:reset` creates `.data/{control,rhenania,hassia}.db`, applies
+  all migrations and seeds demo tenants, users and drinks
+  (`scripts/dev/seed-data.ts`). Re-run it any time for a clean state.
+- `pnpm dev:local` starts `next dev` against those files. Every key from
+  `.env` is blanked (`scripts/dev/local-env.ts`), so production databases,
+  Blob storage and mail credentials are unreachable.
+- `http://localhost:3000` → Rhenania (lokal), `http://hassia.localhost:3000`
+  → Hassia (lokal, markup + billing flags on). Page titles end in "(lokal)",
+  which is a quick check that you are NOT on production data.
+- Outgoing mail is written to `.data/mail/*.json` instead of being sent
+  (password resets, invites, bills).
+- Blob uploads (avatars, drink pictures, bill PDFs) have no token locally and
+  fail; don't treat that as a regression.
 
 ## Getting a session
 
-- Email+password auth is enabled (better-auth, `requireEmailVerification`).
-  No test account exists; create a throwaway one directly in the DBs:
-  control `user` (emailVerified=true) + `account` (providerId
-  `"credential"`, bcryptjs hash, cost 12) + `tenant_membership`, then
-  mirror into the tenant DB (`mirrorUserToTenant`) and assign a role via
-  `user_role` (see `scripts/grant-tenant-admin.ts` for the pattern).
-  Delete all rows (incl. `session`) when done.
-- Sign in at `/auth/signin` — inputs `#email` / `#password`, submit button
-  is disabled until both fields have React state.
+- Every seeded user has the password `local-dev-password`:
+  `admin@rhenania.test` (Admin, Getränkewart, CC-Kasse, superadmin),
+  `wart@rhenania.test` (Getränkewart), `member@rhenania.test`,
+  `admin@hassia.test`, `member@hassia.test`, `both@example.test` (both Corps).
+- Browser: sign in at `/auth/signin` — inputs `#email` / `#password`, submit
+  button is disabled until both fields have React state.
+- Without a browser: `curl -c jar -X POST http://localhost:3000/api/auth/sign-in/email -H "Content-Type: application/json" -H "Origin: http://localhost:3000" -d '{"email":"member@rhenania.test","password":"local-dev-password"}'`,
+  then `curl -b jar http://localhost:3000/trinken`.
+
+## Production data (only when the owner explicitly asks)
+
+`pnpm dev` (without `:local`) runs against the REAL Turso control + tenant
+DBs from `.env`. Only use it when the owner asks for it; anything you create
+is production data — label it clearly and delete it afterwards.
 
 ## Driving the UI
 

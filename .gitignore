@@ -8,6 +8,9 @@
 # testing
 /coverage
 
+# local dev / E2E databases and mail outbox
+/.data/
+
 # database
 /prisma/db.sqlite
 /prisma/db.sqlite-journal

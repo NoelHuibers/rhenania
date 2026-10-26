@@ -32,6 +32,8 @@
 		"db:backfill-tenant-config": "tsx scripts/backfill-tenant-config.ts",
 		"db:control:studio": "drizzle-kit studio --config=drizzle.control.config.ts",
 		"dev": "next dev --turbo",
+		"dev:local": "tsx scripts/dev/run.ts next dev --turbo",
+		"db:local:reset": "tsx scripts/dev/setup-local.ts",
 		"preview": "next build && next start",
 		"start": "next start",
 		"typecheck": "tsc --noEmit",
