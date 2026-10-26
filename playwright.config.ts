@@ -34,6 +34,7 @@ export default defineConfig({
 				["list"],
 				["html", { open: "never", outputFolder: "playwright-report" }],
 			],
+	snapshotPathTemplate: "{testDir}/__screenshots__/{arg}{ext}",
 	use: {
 		baseURL: `http://localhost:${PORT}`,
 		locale: "de-DE",
@@ -46,12 +47,22 @@ export default defineConfig({
 		{
 			name: "desktop",
 			use: { ...devices["Desktop Chrome"] },
+			testIgnore: /visual\.spec\.ts/,
 			dependencies: ["setup"],
 		},
 		{
 			name: "mobile",
 			use: { ...devices["Pixel 7"] },
 			grep: /@mobile/,
+			testIgnore: /visual\.spec\.ts/,
+			dependencies: ["setup"],
+		},
+		// Screenshot baselines are only valid inside the Playwright Linux
+		// image (fonts); run via `pnpm test:visual` / the CI visual job.
+		{
+			name: "visual",
+			use: { ...devices["Desktop Chrome"] },
+			testMatch: /visual\.spec\.ts/,
 			dependencies: ["setup"],
 		},
 	],

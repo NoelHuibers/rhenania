@@ -135,3 +135,29 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 14
+
+  visual:
+    name: Visual regression (Playwright image)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Same image as scripts/dev/visual.sh, so screenshots render with the
+    # fonts the baselines in e2e/__screenshots__ were made with. Keep the tag
+    # in sync with @playwright/test in package.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright test --project=visual
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diffs
+          path: test-results/
+          retention-days: 14

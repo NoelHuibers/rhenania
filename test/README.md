@@ -63,3 +63,32 @@ pnpm test:e2e:dev   # same specs against next dev (faster while iterating)
 - Tests tagged `@mobile` also run on a Pixel 7 viewport.
 - On failure, traces and screenshots are in `test-results/`. Open them with
   `pnpm exec playwright show-trace <trace.zip>`.
+
+## Accessibility (axe)
+
+`e2e/a11y.spec.ts` scans the main screens per role with axe-core (WCAG 2.2 AA
+tags, serious and critical only) as part of `pnpm test:e2e`. Today's known
+violations are recorded per screen in `e2e/a11y-baseline.json`. A new rule or
+more failing elements than recorded fails the run. After fixing issues, shrink
+the baseline:
+
+```bash
+A11Y_UPDATE=1 pnpm exec playwright test e2e/a11y.spec.ts --project=desktop
+```
+
+## Visual regression
+
+`e2e/visual.spec.ts` screenshots key screens on phone (390), tablet (820) and
+desktop (1440) in light and dark mode: 48 baselines in `e2e/__screenshots__`.
+Fonts differ between operating systems, so baselines are only rendered and
+compared inside the official Playwright Linux image, locally via podman or
+docker:
+
+```bash
+pnpm test:visual          # compare
+pnpm test:visual:update   # accept intended UI changes (review the PNG diff!)
+```
+
+CI runs the same image (`visual` job). When bumping `@playwright/test`, update
+the image tag in `.github/workflows/ci.yml` too; `test/ci-config.test.ts`
+fails if they drift apart.
