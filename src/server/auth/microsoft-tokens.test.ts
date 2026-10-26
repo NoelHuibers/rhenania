@@ -129,7 +129,7 @@ describe("getGraphAccessToken", () => {
 		expect((await storedAccount(user.id))?.refreshToken).toBe("revoked");
 	});
 
-	test.fails("reports a failed refresh with a plain-text body (#152)", async () => {
+	test("reports a failed refresh with a plain-text body (#152)", async () => {
 		const user = await msUser({ refreshToken: "revoked" });
 		fetchMock.mockResolvedValueOnce(
 			new Response("Service Unavailable", { status: 503 }),

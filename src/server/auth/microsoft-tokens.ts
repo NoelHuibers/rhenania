@@ -7,6 +7,7 @@
 import { and, eq } from "drizzle-orm";
 import { controlDb } from "~/server/db/control";
 import { accounts } from "~/server/db/control-schema";
+import { readErrorBody } from "~/server/lib/http";
 import { getCurrentTenantAzureConfig } from "~/server/lib/tenant-azure-config";
 
 type MsAccountRow = {
@@ -104,7 +105,7 @@ async function refreshMicrosoftToken(
 	});
 
 	if (!res.ok) {
-		const err = await safeJson(res);
+		const err = await readErrorBody(res);
 		throw new Error(
 			`Failed to refresh Microsoft token: ${res.status} ${JSON.stringify(err)}`,
 		);
@@ -122,12 +123,4 @@ async function refreshMicrosoftToken(
 		refreshToken: json.refresh_token ?? refreshToken,
 		expiresAt: Math.floor(Date.now() / 1000) + Number(json.expires_in),
 	};
-}
-
-async function safeJson(res: Response) {
-	try {
-		return await res.json();
-	} catch {
-		return await res.text();
-	}
 }
