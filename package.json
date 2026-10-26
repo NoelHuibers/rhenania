@@ -13,6 +13,7 @@
 		"lint": "biome lint . && tsc --noEmit",
 		"lint:write": "biome lint --write .",
 		"db:generate": "drizzle-kit generate",
+		"db:check": "tsx scripts/ci/check-migrations.ts && drizzle-kit check && drizzle-kit check --config=drizzle.control.config.ts",
 		"db:migrate": "drizzle-kit migrate",
 		"db:migrate-tenants": "tsx scripts/migrate-tenants.ts",
 		"db:push": "drizzle-kit push",

@@ -6,6 +6,7 @@ import { env } from "~/env";
 // needed — the previous `rhenania_*` filter was a co-existence relic.
 export default {
 	schema: "./src/server/db/schema.ts",
+	out: "./drizzle",
 	dialect: "turso",
 	dbCredentials: {
 		url: env.DATABASE_URL,

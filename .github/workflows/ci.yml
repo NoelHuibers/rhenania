@@ -86,6 +86,37 @@ jobs:
           path: coverage/
           retention-days: 14
 
+  migrations:
+    name: Migrations (consistency, immutability, drift)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Journal consistency + drizzle-kit check
+        run: pnpm db:check
+      - name: Applied migrations unchanged, new ones appended
+        if: github.event_name == 'pull_request'
+        env:
+          MIGRATION_CONTRACT_OK: ${{ contains(github.event.pull_request.labels.*.name, 'migration:contract') && '1' || '' }}
+        run: pnpm exec tsx scripts/ci/check-migrations.ts --base "origin/${{ github.base_ref }}"
+      - name: Schema matches the committed migrations (no ungenerated changes)
+        run: |
+          timeout 120 pnpm exec drizzle-kit generate
+          timeout 120 pnpm exec drizzle-kit generate --config=drizzle.control.config.ts
+          if [ -n "$(git status --porcelain -- drizzle)" ]; then
+            git status --porcelain -- drizzle
+            echo "::error::Schema changes without a migration. Run pnpm db:generate / db:control:generate and commit the result."
+            exit 1
+          fi
+
   build:
     name: Build (local file DBs)
     runs-on: ubuntu-latest
