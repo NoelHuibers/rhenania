@@ -179,7 +179,7 @@ describe("deleteFuchsenItem", () => {
 
 	// The picture is deleted before the row; the FK from fuchsen_order then
 	// blocks the row delete and the item survives with a dead picture URL.
-	test.fails("keeps the picture of an item that has orders (new)", async () => {
+	test.fails("keeps the picture of an item that has orders (#137)", async () => {
 		await asFuchsenwart();
 		const member = await createUser();
 		const item = await createFuchsenItem({ picture: OLD_PIC });

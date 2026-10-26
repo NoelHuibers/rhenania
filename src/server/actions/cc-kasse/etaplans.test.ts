@@ -224,7 +224,7 @@ describe("deleteEtaplan", () => {
 
 	// deleteBeitragRun refuses to drop paid charges ("financial records"),
 	// but deleting the whole plan cascades them away without a check.
-	test.fails("refuses while paid Semesterbeiträge exist (new)", async () => {
+	test.fails("refuses while paid Semesterbeiträge exist (#150)", async () => {
 		await signInSenior();
 		const plan = await seedEtaplan();
 		const kp = await createKostenpunkt(plan.id);
@@ -239,7 +239,7 @@ describe("deleteEtaplan", () => {
 		);
 	});
 
-	test.fails("refuses while booked Einnahmen exist (new)", async () => {
+	test.fails("refuses while booked Einnahmen exist (#150)", async () => {
 		await signInSenior();
 		const plan = await seedEtaplan();
 		const kp = await createKostenpunkt(plan.id);

@@ -497,7 +497,7 @@ describe("cross-Corps lifecycle", () => {
 	});
 
 	// Game counters only read the tenant `game` table; cross-Corps games live in the control DB.
-	test.fails("a cross-Corps win counts towards game achievements (new)", async () => {
+	test.fails("a cross-Corps win counts towards game achievements (#141)", async () => {
 		const { a, b } = await twoCorps();
 		await seedAchievementDefinitions(a.tenant.id);
 		const id = await proposedCrossChallenge(a, b, a.player, "opponent");

@@ -241,7 +241,7 @@ describe("importEtaplanXlsx", () => {
 	// The import reads `cell.text`, which for a numeric cell is the raw JS
 	// number ("12.5"); parseGermanNumber then strips the "." as a thousands
 	// separator and books 125 instead of 12.50.
-	test.fails("round-trips amounts with cents (new)", async () => {
+	test.fails("round-trips amounts with cents (#148)", async () => {
 		await setup();
 		const source = await createEtaplan();
 		await createKostenpunkt(source.id, {

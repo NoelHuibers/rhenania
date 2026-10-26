@@ -169,7 +169,7 @@ describe("generateBillPeriodCSV", () => {
 
 	// New: Mahnfaktor divides the fee by the drinks total instead of the
 	// carried-over amount it was charged on (shows 66,67 % here).
-	test.fails("reports the Mahnfaktor relative to the carried-over amount (new)", async () => {
+	test.fails("reports the Mahnfaktor relative to the carried-over amount (#138)", async () => {
 		await createTenant();
 		const period = await periodWithBills();
 
@@ -183,7 +183,7 @@ describe("generateBillPeriodCSV", () => {
 
 	// New: there is no Umlage column, so a row with Umlage does not add up to
 	// its "Zu zahlender Betrag".
-	test.fails("money columns add up to the amount due when an Umlage was charged (new)", async () => {
+	test.fails("money columns add up to the amount due when an Umlage was charged (#138)", async () => {
 		await createTenant();
 		const period = await createBillPeriodRow();
 		await createBillRow({
@@ -269,7 +269,7 @@ describe("saveBillPeriodCSV", () => {
 
 	// New: without options the record says ";" but the content is generated
 	// with createCSV's own default ",". The Kasse UI calls it without options.
-	test.fails("writes the CSV with the delimiter it records (new)", async () => {
+	test.fails("writes the CSV with the delimiter it records (#138)", async () => {
 		await createTenant();
 		const period = await periodWithBills();
 

@@ -252,7 +252,7 @@ describe("deleteDrink", () => {
 	});
 
 	// The blob is deleted before the DB delete that the order FK then rejects.
-	test.fails("keeps the picture of a drink it could not delete (new)", async () => {
+	test.fails("keeps the picture of a drink it could not delete (#137)", async () => {
 		const drink = await createDrinkWithPicture();
 		await createOrderRow({ drink });
 

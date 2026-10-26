@@ -170,7 +170,7 @@ describe("getKasseSummary", () => {
 	// New: "Offene Mitgliederrechnungen" only sums Unbezahlt, while the open
 	// member list (getOpenMemberBills) also shows Gestundet bills, which are
 	// still owed to the Kasse.
-	test.fails("counts Gestundet member bills as open, like the open list (new)", async () => {
+	test.fails("counts Gestundet member bills as open, like the open list (#139)", async () => {
 		await signInWart();
 		const period = await createBillPeriodRow();
 		await createBillRow({

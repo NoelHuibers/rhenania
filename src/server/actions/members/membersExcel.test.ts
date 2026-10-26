@@ -283,7 +283,7 @@ describe("importMembersXlsx", () => {
 	// Import keeps unknown columns in `members.extra` ("lossless round-trip"),
 	// but export only writes the three SharePoint keys from COLUMNS. Re-importing
 	// the export then overwrites `extra` and the custom columns are gone.
-	test.fails("export → import keeps custom extra columns (new)", async () => {
+	test.fails("export → import keeps custom extra columns (#149)", async () => {
 		await signInEditor();
 		await createMember({
 			...fullMember,
@@ -302,7 +302,7 @@ describe("importMembersXlsx", () => {
 	// Columns missing from the file are written as null/false on matched
 	// members, so re-importing the original Corpsverzeichnis (which lacks the
 	// app-managed Hausnummer/Notizen/… columns) wipes them.
-	test.fails("columns absent from the file leave stored values alone (new)", async () => {
+	test.fails("columns absent from the file leave stored values alone (#149)", async () => {
 		await signInEditor();
 		await createMember({
 			externalId: "4711",

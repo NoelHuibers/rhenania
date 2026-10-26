@@ -70,7 +70,7 @@ describe("GET /api/sempro/pdf", () => {
 
 	// The semester name goes verbatim into the Content-Disposition header;
 	// characters above U+00FF (e.g. an en dash) make `new Response` throw.
-	test.fails("handles typographic characters in the semester name (new)", async () => {
+	test.fails("handles typographic characters in the semester name (#145)", async () => {
 		await createTenant();
 		signInAs(await createUser());
 		await setSemesterConfig({

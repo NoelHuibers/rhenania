@@ -285,7 +285,7 @@ describe("createNewFuchsenBilling", () => {
 
 	// "Alle bezahlt" in the per-member view only flips order status; the
 	// billing run picks those orders up again as an unpaid bill.
-	test.fails("does not bill orders that were already marked paid (new)", async () => {
+	test.fails("does not bill orders that were already marked paid (#143)", async () => {
 		await setup();
 		const member = await createUser();
 		const item = await createFuchsenItem({ price: 3 });
@@ -301,7 +301,7 @@ describe("createNewFuchsenBilling", () => {
 
 	// Paying a billed member's orders in the per-member view leaves their bill
 	// "Unbezahlt", so the next run charges the amount again as old balance.
-	test.fails("does not carry forward a bill whose orders were all paid (new)", async () => {
+	test.fails("does not carry forward a bill whose orders were all paid (#143)", async () => {
 		await setup();
 		const member = await createUser();
 		const item = await createFuchsenItem({ price: 3 });

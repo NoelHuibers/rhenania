@@ -299,7 +299,7 @@ describe("order achievements", () => {
 	});
 
 	// Definition has targetValue 1 while the tracker counts account age in days.
-	test.fails("the beer birthday needs a year, not a day (new)", async () => {
+	test.fails("the beer birthday needs a year, not a day (#140)", async () => {
 		const { user, pils } = await setup("2026-10-01T12:00:00Z");
 		advanceClock(2 * DAY);
 
