@@ -1,6 +1,7 @@
 "use server";
 
 import { and, count, desc, eq, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -45,53 +46,20 @@ interface UserBillingSummary {
 }
 
 /**
- * Get the ISO week number for a given date
- */
-function getISOWeek(date: Date): number {
-	const target = new Date(date.valueOf());
-	const dayNumber = (date.getDay() + 6) % 7;
-	target.setDate(target.getDate() - dayNumber + 3);
-	const firstThursday = target.valueOf();
-	target.setMonth(0, 1);
-	if (target.getDay() !== 4) {
-		target.setMonth(0, 1 + ((4 - target.getDay() + 7) % 7));
-	}
-	return 1 + Math.ceil((firstThursday - target.valueOf()) / 604800000);
-}
-
-/**
- * Generate the next bill number in KW-WW-YY format
- * If a bill already exists for this week, append -2, -3, etc.
+ * Next bill number in KW-WW-YY format (ISO week in Europe/Berlin); further
+ * runs in the same week get -2, -3, etc.
  */
 // biome-ignore lint/suspicious/noExplicitAny: Drizzle transaction type is complex
 async function generateBillNumber(tx: any, date: Date): Promise<string> {
-	const week = getISOWeek(date);
-	const year = date.getFullYear().toString().slice(-2);
-	const baseNumber = `KW-${week.toString().padStart(2, "0")}-${year}`;
-
-	// Check if there are any bills with this base number
-	const existingBills = await tx
+	const base = billNumberBase(date);
+	const existingBills: { billNumber: string }[] = await tx
 		.select({ billNumber: billPeriods.billNumber })
 		.from(billPeriods)
-		.where(sql`${billPeriods.billNumber} LIKE ${`${baseNumber}%`}`);
-
-	if (existingBills.length === 0) {
-		return baseNumber;
-	}
-
-	// Find the highest suffix number
-	let maxSuffix = 1;
-	for (const bill of existingBills) {
-		const match = bill.billNumber.match(
-			new RegExp(`^${baseNumber}(?:-(\\d+))?$`),
-		);
-		if (match) {
-			const suffix = match[1] ? parseInt(match[1], 10) : 1;
-			maxSuffix = Math.max(maxSuffix, suffix);
-		}
-	}
-
-	return `${baseNumber}-${maxSuffix + 1}`;
+		.where(sql`${billPeriods.billNumber} LIKE ${`${base}%`}`);
+	return nextBillNumber(
+		base,
+		existingBills.map((b) => b.billNumber),
+	);
 }
 export async function createNewBilling(totalInventoryLoss: number = 0) {
 	const session = await auth();

@@ -1,6 +1,7 @@
 "use server";
 
 import { and, desc, eq } from "drizzle-orm";
+import { dayKeyInTZ } from "~/lib/time";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills } from "~/server/db/schema";
@@ -82,10 +83,7 @@ export async function getUserBillingData(): Promise<{
 			fees: bill.fees,
 			oldBalance: bill.oldBillingAmount,
 			billNumber: billPeriod?.billNumber?.toString() ?? "N/A",
-			lastUpdated:
-				(bill.updatedAt?.toISOString().split("T")[0] ??
-					bill.createdAt.toISOString().split("T")[0]) ||
-				"",
+			lastUpdated: dayKeyInTZ(bill.updatedAt ?? bill.createdAt),
 			billId: bill.id,
 			userName: bill.userName,
 		};
@@ -160,10 +158,7 @@ export async function getAllUserBills(): Promise<
 				fees: bill.fees,
 				oldBalance: bill.oldBillingAmount,
 				billNumber: billPeriod?.billNumber?.toString() ?? "N/A",
-				lastUpdated:
-					bill.updatedAt?.toISOString().split("T")[0] ??
-					bill.createdAt.toISOString().split("T")[0] ??
-					"",
+				lastUpdated: dayKeyInTZ(bill.updatedAt ?? bill.createdAt),
 				billId: bill.id,
 				userName: bill.userName,
 			};
@@ -243,10 +238,7 @@ export async function getBillById(billId: string): Promise<{
 			fees: bill.fees,
 			oldBalance: bill.oldBillingAmount,
 			billNumber: billPeriod?.billNumber?.toString() ?? "N/A",
-			lastUpdated:
-				bill.updatedAt?.toISOString().split("T")[0] ??
-				bill.createdAt.toISOString().split("T")[0] ??
-				"",
+			lastUpdated: dayKeyInTZ(bill.updatedAt ?? bill.createdAt),
 			billId: bill.id,
 			userName: bill.userName,
 		};

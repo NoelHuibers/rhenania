@@ -127,7 +127,7 @@ describe("getUserBillingData", () => {
 		expect((await getUserBillingData()).payment).toBeNull();
 	});
 
-	test.fails("lastUpdated is the Berlin calendar date (#15)", async () => {
+	test("lastUpdated is the Berlin calendar date (#15)", async () => {
 		const { user } = await member();
 		// 00:30 on 1 Oct in Berlin is still 30 Sep in UTC.
 		await createBill({
@@ -137,6 +137,26 @@ describe("getUserBillingData", () => {
 
 		expect((await getUserBillingData()).billData?.lastUpdated).toBe(
 			"2026-10-01",
+		);
+	});
+
+	test("every bill view shows the Berlin date of the last update (#15)", async () => {
+		const { user } = await member();
+		// 00:15 on 26 Oct in Berlin (CET) is still 25 Oct in UTC.
+		const { bill } = await createBill({
+			userId: user.id,
+			createdAt: new Date("2026-10-20T10:00:00Z"),
+			updatedAt: new Date("2026-10-25T23:15:00Z"),
+		});
+
+		expect((await getUserBillingData()).billData?.lastUpdated).toBe(
+			"2026-10-26",
+		);
+		expect((await getAllUserBills())[0]?.billData.lastUpdated).toBe(
+			"2026-10-26",
+		);
+		expect((await getBillById(bill.id)).billData?.lastUpdated).toBe(
+			"2026-10-26",
 		);
 	});
 

@@ -94,17 +94,61 @@ describe("wallClockToUTC", () => {
 		}
 	});
 
-	// 01:30 is still CET (00:30Z); the guessed offset is read after the switch.
-	test.fails("handles the hour before the spring switch (#15)", () => {
+	// 01:30 is still CET (00:30Z), although the offset at 01:30Z is CEST.
+	test("handles the hour before the spring switch (#15)", () => {
 		expect(wallClockToUTC("2026-03-29T01:30")).toEqual(
 			utc("2026-03-29T00:30:00"),
 		);
 	});
 
-	// 01:30 is still CEST (2026-10-24T23:30Z); returns 00:30Z = 02:30 CEST.
-	test.fails("handles the hour before the autumn switch (#15)", () => {
+	// 01:30 is still CEST (2026-10-24T23:30Z), not 00:30Z (= 02:30 CEST).
+	test("handles the hour before the autumn switch (#15)", () => {
 		expect(wallClockToUTC("2026-10-25T01:30")).toEqual(
 			utc("2026-10-24T23:30:00"),
+		);
+	});
+
+	const halfHours = (day: string) =>
+		Array.from({ length: 48 }, (_, i) => {
+			const hh = String(Math.floor(i / 2)).padStart(2, "0");
+			return `${day}T${hh}:${i % 2 === 0 ? "00" : "30"}`;
+		});
+
+	test.each([
+		["Europe/Berlin", "2026-03-29", ["02:00", "02:30"]],
+		["Europe/Berlin", "2026-10-25", []],
+		["America/New_York", "2026-03-08", ["02:00", "02:30"]],
+		["America/New_York", "2026-11-01", []],
+		["Australia/Sydney", "2026-10-04", ["02:00", "02:30"]],
+		["Australia/Sydney", "2026-04-05", []],
+	])("round-trips every half hour of the DST day in %s on %s (#15)", (tz, day, skipped) => {
+		for (const input of halfHours(day)) {
+			if (skipped.includes(input.slice(11))) {
+				continue;
+			}
+			expect(utcToWallClockInput(wallClockToUTC(input, tz), tz)).toBe(input);
+		}
+	});
+
+	test("a skipped spring wall-clock time moves forward by the gap (#15)", () => {
+		// 02:00–02:59 do not exist on 2026-03-29; 02:30 is read as 03:30 CEST.
+		expect(wallClockToUTC("2026-03-29T02:00")).toEqual(
+			utc("2026-03-29T01:00:00"),
+		);
+		expect(wallClockToUTC("2026-03-29T02:30")).toEqual(
+			utc("2026-03-29T01:30:00"),
+		);
+	});
+
+	test("a repeated autumn wall-clock time maps to the earlier instant (#15)", () => {
+		expect(wallClockToUTC("2026-10-25T02:00")).toEqual(
+			utc("2026-10-25T00:00:00"),
+		);
+		expect(wallClockToUTC("2026-10-25T02:30")).toEqual(
+			utc("2026-10-25T00:30:00"),
+		);
+		expect(wallClockToUTC("2026-10-25T03:00")).toEqual(
+			utc("2026-10-25T02:00:00"),
 		);
 	});
 });
@@ -179,18 +223,78 @@ describe("day arithmetic", () => {
 		expect(addDaysInTZ(utc(from), days)).toEqual(utc(expected));
 	});
 
-	// Oct 25 has 25 h, so start + 24 h is still Oct 25 (breaks WeekPreview's next week).
-	test.fails("addDaysInTZ steps over the 25-hour autumn day (#135)", () => {
+	// Oct 25 has 25 h: start + 24 h would still be Oct 25.
+	test("addDaysInTZ steps over the 25-hour autumn day (#135)", () => {
 		expect(addDaysInTZ(utc("2026-10-25T10:00:00"), 1)).toEqual(
 			utc("2026-10-25T23:00:00"),
 		);
 	});
 
-	// Mar 29 has 23 h: Mar 30 00:00 − 24 h is Mar 28 23:00, a day too far.
-	test.fails("addDaysInTZ steps back over the 23-hour spring day (#135)", () => {
+	// Mar 29 has 23 h: Mar 30 00:00 − 24 h would be Mar 28, a day too far.
+	test("addDaysInTZ steps back over the 23-hour spring day (#135)", () => {
 		expect(addDaysInTZ(utc("2026-03-30T10:00:00"), -1)).toEqual(
 			utc("2026-03-28T23:00:00"),
 		);
+	});
+
+	test.each([
+		// Every hour of the Berlin day, from its first to its last instant.
+		["2026-03-29", "2026-03-28T23:00:00", 23, "2026-03-28", "2026-03-30"],
+		["2026-10-25", "2026-10-24T22:00:00", 25, "2026-10-24", "2026-10-26"],
+		// The days next to them, stepping onto the DST day.
+		["2026-03-28", "2026-03-27T23:00:00", 24, "2026-03-27", "2026-03-29"],
+		["2026-03-30", "2026-03-29T22:00:00", 24, "2026-03-29", "2026-03-31"],
+		["2026-10-24", "2026-10-23T22:00:00", 24, "2026-10-23", "2026-10-25"],
+		["2026-10-26", "2026-10-25T23:00:00", 24, "2026-10-25", "2026-10-27"],
+	])("addDaysInTZ from any time on %s (#135)", (day, firstInstant, hours, prev, next) => {
+		for (let h = 0; h < hours; h++) {
+			const at = new Date(utc(firstInstant).getTime() + h * 3_600_000);
+			expect(dayKeyInTZ(at)).toBe(day);
+			expect(dayKeyInTZ(addDaysInTZ(at, 0))).toBe(day);
+			expect(addDaysInTZ(at, 0)).toEqual(startOfDayInTZ(at));
+			expect(dayKeyInTZ(addDaysInTZ(at, 1))).toBe(next);
+			expect(dayKeyInTZ(addDaysInTZ(at, -1))).toBe(prev);
+			expect(utcToWallClockInput(addDaysInTZ(at, 1))).toBe(`${next}T00:00`);
+			expect(utcToWallClockInput(addDaysInTZ(at, -1))).toBe(`${prev}T00:00`);
+		}
+	});
+
+	test("addDaysInTZ crosses both DST switches and the year in one step (#135)", () => {
+		expect(addDaysInTZ(utc("2026-03-01T12:00:00"), 365)).toEqual(
+			wallClockToUTC("2027-03-01"),
+		);
+		expect(addDaysInTZ(utc("2026-12-31T23:30:00"), -1)).toEqual(
+			wallClockToUTC("2026-12-31"),
+		);
+		expect(addDaysInTZ(utc("2026-10-25T12:00:00"), 1, "UTC")).toEqual(
+			utc("2026-10-26T00:00:00"),
+		);
+	});
+
+	// WeekPreview: "next week" from the week of 19 Oct 2026 starts on Monday
+	// 26 Oct and lists seven distinct days.
+	test("week preview days around the autumn switch (#135)", () => {
+		const nextWeek = addDaysInTZ(
+			startOfWeekInTZ(utc("2026-10-21T10:00:00")),
+			7,
+		);
+		const days = Array.from({ length: 7 }, (_, i) =>
+			dayKeyInTZ(addDaysInTZ(nextWeek, i)),
+		);
+		expect(days).toEqual([
+			"2026-10-26",
+			"2026-10-27",
+			"2026-10-28",
+			"2026-10-29",
+			"2026-10-30",
+			"2026-10-31",
+			"2026-11-01",
+		]);
+		const thisWeek = Array.from({ length: 7 }, (_, i) =>
+			dayKeyInTZ(addDaysInTZ(utc("2026-10-18T22:00:00"), i)),
+		);
+		expect(thisWeek.at(-1)).toBe("2026-10-25");
+		expect(new Set(thisWeek).size).toBe(7);
 	});
 
 	test.each([
