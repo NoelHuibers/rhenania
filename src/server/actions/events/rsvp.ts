@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { eventRsvps, events, users } from "~/server/db/schema";
+import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 
 export type RsvpStatus = "yes" | "no" | "maybe";
 
@@ -220,6 +221,7 @@ export async function getUserRsvpsForEvents(eventIds: string[]) {
 }
 
 export async function getRsvpCountsForEvents(eventIds: string[]) {
+	await requireMember();
 	const empty: RsvpCounts = { yes: 0, no: 0, maybe: 0 };
 	if (eventIds.length === 0) {
 		return new Map<string, RsvpCounts>();
@@ -250,6 +252,7 @@ export async function getRsvpCountsForEvents(eventIds: string[]) {
 }
 
 export async function getEventRsvps(eventId: string) {
+	await requireRole(ROLES.events);
 	return db
 		.select({
 			userId: eventRsvps.userId,
@@ -276,6 +279,7 @@ export type AttendeePreview = {
 const PREVIEW_LIMIT = 4;
 
 export async function getYesAttendeePreviewForEvents(eventIds: string[]) {
+	await requireMember();
 	if (eventIds.length === 0) {
 		return new Map<string, AttendeePreview[]>();
 	}
@@ -310,6 +314,7 @@ export async function getYesAttendeePreviewForEvents(eventIds: string[]) {
 }
 
 export async function getEventAttendees(eventId: string) {
+	await requireMember();
 	return db
 		.select({
 			userId: eventRsvps.userId,

@@ -32,6 +32,7 @@ import {
 	fuchsenBills,
 	fuchsenOrders,
 } from "~/server/db/schema";
+import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 import {
 	BILLING_CONFLICT_MESSAGE,
 	insertChunks,
@@ -41,7 +42,6 @@ import {
 } from "~/server/lib/billing-batch";
 import { carriedBillRefusal } from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
-import { hasRole } from "../admin/userRoles";
 
 export type FuchsenBillPeriod = typeof fuchsenBillPeriods.$inferSelect;
 export type FuchsenBill = typeof fuchsenBills.$inferSelect;
@@ -69,11 +69,8 @@ async function requireFuchsenwart() {
 	if (!session?.user?.id) {
 		return { ok: false as const, error: "Authentifizierung erforderlich" };
 	}
-	const [isFuchs, isAdmin] = await Promise.all([
-		hasRole(session.user.id, "Fuchs"),
-		hasRole(session.user.id, "Admin"),
-	]);
-	if (!isFuchs && !isAdmin) {
+	// The session's roles are this Corps' roles of an active member.
+	if (!ROLES.fuchsen.some((role) => session.user.roles.includes(role))) {
 		return { ok: false as const, error: "Keine Berechtigung" };
 	}
 	return { ok: true as const, userId: session.user.id };
@@ -385,6 +382,7 @@ export async function createNewFuchsenBilling() {
 }
 
 export async function getLatestFuchsenBillPeriod() {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const [latest] = await db
 			.select()
@@ -399,6 +397,7 @@ export async function getLatestFuchsenBillPeriod() {
 }
 
 export async function getAllFuchsenBillPeriods() {
+	await requireRole(ROLES.fuchsen);
 	try {
 		return await db
 			.select()
@@ -439,6 +438,7 @@ async function withFuchsenItems<T>(
 export async function getFuchsenBillsForPeriod(
 	billPeriodId: string,
 ): Promise<FuchsenBillingEntry[]> {
+	await requireRole(ROLES.fuchsen);
 	try {
 		// Bills and all their items in one round trip.
 		const [billsData, itemsByBill] = await withFuchsenItems(
@@ -482,6 +482,7 @@ export async function getFuchsenBillsForPeriod(
 export async function getUnbilledFuchsenOrdersGrouped(): Promise<
 	FuchsenBillingEntry[]
 > {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const orders = await db
 			.select()
@@ -672,6 +673,7 @@ async function setCarriedBills(
 }
 
 export async function getFuchsenBillingStatistics() {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const [unbilled] = await db
 			.select({
@@ -708,6 +710,7 @@ export async function getFuchsenBillingStatistics() {
 export async function getMyFuchsenBills(): Promise<
 	{ period: FuchsenBillPeriod | null; bill: FuchsenBillingEntry }[]
 > {
+	await requireMember();
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {

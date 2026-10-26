@@ -1,6 +1,7 @@
 // app/api/upload/route.ts
 import { type HandleUploadBody, handleUpload } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
+import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 import { log } from "~/server/lib/log";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
 
@@ -71,6 +72,22 @@ export async function POST(request: Request) {
 					throw new Error("Unauthorized upload path");
 				}
 
+				// Who may upload where. The middleware already requires a member
+				// session for /api/upload; check again here, per folder.
+				const member = await requireMember();
+				if (matched === "homepage/") {
+					await requireRole(ROLES.fotos);
+				} else if (matched === "drinks/") {
+					await requireRole(ROLES.getraenke);
+				} else if (
+					matched === "profile/" &&
+					!subpath.startsWith(`profile/${member.id}/`)
+				) {
+					// Avatars live in the uploader's own folder, so the avatar
+					// actions can tell which blobs belong to whom.
+					throw new Error("Unauthorized upload path");
+				}
+
 				if (matched === "profile/") {
 					return {
 						allowedContentTypes: [
@@ -91,7 +108,6 @@ export async function POST(request: Request) {
 							"image/jpg",
 							"image/png",
 							"image/webp",
-							"image/svg+xml",
 						],
 						maximumSizeInBytes: 10 * 1024 * 1024,
 						addRandomSuffix: true,

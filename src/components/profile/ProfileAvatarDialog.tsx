@@ -93,7 +93,7 @@ export function ProfileAvatarDialog({
 		try {
 			// Upload file to Vercel Blob
 			const blob = await upload(
-				`tenants/${tenantSlug}/profile/${selectedFile.name}`,
+				`tenants/${tenantSlug}/profile/${userId}/${selectedFile.name}`,
 				selectedFile,
 				{
 					access: "public",

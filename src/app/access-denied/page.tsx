@@ -4,14 +4,14 @@ import { redirect } from "next/navigation";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent } from "~/components/ui/card";
-import { auth } from "~/server/auth";
+import { getIdentity } from "~/server/auth";
 
 export default async function AccessDeniedPage({
 	searchParams,
 }: {
 	searchParams: Promise<{ required?: string; path?: string }>;
 }) {
-	const session = await auth();
+	const session = await getIdentity();
 
 	// If user is not logged in, redirect to sign in
 	if (!session?.user) {

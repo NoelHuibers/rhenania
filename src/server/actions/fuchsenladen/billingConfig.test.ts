@@ -30,6 +30,7 @@ const input: FuchsenBillingConfigInput = {
 describe("getFuchsenBillingConfig", () => {
 	test("falls back to an empty config with a 14 day due date", async () => {
 		await createTenant();
+		signInAs(await createUser());
 
 		expect(await getFuchsenBillingConfig()).toMatchObject({
 			id: "singleton",

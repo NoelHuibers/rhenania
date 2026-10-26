@@ -50,9 +50,14 @@ export function clearTenantHostCache() {
 	invalidateHostLookups();
 }
 
+/**
+ * Tenant of the current request, derived from the host the request was sent
+ * to (cached). The `x-tenant-id` header set by the middleware is never
+ * trusted: requests the middleware doesn't match could carry a forged one.
+ */
 export async function getTenantId(): Promise<string | null> {
 	const h = await headers();
-	return h.get(TENANT_HEADER);
+	return resolveTenantByHost(h.get("x-forwarded-host") ?? h.get("host"));
 }
 
 export async function requireTenantId(): Promise<string> {

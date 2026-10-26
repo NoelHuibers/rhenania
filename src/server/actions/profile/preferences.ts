@@ -5,10 +5,11 @@ import { sql } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { userPreferences } from "~/server/db/schema";
+import { ELO_PREFERENCE_KEY } from "~/server/lib/elo-preference";
 import {
-	ELO_PREFERENCE_KEY,
-	readEloEnabled,
-} from "~/server/lib/elo-preference";
+	type EventTypeName,
+	sanitizeHiddenTypes,
+} from "~/server/lib/preferences";
 
 type ValueType = "boolean" | "number" | "string" | "json";
 
@@ -103,10 +104,6 @@ export async function setEloPreferenceAction(opts: { enabled: boolean }) {
 	return res;
 }
 
-export async function isEloEnabledForUser(userId: string): Promise<boolean> {
-	return await readEloEnabled(db, userId);
-}
-
 // --- Public profile sugar ---
 
 const PUBLIC_PROFILE_KEY = "privacy.publicProfileEnabled";
@@ -125,24 +122,6 @@ export async function setPublicProfilePreferenceAction(opts: {
 	enabled: boolean;
 }) {
 	return await setUserPreference(PUBLIC_PROFILE_KEY, opts.enabled, "boolean");
-}
-
-export async function isPublicProfileEnabledForUser(
-	userId: string,
-): Promise<boolean> {
-	const row = await db.query.userPreferences.findFirst({
-		where: (t, { and, eq }) =>
-			and(eq(t.userId, userId), eq(t.key, PUBLIC_PROFILE_KEY)),
-		columns: { value: true },
-	});
-	if (!row) {
-		return true;
-	}
-	try {
-		return JSON.parse(row.value) !== false;
-	} catch {
-		return true;
-	}
 }
 
 // --- Challenge notification sugar ---
@@ -192,26 +171,7 @@ export async function setEmailNotificationPreferenceAction(opts: {
 
 const HIDDEN_EVENT_TYPES_KEY = "semesterprogramm.hiddenTypes";
 
-const ALL_EVENT_TYPES = [
-	"Intern",
-	"AHV",
-	"oCC",
-	"SC",
-	"Jour Fix",
-	"Stammtisch",
-	"Sonstige",
-] as const;
-
-export type EventTypeName = (typeof ALL_EVENT_TYPES)[number];
-
-function sanitizeHiddenTypes(value: unknown): EventTypeName[] {
-	if (!Array.isArray(value)) {
-		return [];
-	}
-	return value.filter((v): v is EventTypeName =>
-		(ALL_EVENT_TYPES as readonly string[]).includes(v),
-	);
-}
+export type { EventTypeName };
 
 export async function getHiddenEventTypes(): Promise<EventTypeName[]> {
 	const raw = await getUserPreference<unknown>(
@@ -220,24 +180,6 @@ export async function getHiddenEventTypes(): Promise<EventTypeName[]> {
 		"json",
 	);
 	return sanitizeHiddenTypes(raw);
-}
-
-export async function getHiddenEventTypesForUser(
-	userId: string,
-): Promise<EventTypeName[]> {
-	const row = await db.query.userPreferences.findFirst({
-		where: (t, { and, eq }) =>
-			and(eq(t.userId, userId), eq(t.key, HIDDEN_EVENT_TYPES_KEY)),
-		columns: { value: true },
-	});
-	if (!row) {
-		return [];
-	}
-	try {
-		return sanitizeHiddenTypes(JSON.parse(row.value));
-	} catch {
-		return [];
-	}
 }
 
 export async function setHiddenEventTypes(types: EventTypeName[]) {

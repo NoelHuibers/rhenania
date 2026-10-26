@@ -54,11 +54,11 @@ describe("admin gate", () => {
 		const member = await createTestUser({ roles: ["Getränkewart"] });
 
 		await expect(createUser({ email: "neu@example.test" })).rejects.toThrow(
-			"Nicht authentifiziert",
+			"Nicht angemeldet",
 		);
 		signInAs(member);
 		await expect(createUser({ email: "neu@example.test" })).rejects.toThrow(
-			"Keine Berechtigung für diese Aktion",
+			"Keine Berechtigung",
 		);
 		await expect(resendVerificationEmail(member.email)).rejects.toThrow(
 			"Keine Berechtigung",

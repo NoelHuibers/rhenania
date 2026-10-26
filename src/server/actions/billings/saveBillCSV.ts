@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { getZonedParts } from "~/lib/time";
 import { db } from "~/server/db";
 import { billCSVs, billPeriods } from "~/server/db/schema";
+import { requireMember } from "~/server/lib/authz";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import { generateBillPeriodCSV } from "./createCSV";
 
@@ -23,6 +24,7 @@ export async function saveBillPeriodCSV(
 	error?: string;
 	wasExisting?: boolean;
 }> {
+	await requireMember();
 	try {
 		const tenant = await requireCurrentTenant();
 		const delimiter = options?.delimiter || ";";
@@ -107,6 +109,9 @@ export async function saveBillPeriodCSV(
 		const blob = await put(fileName, csvContent, {
 			access: "public",
 			contentType: "text/csv;charset=utf-8",
+			// Public blobs are readable by anyone with the URL: never make the
+			// URL guessable from the period, date or member name.
+			addRandomSuffix: true,
 		});
 
 		// Wait for blob to be available before proceeding

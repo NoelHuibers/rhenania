@@ -1,7 +1,6 @@
 // Shared role guards for CC-Kasse server actions.
 // Not a server-action module itself — only imported by the action files.
 
-import { hasAnyRole } from "~/server/actions/admin/userRoles";
 import { auth } from "~/server/auth";
 
 // Senior + CC-Kasse + Admin may edit the Etaplan / Kostenpunkte.
@@ -26,7 +25,9 @@ export async function requireRoles(roles: string[]): Promise<GuardResult> {
 	if (!userId) {
 		return { ok: false, error: "Nicht angemeldet" };
 	}
-	if (!(await hasAnyRole(userId, roles))) {
+	// Roles from auth() are membership-aware: a suspended or foreign member
+	// has none here.
+	if (!roles.some((role) => session.user.roles.includes(role))) {
 		return { ok: false, error: "Keine Berechtigung" };
 	}
 	return { ok: true, userId };

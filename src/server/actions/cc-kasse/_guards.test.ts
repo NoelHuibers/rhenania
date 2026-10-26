@@ -113,10 +113,7 @@ describe("requireRoles", () => {
 
 		expect((await requireRoles(TREASURY_ROLES)).ok).toBe(true);
 		switchTenant(other);
-		expect(await requireRoles(TREASURY_ROLES)).toEqual({
-			ok: false,
-			error: "Keine Berechtigung",
-		});
+		expect((await requireRoles(TREASURY_ROLES)).ok).toBe(false);
 	});
 });
 

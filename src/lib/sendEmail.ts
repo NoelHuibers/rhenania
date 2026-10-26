@@ -1,4 +1,6 @@
-"use server";
+// Server-only helpers, deliberately NOT "use server": the functions here
+// must not be callable from the browser as server actions.
+import "server-only";
 import { env } from "~/env";
 import { sendTenantMail } from "~/server/lib/mailer";
 import { getCurrentTenant } from "~/server/lib/tenant-context";

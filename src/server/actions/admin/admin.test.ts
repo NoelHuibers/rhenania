@@ -198,11 +198,11 @@ describe("role assignment", () => {
 });
 
 describe("updateUser", () => {
-	test("updates name and e-mail on the identity and the tenant mirror", async () => {
+	test("updates the name on the identity and the tenant mirror", async () => {
 		await asAdmin();
-		const member = await createUser({ name: "Alt" });
+		const member = await createUser({ name: "Alt", email: "alt@example.test" });
 
-		await updateUser(member.id, { name: "Neu", email: "neu@example.test" });
+		await updateUser(member.id, { name: "Neu", email: "ALT@example.test" });
 
 		const [identity] = await controlDb()
 			.select()
@@ -212,18 +212,40 @@ describe("updateUser", () => {
 			.select()
 			.from(users)
 			.where(eq(users.id, member.id));
-		expect(identity).toMatchObject({ name: "Neu", email: "neu@example.test" });
-		expect(mirror).toMatchObject({ name: "Neu", email: "neu@example.test" });
+		expect(identity).toMatchObject({ name: "Neu", email: "alt@example.test" });
+		expect(mirror).toMatchObject({ name: "Neu" });
 	});
 
-	test("an e-mail already used by another identity is refused", async () => {
+	test("tenant admins cannot change a login e-mail", async () => {
 		await asAdmin();
 		const member = await createUser({ email: "a@example.test" });
-		await createUser({ email: "b@example.test" });
 
 		await expect(
-			updateUser(member.id, { email: "b@example.test" }),
-		).rejects.toThrow("Failed to update user");
+			updateUser(member.id, { email: "attacker@example.test" }),
+		).rejects.toThrow("nur von der Person selbst");
+		const [identity] = await controlDb()
+			.select()
+			.from(controlUsers)
+			.where(eq(controlUsers.id, member.id));
+		expect(identity?.email).toBe("a@example.test");
+	});
+
+	test("users of another Corps are out of reach", async () => {
+		const home = await createTenant();
+		const other = await createTenant();
+		const outsider = await createUser({ name: "Fremd", tenantId: other.id });
+		switchTenant(home);
+		signInAs(await createUser({ roles: ["Admin"], tenantId: home.id }));
+
+		await expect(updateUser(outsider.id, { name: "Gekapert" })).rejects.toThrow(
+			"kein Mitglied",
+		);
+		await expect(deleteUser(outsider.id)).rejects.toThrow("kein Mitglied");
+		const [identity] = await controlDb()
+			.select()
+			.from(controlUsers)
+			.where(eq(controlUsers.id, outsider.id));
+		expect(identity?.name).toBe("Fremd");
 	});
 });
 

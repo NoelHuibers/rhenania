@@ -69,6 +69,17 @@ describe("GET /api/calendar", () => {
 		);
 	});
 
+	test("lists only public events", async () => {
+		await createTenant();
+		await createEvent({ title: "Kneipe", isPublic: true });
+		await createEvent({ title: "Interner Convent", isPublic: false });
+
+		const ics = await (await GET()).text();
+
+		expect(ics).toContain("SUMMARY:Kneipe");
+		expect(ics).not.toContain("Interner Convent");
+	});
+
 	test("resolves venue short names and escapes text values", async () => {
 		await createTenant();
 		await createVenue("adH", "Hauptstr. 1, 70174 Stuttgart");

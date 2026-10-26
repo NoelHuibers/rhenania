@@ -658,7 +658,7 @@ async function settleCrossTenantChallenge(
 
 // ---------- Sweep expired ----------
 
-export async function sweepExpiredCrossTenantChallenges(): Promise<void> {
+async function sweepExpiredCrossTenantChallenges(): Promise<void> {
 	const now = new Date();
 	// pending + past respondDeadline → expired
 	await controlDb

@@ -189,15 +189,11 @@ describe("closeInventoryAndBill", () => {
 		const { pils, running } = await seedRunningInventory();
 		signOut();
 
-		expect(
-			await closeInventoryAndBill([
+		await expect(
+			closeInventoryAndBill([
 				{ drinkId: pils.id, countedStock: 15, purchasedSince: 0 },
 			]),
-		).toEqual({
-			success: false,
-			failedStep: "inventory",
-			error: "Unauthorized",
-		});
+		).rejects.toThrow();
 		expect(billing).not.toHaveBeenCalled();
 		expect(await allInventories()).toEqual([
 			expect.objectContaining({ id: running.id, status: "active" }),

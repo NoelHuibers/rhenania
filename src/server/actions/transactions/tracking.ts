@@ -14,6 +14,7 @@ import {
 } from "drizzle-orm";
 import { db } from "~/server/db";
 import { orders } from "~/server/db/schema";
+import { requireMember } from "~/server/lib/authz";
 
 /**
  * A case-insensitive GLOB pattern for "contains `term`". SQLite's LIKE and
@@ -59,6 +60,7 @@ export interface TransactionFilters {
 }
 
 export async function getTransactions(filters: TransactionFilters = {}) {
+	await requireMember();
 	try {
 		const {
 			search = "",
@@ -144,6 +146,7 @@ export async function getTransactions(filters: TransactionFilters = {}) {
 
 // Server action to get transaction count (useful for pagination)
 export async function getTransactionCount(filters: TransactionFilters = {}) {
+	await requireMember();
 	try {
 		const { search = "", billStatus = "all", purposeFilter = "all" } = filters;
 
@@ -190,6 +193,7 @@ export async function getTransactionCount(filters: TransactionFilters = {}) {
 
 // Server action to get unique purposes for filter dropdown
 export async function getUniquePurposes() {
+	await requireMember();
 	try {
 		const purposes = await db
 			.select({ bookingFor: orders.bookingFor })

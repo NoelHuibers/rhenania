@@ -756,6 +756,8 @@ describe("cross-Corps discovery", () => {
 
 	test("global peak holder is the highest peak among active players", async () => {
 		const { a, b } = await twoCorps();
+		switchTenant(a.tenant);
+		signInAs(a.player);
 		expect(await getGlobalPeakEloHolder()).toBeNull();
 
 		await setUserStats(a.player.id, {

@@ -17,6 +17,7 @@ import {
 	roles,
 	userRoles,
 } from "~/server/db/schema";
+import { ROLES, requireRole } from "~/server/lib/authz";
 import { FeatureDisabledError, hasFeature } from "~/server/lib/features";
 import {
 	getGetraenkeBillingProfile,
@@ -38,6 +39,7 @@ function sumBills(status: "Unbezahlt" | "Gestundet", group: boolean) {
 }
 
 export async function getKasseSummary() {
+	await requireRole(ROLES.getraenke);
 	const [
 		kassenstand,
 		lagerwert,
@@ -138,6 +140,7 @@ export async function getKasseSummary() {
 // ─── Bank Entries ─────────────────────────────────────────────────────────────
 
 export async function getBankEntries() {
+	await requireRole(ROLES.getraenke);
 	return db.select().from(bankEntries).orderBy(desc(bankEntries.date));
 }
 
@@ -146,9 +149,16 @@ export async function addBankEntry(data: {
 	description: string;
 	date: Date;
 }) {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht angemeldet" };
+	}
+	if (
+		!Number.isFinite(data.amount) ||
+		Number.isNaN(new Date(data.date).getTime())
+	) {
+		return { success: false, error: "Ungültiger Betrag oder Datum" };
 	}
 
 	await db.insert(bankEntries).values({
@@ -161,6 +171,7 @@ export async function addBankEntry(data: {
 }
 
 export async function deleteBankEntry(id: string) {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht angemeldet" };
@@ -173,6 +184,7 @@ export async function deleteBankEntry(id: string) {
 // ─── External Bills ───────────────────────────────────────────────────────────
 
 export async function getExternalBills() {
+	await requireRole(ROLES.getraenke);
 	return db.select().from(externalBills).orderBy(desc(externalBills.createdAt));
 }
 
@@ -181,9 +193,13 @@ export async function addExternalBill(data: {
 	description: string;
 	amount: number;
 }) {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht angemeldet" };
+	}
+	if (!Number.isFinite(data.amount) || data.amount <= 0) {
+		return { success: false, error: "Ungültiger Betrag" };
 	}
 
 	await db.insert(externalBills).values({
@@ -196,6 +212,7 @@ export async function addExternalBill(data: {
 }
 
 export async function markExternalBillPaid(id: string) {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht angemeldet" };
@@ -209,6 +226,7 @@ export async function markExternalBillPaid(id: string) {
 }
 
 export async function deleteExternalBill(id: string) {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht angemeldet" };
@@ -221,6 +239,7 @@ export async function deleteExternalBill(id: string) {
 // ─── Pfand ────────────────────────────────────────────────────────────────────
 
 export async function getPfandWert() {
+	await requireRole(ROLES.getraenke);
 	const [row] = await db
 		.select({ pfandWert: kasseConfig.pfandWert })
 		.from(kasseConfig)
@@ -229,9 +248,13 @@ export async function getPfandWert() {
 }
 
 export async function setPfandWert(value: number) {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht angemeldet" };
+	}
+	if (!Number.isFinite(value) || value < 0) {
+		return { success: false, error: "Ungültiger Pfandwert" };
 	}
 
 	await db
@@ -248,6 +271,7 @@ export async function setPfandWert(value: number) {
 
 // All group bills (paid ones are listed too), with their items: one round trip.
 export async function getOpenEntityBills() {
+	await requireRole(ROLES.getraenke);
 	const isGroupBill = sql`${bills.userId} LIKE 'event-%'`;
 	const [groupBills, items] = await db.batch([
 		db
@@ -282,6 +306,7 @@ export async function getOpenEntityBills() {
 // ─── Open member bills ────────────────────────────────────────────────────────
 
 export async function getOpenMemberBills() {
+	await requireRole(ROLES.getraenke);
 	return db
 		.select({
 			id: bills.id,
@@ -317,6 +342,7 @@ export async function downloadEntityBillPDF(billId: string): Promise<{
 	fileName?: string;
 	error?: string;
 }> {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user?.id) {
 		return { success: false, error: "Nicht angemeldet" };
@@ -371,6 +397,7 @@ export type GetraenkeSettings = {
 
 /** Current values, or null when the tenant has neither feature. */
 export async function getGetraenkeSettings(): Promise<GetraenkeSettings | null> {
+	await requireRole(ROLES.getraenke);
 	const [markup, treasurer] = await Promise.all([
 		hasFeature("drinks.markup"),
 		hasFeature("billing.treasurerRecipient"),

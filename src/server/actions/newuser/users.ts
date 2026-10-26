@@ -12,6 +12,7 @@ import {
 } from "~/server/db/control-schema";
 import { userRoles, verificationTokens } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
+import { ROLES, requireRole } from "~/server/lib/authz";
 import { requireTenantId } from "~/server/lib/tenant-context";
 import { mirrorUserToTenant } from "~/server/lib/user-mirror";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
@@ -35,6 +36,7 @@ async function checkAdminPermission() {
 }
 
 export async function toggleUserRole(userId: string, roleId: string) {
+	await requireRole(ROLES.admin);
 	await checkAdminPermission();
 	const tenantId = await requireTenantId();
 	const tdb = await getTenantDb(tenantId);
@@ -86,6 +88,7 @@ interface CreateUserResult {
 export async function createUser(
 	data: CreateUserData,
 ): Promise<CreateUserResult> {
+	await requireRole(ROLES.admin);
 	await checkAdminPermission();
 	const tenantId = await requireTenantId();
 	const tdb = await getTenantDb(tenantId);
@@ -220,6 +223,7 @@ export async function createUser(
 }
 
 export async function resendVerificationEmail(email: string) {
+	await requireRole(ROLES.admin);
 	await checkAdminPermission();
 	const tenantId = await requireTenantId();
 	const tdb = await getTenantDb(tenantId);

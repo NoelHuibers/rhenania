@@ -40,10 +40,10 @@ import {
 	createUser,
 	setupTestDatabases,
 	signInAs,
-	switchTenant,
 	type TestUser,
 	tenantDb,
 } from "../../../../test/harness";
+import { requireTenant } from "../../../../test/state";
 import {
 	getKasseSummary,
 	getOpenMemberBills,
@@ -414,7 +414,11 @@ describe("Erste Abrechnung", () => {
 		expect(putMock).toHaveBeenCalledExactlyOnceWith(
 			`tenants/${tenant.slug}/bills/Rechnung_07_Okt_2026.csv`,
 			csv.csvContent,
-			{ access: "public", contentType: "text/csv;charset=utf-8" },
+			{
+				access: "public",
+				contentType: "text/csv;charset=utf-8",
+				addRandomSuffix: true,
+			},
 		);
 
 		// PDF: the printed lines are the stored parts.
@@ -652,7 +656,9 @@ describe("Übertrag und Mahnung über mehrere Perioden", () => {
 		const moritz = await createUser({ name: "Moritz" });
 		const pils = await createDrink({ name: "Pils", price: 1.5 });
 		await bestellen(max, pils, 2, "CC");
-		await bestellen(moritz, pils, 1, "cc");
+		// The order action only accepts the canonical "CC"; lower-case rows
+		// predate that check and still have to land on the same account.
+		await createOrderAt({ drink: pils, user: moritz, bookingFor: "cc" });
 		await bestellen(moritz, pils);
 
 		const p1 = await abrechnenMitPeriode(woche(0));
@@ -1226,8 +1232,11 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 		await kasseEinrichten();
 		await bestellen(await createUser(), await createDrink());
 		const run = await abrechnenMitPeriode(woche(0));
-		// The request now points at a tenant whose database is gone.
-		switchTenant("nicht-erreichbar");
+		// The billing tables fail from here on. The caller is still signed in,
+		// so the guards pass and the actions' own error handling is reached.
+		await requireTenant().client.executeMultiple(
+			"PRAGMA foreign_keys = OFF; DROP TABLE bill_csv; DROP TABLE bill_pdf; DROP TABLE bill_item; DROP TABLE bill; DROP TABLE bill_period; DROP TABLE `order`;",
+		);
 
 		expect(await getLatestBillPeriod()).toBeNull();
 		expect(await getAllBillPeriods()).toEqual([]);

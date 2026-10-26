@@ -1,6 +1,5 @@
 import { asc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { getHiddenEventTypesForUser } from "~/server/actions/profile/preferences";
 import {
 	calendarTokens,
 	eventRsvps,
@@ -10,6 +9,7 @@ import {
 } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 import { escapeICalText, foldLine, formatICalDate } from "~/server/lib/ical";
+import { getHiddenEventTypesForUser } from "~/server/lib/preferences";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 const STATUS_TO_PARTSTAT: Record<string, string> = {

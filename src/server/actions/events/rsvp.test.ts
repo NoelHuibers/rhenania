@@ -182,6 +182,7 @@ describe("removeRsvp", () => {
 describe("RSVP read models", () => {
 	test("answers and counts per event", async () => {
 		await createTenant();
+		signInAs(await createUser({ name: "Leser" }));
 		const me = await member();
 		const e1 = await createEvent();
 		const e2 = await createEvent();
@@ -210,6 +211,7 @@ describe("RSVP read models", () => {
 
 	test("attendee lists are sorted by status, then name, and skip declines", async () => {
 		await createTenant();
+		signInAs(await createUser({ name: "Leser" }));
 		const event = await createEvent();
 		const answers = [
 			["Clara", "yes"],
@@ -221,6 +223,7 @@ describe("RSVP read models", () => {
 			await createRsvp({ event, user: await member(name), status });
 		}
 
+		signInAs(await createUser({ name: "Admin", roles: ["Admin"] }));
 		expect(
 			(await getEventRsvps(event.id)).map((r) => [r.userName, r.status]),
 		).toEqual([
@@ -238,6 +241,7 @@ describe("RSVP read models", () => {
 
 	test("the yes preview shows the first four to accept", async () => {
 		await createTenant();
+		signInAs(await createUser({ name: "Leser" }));
 		const event = await createEvent();
 		const empty = await createEvent();
 		for (let i = 1; i <= 5; i++) {

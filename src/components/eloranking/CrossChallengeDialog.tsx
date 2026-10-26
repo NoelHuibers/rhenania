@@ -180,7 +180,7 @@ export function CrossChallengeDialog() {
 								) : (
 									members.map((m) => (
 										<SelectItem key={m.userId} value={m.userId}>
-											{m.name ?? m.email} · {m.currentElo} ELO
+											{m.name ?? "Unbekannt"} · {m.currentElo} ELO
 										</SelectItem>
 									))
 								)}

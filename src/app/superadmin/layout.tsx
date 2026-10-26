@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { auth } from "~/server/auth";
+import { getIdentity } from "~/server/auth";
 import { isSuperAdmin } from "~/server/lib/super-admin";
 
 export const metadata: Metadata = {
@@ -21,7 +21,7 @@ export default async function SuperadminLayout({
 }: {
 	children: React.ReactNode;
 }) {
-	const session = await auth();
+	const session = await getIdentity();
 	if (!session?.user?.id) {
 		redirect("/auth/signin?callbackUrl=/superadmin");
 	}

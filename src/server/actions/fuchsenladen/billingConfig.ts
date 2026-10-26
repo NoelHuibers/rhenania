@@ -5,6 +5,7 @@ import { z } from "zod";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { fuchsenBillingConfig } from "~/server/db/schema";
+import { requireMember } from "~/server/lib/authz";
 import { hasRole } from "../admin/userRoles";
 
 export type FuchsenBillingConfig = typeof fuchsenBillingConfig.$inferSelect;
@@ -45,6 +46,7 @@ export type FuchsenBillingConfigInput = z.infer<typeof configSchema>;
 
 /** Readable by any authenticated user (members need the payment details). */
 export async function getFuchsenBillingConfig(): Promise<FuchsenBillingConfig> {
+	await requireMember();
 	try {
 		const [config] = await db
 			.select()

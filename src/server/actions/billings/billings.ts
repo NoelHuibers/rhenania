@@ -3,6 +3,7 @@
 import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
+import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { carriedBillRefusal, paidAlongWith } from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
@@ -14,11 +15,13 @@ import { groupBy } from "~/server/lib/group-by";
  * billed by "Inventur + Rechnung", from the loss stored on the server (#10).
  */
 export async function createNewBilling() {
+	await requireRole(ROLES.getraenke);
 	return runGetraenkeBilling({ inventoryLoss: 0 });
 }
 
 // Get the latest bill period
 export async function getLatestBillPeriod() {
+	await requireMember();
 	try {
 		const [latestPeriod] = await db
 			.select()
@@ -35,6 +38,7 @@ export async function getLatestBillPeriod() {
 
 // Get all bill periods (for displaying tabs)
 export async function getAllBillPeriods() {
+	await requireMember();
 	try {
 		const periods = await db
 			.select()
@@ -50,6 +54,7 @@ export async function getAllBillPeriods() {
 
 // Get bills for a specific period
 export async function getBillsForPeriod(billPeriodId: string) {
+	await requireMember();
 	try {
 		// Bills and all their items in one round trip.
 		const [billsData, itemRows] = await db.batch([
@@ -113,6 +118,7 @@ export async function getBillsForPeriod(billPeriodId: string) {
 
 // Close/finalize a billing period
 export async function closeBillPeriod(billPeriodId: string) {
+	await requireRole(ROLES.getraenke);
 	try {
 		const now = new Date();
 
@@ -146,6 +152,7 @@ export async function updateBillStatus(
 	billId: string,
 	newStatus: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen",
 ): Promise<{ success: true } | { success: false; error?: string }> {
+	await requireRole(ROLES.getraenke);
 	if (
 		newStatus !== "Bezahlt" &&
 		newStatus !== "Unbezahlt" &&
@@ -222,6 +229,7 @@ export async function updateBillStatus(
 
 // Get billing statistics (updated to include detailed event breakdown)
 export async function getBillingStatistics() {
+	await requireRole(ROLES.getraenke);
 	try {
 		const [unbilledCount] = await db
 			.select({ count: sql<number>`count(*)` })
@@ -301,6 +309,7 @@ export async function getBillingStatistics() {
 
 // Get event orders (orders with bookingFor set) - useful for tracking
 export async function getEventOrders() {
+	await requireRole(ROLES.getraenke);
 	try {
 		const eventOrders = await db
 			.select()

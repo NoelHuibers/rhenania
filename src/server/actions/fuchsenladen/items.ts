@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import { fuchsenItems, fuchsenOrders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 import { isForeignKeyViolation } from "~/server/lib/db-errors";
 
 const addItemSchema = z.object({
@@ -47,6 +48,7 @@ export async function addFuchsenItem(data: {
 	pictureUrl?: string;
 	isCurrentlyAvailable: boolean;
 }) {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const validated = addItemSchema.parse(data);
 
@@ -92,6 +94,7 @@ export async function updateFuchsenItem(
 	id: string,
 	input: UpdateFuchsenItemInput,
 ) {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const validated = updateItemSchema.parse(input);
 		if (Object.keys(validated).length === 0) {
@@ -167,6 +170,7 @@ const FUCHSEN_ITEM_IN_USE_ERROR =
 	"Der Artikel wurde schon bestellt und kann deshalb nicht gelöscht werden. Setze ihn stattdessen auf „Nicht verfügbar“.";
 
 export async function deleteFuchsenItem(id: string) {
+	await requireRole(ROLES.fuchsen);
 	try {
 		// Delete the row first: orders reference it, and the picture must
 		// survive when the database refuses the delete.
@@ -197,6 +201,7 @@ export async function deleteFuchsenItem(id: string) {
 }
 
 export async function toggleFuchsenItemAvailability(id: string) {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const [current] = await db
 			.select()
@@ -232,6 +237,7 @@ export async function toggleFuchsenItemAvailability(id: string) {
 }
 
 export async function getFuchsenItems() {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const all = await db
 			.select()
@@ -246,6 +252,7 @@ export async function getFuchsenItems() {
 
 // Customer-facing menu, ordered by total consumption desc — like drinks.
 export async function getFuchsenItemsForMenu() {
+	await requireMember();
 	try {
 		const tenantDb = await getCurrentTenantDb();
 		const items = await tenantDb

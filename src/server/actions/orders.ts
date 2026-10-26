@@ -4,6 +4,11 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import {
+	isBookingAccount,
+	isValidOrderAmount,
+	MAX_ORDER_AMOUNT,
+} from "~/lib/drink-order";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { auth } from "~/server/auth";
 import { drinks, orders } from "~/server/db/schema";
@@ -94,11 +99,17 @@ export async function createOrder(
 		const bookedByAdminId = isBookingForOther ? adminId : null;
 		const bookedByAdminName = isBookingForOther ? adminName : null;
 
-		if (orderData.amount <= 0) {
+		if (!isValidOrderAmount(orderData.amount)) {
 			return {
 				success: false,
-				error: "Order amount must be greater than 0",
+				error: `Bitte eine ganze Anzahl zwischen 1 und ${MAX_ORDER_AMOUNT} wählen`,
 			};
+		}
+		if (
+			orderData.bookingFor !== null &&
+			!isBookingAccount(orderData.bookingFor)
+		) {
+			return { success: false, error: "Unbekanntes Abrechnungskonto" };
 		}
 
 		// The server decides the price: purchase price from the drinks table,

@@ -1,5 +1,7 @@
 // createUserPDF.ts
-"use server";
+// Server-only helpers, deliberately NOT "use server": the functions here
+// must not be callable from the browser as server actions.
+import "server-only";
 
 import { eq } from "drizzle-orm";
 import { db } from "~/server/db/index";

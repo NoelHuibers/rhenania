@@ -115,7 +115,7 @@ describe("createEvent / updateEvent / deleteEvent", () => {
 		});
 
 		switchTenant(b);
-		expect(await getAllEvents()).toEqual([]);
+		await expect(getAllEvents()).rejects.toThrow("Nicht angemeldet");
 		switchTenant(a);
 		expect(await getAllEvents()).toHaveLength(1);
 	});

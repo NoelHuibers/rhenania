@@ -11,7 +11,9 @@ import {
 import {
 	createDrink,
 	createTenant,
+	createUser,
 	setupTestDatabases,
+	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
 import { useServerTimeZone } from "../../../../test/server-tz";
@@ -282,6 +284,7 @@ describe("generateBillPeriodCSV", () => {
 describe("saveBillPeriodCSV", () => {
 	test("uploads the CSV under the tenant prefix and records it", async () => {
 		const tenant = await createTenant();
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 		const period = await periodWithBills();
 
 		const result = await saveBillPeriodCSV(period.id, { delimiter: ";" });
@@ -299,6 +302,7 @@ describe("saveBillPeriodCSV", () => {
 		expect(options).toEqual({
 			access: "public",
 			contentType: "text/csv;charset=utf-8",
+			addRandomSuffix: true,
 		});
 		const [row] = await tenantDb().select().from(billCSVs);
 		expect(row).toMatchObject({
@@ -313,6 +317,7 @@ describe("saveBillPeriodCSV", () => {
 	test("names the file after the Berlin day of the run on a UTC server (#15)", async () => {
 		useServerTimeZone("UTC");
 		const tenant = await createTenant();
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 		// Sunday 1 Nov 2026, 00:30 in Berlin; still 31 Oct in UTC.
 		const period = await periodWithBills(new Date("2026-10-31T23:30:00Z"));
 
@@ -325,6 +330,7 @@ describe("saveBillPeriodCSV", () => {
 
 	test("returns the stored CSV while its blob exists and regenerates once it is gone", async () => {
 		await createTenant();
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 		const period = await periodWithBills();
 		const first = await saveBillPeriodCSV(period.id);
 
@@ -343,6 +349,7 @@ describe("saveBillPeriodCSV", () => {
 
 	test("uploads nothing when the period has no bills", async () => {
 		await createTenant();
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 		const period = await createBillPeriodRow();
 
 		const result = await saveBillPeriodCSV(period.id);
@@ -356,6 +363,7 @@ describe("saveBillPeriodCSV", () => {
 	// options (the Kasse UI calls it that way; createCSV defaults to ",").
 	test("writes the CSV with the delimiter it records (#138)", async () => {
 		await createTenant();
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 		const period = await periodWithBills();
 
 		await saveBillPeriodCSV(period.id);

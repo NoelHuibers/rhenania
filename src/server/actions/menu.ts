@@ -3,6 +3,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { drinks, orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { requireMember } from "~/server/lib/authz";
 import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
 
 export type MenuItem = typeof drinks.$inferSelect;
@@ -12,6 +13,7 @@ export type MenuItem = typeof drinks.$inferSelect;
  * member is actually charged. 0 for tenants without the markup feature.
  */
 export async function getDrinkMarkupPercent(): Promise<number> {
+	await requireMember();
 	return (await getDrinkPricingConfig()).markupPercent;
 }
 
@@ -19,6 +21,7 @@ export async function getDrinkMarkupPercent(): Promise<number> {
 // — same ordering as the customer-facing drinks tab so the most-ordered
 // drinks appear first.
 export async function getAvailableDrinks() {
+	await requireMember();
 	try {
 		const db = await getCurrentTenantDb();
 		const availableDrinks = await db
@@ -58,6 +61,7 @@ export async function getAvailableDrinks() {
 
 // Get all drinks (including unavailable ones) for display
 export async function getAllDrinksForMenu() {
+	await requireMember();
 	try {
 		const db = await getCurrentTenantDb();
 		// Get all drinks with their total consumption amount
@@ -100,6 +104,7 @@ export async function getAllDrinksForMenu() {
 
 // Get drink by ID
 export async function getDrinkById(id: string) {
+	await requireMember();
 	try {
 		const db = await getCurrentTenantDb();
 		const [drink] = await db

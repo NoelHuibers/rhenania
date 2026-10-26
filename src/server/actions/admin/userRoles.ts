@@ -4,6 +4,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import { roles, userRoles, users } from "~/server/db/schema";
+import { ROLES, requireRole, requireSelfOrRole } from "~/server/lib/authz";
 
 export interface UserRole {
 	id: string;
@@ -15,6 +16,7 @@ export interface UserRole {
  * Get all roles for a specific user
  */
 export async function getUserRoles(userId: string): Promise<UserRole[]> {
+	await requireSelfOrRole(userId, ROLES.admin);
 	try {
 		const userRoleData = await db
 			.select({
@@ -40,6 +42,7 @@ export async function hasRole(
 	userId: string,
 	roleName: string,
 ): Promise<boolean> {
+	await requireSelfOrRole(userId, ROLES.admin);
 	try {
 		const result = await db
 			.select({ count: sql`1` })
@@ -62,6 +65,7 @@ export async function hasAnyRole(
 	userId: string,
 	roleNames: string[],
 ): Promise<boolean> {
+	await requireSelfOrRole(userId, ROLES.admin);
 	try {
 		const userRoleData = await getUserRoles(userId);
 		const userRoleNames = userRoleData.map((role) => role.name);
@@ -81,6 +85,7 @@ export async function assignRoleToUser(
 	roleId: string,
 	assignedBy?: string,
 ): Promise<{ success: boolean; message: string }> {
+	await requireRole(ROLES.admin);
 	try {
 		// Check if user exists
 		const user = await db
@@ -134,6 +139,7 @@ export async function removeRoleFromUser(
 	userId: string,
 	roleId: string,
 ): Promise<{ success: boolean; message: string }> {
+	await requireRole(ROLES.admin);
 	try {
 		const _result = await db
 			.delete(userRoles)
@@ -150,6 +156,7 @@ export async function removeRoleFromUser(
  * Get all available roles
  */
 export async function getAllRoles(): Promise<UserRole[]> {
+	await requireRole(ROLES.admin);
 	try {
 		const allRoles = await db
 			.select({
@@ -173,6 +180,7 @@ export async function createRole(
 	name: string,
 	description?: string,
 ): Promise<{ success: boolean; message: string; roleId?: string }> {
+	await requireRole(ROLES.admin);
 	try {
 		// Check if role with this name already exists
 		const existingRole = await db

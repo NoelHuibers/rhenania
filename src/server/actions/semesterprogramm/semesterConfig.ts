@@ -4,10 +4,12 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { semesterConfig } from "~/server/db/schema";
+import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 
 export type SemesterConfig = typeof semesterConfig.$inferSelect;
 
 export async function getSemesterConfig(): Promise<SemesterConfig | null> {
+	await requireMember();
 	const [row] = await db
 		.select()
 		.from(semesterConfig)
@@ -21,6 +23,7 @@ export async function upsertSemesterConfig(input: {
 	startDate: Date;
 	endDate: Date;
 }): Promise<{ success: true } | { success: false; error: string }> {
+	await requireRole(ROLES.events);
 	try {
 		await db
 			.insert(semesterConfig)

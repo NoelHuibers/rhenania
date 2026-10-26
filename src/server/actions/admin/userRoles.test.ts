@@ -45,17 +45,15 @@ describe("role queries", () => {
 		expect(await hasAnyRole(member.id, [])).toBe(false);
 	});
 
-	test("role checks answer false instead of throwing on DB errors", async () => {
+	test("role checks fail loudly on DB errors (the membership check runs first)", async () => {
 		await asAdmin();
 		const member = await createUser({ roles: ["Senior"] });
 		vi.spyOn(console, "error").mockImplementation(() => {});
 		await requireTenant().client.execute("DROP TABLE user_role");
 
-		expect(await hasRole(member.id, "Senior")).toBe(false);
-		expect(await hasAnyRole(member.id, ["Senior"])).toBe(false);
-		await expect(getUserRoles(member.id)).rejects.toThrow(
-			"Failed to fetch user roles",
-		);
+		await expect(hasRole(member.id, "Senior")).rejects.toThrow();
+		await expect(hasAnyRole(member.id, ["Senior"])).rejects.toThrow();
+		await expect(getUserRoles(member.id)).rejects.toThrow();
 	});
 
 	test("getAllRoles lists every role", async () => {

@@ -12,6 +12,7 @@ import {
 } from "~/lib/time";
 import { db } from "~/server/db";
 import { events, recurringEvents } from "~/server/db/schema";
+import { ROLES, requireRole } from "~/server/lib/authz";
 
 export type RecurrenceType =
 	| "biweekly"
@@ -210,6 +211,7 @@ function generateOccurrences(
 // --- CRUD ---
 
 export async function getAllRecurringEvents() {
+	await requireRole(ROLES.events);
 	try {
 		return await db
 			.select()
@@ -222,6 +224,7 @@ export async function getAllRecurringEvents() {
 }
 
 export async function createRecurringEvent(input: RecurringEventInput) {
+	await requireRole(ROLES.events);
 	try {
 		await db.insert(recurringEvents).values({
 			title: input.title,
@@ -249,6 +252,7 @@ export async function updateRecurringEvent(
 	id: string,
 	input: Partial<RecurringEventInput>,
 ) {
+	await requireRole(ROLES.events);
 	try {
 		await db
 			.update(recurringEvents)
@@ -281,6 +285,7 @@ export async function updateRecurringEvent(
 }
 
 export async function toggleRecurringEventActive(id: string) {
+	await requireRole(ROLES.events);
 	try {
 		const [current] = await db
 			.select({ isActive: recurringEvents.isActive })
@@ -303,6 +308,7 @@ export async function toggleRecurringEventActive(id: string) {
 }
 
 export async function deleteRecurringEvent(id: string) {
+	await requireRole(ROLES.events);
 	try {
 		await db.delete(recurringEvents).where(eq(recurringEvents.id, id));
 		revalidatePath("/admin/semesterprogramm");
@@ -314,6 +320,7 @@ export async function deleteRecurringEvent(id: string) {
 }
 
 export async function generateInstances(recurringEventId: string) {
+	await requireRole(ROLES.events);
 	try {
 		const [template] = await db
 			.select()
@@ -375,6 +382,7 @@ export async function generateInstances(recurringEventId: string) {
 }
 
 export async function toggleEventCancelled(eventId: string) {
+	await requireRole(ROLES.events);
 	try {
 		const [current] = await db
 			.select({ isCancelled: events.isCancelled })

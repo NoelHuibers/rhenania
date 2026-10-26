@@ -5,6 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { homepageImages } from "~/server/db/schema";
+import { ROLES, requireRole } from "~/server/lib/authz";
 
 export async function getActiveImageBySection(
 	section: "header" | "aktive" | "haus" | "footer",
@@ -68,6 +69,7 @@ export async function uploadHomepageImage({
 	displayOrder?: number;
 	uploadedBy?: string;
 }) {
+	await requireRole(ROLES.fotos);
 	try {
 		const result = await db.insert(homepageImages).values({
 			section,
@@ -89,6 +91,7 @@ export async function uploadHomepageImage({
 }
 
 export async function toggleImageActive(imageId: string) {
+	await requireRole(ROLES.fotos);
 	try {
 		const image = await db
 			.select()
@@ -114,6 +117,7 @@ export async function toggleImageActive(imageId: string) {
 }
 
 export async function updateImageOrder(imageId: string, newOrder: number) {
+	await requireRole(ROLES.fotos);
 	try {
 		await db
 			.update(homepageImages)
@@ -129,6 +133,7 @@ export async function updateImageOrder(imageId: string, newOrder: number) {
 }
 
 export async function deleteHomepageImage(imageId: string) {
+	await requireRole(ROLES.fotos);
 	try {
 		await db.delete(homepageImages).where(eq(homepageImages.id, imageId));
 

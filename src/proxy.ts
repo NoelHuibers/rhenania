@@ -150,9 +150,9 @@ function withTenantHeader(
 	request: NextRequest,
 	tenantId: string,
 ): NextResponse {
-	// Stamp on both: response so framework caches see it, request headers so
-	// downstream RSCs read it via next/headers in the same render pass.
-	response.headers.set(TENANT_HEADER, tenantId);
+	// Request header only, for downstream logging/debugging; the tenant is
+	// re-derived from the host server-side. Not echoed on responses (it would
+	// leak tenant ids).
 	request.headers.set(TENANT_HEADER, tenantId);
 	return response;
 }

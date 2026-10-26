@@ -48,21 +48,22 @@ const TENANT_DISPATCHED_METHODS = new Set([
 
 async function resolveCurrentClient(): Promise<Client> {
 	// Lazy-import to avoid a top-level cycle through tenants.ts <-> this file.
-	let tenantId: string | null = null;
 	try {
 		const { headers } = await import("next/headers");
-		const h = await headers();
-		tenantId = h.get("x-tenant-id");
+		await headers();
 	} catch {
 		// Not in a request context (script / build-time) — fall through.
 		return fallbackClient;
 	}
+	// Same host-based resolution as everywhere else; never a client header.
+	const { getTenantId } = await import("~/server/lib/tenant-context");
+	const tenantId = await getTenantId();
 	if (!tenantId) {
-		// In a request context but the middleware never stamped a tenant.
-		// Falling back would silently read/write the default (Rhenania) DB on
-		// behalf of an unknown tenant — fail loudly instead.
+		// In a request context but the host maps to no tenant. Falling back
+		// would silently read/write the default (Rhenania) DB on behalf of an
+		// unknown tenant — fail loudly instead.
 		throw new Error(
-			"Request reached the DB layer without x-tenant-id. Did the request bypass middleware?",
+			"Request reached the DB layer without a resolvable tenant host.",
 		);
 	}
 

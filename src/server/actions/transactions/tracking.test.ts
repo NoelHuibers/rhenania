@@ -24,6 +24,7 @@ beforeEach(async () => {
 
 /** Five orders spread over five days; index 0 is the newest. */
 async function seedOrders() {
+	signInAs(await createUser({ name: "Gustav Wart", roles: ["Getränkewart"] }));
 	const max = await createUser({ name: "Max Muster" });
 	const ute = await createUser({ name: "Ute Beispiel" });
 	const pils = await createDrink({ name: "Pils" });

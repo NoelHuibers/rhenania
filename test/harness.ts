@@ -45,6 +45,7 @@ export function setupTestDatabases() {
 			tenant.close();
 		}
 		testState.tenants.clear();
+		testState.tenantHosts.clear();
 		testState.control?.close();
 		testState.control = null;
 		testState.tenantId = null;
@@ -97,6 +98,7 @@ export async function createTenant(
 	}
 
 	testState.tenants.set(id, tenantDb);
+	testState.tenantHosts.set(id, `${slug}.test.localhost`);
 	testState.tenantId ??= id;
 	return { id, slug, displayName };
 }
