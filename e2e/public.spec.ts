@@ -30,4 +30,17 @@ test.describe("public pages per tenant", () => {
 		expect(res.status()).toBe(200);
 		expect(await res.json()).toMatchObject({ ok: true });
 	});
+
+	test("security headers are set", async ({ request }) => {
+		const res = await request.get(`${RHENANIA}/auth/signin`);
+		const h = res.headers();
+		expect(h["x-frame-options"]).toBe("DENY");
+		expect(h["x-content-type-options"]).toBe("nosniff");
+		expect(h["strict-transport-security"]).toContain("max-age=");
+		expect(h["referrer-policy"]).toBe("strict-origin-when-cross-origin");
+		expect(h["content-security-policy"]).toContain("frame-ancestors 'none'");
+		expect(h["content-security-policy-report-only"]).toContain(
+			"default-src 'self'",
+		);
+	});
 });

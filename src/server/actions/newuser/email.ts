@@ -1,6 +1,7 @@
 // lib/email.ts
 "use server";
 import { and, eq } from "drizzle-orm";
+import { escapeHtml } from "~/lib/html";
 import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db";
 import { kontos } from "~/server/db/schema";
@@ -58,7 +59,7 @@ function getVerificationEmailTemplate(verificationUrl: string): EmailTemplate {
               <p>Um Ihr Konto zu aktivieren und ein Passwort zu erstellen, klicken Sie bitte auf den folgenden Link:</p>
               
               <p style="text-align: center; margin: 30px 0;">
-                <a href="${verificationUrl}" class="button">E-Mail bestätigen und Passwort erstellen</a>
+                <a href="${escapeHtml(verificationUrl)}" class="button">E-Mail bestätigen und Passwort erstellen</a>
               </p>
               
               <div class="warning">
@@ -152,7 +153,7 @@ ${tenantLabel}
         <html>
           <head>
             <meta charset="utf-8">
-            <title>Getränkerechnung ${billNumber}</title>
+            <title>Getränkerechnung ${escapeHtml(billNumber)}</title>
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -167,12 +168,12 @@ ${tenantLabel}
           <body>
             <div class="container">
               <div class="header">
-                <h1>${tenantLabel}</h1>
+                <h1>${escapeHtml(tenantLabel)}</h1>
               </div>
               <div class="content">
-                <h2>Hallo ${userName},</h2>
+                <h2>Hallo ${escapeHtml(userName)},</h2>
                 <p>
-                  deine Getränkerechnung für die Abrechnungsperiode <strong>${billNumber}</strong> wurde erstellt.
+                  deine Getränkerechnung für die Abrechnungsperiode <strong>${escapeHtml(billNumber)}</strong> wurde erstellt.
                   Im Anhang findest du deine Rechnung als PDF.
                 </p>
                 <div class="total-box">
@@ -181,7 +182,7 @@ ${tenantLabel}
                 </div>
                 <p>Bitte überweise den Betrag innerhalb von <strong>14 Tagen</strong>.</p>
                 <p>Falls du Fragen zu deiner Rechnung hast, wende dich an den Getränkewart.</p>
-                <p>Mit freundlichen Grüßen <br><strong>${tenantLabel}</strong></p>
+                <p>Mit freundlichen Grüßen <br><strong>${escapeHtml(tenantLabel)}</strong></p>
               </div>
               <div class="footer">
                 <p>Diese E-Mail wurde automatisch generiert. Bitte antworte nicht auf diese E-Mail.</p>
@@ -246,7 +247,7 @@ ${tenantLabel}
         <html>
           <head>
             <meta charset="utf-8">
-            <title>Getränkerechnung ${billNumber}: ${billOwnerName}</title>
+            <title>Getränkerechnung ${escapeHtml(billNumber)}: ${escapeHtml(billOwnerName)}</title>
             <style>
               body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
               .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -261,12 +262,12 @@ ${tenantLabel}
           <body>
             <div class="container">
               <div class="header">
-                <h1>${tenantLabel}</h1>
+                <h1>${escapeHtml(tenantLabel)}</h1>
               </div>
               <div class="content">
-                <h2>Rechnung für ${billOwnerName}</h2>
+                <h2>Rechnung für ${escapeHtml(billOwnerName)}</h2>
                 <p>
-                  Die Getränkerechnung für die Abrechnungsperiode <strong>${billNumber}</strong> wurde erstellt.
+                  Die Getränkerechnung für die Abrechnungsperiode <strong>${escapeHtml(billNumber)}</strong> wurde erstellt.
                   Die Rechnung liegt als PDF im Anhang.
                 </p>
                 <div class="total-box">
@@ -334,7 +335,7 @@ Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignoriere
               <p>Klicken Sie auf den folgenden Link, um ein neues Passwort zu erstellen:</p>
               
               <p style="text-align: center; margin: 30px 0;">
-                <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Passwort zurücksetzen</a>
+                <a href="${escapeHtml(resetUrl)}" style="display: inline-block; padding: 12px 24px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Passwort zurücksetzen</a>
               </p>
               
               <p><strong>Wichtiger Hinweis:</strong> Dieser Link ist nur 1 Stunde gültig.</p>
@@ -362,14 +363,14 @@ function beitragHtml(
 	paypalUrl: string | null,
 ): string {
 	const paypalLine = paypalUrl
-		? `<p>Oder bezahle bequem per PayPal: <a href="${paypalUrl}">${paypalUrl}</a></p>`
+		? `<p>Oder bezahle bequem per PayPal: <a href="${escapeHtml(paypalUrl)}">${escapeHtml(paypalUrl)}</a></p>`
 		: "";
 	return `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8" />
-        <title>${runName}</title>
+        <title>${escapeHtml(runName)}</title>
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
           .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -383,9 +384,9 @@ function beitragHtml(
       </head>
       <body>
         <div class="container">
-          <div class="header"><h1>${tenantLabel}</h1></div>
+          <div class="header"><h1>${escapeHtml(tenantLabel)}</h1></div>
           <div class="content">
-            <h2>Lieber ${memberName},</h2>
+            <h2>Lieber ${escapeHtml(memberName)},</h2>
             <p>${body}</p>
             <div class="total-box">
               <p style="margin: 0 0 4px 0; font-size: 13px; color: #6c757d;">Betrag</p>
@@ -393,7 +394,7 @@ function beitragHtml(
             </div>
             <p>Die Bankverbindung findest du im angehängten PDF.</p>
             ${paypalLine}
-            <p>Mit corpsbrüderlichen Grüßen <br><strong>${tenantLabel}</strong></p>
+            <p>Mit corpsbrüderlichen Grüßen <br><strong>${escapeHtml(tenantLabel)}</strong></p>
           </div>
           <div class="footer">
             <p>Diese E-Mail wurde automatisch generiert. Bitte antworte nicht auf diese E-Mail.</p>
@@ -419,7 +420,7 @@ export async function sendBeitragEmail(
 		const paypalText = paypalUrl
 			? `\nOder bezahle bequem per PayPal: ${paypalUrl}`
 			: "";
-		const body = `für <strong>${runName}</strong> bitten wir um deinen Semesterbeitrag in Höhe von <strong>${formattedTotal}</strong>. Im Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.`;
+		const body = `für <strong>${escapeHtml(runName)}</strong> bitten wir um deinen Semesterbeitrag in Höhe von <strong>${formattedTotal}</strong>. Im Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.`;
 
 		await sendTenantMail({
 			to: email,
@@ -464,7 +465,7 @@ export async function sendMahnungEmail(
 		const paypalText = paypalUrl
 			? `\nOder bezahle bequem per PayPal: ${paypalUrl}`
 			: "";
-		const body = `dein Semesterbeitrag für <strong>${runName}</strong> ist trotz Fälligkeit weiterhin offen. Wir erlauben uns daher, eine Mahngebühr zu berechnen. Der offene Gesamtbetrag beträgt <strong>${formattedTotal}</strong> (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.`;
+		const body = `dein Semesterbeitrag für <strong>${escapeHtml(runName)}</strong> ist trotz Fälligkeit weiterhin offen. Wir erlauben uns daher, eine Mahngebühr zu berechnen. Der offene Gesamtbetrag beträgt <strong>${formattedTotal}</strong> (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.`;
 
 		await sendTenantMail({
 			to: email,

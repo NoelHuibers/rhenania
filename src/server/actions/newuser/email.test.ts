@@ -53,7 +53,8 @@ describe("sendVerificationEmail", () => {
 		});
 		expect(mail.text).toContain(link);
 		expect(mail.text).toContain("nur 24 Stunden gültig");
-		expect(mail.html).toContain(`href="${link}"`);
+		// In HTML attributes "&" is written as "&amp;"; mail clients decode it.
+		expect(mail.html).toContain(`href="${link.replaceAll("&", "&amp;")}"`);
 	});
 
 	test("wraps transport failures in a generic error", async () => {
@@ -94,6 +95,28 @@ describe("bill mails", () => {
 				contentType: "application/pdf",
 			},
 		]);
+	});
+
+	test("user-controlled names are escaped in the HTML, not in the text", async () => {
+		await createTenant({ displayName: "Corps <b>Test</b>" });
+		const name = '<a href="https://evil.example">Max</a>';
+
+		await sendBillNotificationEmail(
+			"max@example.test",
+			name,
+			"KW-43-26",
+			5,
+			pdf,
+			"r.pdf",
+		);
+
+		const mail = sentMail();
+		expect(mail.html).not.toContain('<a href="https://evil.example">');
+		expect(mail.html).toContain(
+			"&lt;a href=&quot;https://evil.example&quot;&gt;Max&lt;/a&gt;",
+		);
+		expect(mail.html).toContain("Corps &lt;b&gt;Test&lt;/b&gt;");
+		expect(mail.text).toContain(`Hallo ${name},`);
 	});
 
 	test("treasurer copy names whose bill it is", async () => {
