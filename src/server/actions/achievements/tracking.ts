@@ -1,5 +1,8 @@
-import { and, asc, desc, eq, gte, like, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, like, or, type SQL, sql } from "drizzle-orm";
+import { dayKeyInTZ, getZonedParts } from "~/lib/time";
 import { db } from "~/server/db";
+import { controlDb } from "~/server/db/control";
+import { crossTenantGames } from "~/server/db/control-schema";
 import {
 	achievementProgress,
 	achievements,
@@ -223,13 +226,17 @@ async function processAchievement(
 			}
 			break;
 
-		// ── Time-based ────────────────────────────────────────────────────
+		// ── Time-based (Europe/Berlin wall clock, whatever the server zone) ─
 		// targetValue=1: unlocks once after 4 beers between 05:00–08:00
 		case "fruhaufsteher": {
 			if (event === "order_created") {
-				const hour = new Date().getHours();
+				const { hour } = getZonedParts(new Date());
 				if (hour >= 5 && hour < 8) {
-					const count = await getMorningBeerCount(scope, userId);
+					const count = await getBeersToday(
+						scope,
+						userId,
+						(h) => h >= 5 && h < 8,
+					);
 					if (count >= 4) {
 						newValue = 1;
 					}
@@ -248,8 +255,8 @@ async function processAchievement(
 		// targetValue=10: consecutive weekends with at least one order
 		case "wocheende": {
 			if (event === "order_created") {
-				const day = new Date().getDay();
-				if (day === 0 || day === 6) {
+				const { weekday } = getZonedParts(new Date());
+				if (weekday === 0 || weekday === 6) {
 					newValue = await getConsecutiveWeekends(scope, userId);
 				}
 			}
@@ -267,8 +274,8 @@ async function processAchievement(
 		// targetValue=1: 4+ beers ordered between 00:00–01:00
 		case "berry": {
 			if (event === "order_created") {
-				if (new Date().getHours() === 0) {
-					const count = await getMidnightBeerCount(scope, userId);
+				if (getZonedParts(new Date()).hour === 0) {
+					const count = await getBeersToday(scope, userId, (h) => h === 0);
 					if (count >= 4) {
 						newValue = 1;
 					}
@@ -280,12 +287,8 @@ async function processAchievement(
 		// targetValue=1: any order on Jan 1 between 00:00–01:00
 		case "neujahr": {
 			if (event === "order_created") {
-				const now = new Date();
-				if (
-					now.getMonth() === 0 &&
-					now.getDate() === 1 &&
-					now.getHours() === 0
-				) {
+				const now = getZonedParts(new Date());
+				if (now.month === 1 && now.day === 1 && now.hour === 0) {
 					newValue = 1;
 				}
 			}
@@ -295,9 +298,9 @@ async function processAchievement(
 		// targetValue=10: sum of beers ordered on May 1
 		case "erstermai": {
 			if (event === "order_created") {
-				const now = new Date();
-				if (now.getMonth() === 4 && now.getDate() === 1) {
-					newValue = await getOrdersOnDate(scope, userId, 4, 1);
+				const now = getZonedParts(new Date());
+				if (now.month === 5 && now.day === 1) {
+					newValue = await getBeersToday(scope, userId);
 				}
 			}
 			break;
@@ -306,9 +309,9 @@ async function processAchievement(
 		// targetValue=10: sum of beers ordered on Feb 21
 		case "grundungstag": {
 			if (event === "order_created") {
-				const now = new Date();
-				if (now.getMonth() === 1 && now.getDate() === 21) {
-					newValue = await getOrdersOnDate(scope, userId, 1, 21);
+				const now = getZonedParts(new Date());
+				if (now.month === 2 && now.day === 21) {
+					newValue = await getBeersToday(scope, userId);
 				}
 			}
 			break;
@@ -317,8 +320,8 @@ async function processAchievement(
 		// targetValue=1: play a game on Oct 3 (German Unity Day)
 		case "deutschland": {
 			if (event === "game_played") {
-				const now = new Date();
-				if (now.getMonth() === 9 && now.getDate() === 3) {
+				const now = getZonedParts(new Date());
+				if (now.month === 10 && now.day === 3) {
 					newValue = 1;
 				}
 			}
@@ -482,39 +485,53 @@ async function getTotalSpent(scope: Scope, userId: string): Promise<number> {
 	return result[0]?.total ?? 0;
 }
 
-// Beers ordered today between 05:00 and 08:00
-async function getMorningBeerCount(
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
+
+/** The Berlin hour of each of the user's orders since `since`, keyed by Berlin day. */
+async function getOrderHours(
 	scope: Scope,
 	userId: string,
-): Promise<number> {
-	const now = new Date();
-	const from = new Date(
-		now.getFullYear(),
-		now.getMonth(),
-		now.getDate(),
-		5,
-		0,
-		0,
-	);
-	const to = new Date(
-		now.getFullYear(),
-		now.getMonth(),
-		now.getDate(),
-		8,
-		0,
-		0,
-	);
-	const result = await scope.db
-		.select({ total: sql<number>`coalesce(sum(${orders.amount}), 0)` })
+	since?: Date,
+): Promise<Array<{ day: string; hour: number; amount: number }>> {
+	const rows = await scope.db
+		.select({ amount: orders.amount, createdAt: orders.createdAt })
 		.from(orders)
 		.where(
-			and(
-				eq(orders.userId, userId),
-				gte(orders.createdAt, from),
-				lte(orders.createdAt, to),
-			),
+			since
+				? and(eq(orders.userId, userId), gte(orders.createdAt, since))
+				: eq(orders.userId, userId),
 		);
-	return result[0]?.total ?? 0;
+	return rows.map((r) => {
+		const parts = getZonedParts(r.createdAt);
+		return { day: dayKeyInTZ(r.createdAt), hour: parts.hour, amount: r.amount };
+	});
+}
+
+/**
+ * Beers the user ordered today (Berlin calendar day), optionally only those
+ * whose Berlin hour passes `hourFilter`.
+ */
+async function getBeersToday(
+	scope: Scope,
+	userId: string,
+	hourFilter: (hour: number) => boolean = () => true,
+): Promise<number> {
+	const now = new Date();
+	const today = dayKeyInTZ(now);
+	// A Berlin day is at most 25 h long, so this window always covers it.
+	const rows = await getOrderHours(
+		scope,
+		userId,
+		new Date(now.getTime() - 25 * HOUR_MS),
+	);
+	let total = 0;
+	for (const r of rows) {
+		if (r.day === today && hourFilter(r.hour)) {
+			total += r.amount;
+		}
+	}
+	return total;
 }
 
 // Number of order rows created in the last 60 minutes
@@ -522,7 +539,7 @@ async function getOrdersInLastHour(
 	scope: Scope,
 	userId: string,
 ): Promise<number> {
-	const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+	const oneHourAgo = new Date(Date.now() - HOUR_MS);
 	const result = await scope.db
 		.select({ count: sql<number>`count(*)` })
 		.from(orders)
@@ -530,102 +547,120 @@ async function getOrdersInLastHour(
 	return result[0]?.count ?? 0;
 }
 
-// Distinct calendar days on which the user placed at least one order
+// Distinct Berlin calendar days on which the user placed at least one order
 async function getDistinctOrderDays(
 	scope: Scope,
 	userId: string,
 ): Promise<number> {
-	const result = await scope.db
-		.select({
-			count: sql<number>`count(distinct date(${orders.createdAt}, 'unixepoch'))`,
-		})
+	// Berlin is a whole number of hours off UTC, so every UTC hour lies within
+	// one Berlin day: bucket by hour in SQL, map the buckets to days here.
+	const rows = await scope.db
+		.selectDistinct({ hour: sql<number>`${orders.createdAt} / 3600` })
 		.from(orders)
 		.where(eq(orders.userId, userId));
-	return result[0]?.count ?? 0;
+	const days = new Set<string>();
+	for (const { hour } of rows) {
+		days.add(dayKeyInTZ(new Date(hour * HOUR_MS)));
+	}
+	return days.size;
 }
 
-// Beers ordered today between 00:00 and 01:00
-async function getMidnightBeerCount(
-	scope: Scope,
-	userId: string,
-): Promise<number> {
-	const now = new Date();
-	const from = new Date(
-		now.getFullYear(),
-		now.getMonth(),
-		now.getDate(),
-		0,
-		0,
-		0,
+// ── Games (the Corps' own games plus its members' cross-Corps games) ───────
+
+type PlayedGame = { winnerId: string; playedAt: Date };
+
+/** Cross-Corps games (control DB) the user played for this scope's Corps. */
+function crossGamesOf(scope: Scope, userId: string): SQL | undefined {
+	const t = crossTenantGames;
+	if (!scope.tenantId) {
+		return or(eq(t.player1Id, userId), eq(t.player2Id, userId));
+	}
+	return or(
+		and(eq(t.player1Id, userId), eq(t.player1TenantId, scope.tenantId)),
+		and(eq(t.player2Id, userId), eq(t.player2TenantId, scope.tenantId)),
 	);
-	const to = new Date(
-		now.getFullYear(),
-		now.getMonth(),
-		now.getDate(),
-		1,
-		0,
-		0,
-	);
-	const result = await scope.db
-		.select({ total: sql<number>`coalesce(sum(${orders.amount}), 0)` })
-		.from(orders)
-		.where(
-			and(
-				eq(orders.userId, userId),
-				gte(orders.createdAt, from),
-				lte(orders.createdAt, to),
-			),
-		);
-	return result[0]?.total ?? 0;
 }
 
-// Sum of beers ordered on a specific calendar date (month 0-indexed)
-async function getOrdersOnDate(
+function ownGamesOf(userId: string): SQL | undefined {
+	return or(eq(games.player1Id, userId), eq(games.player2Id, userId));
+}
+
+/** The user's games, newest first, optionally since a date / limited. */
+async function getPlayedGames(
 	scope: Scope,
 	userId: string,
-	month: number,
-	day: number,
-): Promise<number> {
-	const now = new Date();
-	const from = new Date(now.getFullYear(), month, day, 0, 0, 0);
-	const to = new Date(now.getFullYear(), month, day + 1, 0, 0, 0);
-	const result = await scope.db
-		.select({ total: sql<number>`coalesce(sum(${orders.amount}), 0)` })
-		.from(orders)
+	opts: { since?: Date; limit?: number } = {},
+): Promise<PlayedGame[]> {
+	const own = scope.db
+		.select({ winnerId: games.winnerId, playedAt: games.playedAt })
+		.from(games)
 		.where(
-			and(
-				eq(orders.userId, userId),
-				gte(orders.createdAt, from),
-				lte(orders.createdAt, to),
-			),
-		);
-	return result[0]?.total ?? 0;
+			opts.since
+				? and(ownGamesOf(userId), gte(games.playedAt, opts.since))
+				: ownGamesOf(userId),
+		)
+		.orderBy(desc(games.playedAt))
+		.$dynamic();
+	const cross = controlDb
+		.select({
+			winnerId: crossTenantGames.winnerId,
+			playedAt: crossTenantGames.playedAt,
+		})
+		.from(crossTenantGames)
+		.where(
+			opts.since
+				? and(
+						crossGamesOf(scope, userId),
+						gte(crossTenantGames.playedAt, opts.since),
+					)
+				: crossGamesOf(scope, userId),
+		)
+		.orderBy(desc(crossTenantGames.playedAt))
+		.$dynamic();
+	const [ownRows, crossRows] = await Promise.all(
+		opts.limit === undefined
+			? [own, cross]
+			: [own.limit(opts.limit), cross.limit(opts.limit)],
+	);
+	const all = [...ownRows, ...crossRows].sort(
+		(a, b) => b.playedAt.getTime() - a.playedAt.getTime(),
+	);
+	return opts.limit === undefined ? all : all.slice(0, opts.limit);
 }
 
 async function getTotalGames(scope: Scope, userId: string): Promise<number> {
-	const result = await scope.db
-		.select({ count: sql<number>`count(*)` })
-		.from(games)
-		.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)));
-	return result[0]?.count ?? 0;
+	const [own, cross] = await Promise.all([
+		scope.db
+			.select({ count: sql<number>`count(*)` })
+			.from(games)
+			.where(ownGamesOf(userId)),
+		controlDb
+			.select({ count: sql<number>`count(*)` })
+			.from(crossTenantGames)
+			.where(crossGamesOf(scope, userId)),
+	]);
+	return (own[0]?.count ?? 0) + (cross[0]?.count ?? 0);
 }
 
 async function getTotalWins(scope: Scope, userId: string): Promise<number> {
-	const result = await scope.db
-		.select({ count: sql<number>`count(*)` })
-		.from(games)
-		.where(eq(games.winnerId, userId));
-	return result[0]?.count ?? 0;
+	const [own, cross] = await Promise.all([
+		scope.db
+			.select({ count: sql<number>`count(*)` })
+			.from(games)
+			.where(eq(games.winnerId, userId)),
+		controlDb
+			.select({ count: sql<number>`count(*)` })
+			.from(crossTenantGames)
+			.where(
+				and(eq(crossTenantGames.winnerId, userId), crossGamesOf(scope, userId)),
+			),
+	]);
+	return (own[0]?.count ?? 0) + (cross[0]?.count ?? 0);
 }
 
 // Count consecutive wins from the most recent games
 async function getCurrentStreak(scope: Scope, userId: string): Promise<number> {
-	const recentGames = await scope.db
-		.select({ winnerId: games.winnerId })
-		.from(games)
-		.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)))
-		.orderBy(desc(games.playedAt))
-		.limit(20);
+	const recentGames = await getPlayedGames(scope, userId, { limit: 20 });
 
 	let streak = 0;
 	for (const game of recentGames) {
@@ -638,27 +673,31 @@ async function getCurrentStreak(scope: Scope, userId: string): Promise<number> {
 	return streak;
 }
 
-// Distinct days the user played a game within the last 7 days
+// Distinct Berlin days the user played a game within the last 7 days
 async function getDistinctGameDaysLastWeek(
 	scope: Scope,
 	userId: string,
 ): Promise<number> {
-	const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-	const result = await scope.db
-		.select({
-			count: sql<number>`count(distinct date(${games.playedAt}, 'unixepoch'))`,
-		})
-		.from(games)
-		.where(
-			and(
-				or(eq(games.player1Id, userId), eq(games.player2Id, userId)),
-				gte(games.playedAt, sevenDaysAgo),
-			),
-		);
-	return result[0]?.count ?? 0;
+	const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
+	const recent = await getPlayedGames(scope, userId, { since: sevenDaysAgo });
+	return new Set(recent.map((g) => dayKeyInTZ(g.playedAt))).size;
 }
 
-// Count consecutive weekends (Sat/Sun) on which the user placed at least one order
+/** Shifts a `YYYY-MM-DD` calendar date by whole days (no time zone involved). */
+function shiftDayKey(day: string, days: number): string {
+	const date = new Date(`${day}T00:00:00Z`);
+	date.setUTCDate(date.getUTCDate() + days);
+	return date.toISOString().slice(0, 10);
+}
+
+function daysBetween(later: string, earlier: string): number {
+	return Math.round(
+		(Date.parse(`${later}T00:00:00Z`) - Date.parse(`${earlier}T00:00:00Z`)) /
+			DAY_MS,
+	);
+}
+
+// Count consecutive weekends (Sat/Sun, Berlin time) with at least one order
 async function getConsecutiveWeekends(
 	scope: Scope,
 	userId: string,
@@ -670,16 +709,13 @@ async function getConsecutiveWeekends(
 		.orderBy(desc(orders.createdAt))
 		.limit(200);
 
-	// Normalize each weekend order to its Saturday date string
+	// Normalize each weekend order to its Saturday's Berlin date
 	const weekSaturdays = new Set<string>();
 	for (const order of recentOrders) {
-		const d = order.createdAt.getDay(); // 0=Sun, 6=Sat
-		if (d === 0 || d === 6) {
-			const sat = new Date(order.createdAt);
-			sat.setDate(sat.getDate() + (d === 6 ? 0 : -1));
-			sat.setHours(0, 0, 0, 0);
-			// biome-ignore lint/style/noNonNullAssertion: ISO string always has a date part before "T"
-			weekSaturdays.add(sat.toISOString().split("T")[0]!);
+		const { weekday } = getZonedParts(order.createdAt); // 0=Sun, 6=Sat
+		if (weekday === 0 || weekday === 6) {
+			const day = dayKeyInTZ(order.createdAt);
+			weekSaturdays.add(weekday === 6 ? day : shiftDayKey(day, -1));
 		}
 	}
 
@@ -691,11 +727,7 @@ async function getConsecutiveWeekends(
 	let streak = 1;
 	for (let i = 1; i < sorted.length; i++) {
 		// biome-ignore lint/style/noNonNullAssertion: within loop bounds
-		const prev = new Date(sorted[i - 1]!).getTime();
-		// biome-ignore lint/style/noNonNullAssertion: within loop bounds
-		const curr = new Date(sorted[i]!).getTime();
-		const diffDays = Math.round((prev - curr) / (1000 * 60 * 60 * 24));
-		if (diffDays === 7) {
+		if (daysBetween(sorted[i - 1]!, sorted[i]!) === 7) {
 			streak++;
 		} else {
 			break;
@@ -797,81 +829,59 @@ async function hasEverOrderedFullCrate(
 	return 0;
 }
 
+/** Most beers ordered within one Berlin day in the given Berlin hours. */
+async function getBestBeerDayInHours(
+	scope: Scope,
+	userId: string,
+	hourFilter: (hour: number) => boolean,
+): Promise<number> {
+	const dayMap = new Map<string, number>();
+	for (const order of await getOrderHours(scope, userId)) {
+		if (hourFilter(order.hour)) {
+			dayMap.set(order.day, (dayMap.get(order.day) ?? 0) + order.amount);
+		}
+	}
+	return dayMap.size === 0 ? 0 : Math.max(...dayMap.values());
+}
+
 async function getBestMorningBeerDay(
 	scope: Scope,
 	userId: string,
 ): Promise<number> {
-	const allOrders = await scope.db
-		.select({ amount: orders.amount, createdAt: orders.createdAt })
-		.from(orders)
-		.where(eq(orders.userId, userId));
-
-	const dayMap = new Map<string, number>();
-	for (const order of allOrders) {
-		const h = order.createdAt.getHours();
-		if (h >= 5 && h < 8) {
-			// biome-ignore lint/style/noNonNullAssertion: ISO string always has a date part before "T"
-			const key = order.createdAt.toISOString().split("T")[0]!;
-			dayMap.set(key, (dayMap.get(key) ?? 0) + order.amount);
-		}
-	}
-	return dayMap.size === 0 ? 0 : Math.max(...dayMap.values());
+	return await getBestBeerDayInHours(scope, userId, (h) => h >= 5 && h < 8);
 }
 
 async function getBestMidnightBeerDay(
 	scope: Scope,
 	userId: string,
 ): Promise<number> {
-	const allOrders = await scope.db
-		.select({ amount: orders.amount, createdAt: orders.createdAt })
-		.from(orders)
-		.where(eq(orders.userId, userId));
-
-	const dayMap = new Map<string, number>();
-	for (const order of allOrders) {
-		if (order.createdAt.getHours() === 0) {
-			// biome-ignore lint/style/noNonNullAssertion: ISO string always has a date part before "T"
-			const key = order.createdAt.toISOString().split("T")[0]!;
-			dayMap.set(key, (dayMap.get(key) ?? 0) + order.amount);
-		}
-	}
-	return dayMap.size === 0 ? 0 : Math.max(...dayMap.values());
+	return await getBestBeerDayInHours(scope, userId, (h) => h === 0);
 }
 
 async function hasEverOrderedOnNewYear(
 	scope: Scope,
 	userId: string,
 ): Promise<number> {
-	const allOrders = await scope.db
-		.select({ createdAt: orders.createdAt })
-		.from(orders)
-		.where(eq(orders.userId, userId));
-
-	for (const order of allOrders) {
-		const d = order.createdAt;
-		if (d.getMonth() === 0 && d.getDate() === 1 && d.getHours() === 0) {
+	for (const order of await getOrderHours(scope, userId)) {
+		if (order.day.endsWith("-01-01") && order.hour === 0) {
 			return 1;
 		}
 	}
 	return 0;
 }
 
+// Most beers ordered on a Berlin calendar date (month 1-12) in any one year
 async function getMaxBeersOnCalendarDate(
 	scope: Scope,
 	userId: string,
 	month: number,
 	day: number,
 ): Promise<number> {
-	const allOrders = await scope.db
-		.select({ amount: orders.amount, createdAt: orders.createdAt })
-		.from(orders)
-		.where(eq(orders.userId, userId));
-
-	const yearMap = new Map<number, number>();
-	for (const order of allOrders) {
-		const d = order.createdAt;
-		if (d.getMonth() === month && d.getDate() === day) {
-			const year = d.getFullYear();
+	const suffix = `-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+	const yearMap = new Map<string, number>();
+	for (const order of await getOrderHours(scope, userId)) {
+		if (order.day.endsWith(suffix)) {
+			const year = order.day.slice(0, 4);
 			yearMap.set(year, (yearMap.get(year) ?? 0) + order.amount);
 		}
 	}
@@ -882,47 +892,31 @@ async function hasEverPlayedOnOct3(
 	scope: Scope,
 	userId: string,
 ): Promise<number> {
-	const allGames = await scope.db
-		.select({ playedAt: games.playedAt })
-		.from(games)
-		.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)));
-
-	for (const game of allGames) {
-		const d = game.playedAt;
-		if (d.getMonth() === 9 && d.getDate() === 3) {
+	for (const game of await getPlayedGames(scope, userId)) {
+		if (dayKeyInTZ(game.playedAt).endsWith("-10-03")) {
 			return 1;
 		}
 	}
 	return 0;
 }
 
+// Most distinct Berlin game days within any 7-day window
 async function getBestWeeklyGameStreak(
 	scope: Scope,
 	userId: string,
 ): Promise<number> {
-	const allGames = await scope.db
-		.select({ playedAt: games.playedAt })
-		.from(games)
-		.where(or(eq(games.player1Id, userId), eq(games.player2Id, userId)))
-		.orderBy(asc(games.playedAt));
-
+	const allGames = await getPlayedGames(scope, userId);
 	if (allGames.length === 0) {
 		return 0;
 	}
 
-	const days = [
-		// biome-ignore lint/style/noNonNullAssertion: ISO string always has a date part before "T"
-		...new Set(allGames.map((g) => g.playedAt.toISOString().split("T")[0]!)),
-	].sort();
+	const days = [...new Set(allGames.map((g) => dayKeyInTZ(g.playedAt)))].sort();
 
 	let best = 0;
-	for (let i = 0; i < days.length; i++) {
-		// biome-ignore lint/style/noNonNullAssertion: within loop bounds
-		const from = new Date(days[i]!).getTime();
-		const to = from + 7 * 24 * 60 * 60 * 1000;
+	for (const from of days) {
 		const count = days.filter((d) => {
-			const t = new Date(d).getTime();
-			return t >= from && t < to;
+			const offset = daysBetween(d, from);
+			return offset >= 0 && offset < 7;
 		}).length;
 		best = Math.max(best, count);
 	}
@@ -1045,11 +1039,11 @@ export async function recalculateAllAchievements(
 				break;
 
 			case "erstermai":
-				value = await getMaxBeersOnCalendarDate(scope, userId, 4, 1);
+				value = await getMaxBeersOnCalendarDate(scope, userId, 5, 1);
 				break;
 
 			case "grundungstag":
-				value = await getMaxBeersOnCalendarDate(scope, userId, 1, 21);
+				value = await getMaxBeersOnCalendarDate(scope, userId, 2, 21);
 				break;
 
 			case "deutschland":
