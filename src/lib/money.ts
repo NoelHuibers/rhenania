@@ -68,6 +68,22 @@ export function pctOf(euros: number, percent: number): number {
 }
 
 /**
+ * The equal whole-cent share of `cents` for each of `n` parts, rounded down.
+ * The `n` shares add up to at most `cents` and fall short of it by less than
+ * one cent per part. Use it where the remainder must not be charged to
+ * anybody (unlike `allocate`, which hands it out).
+ */
+export function shareDown(cents: number, n: number): number {
+	if (!Number.isSafeInteger(cents) || cents < 0) {
+		throw new RangeError(`Not a non-negative number of cents: ${cents}`);
+	}
+	if (!Number.isSafeInteger(n) || n < 1) {
+		throw new RangeError(`Cannot split into ${n} parts`);
+	}
+	return Math.floor(cents / n);
+}
+
+/**
  * Splits `cents` into `n` whole-cent parts that add up exactly to `cents`
  * (largest remainder method with equal weights): every part gets the floor
  * share and the leftover cents go one each to the first parts. Negative

@@ -14,6 +14,7 @@ export default {
 		"src/lib/decimal.ts",
 		"src/lib/iban.ts",
 		"src/server/actions/billings/billings.ts",
+		"src/server/lib/billing-run.ts",
 		"src/server/actions/inventur/inventur.ts",
 		"src/server/actions/cc-kasse/kostenerstattungen.ts",
 		"src/server/lib/elo.ts",

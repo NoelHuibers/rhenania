@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { billPeriods, bills, orders } from "~/server/db/schema";
+import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { sendTenantMail } from "~/server/lib/mailer";
 import { buildUserBillData, summaryTotal } from "~/server/lib/user-bill-data";
 import {
@@ -11,6 +12,7 @@ import {
 	createOrderRow,
 	eventUser,
 	itemsOf,
+	pdfValueAfter,
 	setUpGetraenkeBilling,
 	setUserPreference,
 } from "../../../../test/factories/billing";
@@ -22,9 +24,16 @@ import {
 	setupTestDatabases,
 	signInAs,
 	signOut,
+	type TestUser,
 	tenantDb,
 } from "../../../../test/harness";
+import { getOpenMemberBills } from "../getraenkewart/kasse";
 import { createOrder } from "../orders";
+import {
+	getAllUserBills,
+	getBillById,
+	getUserBillingData,
+} from "../profile/getUserBill";
 import {
 	closeBillPeriod,
 	createNewBilling,
@@ -35,6 +44,8 @@ import {
 	getLatestBillPeriod,
 	updateBillStatus,
 } from "./billings";
+import { generateBillPeriodCSV } from "./createCSV";
+import { generateUserBillPDF } from "./createUserPDF";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 // Achievements run fire-and-forget after an order; they have their own tests.
@@ -77,18 +88,30 @@ type BillingRun = Extract<
 	{ billPeriod: { id: string } }
 >;
 
-/** Runs a billing that is expected to create a period. */
-async function runBilling(totalInventoryLoss?: number): Promise<BillingRun> {
-	const result = await createNewBilling(totalInventoryLoss);
+/** Runs the Kasse's billing, expected to create a period. */
+async function runBilling(): Promise<BillingRun> {
+	const result = await createNewBilling();
 	if (!("billPeriod" in result) || !result.billPeriod) {
 		throw new Error(`Billing created no period: ${result.message}`);
 	}
 	return result;
 }
 
-async function billAt(iso: string, totalInventoryLoss?: number) {
+/**
+ * A billing run that charges an inventory loss as Umlage, the way
+ * "Inventur + Rechnung" starts it after closing an inventory.
+ */
+async function billWithLoss(inventoryLoss: number): Promise<BillingRun> {
+	const result = await runGetraenkeBilling({ inventoryLoss });
+	if (!("billPeriod" in result) || !result.billPeriod) {
+		throw new Error(`Billing created no period: ${result.message}`);
+	}
+	return result;
+}
+
+async function billAt(iso: string) {
 	vi.setSystemTime(new Date(iso));
-	return runBilling(totalInventoryLoss);
+	return runBilling();
 }
 
 async function periodByNumber(billNumber: string) {
@@ -471,7 +494,7 @@ describe("createNewBilling", () => {
 			await createOrderRow({ user, drink });
 		}
 
-		const result = await createNewBilling(30);
+		const result = await billWithLoss(30);
 
 		expect(result.totalAmount).toBe(36);
 		for (const user of residents) {
@@ -494,7 +517,7 @@ describe("createNewBilling", () => {
 		await createOrderRow({ user: other, drink });
 		await createOrderRow({ user: other, drink, bookingFor: "AHV" });
 
-		const run = await runBilling(10.01);
+		const run = await billWithLoss(10.01);
 
 		const periodBills = await tenantDb()
 			.select()
@@ -514,9 +537,9 @@ describe("createNewBilling", () => {
 		expect(residentBill?.umlage).toBeGreaterThan(0);
 	});
 
-	// #10: the Umlage is added to every member with orders instead of the
-	// Hausbewohner it was divided among.
-	test.fails("charges the Umlage to exactly the Hausbewohner (#10)", async () => {
+	// #10: the Umlage goes to the Hausbewohner it was divided among, not to
+	// every member with orders.
+	test("charges the Umlage to exactly the Hausbewohner (#10)", async () => {
 		await setupKasse();
 		const residentWithOrders = await createUser({ roles: ["Hausbewohner"] });
 		const residentWithout = await createUser({ roles: ["Hausbewohner"] });
@@ -525,22 +548,22 @@ describe("createNewBilling", () => {
 		await createOrderRow({ user: residentWithOrders, drink });
 		await createOrderRow({ user: nonResident, drink });
 
-		await createNewBilling(20);
+		await billWithLoss(20);
 
 		expect((await billsOf(nonResident.id))[0]?.umlage).toBe(0);
 		expect((await billsOf(residentWithOrders.id))[0]?.umlage).toBe(10);
 		expect((await billsOf(residentWithout.id))[0]?.umlage).toBe(10);
 	});
 
-	// New: with no Hausbewohner the divisor falls back to 1, so every billed
-	// member is charged the whole inventory loss.
-	test.fails("never collects more Umlage than the inventory loss (#10)", async () => {
+	// #10: with no Hausbewohner nobody carries the loss (the divisor used to
+	// fall back to 1, charging every billed member the whole loss).
+	test("never collects more Umlage than the inventory loss (#10)", async () => {
 		await setupKasse();
 		const drink = await createDrink({ price: 1 });
 		await createOrderRow({ user: await createUser(), drink });
 		await createOrderRow({ user: await createUser(), drink });
 
-		await createNewBilling(30);
+		await billWithLoss(30);
 
 		const rows = await tenantDb().select().from(bills);
 		const collected = rows.reduce((sum, b) => sum + b.umlage, 0);
@@ -599,7 +622,7 @@ describe("createNewBilling", () => {
 		}
 
 		// 10 € loss over 3 Hausbewohner: 3.333… € is stored as 3.33 €.
-		const result = await runBilling(10);
+		const result = await billWithLoss(10);
 
 		let periodCents = 0;
 		for (const member of members) {
@@ -652,6 +675,330 @@ describe("createNewBilling", () => {
 		const result = await billAt("2026-10-25T23:30:00Z");
 
 		expect(result.billPeriod?.billNumber).toBe("KW-44-26");
+	});
+});
+
+// #10 (owner's decision): the inventory loss is carried by every active
+// Hausbewohner, split evenly by headcount in whole cents. Hausbewohner
+// without orders get an Umlage-only bill; nobody else pays Umlage. The
+// rounding remainder is not charged (the Kasse absorbs it).
+describe("Umlage (#10)", () => {
+	async function hausbewohner(
+		n: number,
+		opts: Parameters<typeof createUser>[0] = {},
+	) {
+		const created: TestUser[] = [];
+		for (let i = 0; i < n; i++) {
+			created.push(await createUser({ roles: ["Hausbewohner"], ...opts }));
+		}
+		return created;
+	}
+
+	async function periodBills(periodId: string) {
+		return tenantDb()
+			.select()
+			.from(bills)
+			.where(eq(bills.billPeriodId, periodId));
+	}
+
+	const umlageSum = (rows: Array<{ umlage: number }>) =>
+		rows.reduce((cents, b) => cents + Math.round(b.umlage * 100), 0) / 100;
+
+	test("120 € over 6 Hausbewohner among 30 members who ordered: only the 6 pay, 20 € each", async () => {
+		await setupKasse();
+		const residents = await hausbewohner(6);
+		const others: TestUser[] = [];
+		for (let i = 0; i < 24; i++) {
+			others.push(await createUser());
+		}
+		const drink = await createDrink({ price: 1 });
+		for (const user of [...residents, ...others]) {
+			await createOrderRow({ user, drink });
+		}
+
+		const run = await billWithLoss(120);
+
+		const rows = await periodBills(run.billPeriod.id);
+		expect(rows).toHaveLength(30);
+		for (const user of residents) {
+			expect((await billsOf(user.id))[0]).toMatchObject({
+				drinksTotal: 1,
+				umlage: 20,
+				total: 21,
+			});
+		}
+		for (const user of others) {
+			expect((await billsOf(user.id))[0]).toMatchObject({
+				umlage: 0,
+				total: 1,
+			});
+		}
+		expect(umlageSum(rows)).toBe(120);
+		expect(run.totalAmount).toBe(150);
+	});
+
+	test("a Hausbewohner without orders gets an Umlage-only bill", async () => {
+		await setupKasse();
+		const [resident] = await hausbewohner(1, { name: "Hanna Haus" });
+		const [drinker] = await hausbewohner(1);
+		await createOrderRow({
+			user: drinker as TestUser,
+			drink: await createDrink({ price: 2 }),
+		});
+
+		const run = await billWithLoss(30);
+
+		expect(run.billsCreated).toBe(2);
+		const [bill] = await billsOf(resident?.id ?? "");
+		expect(bill).toMatchObject({
+			billPeriodId: run.billPeriod.id,
+			userName: "Hanna Haus",
+			status: "Unbezahlt",
+			drinksTotal: 0,
+			oldBillingAmount: 0,
+			fees: 0,
+			umlage: 15,
+			total: 15,
+		});
+		expect(await itemsOf(bill?.id ?? "")).toEqual([]);
+		expect(run.userSummaries).toContainEqual(
+			expect.objectContaining({
+				userId: resident?.id,
+				orders: [],
+				umlage: 15,
+				finalTotal: 15,
+			}),
+		);
+		const period = await periodByNumber(run.billPeriod.billNumber);
+		expect(period?.totalAmount).toBe(32);
+	});
+
+	test("an Umlage-only bill is mailed, printed, exported, listed and shown on the profile", async () => {
+		await setupKasse();
+		const [resident] = (await hausbewohner(1, {
+			name: "Hanna",
+			email: "hanna@example.test",
+		})) as [TestUser];
+		await createOrderRow({ user: await createUser() });
+
+		const run = await billWithLoss(12.5);
+
+		const [bill] = await billsOf(resident.id);
+		if (!bill) {
+			throw new Error("missing Umlage-only bill");
+		}
+		// Mail with the PDF, whose lines add up to the total.
+		const hannaMail = mail.mock.calls.find(
+			([m]) => m.to === "hanna@example.test",
+		)?.[0];
+		expect(hannaMail?.text).toContain("Gesamtbetrag: 12,50€");
+		const pdf = (await generateUserBillPDF(bill.id)).pdfContent as Buffer;
+		expect(pdfValueAfter(pdf, "Umlage:")).toMatch(/^12,50/);
+		expect(pdfValueAfter(pdf, "Gesamtbetrag:")).toMatch(/^12,50/);
+		// CSV row of the period.
+		const csv = await generateBillPeriodCSV(run.billPeriod.id, {
+			delimiter: ";",
+		});
+		const row = csv.csvContent
+			?.split("\n")
+			.find((line) => line.startsWith("Hanna;"));
+		expect(row).toContain(
+			"0,00 EUR;0,00 EUR;0,00 EUR;12,50 EUR;12,50 EUR;Hanna;",
+		);
+		// Kasse/Rechnungen dashboard.
+		const listed = await getBillsForPeriod(run.billPeriod.id);
+		expect(listed.find((b) => b.name === "Hanna")).toMatchObject({
+			totalDue: 12.5,
+			drinksTotal: 0,
+			umlage: 12.5,
+			items: [],
+		});
+		// The Kasse's open member bills.
+		expect(await getOpenMemberBills()).toContainEqual(
+			expect.objectContaining({ userName: "Hanna", total: 12.5 }),
+		);
+		// The member's profile.
+		signInAs(resident);
+		expect((await getUserBillingData()).billData).toMatchObject({
+			total: 12.5,
+			umlage: 12.5,
+		});
+		expect((await getAllUserBills())[0]?.billData.umlage).toBe(12.5);
+		expect((await getBillById(bill.id)).billData?.umlage).toBe(12.5);
+	});
+
+	test("an unpaid Umlage-only bill is carried into the next period with the late fee", async () => {
+		await setupKasse();
+		const [resident] = (await hausbewohner(1)) as [TestUser];
+		await createOrderRow({ user: await createUser() });
+		await billWithLoss(30);
+
+		vi.setSystemTime(new Date(WEEK_44));
+		await createOrderRow({ user: await createUser() });
+		const next = await runBilling();
+
+		const [first, second] = await billsOf(resident.id);
+		expect(first).toMatchObject({ status: "Übertragen", umlage: 30 });
+		expect(second).toMatchObject({
+			billPeriodId: next.billPeriod.id,
+			status: "Unbezahlt",
+			oldBillingAmount: 30,
+			fees: 3,
+			umlage: 0,
+			total: 33,
+		});
+	});
+
+	test("a Hausbewohner with old debt but no orders gets one bill with both", async () => {
+		await setupKasse();
+		const [resident] = (await hausbewohner(1)) as [TestUser];
+		const old = await createBillPeriodRow();
+		await createBillRow({ periodId: old.id, user: resident, drinksTotal: 10 });
+		await createOrderRow({ user: await createUser() });
+
+		const run = await billWithLoss(20);
+
+		const current = (await billsOf(resident.id)).filter(
+			(b) => b.billPeriodId === run.billPeriod.id,
+		);
+		expect(current).toEqual([
+			expect.objectContaining({
+				oldBillingAmount: 10,
+				fees: 1,
+				umlage: 20,
+				total: 31,
+			}),
+		]);
+	});
+
+	test("a member who ordered but is no Hausbewohner pays no Umlage", async () => {
+		await setupKasse();
+		await hausbewohner(2);
+		const guest = await createUser({ roles: ["Alter Herr"] });
+		await createOrderRow({
+			user: guest,
+			drink: await createDrink({ price: 1 }),
+		});
+
+		await billWithLoss(50);
+
+		expect((await billsOf(guest.id))[0]).toMatchObject({
+			umlage: 0,
+			total: 1,
+		});
+	});
+
+	test("rounds each share down to whole cents and leaves the remainder to the Kasse", async () => {
+		await setupKasse();
+		const residents = await hausbewohner(3);
+		await createOrderRow({ user: await createUser() });
+
+		const run = await billWithLoss(100);
+
+		for (const user of residents) {
+			expect((await billsOf(user.id))[0]).toMatchObject({
+				umlage: 33.33,
+				total: 33.33,
+			});
+		}
+		expect(umlageSum(await periodBills(run.billPeriod.id))).toBe(99.99);
+	});
+
+	test("charges no Umlage and creates no Umlage-only bills for a zero or negative loss", async () => {
+		await setupKasse();
+		const [resident, drinker] = (await hausbewohner(2)) as [TestUser, TestUser];
+		await createOrderRow({ user: drinker });
+
+		const run = await billWithLoss(0);
+		await createOrderRow({ user: drinker });
+		vi.setSystemTime(new Date(WEEK_44));
+		const second = await billWithLoss(-12);
+
+		expect(await billsOf(resident.id)).toEqual([]);
+		for (const r of [run, second]) {
+			expect(umlageSum(await periodBills(r.billPeriod.id))).toBe(0);
+		}
+	});
+
+	test("a loss smaller than one cent per Hausbewohner is not charged", async () => {
+		await setupKasse();
+		const [resident] = (await hausbewohner(3)) as [TestUser];
+		await createOrderRow({ user: await createUser() });
+
+		await billWithLoss(0.02);
+
+		expect(await billsOf(resident.id)).toEqual([]);
+	});
+
+	test("without Hausbewohner nobody pays Umlage and the run still bills", async () => {
+		await setupKasse();
+		const member = await createUser();
+		await createOrderRow({
+			user: member,
+			drink: await createDrink({ price: 2 }),
+		});
+
+		const run = await billWithLoss(40);
+
+		expect(run).toMatchObject({ success: true, billsCreated: 1 });
+		expect((await billsOf(member.id))[0]).toMatchObject({
+			umlage: 0,
+			total: 2,
+		});
+	});
+
+	test("suspended and pending members are not counted and pay no Umlage", async () => {
+		await setupKasse();
+		const active = await hausbewohner(2);
+		const [suspended] = (await hausbewohner(1, {
+			membership: "suspended",
+		})) as [TestUser];
+		const [pending] = (await hausbewohner(1, { membership: "pending" })) as [
+			TestUser,
+		];
+		const drink = await createDrink({ price: 1 });
+		await createOrderRow({ user: suspended, drink });
+
+		const run = await billWithLoss(30);
+
+		for (const user of active) {
+			expect((await billsOf(user.id))[0]?.umlage).toBe(15);
+		}
+		expect((await billsOf(suspended.id))[0]).toMatchObject({
+			umlage: 0,
+			total: 1,
+		});
+		expect(await billsOf(pending.id)).toEqual([]);
+		expect(umlageSum(await periodBills(run.billPeriod.id))).toBe(30);
+	});
+
+	test("bills the Umlage even when nobody ordered anything", async () => {
+		await setupKasse();
+		const residents = await hausbewohner(2);
+
+		const run = await billWithLoss(9);
+
+		expect(run.billsCreated).toBe(2);
+		for (const user of residents) {
+			expect((await billsOf(user.id))[0]).toMatchObject({
+				umlage: 4.5,
+				total: 4.5,
+			});
+		}
+	});
+
+	test("the Kasse's plain billing run never charges a loss sent by the browser", async () => {
+		await setupKasse();
+		const [resident] = (await hausbewohner(1)) as [TestUser];
+		await createOrderRow({ user: resident });
+
+		// A crafted request could pass an argument to the server action.
+		const forged = createNewBilling as (
+			loss: unknown,
+		) => ReturnType<typeof createNewBilling>;
+		await forged(500);
+
+		expect((await billsOf(resident.id))[0]?.umlage).toBe(0);
 	});
 });
 

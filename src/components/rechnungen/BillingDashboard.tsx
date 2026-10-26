@@ -31,6 +31,10 @@ export interface BillingEntry {
 	status?: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen";
 	items: DrinkItem[];
 	paidAt?: Date | null;
+	/** Parts of a bill beyond its drinks (absent for unbilled orders). */
+	oldBillingAmount?: number;
+	fees?: number;
+	umlage?: number;
 }
 
 interface BillPeriod {

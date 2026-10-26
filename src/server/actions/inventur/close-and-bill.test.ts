@@ -1,8 +1,8 @@
 import { asc } from "drizzle-orm";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { createNewBilling } from "~/server/actions/billings/billings";
 import { billPeriods, inventories, orders } from "~/server/db/schema";
+import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import {
 	billsOf,
 	setGetraenkeBillingProfile,
@@ -26,15 +26,15 @@ import { closeInventoryAndBill } from "./inventur";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 // The real billing runs unless a test injects a failure.
-vi.mock("~/server/actions/billings/billings", async (importOriginal) => {
+vi.mock("~/server/lib/billing-run", async (importOriginal) => {
 	const actual =
-		await importOriginal<typeof import("~/server/actions/billings/billings")>();
-	return { ...actual, createNewBilling: vi.fn(actual.createNewBilling) };
+		await importOriginal<typeof import("~/server/lib/billing-run")>();
+	return { ...actual, runGetraenkeBilling: vi.fn(actual.runGetraenkeBilling) };
 });
 
 setupTestDatabases();
 
-const billing = vi.mocked(createNewBilling);
+const billing = vi.mocked(runGetraenkeBilling);
 
 beforeEach(async () => {
 	vi.spyOn(console, "error").mockImplementation(() => {});
@@ -83,7 +83,7 @@ describe("closeInventoryAndBill", () => {
 			billsCreated: 1,
 			message: "Erfolgreich 1 Rechnungen erstellt",
 		});
-		expect(billing).toHaveBeenCalledExactlyOnceWith(4.5);
+		expect(billing).toHaveBeenCalledExactlyOnceWith({ inventoryLoss: 4.5 });
 		const [closed, next] = await allInventories();
 		expect(closed).toMatchObject({
 			id: running.id,
@@ -94,6 +94,38 @@ describe("closeInventoryAndBill", () => {
 		expect(await billsOf(resident.id)).toEqual([
 			expect.objectContaining({ drinksTotal: 3, umlage: 4.5, total: 7.5 }),
 		]);
+	});
+
+	test("splits the loss over the Hausbewohner only, including those without orders (#10)", async () => {
+		const { resident, pils } = await seedRunningInventory();
+		const quietResident = await createUser({ roles: ["Hausbewohner"] });
+		const guest = await createUser({ roles: ["Alter Herr"] });
+		await createOrderRow({ drink: pils, user: guest, createdAt: daysAgo(2) });
+
+		// 20 − 3 = 17 expected, 14 counted → 3 × 1.50 € = 4.50 € loss.
+		const result = await closeInventoryAndBill([
+			{ drinkId: pils.id, countedStock: 14, purchasedSince: 0 },
+		]);
+
+		expect(result).toMatchObject({
+			success: true,
+			totalInventoryLoss: 4.5,
+			billsCreated: 3,
+		});
+		expect((await billsOf(resident.id))[0]).toMatchObject({
+			drinksTotal: 3,
+			umlage: 2.25,
+			total: 5.25,
+		});
+		expect((await billsOf(quietResident.id))[0]).toMatchObject({
+			drinksTotal: 0,
+			umlage: 2.25,
+			total: 2.25,
+		});
+		expect((await billsOf(guest.id))[0]).toMatchObject({
+			umlage: 0,
+			total: 1.5,
+		});
 	});
 
 	test("bills no Umlage for the very first count, which closes nothing", async () => {
@@ -113,7 +145,7 @@ describe("closeInventoryAndBill", () => {
 		]);
 
 		expect(result).toMatchObject({ success: true, totalInventoryLoss: 0 });
-		expect(billing).toHaveBeenCalledExactlyOnceWith(0);
+		expect(billing).toHaveBeenCalledExactlyOnceWith({ inventoryLoss: 0 });
 		expect((await billsOf(resident.id))[0]?.umlage).toBe(0);
 	});
 

@@ -4,7 +4,6 @@
 import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { addMoney, roundToCent } from "~/lib/money";
-import { createNewBilling } from "~/server/actions/billings/billings";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -17,6 +16,7 @@ import {
 	kostenpunkte,
 	orders,
 } from "~/server/db/schema";
+import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { hasFeature } from "~/server/lib/features";
 import {
 	incompleteBillingMessage,
@@ -569,7 +569,9 @@ export async function closeInventoryAndBill(
 	let billsCreated = 0;
 	let message = "";
 	try {
-		const billing = await createNewBilling(totalInventoryLoss);
+		const billing = await runGetraenkeBilling({
+			inventoryLoss: totalInventoryLoss,
+		});
 		if (billing.success) {
 			billsCreated =
 				billing.billsCreated +
