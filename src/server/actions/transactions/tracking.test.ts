@@ -58,7 +58,9 @@ describe("getTransactions / getTransactionCount", () => {
 			userName: "Max Muster",
 			drinkName: "Pils",
 			inBill: false,
-			createdAt: daysAgo(1),
+			// Compare with the stored value; recomputing daysAgo(1) here can
+			// land in the next second.
+			createdAt: orders[0]?.createdAt,
 		});
 		expect(await getTransactionCount()).toEqual({ success: true, count: 5 });
 	});

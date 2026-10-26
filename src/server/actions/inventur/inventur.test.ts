@@ -418,12 +418,15 @@ describe("saveQuickAdjustments", () => {
 
 describe("getInventoryHistory", () => {
 	test("lists the last ten closed inventories, newest first, with derived differences", async () => {
+		// One clock for seeding and assertions: recomputing "now" later can
+		// cross a second boundary and shift every derived timestamp.
+		const now = Date.now();
 		const pils = await createDrink({ name: "Pils" });
 		for (let i = 12; i >= 1; i--) {
 			await createInventory({
 				status: "closed",
-				createdAt: daysAgo(i * 10 + 10),
-				closedAt: daysAgo(i * 10),
+				createdAt: daysAgo(i * 10 + 10, now),
+				closedAt: daysAgo(i * 10, now),
 				totalLoss: i,
 				items: [
 					{
@@ -436,7 +439,7 @@ describe("getInventoryHistory", () => {
 				],
 			});
 		}
-		await createInventory({ createdAt: daysAgo(10) });
+		await createInventory({ createdAt: daysAgo(10, now) });
 
 		const history = await getInventoryHistory();
 
@@ -446,7 +449,7 @@ describe("getInventoryHistory", () => {
 		expect(history[0]).toMatchObject({
 			status: "closed",
 			kind: "routine",
-			inventoryDate: daysAgo(10),
+			inventoryDate: daysAgo(10, now),
 			profit: null,
 			// 10 + 5 − 20 is clamped to an expected stock of 0.
 			items: [
