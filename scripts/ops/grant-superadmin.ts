@@ -1,8 +1,8 @@
-// scripts/grant-superadmin.ts
+// scripts/ops/grant-superadmin.ts
 //
 // Bootstrap a platform superadmin by email.
 //
-//   pnpm tsx scripts/grant-superadmin.ts <email> [--reason "bootstrap"]
+//   pnpm tsx scripts/ops/grant-superadmin.ts <email> [--reason "bootstrap"]
 //
 // Idempotent: re-running for an already-granted user is a no-op.
 // The user must already exist in the control DB (i.e. they've signed up
@@ -22,7 +22,7 @@ function parseArgs() {
 	const reason = reasonIdx >= 0 ? args[reasonIdx + 1] : "bootstrap";
 	if (!email) {
 		console.error(
-			'Usage: pnpm tsx scripts/grant-superadmin.ts <email> [--reason "..."]',
+			'Usage: pnpm tsx scripts/ops/grant-superadmin.ts <email> [--reason "..."]',
 		);
 		process.exit(1);
 	}

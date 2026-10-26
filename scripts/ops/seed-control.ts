@@ -1,4 +1,4 @@
-// scripts/seed-control.ts
+// scripts/ops/seed-control.ts
 //
 // Idempotent seed for the control plane DB. Registers Rhenania as tenant #1,
 // points it at the existing Rhenania Turso DB (current DATABASE_URL), maps the

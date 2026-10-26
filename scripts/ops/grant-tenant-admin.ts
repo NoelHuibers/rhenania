@@ -1,4 +1,4 @@
-// scripts/grant-tenant-admin.ts
+// scripts/ops/grant-tenant-admin.ts
 //
 // Bootstrap the first Admin in a tenant. Takes a control-DB user (by email)
 // and a tenant (by slug), then atomically:
@@ -13,7 +13,7 @@
 // at least one tenant before, or were invited there). Use `pnpm grant-superadmin`
 // for platform-level grants; this script is for tenant-scoped Admin.
 //
-//   pnpm tsx scripts/grant-tenant-admin.ts <email> <tenant-slug>
+//   pnpm tsx scripts/ops/grant-tenant-admin.ts <email> <tenant-slug>
 
 import "dotenv/config";
 
@@ -34,7 +34,7 @@ function parseArgs() {
 	const [email, slug] = args;
 	if (!email || !slug) {
 		console.error(
-			"Usage: pnpm tsx scripts/grant-tenant-admin.ts <email> <tenant-slug>",
+			"Usage: pnpm tsx scripts/ops/grant-tenant-admin.ts <email> <tenant-slug>",
 		);
 		process.exit(1);
 	}

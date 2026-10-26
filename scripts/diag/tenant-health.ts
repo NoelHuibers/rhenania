@@ -1,5 +1,5 @@
-// scripts/check-hassia-health.ts — read-only health check of a tenant DB.
-// Usage: pnpm tsx scripts/check-hassia-health.ts [slug]
+// scripts/diag/tenant-health.ts — read-only health check of a tenant DB.
+// Usage: pnpm diag:tenant-health [slug]
 
 import "dotenv/config";
 
@@ -10,22 +10,13 @@ import {
 	tenantAuthConfig,
 	tenantDomains,
 	tenantMemberships,
-	tenants,
 } from "~/server/db/control-schema";
-import { createClient } from "~/server/db/libsql";
+import { findTenantBySlug, openTenantClient } from "../lib/tenants";
 
 const slug = process.argv[2] ?? "hassia";
 
 async function main() {
-	const [tenant] = await controlDb
-		.select()
-		.from(tenants)
-		.where(eq(tenants.slug, slug))
-		.limit(1);
-	if (!tenant) {
-		console.error(`No tenant '${slug}'`);
-		process.exit(1);
-	}
+	const tenant = await findTenantBySlug(slug);
 	console.log(
 		`tenant: ${tenant.slug} (${tenant.displayName}) status=${tenant.status}`,
 	);
@@ -58,10 +49,7 @@ async function main() {
 		`memberships: ${memberships.length} (${memberships.map((m) => m.status).join(",")})`,
 	);
 
-	const client = createClient({
-		url: tenant.dbUrl,
-		authToken: tenant.dbAuthToken ?? undefined,
-	});
+	const client = openTenantClient(tenant);
 
 	const tables = [
 		"role",

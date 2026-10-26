@@ -1,27 +1,14 @@
-// scripts/list-member-statuses.ts — read-only: distinct member.status values
-// per tenant with counts. Usage: pnpm tsx scripts/list-member-statuses.ts [slug]
+// scripts/diag/list-member-statuses.ts — read-only: distinct member.status values
+// per tenant with counts. Usage: pnpm diag:member-statuses [slug]
 
 import "dotenv/config";
 
-import { eq } from "drizzle-orm";
-
-import { controlDb } from "~/server/db/control";
-import { tenants } from "~/server/db/control-schema";
-import { createClient } from "~/server/db/libsql";
+import { openTenant } from "../lib/tenants";
 
 const slug = process.argv[2] ?? "rhenania";
 
 async function main() {
-	const [t] = await controlDb
-		.select()
-		.from(tenants)
-		.where(eq(tenants.slug, slug))
-		.limit(1);
-	if (!t) throw new Error(`No tenant '${slug}'`);
-	const c = createClient({
-		url: t.dbUrl,
-		authToken: t.dbAuthToken ?? undefined,
-	});
+	const { client: c } = await openTenant(slug);
 	const rs = await c.execute(
 		'SELECT status, count(*) AS n FROM "member" GROUP BY status ORDER BY n DESC',
 	);
