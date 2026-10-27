@@ -123,13 +123,15 @@ describe("exportMembersXlsx", () => {
 	});
 
 	// XLSX cells are typed: a string that looks like a formula is stored as
-	// text and never evaluated, so (unlike CSV) it needs no `'` prefix, and
-	// phone numbers like "+49 …" survive an export → import round trip.
-	test("writes formula-like values as plain text cells (#91)", async () => {
+	// text and never evaluated on open, so (unlike CSV) it needs no `'`
+	// prefix, and phone numbers like "+49 …" survive an export → import round
+	// trip. The Text format keeps such a cell text when someone edits it.
+	test("writes formula-like values as text cells in the Text format (#91)", async () => {
 		await signInEditor();
 		await createMember({
 			firstName: '=HYPERLINK("http://x","Klick")',
 			lastName: "@Muster",
+			mobile: "+49 170 1234567",
 		});
 
 		const result = await exportMembersXlsx();
@@ -153,8 +155,38 @@ describe("exportMembersXlsx", () => {
 		expect(cells.filter((c) => c.type === ExcelJS.ValueType.Formula)).toEqual(
 			[],
 		);
-		const first = cells.find((c) => String(c.value).startsWith("=HYPERLINK"));
-		expect(first?.type).toBe(ExcelJS.ValueType.String);
+		const formulaLike = cells.filter((c) => /^[=+\-@\t\r]/.test(c.text));
+		expect(formulaLike.map((c) => c.text).sort()).toEqual([
+			"+49 170 1234567",
+			'=HYPERLINK("http://x","Klick")',
+			"@Muster",
+		]);
+		for (const c of formulaLike) {
+			expect(c.type).toBe(ExcelJS.ValueType.String);
+			expect(c.numFmt).toBe("@");
+		}
+		// Ordinary cells keep the General format.
+		const header = cells.find((c) => c.text === "Nachname");
+		expect(header?.numFmt).toBeUndefined();
+	});
+
+	test("formula-like values survive an export → import round trip (#91)", async () => {
+		await signInEditor();
+		await createMember({ firstName: "=1+1", mobile: "+49 170 1234567" });
+		const exported = await exportMembersXlsx();
+		if (!exported.success) {
+			throw new Error(exported.error);
+		}
+		const target = await createTenant();
+		switchTenant(target);
+		signInAs(await createUser({ roles: ["Admin"], tenantId: target.id }));
+
+		const imported = await importMembersXlsx({ base64: exported.base64 });
+
+		expect(imported).toMatchObject({ success: true, created: 1 });
+		expect(await allMembers()).toMatchObject([
+			{ firstName: "=1+1", mobile: "+49 170 1234567" },
+		]);
 	});
 });
 

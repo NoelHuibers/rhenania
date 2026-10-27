@@ -50,6 +50,9 @@ const ROUTES: Record<string, Record<string, Access>> = {
 		// Tokens of another Corps are a 404: see calendar/[token]/route.test.ts.
 		GET: { token: "a member's personal feed, keyed by a secret token" },
 	},
+	"src/app/api/csp-report/route.ts": {
+		POST: { public: "browsers' CSP violation reports, logged, no data" },
+	},
 	"src/app/api/health/route.ts": {
 		GET: { public: "liveness and expected schema versions, no data" },
 	},

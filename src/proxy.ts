@@ -29,6 +29,7 @@ const PUBLIC_PATHS = [
 	"/auth/(.*)", // all auth endpoints
 	"/api/calendar(.*)",
 	"/api/health(.*)", // liveness; /tenants authorises itself
+	"/api/csp-report", // CSP violation reports, sent without a session
 ];
 
 // All known valid paths (including protected ones). Wildcards use (.*).

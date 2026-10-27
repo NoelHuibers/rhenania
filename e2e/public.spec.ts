@@ -44,5 +44,19 @@ test.describe("public pages per tenant", () => {
 		expect(h["content-security-policy-report-only"]).toContain(
 			"default-src 'self'",
 		);
+		expect(h["content-security-policy-report-only"]).toContain(
+			"report-uri /api/csp-report",
+		);
+		expect(h["reporting-endpoints"]).toBe('csp="/api/csp-report"');
+	});
+
+	test("CSP reports are accepted without a session", async ({ request }) => {
+		const res = await request.post(`${RHENANIA}/api/csp-report`, {
+			headers: { "content-type": "application/csp-report" },
+			data: JSON.stringify({
+				"csp-report": { "effective-directive": "img-src" },
+			}),
+		});
+		expect(res.status()).toBe(204);
 	});
 });

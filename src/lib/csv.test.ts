@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { csvCell, csvRow, csvSafe } from "./csv";
+import { csvCell, csvRow, csvSafe, startsLikeFormula } from "./csv";
 
 describe("csvSafe (#91)", () => {
 	test.each([
@@ -26,6 +26,15 @@ describe("csvSafe (#91)", () => {
 		"Pils = gut",
 	])("leaves %j alone", (input) => {
 		expect(csvSafe(input)).toBe(input);
+	});
+
+	test("startsLikeFormula checks the first character only", () => {
+		for (const v of ["=1", "+49", "-5", "@x", "\tx", "\rx"]) {
+			expect(startsLikeFormula(v)).toBe(true);
+		}
+		for (const v of ["", "Max", " =1", "Pils = gut"]) {
+			expect(startsLikeFormula(v)).toBe(false);
+		}
 	});
 });
 

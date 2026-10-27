@@ -12,9 +12,14 @@ const FORMULA_START = /^[=+\-@\t\r]/;
 // Optional sign, digits with `.`/`,` separators, optional unit.
 const PLAIN_NUMBER = /^[+-]?\d+(?:[.,]\d+)*(?: ?(?:EUR|€|%))?$/;
 
+/** Whether a spreadsheet would read this text as the start of a formula. */
+export function startsLikeFormula(value: string): boolean {
+	return FORMULA_START.test(value);
+}
+
 /** Neutralises a cell Excel would treat as a formula. */
 export function csvSafe(value: string): string {
-	if (!FORMULA_START.test(value) || PLAIN_NUMBER.test(value)) {
+	if (!startsLikeFormula(value) || PLAIN_NUMBER.test(value)) {
 		return value;
 	}
 	return `'${value}`;
