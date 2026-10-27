@@ -26,6 +26,7 @@ import {
 } from "~/server/db/control-schema";
 import { users as tenantUsers } from "~/server/db/schema";
 import { getTenantDb, type TenantDb } from "~/server/db/tenants";
+import { log } from "~/server/lib/log";
 
 export type MirroredUser = {
 	id: string;
@@ -111,18 +112,21 @@ export async function mirrorUserToTenant(
 				if (delay === undefined) {
 					throw error;
 				}
-				console.warn(
-					`Mirroring user ${user.id} to tenant ${tenantId} failed (attempt ${attempt + 1}), retrying:`,
-					error,
-				);
+				await log.warn("user mirror write failed, retrying", {
+					mirroredUserId: user.id,
+					mirrorTenantId: tenantId,
+					attempt: attempt + 1,
+					err: error,
+				});
 				await sleep(delay);
 			}
 		}
 	} catch (error) {
-		console.error(
-			`Failed to mirror user ${user.id} to tenant ${tenantId}:`,
-			error,
-		);
+		await log.error("user mirror write failed", {
+			mirroredUserId: user.id,
+			mirrorTenantId: tenantId,
+			err: error,
+		});
 		throw error;
 	}
 }

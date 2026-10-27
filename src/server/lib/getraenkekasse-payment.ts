@@ -17,6 +17,7 @@ import { formatIban, isValidIban, normalizeIban } from "~/lib/iban";
 import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db";
 import { getraenkeBillingConfig, kontos } from "~/server/db/schema";
+import { log } from "~/server/lib/log";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 
 /** Shown when billing or a bill PDF is refused for missing data. */
@@ -99,7 +100,7 @@ export async function getGetraenkeBillingProfile(): Promise<GetraenkeBillingProf
 	} catch (error) {
 		// Before the migration has run the table does not exist; treat that as
 		// "not configured" so billing refuses instead of crashing.
-		console.error("Error loading Getränke billing profile:", error);
+		await log.error("Error loading Getränke billing profile", { err: error });
 		return EMPTY_GETRAENKE_BILLING_PROFILE;
 	}
 }
@@ -116,7 +117,7 @@ export async function getActiveGetraenkekasseKontos(): Promise<
 		)
 		.orderBy(asc(kontos.createdAt), sql`rowid`);
 	if (rows.some((k) => !isValidIban(k.iban))) {
-		console.warn("Getränkekasse konto with an invalid IBAN is ignored.");
+		await log.warn("Getränkekasse konto with an invalid IBAN is ignored");
 	}
 	return rows;
 }

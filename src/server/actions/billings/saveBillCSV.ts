@@ -7,6 +7,7 @@ import { getZonedParts } from "~/lib/time";
 import { db } from "~/server/db";
 import { billCSVs, billPeriods } from "~/server/db/schema";
 import { requireMember } from "~/server/lib/authz";
+import { log } from "~/server/lib/log";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import { generateBillPeriodCSV } from "./createCSV";
 
@@ -49,7 +50,9 @@ export async function saveBillPeriodCSV(
 					wasExisting: true,
 				};
 			} catch (_blobError) {
-				console.warn(`Blob not found for CSV ${existing.id}, regenerating...`);
+				await log.warn("bill csv blob missing, regenerating", {
+					csvId: existing.id,
+				});
 				await db.delete(billCSVs).where(eq(billCSVs.id, existing.id));
 			}
 		}
@@ -155,7 +158,7 @@ export async function saveBillPeriodCSV(
 			wasExisting: false,
 		};
 	} catch (error) {
-		console.error("Error saving CSV:", error);
+		await log.error("Error saving CSV", { err: error });
 		return {
 			success: false,
 			error:

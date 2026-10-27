@@ -42,6 +42,7 @@ import {
 } from "~/server/lib/billing-batch";
 import { carriedBillRefusal } from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
+import { log } from "~/server/lib/log";
 
 export type FuchsenBillPeriod = typeof fuchsenBillPeriods.$inferSelect;
 export type FuchsenBill = typeof fuchsenBills.$inferSelect;
@@ -353,10 +354,9 @@ export async function createNewFuchsenBilling() {
 			) {
 				throw error;
 			}
-			console.error(
-				"Fuchsen billing conflicted with a concurrent change:",
-				error,
-			);
+			await log.error("Fuchsen billing conflicted with a concurrent change", {
+				err: error,
+			});
 			return {
 				success: false,
 				message: BILLING_CONFLICT_MESSAGE,
@@ -372,7 +372,7 @@ export async function createNewFuchsenBilling() {
 			billPeriod: { id: billPeriodId, billNumber },
 		};
 	} catch (error) {
-		console.error("Error creating fuchsen billing:", error);
+		await log.error("Error creating fuchsen billing", { err: error });
 		return {
 			success: false,
 			message: "Fehler beim Erstellen der Rechnungen",
@@ -391,7 +391,7 @@ export async function getLatestFuchsenBillPeriod() {
 			.limit(1);
 		return latest ?? null;
 	} catch (error) {
-		console.error("Error getting latest fuchsen bill period:", error);
+		await log.error("Error getting latest fuchsen bill period", { err: error });
 		return null;
 	}
 }
@@ -404,7 +404,7 @@ export async function getAllFuchsenBillPeriods() {
 			.from(fuchsenBillPeriods)
 			.orderBy(desc(fuchsenBillPeriods.createdAt));
 	} catch (error) {
-		console.error("Error getting fuchsen bill periods:", error);
+		await log.error("Error getting fuchsen bill periods", { err: error });
 		return [];
 	}
 }
@@ -470,7 +470,7 @@ export async function getFuchsenBillsForPeriod(
 			};
 		});
 	} catch (error) {
-		console.error("Error getting fuchsen bills for period:", error);
+		await log.error("Error getting fuchsen bills for period", { err: error });
 		return [];
 	}
 }
@@ -521,7 +521,7 @@ export async function getUnbilledFuchsenOrdersGrouped(): Promise<
 			a.name.localeCompare(b.name),
 		);
 	} catch (error) {
-		console.error("Error grouping unbilled fuchsen orders:", error);
+		await log.error("Error grouping unbilled fuchsen orders", { err: error });
 		return [];
 	}
 }
@@ -539,7 +539,7 @@ export async function closeFuchsenBillPeriod(billPeriodId: string) {
 			.where(eq(fuchsenBillPeriods.id, billPeriodId));
 		return { success: true, message: "Abrechnungsperiode abgeschlossen" };
 	} catch (error) {
-		console.error("Error closing fuchsen bill period:", error);
+		await log.error("Error closing fuchsen bill period", { err: error });
 		return { success: false, message: "Fehler beim Abschließen" };
 	}
 }
@@ -621,7 +621,7 @@ export async function updateFuchsenBillStatus(
 
 		return { success: true };
 	} catch (error) {
-		console.error("Error updating fuchsen bill status:", error);
+		await log.error("Error updating fuchsen bill status", { err: error });
 		return { success: false, error: "Fehler beim Aktualisieren des Status" };
 	}
 }
@@ -701,7 +701,7 @@ export async function getFuchsenBillingStatistics() {
 			pendingBillsAmount: pending?.total ?? 0,
 		};
 	} catch (error) {
-		console.error("Error getting fuchsen billing statistics:", error);
+		await log.error("Error getting fuchsen billing statistics", { err: error });
 		return null;
 	}
 }
@@ -753,7 +753,7 @@ export async function getMyFuchsenBills(): Promise<
 			};
 		});
 	} catch (error) {
-		console.error("Error getting my fuchsen bills:", error);
+		await log.error("Error getting my fuchsen bills", { err: error });
 		return [];
 	}
 }
@@ -804,7 +804,7 @@ export async function getFuchsenBillPeriodCSV(billPeriodId: string) {
 			fileName: `Fuchsenrechnung_${period.billNumber}.csv`,
 		};
 	} catch (error) {
-		console.error("Error generating fuchsen CSV:", error);
+		await log.error("Error generating fuchsen CSV", { err: error });
 		return { success: false, error: "Fehler beim Erstellen der CSV" };
 	}
 }

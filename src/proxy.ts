@@ -7,6 +7,7 @@ import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import { betterAuthInstance } from "~/server/auth";
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
+import { logLine } from "~/server/lib/log";
 import {
 	hasActiveMembership,
 	resolveTenantByHost,
@@ -140,7 +141,12 @@ async function userHasRequiredRoles(
 		const userRoleNames = userRolesList.map((r) => r.roleName);
 		return requiredRoles.some((role) => userRoleNames.includes(role));
 	} catch (error) {
-		console.error("Error checking user roles:", error);
+		// The proxy has no request context for `log`; pass it explicitly.
+		logLine("error", "proxy role check failed", {
+			tenantId,
+			userId,
+			err: error,
+		});
 		return false;
 	}
 }

@@ -48,6 +48,7 @@ import {
 	tenantFeatures,
 	tenants,
 } from "~/server/db/control-schema";
+import { logLine } from "~/server/lib/log";
 
 /** How often an instance checks whether any tenant config changed. */
 export const TENANT_CONFIG_REVALIDATE_MS = 5_000;
@@ -127,7 +128,10 @@ async function revalidate(): Promise<void> {
 			// E.g. the control migration adding `configVersion` hasn't run yet.
 			// Degrade to a plain TTL of one revalidation interval.
 			if (!state.fingerprintFailing) {
-				console.error("Tenant config version check failed:", error);
+				// Without request context: the context lookup reads this cache.
+				logLine("error", "tenant config version check failed", {
+					err: error,
+				});
 			}
 			state.fingerprintFailing = true;
 			dropEntries();
@@ -182,7 +186,10 @@ async function loadFeatureFlags(tenantId: string): Promise<FeatureFlags> {
 			.where(eq(tenantFeatures.tenantId, tenantId));
 		return resolveFeatureFlags(rows);
 	} catch (error) {
-		console.error("Failed to load tenant feature flags:", error);
+		logLine("error", "tenant feature flags failed to load", {
+			tenantId,
+			err: error,
+		});
 		return defaultFeatureFlags();
 	}
 }

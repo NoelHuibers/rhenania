@@ -42,6 +42,7 @@ import {
 } from "~/server/db/control-schema";
 import { createClient } from "~/server/db/libsql";
 import * as tenantSchema from "~/server/db/schema";
+import { log } from "~/server/lib/log";
 import {
 	commitTenantConfigChange,
 	invalidateTenantConfig,
@@ -480,7 +481,10 @@ export async function provisionTenant(
 	} catch (err) {
 		const error = new ProvisioningStepError(slug, failedAt ?? "requested", err);
 		await releaseLease(slug, error.message).catch((releaseErr) =>
-			console.error("Failed to record provisioning error:", releaseErr),
+			log.error("provisioning error could not be recorded", {
+				slug,
+				err: releaseErr,
+			}),
 		);
 		throw error;
 	} finally {

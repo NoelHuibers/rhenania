@@ -8,6 +8,7 @@ import { auth } from "~/server/auth";
 import { fuchsenBills, fuchsenItems, fuchsenOrders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { ROLES, requireRole } from "~/server/lib/authz";
+import { log } from "~/server/lib/log";
 import { hasRole } from "../admin/userRoles";
 import { getUserName } from "../getUserName";
 
@@ -95,7 +96,7 @@ export async function createFuchsenOrder(
 
 		return { success: true, orderId: order?.id };
 	} catch (error) {
-		console.error("Error creating fuchsen order:", error);
+		await log.error("Error creating fuchsen order", { err: error });
 		return {
 			success: false,
 			error: "Bestellung konnte nicht erstellt werden. Bitte erneut versuchen.",
@@ -119,7 +120,7 @@ export async function getMyFuchsenOrders() {
 
 		return orders;
 	} catch (error) {
-		console.error("Error fetching user fuchsen orders:", error);
+		await log.error("Error fetching user fuchsen orders", { err: error });
 		return [];
 	}
 }
@@ -147,7 +148,7 @@ export async function getMyFuchsenSummary() {
 
 		return { openTotal, paidTotal, openCount };
 	} catch (error) {
-		console.error("Error fetching fuchsen summary:", error);
+		await log.error("Error fetching fuchsen summary", { err: error });
 		return { openTotal: 0, paidTotal: 0, openCount: 0 };
 	}
 }
@@ -162,7 +163,7 @@ export async function getAllFuchsenOrders() {
 			.orderBy(desc(fuchsenOrders.createdAt));
 		return orders;
 	} catch (error) {
-		console.error("Error fetching all fuchsen orders:", error);
+		await log.error("Error fetching all fuchsen orders", { err: error });
 		return [];
 	}
 }
@@ -207,7 +208,7 @@ export async function getFuchsenBillsByUser(): Promise<FuchsenUserBill[]> {
 			(a, b) => b.openTotal - a.openTotal,
 		);
 	} catch (error) {
-		console.error("Error aggregating fuchsen bills:", error);
+		await log.error("Error aggregating fuchsen bills", { err: error });
 		return [];
 	}
 }
@@ -223,7 +224,7 @@ export async function getFuchsenOrdersForUser(userId: string) {
 			.orderBy(desc(fuchsenOrders.createdAt));
 		return orders;
 	} catch (error) {
-		console.error("Error fetching fuchsen orders for user:", error);
+		await log.error("Error fetching fuchsen orders for user", { err: error });
 		return [];
 	}
 }
@@ -287,7 +288,7 @@ export async function updateFuchsenOrderStatus(
 
 		return { success: true, data: updated };
 	} catch (error) {
-		console.error("Error updating fuchsen order status:", error);
+		await log.error("Error updating fuchsen order status", { err: error });
 		return { success: false, error: "Fehler beim Aktualisieren des Status" };
 	}
 }
@@ -336,7 +337,7 @@ export async function markAllUserFuchsenOrdersPaid(userId: string) {
 
 		return { success: true, count: result.length };
 	} catch (error) {
-		console.error("Error marking all orders paid:", error);
+		await log.error("Error marking all orders paid", { err: error });
 		return { success: false, error: "Fehler beim Markieren als bezahlt" };
 	}
 }
@@ -356,7 +357,7 @@ export async function deleteFuchsenOrder(orderId: string) {
 
 		return { success: true };
 	} catch (error) {
-		console.error("Error deleting fuchsen order:", error);
+		await log.error("Error deleting fuchsen order", { err: error });
 		return { success: false, error: "Fehler beim Löschen der Bestellung" };
 	}
 }

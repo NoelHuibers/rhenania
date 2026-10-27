@@ -7,6 +7,7 @@ import {
 	setupTestDatabases,
 	signInAs,
 } from "../../../../test/harness";
+import { requireTenant } from "../../../../test/state";
 import { GET as health } from "./route";
 import { GET as tenantsHealthRoute } from "./tenants/route";
 
@@ -80,6 +81,35 @@ describe("GET /api/health/tenants", () => {
 			new Request("http://x/api/health/tenants"),
 		);
 		expect(res.status).toBe(200);
+	});
+
+	test("logs one tenant-tagged line per unhealthy tenant", async () => {
+		await createTenant({ slug: "aktuell" });
+		const behind = await createTenant({ slug: "zurueck" });
+		await requireTenant(behind.id).client.execute(
+			"DELETE FROM __drizzle_migrations WHERE created_at = (SELECT max(created_at) FROM __drizzle_migrations)",
+		);
+		const admin = await createUser();
+		await controlDb().insert(superAdmins).values({ userId: admin.id });
+		signInAs(admin);
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const res = await tenantsHealthRoute(
+			new Request("http://x/api/health/tenants"),
+		);
+
+		expect(res.status).toBe(503);
+		const lines = warn.mock.calls.map(([line]) => JSON.parse(String(line)));
+		warn.mockRestore();
+		expect(lines).toEqual([
+			expect.objectContaining({
+				level: "warn",
+				msg: "tenant unhealthy",
+				tenant: "zurueck",
+				reachable: true,
+				schemaBehind: true,
+			}),
+		]);
 	});
 
 	test("answers for a superadmin who is not a member of this Corps", async () => {

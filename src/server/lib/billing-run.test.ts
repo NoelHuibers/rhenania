@@ -294,7 +294,7 @@ describe("mailed bills (#23)", () => {
 	});
 
 	test("failed mails are logged and skipped, the others still go out", async () => {
-		await createTenant();
+		const tenant = await createTenant();
 		await setUpGetraenkeBilling();
 		signInAs(await createUser({ name: "Wart", roles: ["Getränkewart"] }));
 		for (const name of ["A", "B", "C", "D", "E", "F"]) {
@@ -308,10 +308,19 @@ describe("mailed bills (#23)", () => {
 
 		expect(result).toMatchObject({ success: true, billsCreated: 6 });
 		expect(mail).toHaveBeenCalledTimes(6);
-		expect(console.error).toHaveBeenCalledWith(
-			expect.stringContaining("Failed to send email to"),
-			expect.any(Error),
-		);
+		const failures = vi
+			.mocked(console.error)
+			.mock.calls.map(([line]) => String(line))
+			.filter((line) => line.includes("bill mail failed"));
+		expect(failures).toHaveLength(2);
+		// Tenant-tagged JSON, without the recipient's or anyone's address.
+		expect(JSON.parse(failures[0] as string)).toMatchObject({
+			level: "error",
+			tenant: tenant.slug,
+			to: "member",
+			err: { message: expect.stringContaining("to [email]") },
+		});
+		expect(failures.join("\n")).not.toMatch(/[\w.+-]+@[\w-]+\.[a-z]{2,}/i);
 		const summary = info.mock.calls
 			.map(([line]) => JSON.parse(String(line)))
 			.find((l) => l.msg === "billing mails sent");

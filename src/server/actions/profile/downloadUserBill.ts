@@ -3,6 +3,7 @@
 
 import { saveUserBillPDF } from "~/server/actions/billings/saveUserBillPDF";
 import { auth } from "~/server/auth";
+import { log } from "~/server/lib/log";
 
 export async function downloadUserBillPDF(billId: string): Promise<{
 	success: boolean;
@@ -33,7 +34,7 @@ export async function downloadUserBillPDF(billId: string): Promise<{
 			fileName: result.fileName,
 		};
 	} catch (error) {
-		console.error("Error downloading PDF:", error);
+		await log.error("Error downloading PDF", { err: error });
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : "Failed to download PDF",

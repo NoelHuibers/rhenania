@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { billPDFs, bills } from "~/server/db/schema";
+import { log } from "~/server/lib/log";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import { generateUserBillPDF } from "./createUserPDF";
 
@@ -72,7 +73,9 @@ export async function saveUserBillPDF(billId: string): Promise<{
 					wasExisting: true,
 				};
 			} catch (_blobError) {
-				console.warn(`Blob not found for PDF ${existing.id}, regenerating...`);
+				await log.warn("bill pdf blob missing, regenerating", {
+					pdfId: existing.id,
+				});
 				// Delete the invalid record
 				await db.delete(billPDFs).where(eq(billPDFs.id, existing.id));
 			}
@@ -144,7 +147,7 @@ export async function saveUserBillPDF(billId: string): Promise<{
 			wasExisting: false,
 		};
 	} catch (error) {
-		console.error("Error saving PDF:", error);
+		await log.error("Error saving PDF", { err: error });
 		return {
 			success: false,
 			error:

@@ -13,6 +13,7 @@ import { and, eq } from "drizzle-orm";
 
 import { controlDb } from "~/server/db/control";
 import { tenantMemberships, tenants, users } from "~/server/db/control-schema";
+import { log } from "~/server/lib/log";
 import type { TenantOAuthProvider } from "./load-providers";
 
 type GetUserInfo = NonNullable<GenericOAuthConfig["getUserInfo"]>;
@@ -115,9 +116,11 @@ export async function getMicrosoftUserInfo(
 ): Promise<OAuthUserInfo | null> {
 	const claims = tokens.idToken ? decodeJwtClaims(tokens.idToken) : null;
 	if (claims && claims.tid !== provider.azureTenantId) {
-		console.warn(
-			`[auth] ${provider.providerId}: ID token from Entra tenant ${String(claims.tid)} refused`,
-		);
+		await log.warn("microsoft login from another Entra tenant refused", {
+			tenant: provider.tenantSlug,
+			provider: provider.providerId,
+			entraTenantId: String(claims.tid),
+		});
 		return null;
 	}
 

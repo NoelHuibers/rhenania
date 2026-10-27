@@ -10,6 +10,7 @@ import {
 	incompleteBillingMessage,
 	resolveGetraenkeBillSender,
 } from "~/server/lib/getraenkekasse-payment";
+import { log } from "~/server/lib/log";
 import { buildUserBillData } from "~/server/lib/user-bill-data";
 import {
 	renderUserBillPDF,
@@ -85,7 +86,7 @@ export async function generateUserBillPDF(
 			fileName: userBillPdfFileName(billPeriod.billNumber, userBill.userName),
 		};
 	} catch (error) {
-		console.error("Error generating PDF:", error);
+		await log.error("Error generating PDF", { err: error });
 		return {
 			success: false,
 			error:

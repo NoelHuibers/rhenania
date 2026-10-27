@@ -14,6 +14,7 @@ import { auth } from "~/server/auth";
 import { drinks, orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
+import { log } from "~/server/lib/log";
 import { requireTenantId } from "~/server/lib/tenant-context";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
 import { hasRole } from "./admin/userRoles";
@@ -177,7 +178,7 @@ export async function createOrder(
 			orderId: newOrder?.id,
 		};
 	} catch (error) {
-		console.error("Error creating order:", error);
+		await log.error("Error creating order", { err: error });
 		return {
 			success: false,
 			error: "Failed to create order. Please try again.",
@@ -202,7 +203,7 @@ export async function getUserOrders() {
 
 		return userOrders;
 	} catch (error) {
-		console.error("Error fetching user orders:", error);
+		await log.error("Error fetching user orders", { err: error });
 		throw error;
 	}
 }
@@ -236,7 +237,7 @@ export async function updateOrderStatus(orderId: string) {
 		revalidatePath("/orders");
 		return { success: true };
 	} catch (error) {
-		console.error("Error updating order:", error);
+		await log.error("Error updating order", { err: error });
 		throw error;
 	}
 }

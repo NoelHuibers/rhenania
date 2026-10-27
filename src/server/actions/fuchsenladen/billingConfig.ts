@@ -6,6 +6,7 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { fuchsenBillingConfig } from "~/server/db/schema";
 import { requireMember } from "~/server/lib/authz";
+import { log } from "~/server/lib/log";
 import { hasRole } from "../admin/userRoles";
 
 export type FuchsenBillingConfig = typeof fuchsenBillingConfig.$inferSelect;
@@ -55,7 +56,7 @@ export async function getFuchsenBillingConfig(): Promise<FuchsenBillingConfig> {
 			.limit(1);
 		return config ?? EMPTY_CONFIG;
 	} catch (error) {
-		console.error("Error loading fuchsen billing config:", error);
+		await log.error("Error loading fuchsen billing config", { err: error });
 		return EMPTY_CONFIG;
 	}
 }
@@ -103,7 +104,7 @@ export async function updateFuchsenBillingConfig(
 			});
 		return { success: true, message: "Zahlungsdaten gespeichert" };
 	} catch (error) {
-		console.error("Error updating fuchsen billing config:", error);
+		await log.error("Error updating fuchsen billing config", { err: error });
 		return { success: false, error: "Fehler beim Speichern" };
 	}
 }
