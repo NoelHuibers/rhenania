@@ -9,7 +9,9 @@ import { eq } from "drizzle-orm";
 import { isValidMarkupPercent } from "~/lib/pricing";
 import { db } from "~/server/db";
 import { kasseConfig } from "~/server/db/schema";
+import type { TenantDb } from "~/server/db/tenants";
 import { hasFeature } from "~/server/lib/features";
+import { getTenantById } from "~/server/lib/tenant-context";
 
 export type DrinkPricingConfig = {
 	/** Whether the `drinks.markup` feature is on for this tenant. */
@@ -18,11 +20,22 @@ export type DrinkPricingConfig = {
 	markupPercent: number;
 };
 
-export async function getDrinkPricingConfig(): Promise<DrinkPricingConfig> {
-	if (!(await hasFeature("drinks.markup"))) {
+/**
+ * Markup settings of the request's Corps, or of `corps` when given (jobs
+ * that run outside a Corps request, e.g. the scheduled challenge sweep).
+ */
+export async function getDrinkPricingConfig(corps?: {
+	tenantId: string;
+	db: TenantDb;
+}): Promise<DrinkPricingConfig> {
+	const enabled = corps
+		? ((await getTenantById(corps.tenantId))?.features["drinks.markup"] ??
+			false)
+		: await hasFeature("drinks.markup");
+	if (!enabled) {
 		return { enabled: false, markupPercent: 0 };
 	}
-	const [row] = await db
+	const [row] = await (corps?.db ?? db)
 		.select({ markupPercent: kasseConfig.markupPercent })
 		.from(kasseConfig)
 		.where(eq(kasseConfig.id, "singleton"))

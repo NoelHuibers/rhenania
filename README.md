@@ -92,3 +92,22 @@ CONFIRM_PROD=<control-db-host> pnpm db:migrate-tenants # alle Tenant-DBs
 
 `drizzle-kit push` gibt es bewusst nicht mehr als Skript: Es umgeht das
 Migrations-Journal und hat früher zu Drift geführt.
+
+## Geplante Jobs (Vercel Cron)
+
+`vercel.json` ruft alle 5 Minuten `/api/cron/challenges` auf: Herausforderungen
+nach Ablauf der Antwort- oder Spielfrist verfallen, unbestätigte Ergebnisse
+werden nach 10 Minuten wie gemeldet verbucht, in allen aktiven Corps und für
+Cross-Corps-Herausforderungen. Seitenaufrufe und der Badge-Poll schreiben
+nichts; bis der Job gelaufen ist, zeigen sie Überfälliges als abgelaufen an.
+
+- `CRON_SECRET` (mind. 16 Zeichen, `openssl rand -base64 32`) muss in Vercel
+  (Production) gesetzt sein. Vercel schickt ihn als `Authorization: Bearer …`;
+  ohne die Variable lehnt die Route jeden Aufruf ab.
+- Hobby-Plan: nur ein Lauf pro Tag, ein `*/5`-Zeitplan lässt den Deploy
+  scheitern („Hobby accounts are limited to daily cron jobs“). Dann den
+  Zeitplan auf täglich stellen (z. B. `0 4 * * *`); unbestätigte Ergebnisse
+  werden dann erst bis zu einen Tag später verbucht (Bestätigen geht weiter
+  sofort). Pro: minutengenau.
+- Manuell auslösen:
+  `curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/challenges`

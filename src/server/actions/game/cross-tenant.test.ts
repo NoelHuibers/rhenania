@@ -7,6 +7,7 @@ import {
 	tenantMemberships,
 } from "~/server/db/control-schema";
 import { games } from "~/server/db/schema";
+import { sweepCrossCorpsChallenges } from "~/server/lib/challenge-sweep";
 import {
 	advanceClock,
 	freezeClock,
@@ -20,6 +21,7 @@ import {
 } from "../../../../test/factories/game";
 import {
 	controlDb,
+	countQueries,
 	createDrink,
 	createTenant,
 	createUser,
@@ -388,10 +390,25 @@ describe("cross-Corps lifecycle", () => {
 		const id = await proposedCrossChallenge(a, b, a.player);
 
 		advanceClock(11 * MINUTE);
-		await getMyCrossTenantChallenges();
+		await sweepCrossCorpsChallenges();
 
 		expect((await crossRow(id))?.status).toBe("expired");
 		expect(await controlDb().select().from(crossTenantGames)).toHaveLength(0);
+	});
+
+	test("the feed writes nothing and shows overdue challenges as expired (#21)", async () => {
+		const { a, b } = await twoCorps();
+		const id = await proposedCrossChallenge(a, b, a.player);
+		advanceClock(11 * MINUTE);
+
+		const read = await countQueries(() => getMyCrossTenantChallenges());
+
+		expect(read.writes).toBe(0);
+		expect(read.result.awaitingMyConfirm).toEqual([]);
+		expect(read.result.history).toEqual([
+			expect.objectContaining({ id, status: "expired" }),
+		]);
+		expect((await crossRow(id))?.status).toBe("result_proposed");
 	});
 
 	test("decline, dispute and cancel rules", async () => {

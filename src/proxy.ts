@@ -160,6 +160,15 @@ function withTenantHeader(
 export default async function middleware(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 
+	// Scheduled jobs serve every Corps and authorise themselves (CRON_SECRET).
+	// Vercel Cron calls the deployment URL, which belongs to no Corps, so no
+	// tenant is resolved; a client-sent tenant header is dropped.
+	if (pathname.startsWith("/api/cron/")) {
+		const headers = new Headers(request.headers);
+		headers.delete(TENANT_HEADER);
+		return NextResponse.next({ request: { headers } });
+	}
+
 	// 0) Resolve tenant by host. Unknown host => render the not-found page.
 	//    Known host => stamp x-tenant-id header for downstream code.
 	//    `x-forwarded-host` is preferred so we get the public-facing hostname

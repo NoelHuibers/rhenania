@@ -174,6 +174,29 @@ describe("createChallenge", () => {
 		);
 	});
 
+	test("an overdue result is left for the sweep to settle", async () => {
+		const { anna, bert, drink } = await setup();
+		const { challengeId } = await playChallenge({
+			challenger: anna,
+			opponent: bert,
+			drink,
+			winner: anna,
+		});
+		advanceClock(11 * MINUTE);
+		const [carl] = await createPlayers(1);
+
+		signInAs(anna);
+		const other = await createChallenge({
+			opponentId: carl.id,
+			drinkId: drink.id,
+			payment: "loser",
+		});
+
+		expect(other.success).toBe(true);
+		expect((await challengeRow(challengeId))?.status).toBe("result_proposed");
+		expect(await tenantDb().select().from(games)).toHaveLength(0);
+	});
+
 	test("after a decline the challenger has to wait an hour", async () => {
 		const { anna, bert, drink } = await setup();
 		const input = {
@@ -539,76 +562,6 @@ describe("respond, propose, confirm", () => {
 	});
 });
 
-describe("sweepExpiredChallenges (via getMyChallenges)", () => {
-	test("expires unanswered and unplayed challenges", async () => {
-		const { anna, bert, drink } = await setup();
-		const [carl] = await createPlayers(1);
-		signInAs(anna);
-		const unanswered = await createChallenge({
-			opponentId: bert.id,
-			drinkId: drink.id,
-			payment: "loser",
-		});
-		const unplayed = await createChallenge({
-			opponentId: carl.id,
-			drinkId: drink.id,
-			payment: "loser",
-		});
-		signInAs(carl);
-		await respondToChallenge({
-			challengeId: unplayed.challengeId as string,
-			response: "accept",
-		});
-
-		advanceClock(HOUR);
-		await getMyChallenges();
-		expect((await challengeRow(unanswered.challengeId as string))?.status).toBe(
-			"expired",
-		);
-		expect((await challengeRow(unplayed.challengeId as string))?.status).toBe(
-			"accepted",
-		);
-
-		advanceClock(5 * HOUR + MINUTE);
-		await getMyChallenges();
-		expect((await challengeRow(unplayed.challengeId as string))?.status).toBe(
-			"expired",
-		);
-	});
-
-	test("auto-settles a proposed result once the 10 min confirm window has passed", async () => {
-		const { anna, bert, drink } = await setup();
-		const { challengeId } = await playChallenge({
-			challenger: anna,
-			opponent: bert,
-			drink,
-			winner: anna,
-			payment: "loser",
-		});
-
-		advanceClock(9 * MINUTE);
-		await getMyChallenges();
-		expect((await challengeRow(challengeId))?.status).toBe("result_proposed");
-
-		advanceClock(2 * MINUTE);
-		const feed = await getMyChallenges();
-
-		const row = await challengeRow(challengeId);
-		expect(row?.status).toBe("settled");
-		const [game] = await tenantDb().select().from(games);
-		expect(game).toMatchObject({ id: row?.gameId, winnerId: anna.id });
-		const booked = await tenantDb().select().from(orders);
-		expect(booked).toEqual([
-			expect.objectContaining({ userId: bert.id, amount: 2 }),
-		]);
-		expect(feed.history.map((c) => c.id)).toEqual([challengeId]);
-		expect(feed.history[0]).toMatchObject({
-			status: "settled",
-			gameId: game?.id,
-		});
-	});
-});
-
 describe("getMyChallenges", () => {
 	test("sorts each challenge into the caller's buckets", async () => {
 		const { anna, bert, drink } = await setup();
@@ -680,14 +633,56 @@ describe("getMyChallenges", () => {
 		const poll = await countQueries(() => getMyChallenges());
 
 		expect(poll.writes).toBe(0);
-		// Session lookup, one check for due challenges, one feed query.
-		expect(poll.total - session.total).toBe(2);
+		// Session lookup plus one feed query.
+		expect(poll.total - session.total).toBe(1);
 		expect(poll.result.outgoingPending).toHaveLength(1);
 		expect(poll.result.awaitingMyConfirm[0]).toMatchObject({
 			challengerName: carl.name,
 			opponentName: anna.name,
 			drinkName: "Pils",
 		});
+	});
+
+	test("a poll past the deadlines writes nothing and shows the overdue as expired (#21)", async () => {
+		const { anna, bert, drink } = await setup();
+		const [carl] = await createPlayers(1);
+		signInAs(anna);
+		const unanswered = await createChallenge({
+			opponentId: bert.id,
+			drinkId: drink.id,
+			payment: "loser",
+		});
+		const proposed = await playChallenge({
+			challenger: carl,
+			opponent: anna,
+			drink,
+			winner: carl,
+		});
+		advanceClock(HOUR);
+		signInAs(anna);
+		const session = await countQueries(() => auth());
+
+		const poll = await countQueries(() => getMyChallenges());
+
+		expect(poll.writes).toBe(0);
+		expect(poll.total - session.total).toBe(1);
+		expect(poll.result.outgoingPending).toEqual([]);
+		expect(poll.result.history).toEqual([
+			expect.objectContaining({
+				id: unanswered.challengeId,
+				status: "expired",
+			}),
+		]);
+		// Settled by the next sweep as proposed; confirming it does the same.
+		expect(poll.result.awaitingMyConfirm.map((c) => c.id)).toEqual([
+			proposed.challengeId,
+		]);
+		expect((await challengeRow(unanswered.challengeId as string))?.status).toBe(
+			"pending",
+		);
+		expect((await challengeRow(proposed.challengeId))?.status).toBe(
+			"result_proposed",
+		);
 	});
 
 	test("is empty for signed-out visitors", async () => {
@@ -719,24 +714,6 @@ describe("settlement races", () => {
 
 		expect(await tenantDb().select().from(games)).toHaveLength(1);
 		expect(await tenantDb().select().from(orders)).toHaveLength(1);
-	});
-
-	// Two page loads after the confirm deadline both run the auto-settle sweep.
-	test("concurrent sweeps auto-settle exactly once (#16)", async () => {
-		const { anna, bert, drink } = await setup();
-		await playChallenge({
-			challenger: anna,
-			opponent: bert,
-			drink,
-			winner: anna,
-			payment: "loser",
-		});
-		advanceClock(11 * MINUTE);
-
-		await Promise.all([getMyChallenges(), getMyChallenges()]);
-
-		expect(await tenantDb().select().from(games)).toHaveLength(1);
-		expect((await getUserStatsRow(anna.id))?.totalGames).toBe(1);
 	});
 
 	test("the slower of two confirms is told there is nothing left to confirm", async () => {
@@ -845,32 +822,6 @@ describe("settlement races", () => {
 		expect((await confirmResult(challengeId)).success).toBe(true);
 		expect(await tenantDb().select().from(games)).toHaveLength(1);
 		expect((await getUserStatsRow(anna.id))?.totalGames).toBe(5);
-	});
-
-	test("a failed auto-settle is logged and the feed still loads", async () => {
-		const { anna, bert, drink } = await setup();
-		const { challengeId } = await playChallenge({
-			challenger: anna,
-			opponent: bert,
-			drink,
-			winner: anna,
-		});
-		advanceClock(11 * MINUTE);
-		vi.spyOn(tenantDb(), "batch").mockRejectedValueOnce(new Error("timeout"));
-		const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-
-		const feed = await getMyChallenges();
-
-		expect(feed.awaitingMyConfirm.map((c) => c.id)).toEqual([challengeId]);
-		expect(logged).toHaveBeenCalledWith(
-			expect.stringContaining("challenge auto-settle failed"),
-		);
-		expect(await getUserStatsRow(anna.id)).toMatchObject({ totalGames: 0 });
-
-		// The next poll settles it.
-		await getMyChallenges();
-		expect((await challengeRow(challengeId))?.status).toBe("settled");
-		logged.mockRestore();
 	});
 });
 
