@@ -136,14 +136,9 @@ describe("Getränkewart page query budget (#25)", () => {
 		expect(large.total).toBe(small.total);
 		expect(large.writes).toBe(0);
 
-		// Items and profits still land on the right bill / inventory.
+		// Items and profits still land on the right inventory.
 		const [, , , entityBills, , , stock, history] = large.result;
 		expect(entityBills).toHaveLength(10);
-		for (const bill of entityBills) {
-			expect(bill.items).toEqual([
-				expect.objectContaining({ billId: bill.id, amount: 1 }),
-			]);
-		}
 		expect(history).toHaveLength(10);
 		for (const inv of history) {
 			expect(inv.items).toHaveLength(1);

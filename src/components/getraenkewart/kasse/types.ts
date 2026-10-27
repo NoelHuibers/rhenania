@@ -37,12 +37,6 @@ export type EntityBill = {
 	total: number;
 	status: string;
 	createdAt: Date;
-	items: {
-		drinkName: string;
-		amount: number;
-		pricePerDrink: number;
-		totalPricePerDrink: number;
-	}[];
 };
 
 export type MemberBill = {

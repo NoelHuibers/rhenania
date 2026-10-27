@@ -2,7 +2,7 @@
 // atomic write batch, however many members are billed, and a write that is
 // refused when the data changed after the read.
 
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -87,6 +87,38 @@ describe("Fuchsenladen billing run (#23)", () => {
 		expect(large.total).toBe(small.total);
 		expect(large.writes).toBe(1);
 		expect(large.log.filter((e) => e.kind === "transaction")).toEqual([]);
+	});
+
+	// At 200 members the multi-row INSERTs are split into chunks of 200
+	// rows, all in the one write batch.
+	test("5 and 200 members: the same round trips and one write batch", async () => {
+		await setup();
+		await addMembers(1);
+		expect(await createNewFuchsenBilling()).toMatchObject({ success: true });
+
+		await addMembers(5);
+		const small = await countQueries(createNewFuchsenBilling);
+		await addMembers(200);
+		const large = await countQueries(createNewFuchsenBilling);
+
+		expect(small.result).toMatchObject({ success: true, billsCreated: 6 });
+		expect(large.result).toMatchObject({ success: true, billsCreated: 206 });
+		expect(small.total).toBe(4);
+		expect(large.total).toBe(small.total);
+		expect(large.writes).toBe(1);
+		expect(large.log.filter((e) => e.kind === "transaction")).toEqual([]);
+		const [write] = large.log.filter((e) =>
+			e.sql.some((q) => q.startsWith("insert")),
+		);
+		const inserts = (table: string) =>
+			write?.sql.filter((q) => q.startsWith(`insert into "${table}"`)).length;
+		// 206 bills; 400 items: two per new member.
+		expect(inserts("fuchsen_bill")).toBe(2);
+		expect(inserts("fuchsen_bill_item")).toBe(2);
+		// Every order is on a bill now.
+		expect(
+			await tenantDb().$count(fuchsenOrders, isNull(fuchsenOrders.billId)),
+		).toBe(0);
 	});
 
 	test("an order paid meanwhile: nothing is written, the next run bills the rest", async () => {

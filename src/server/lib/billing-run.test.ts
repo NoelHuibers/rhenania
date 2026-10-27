@@ -56,7 +56,10 @@ let member = 0;
  * booking, an open bill from an earlier period (every third one deferred),
  * Hausbewohner for the Umlage and a mail opt-out now and then.
  */
-async function addMembers(n: number) {
+async function addMembers(
+	n: number,
+	optsOut = (member: number) => member % 5 === 0,
+) {
 	const period = await createBillPeriodRow();
 	const pils = await createDrink({ name: "Pils", price: 1.5 });
 	const mate = await createDrink({ name: "Mate", price: 2 });
@@ -66,7 +69,7 @@ async function addMembers(n: number) {
 			name: `Mitglied ${member}`,
 			roles: member % 2 === 0 ? ["Hausbewohner"] : [],
 		});
-		if (member % 5 === 0) {
+		if (optsOut(member)) {
 			await setUserPreference(user.id, "notifications.emailEnabled", "false");
 		}
 		await createOrderRow({ user, drink: pils, amount: 2 });
@@ -150,6 +153,50 @@ describe("billing run query budget (#23)", () => {
 			(await tenantDb().select({ id: bills.id }).from(bills)).length,
 		).toBeGreaterThan(43);
 	});
+});
+
+// At 200 members every multi-row INSERT is split into chunks of 200 rows;
+// the chunks still travel in the one write batch.
+test("5 and 200 members: the same round trips and one write batch (#23)", async () => {
+	await createTenant();
+	await setUpGetraenkeBilling();
+	signInAs(await createUser({ name: "Wart", roles: ["Getränkewart"] }));
+	// Nobody gets a mail, so no PDF is rendered for 200 bills.
+	const noMail = () => true;
+	await addMembers(1, noMail);
+	expect(await run()).toMatchObject({ success: true });
+
+	await addMembers(5, noMail);
+	const small = await countQueries(run);
+	await addMembers(200, noMail);
+	const large = await countQueries(run);
+
+	// The members of the runs before are carried along.
+	expect(small.result).toMatchObject({
+		success: true,
+		billsCreated: 6,
+		eventBillsCreated: 5,
+	});
+	expect(large.result).toMatchObject({
+		success: true,
+		billsCreated: 206,
+		eventBillsCreated: 200,
+	});
+	expect(mail).not.toHaveBeenCalled();
+	expect(small.total).toBe(8);
+	expect(large.total).toBe(small.total);
+	expect(large.tenant).toBe(small.tenant);
+	expect(large.writes).toBe(1);
+	expect(large.log.filter((e) => e.kind === "transaction")).toEqual([]);
+	const [write] = large.log.filter((e) =>
+		e.sql.some((q) => q.startsWith("insert")),
+	);
+	const inserts = (table: string) =>
+		write?.sql.filter((q) => q.startsWith(`insert into "${table}"`)).length;
+	// 406 bills; 600 items: two drinks per new member, one per group.
+	expect(inserts("bill")).toBe(3);
+	expect(inserts("bill_item")).toBe(3);
+	expect(await tenantDb().$count(orders, eq(orders.inBill, false))).toBe(0);
 });
 
 async function memberWithOpenBill() {

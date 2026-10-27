@@ -12,6 +12,7 @@ import {
 	createFuchsenOrder,
 } from "../../../../test/factories/fuchsenladen";
 import {
+	countQueries,
 	createTenant,
 	createUser,
 	setupTestDatabases,
@@ -621,6 +622,83 @@ describe("updateFuchsenBillStatus", () => {
 			.from(fuchsenOrders)
 			.where(eq(fuchsenOrders.userId, member.id));
 		expect(orders.map((o) => o.status)).toEqual(["Bezahlt", "Bezahlt"]);
+	});
+
+	test("pays and un-pays in one write batch, however many carried bills it settles (#23)", async () => {
+		await setup();
+		const item = await createFuchsenItem({ price: 2 });
+		const day = (n: number) => new Date(RUN_1.getTime() - n * 86_400_000);
+		/** A member with `carried` bills rolled into an open one, an order each. */
+		async function chain(carried: number) {
+			const member = await createUser();
+			const ids: string[] = [];
+			for (let i = carried; i >= 0; i--) {
+				const { bills } = await createFuchsenBillPeriod({
+					createdAt: day(14 * (i + 1)),
+					bills: [{ user: member, itemsTotal: 2 }],
+				});
+				const bill = bills[0]?.id ?? "";
+				await createFuchsenOrder({ user: member, item, billId: bill });
+				if (i > 0) {
+					await tenantDb()
+						.update(fuchsenBills)
+						.set({ status: "Übertragen" })
+						.where(eq(fuchsenBills.id, bill));
+				}
+				ids.push(bill);
+			}
+			return { member, newest: ids.at(-1) ?? "" };
+		}
+		const state = async (member: TestUser) => {
+			const orders = await tenantDb()
+				.select()
+				.from(fuchsenOrders)
+				.where(eq(fuchsenOrders.userId, member.id));
+			return {
+				bills: (await billsOf(member)).map((b) => [b.status, b.paidAt]),
+				orders: orders.map((o) => [o.status, o.paidAt]),
+			};
+		};
+		const small = await chain(1);
+		const large = await chain(6);
+
+		const payOne = await countQueries(() =>
+			updateFuchsenBillStatus(small.newest, "Bezahlt"),
+		);
+		const paySix = await countQueries(() =>
+			updateFuchsenBillStatus(large.newest, "Bezahlt"),
+		);
+		expect(await state(large.member)).toEqual({
+			bills: Array(7).fill(["Bezahlt", RUN_1]),
+			orders: Array(7).fill(["Bezahlt", RUN_1]),
+		});
+
+		const undoOne = await countQueries(() =>
+			updateFuchsenBillStatus(small.newest, "Unbezahlt"),
+		);
+		const undoSix = await countQueries(() =>
+			updateFuchsenBillStatus(large.newest, "Unbezahlt"),
+		);
+		expect(await state(large.member)).toEqual({
+			bills: [...Array(6).fill(["Übertragen", null]), ["Unbezahlt", null]],
+			orders: Array(7).fill(["Offen", null]),
+		});
+
+		for (const { result } of [payOne, paySix, undoOne, undoSix]) {
+			expect(result).toEqual({ success: true });
+		}
+		// Session (2), the bill and one write batch; undo also checks for a later
+		// bill paid together with this one (was 9 and 10, in a transaction).
+		expect(payOne.total).toBe(4);
+		expect(undoOne.total).toBe(5);
+		for (const [one, six] of [
+			[payOne, paySix],
+			[undoOne, undoSix],
+		] as const) {
+			expect(six.total).toBe(one.total);
+			expect(six.writes).toBe(1);
+			expect(six.log.filter((e) => e.kind === "transaction")).toEqual([]);
+		}
 	});
 
 	test("marking the paid bill paid again keeps the bills it settled tied to it (#183)", async () => {

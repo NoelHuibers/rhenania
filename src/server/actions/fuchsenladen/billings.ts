@@ -40,7 +40,11 @@ import {
 	unchangedSince,
 	writeBatch,
 } from "~/server/lib/billing-batch";
-import { carriedBillRefusal } from "~/server/lib/carried-bills";
+import {
+	carriedBillRefusal,
+	memberBillStatus,
+	paidAlongWith,
+} from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
 import { log } from "~/server/lib/log";
 
@@ -77,7 +81,6 @@ async function requireFuchsenwart() {
 	return { ok: true as const, userId: session.user.id };
 }
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type FuchsenOrderRow = typeof fuchsenOrders.$inferSelect;
 
 /**
@@ -543,48 +546,51 @@ export async function updateFuchsenBillStatus(
 		const now = new Date();
 		const paidAt = newStatus === "Bezahlt" ? now : null;
 
-		await db.transaction(async (tx) => {
-			await tx
+		// One atomic batch (#23). Keep the underlying orders in sync so the
+		// per-order views (profile) and the bill-level status never disagree.
+		const statements: [BatchItem<"sqlite">, ...BatchItem<"sqlite">[]] = [
+			db
 				.update(fuchsenBills)
 				.set({ status: newStatus, paidAt, updatedAt: now })
-				.where(eq(fuchsenBills.id, billId));
-
-			// Keep the underlying orders in sync so the per-order views (profile)
-			// and the bill-level status never disagree.
-			await tx
+				.where(eq(fuchsenBills.id, billId)),
+			db
 				.update(fuchsenOrders)
 				.set({
 					status: newStatus === "Bezahlt" ? "Bezahlt" : "Offen",
 					paidAt,
 					updatedAt: now,
 				})
-				.where(eq(fuchsenOrders.billId, billId));
-
-			if (newStatus === "Bezahlt" && bill.status !== "Bezahlt") {
-				// Paying a consolidated bill also pays the bills it carried.
-				await setCarriedBills(tx, bill, {
-					from: eq(fuchsenBills.status, "Übertragen"),
+				.where(eq(fuchsenOrders.billId, billId)),
+		];
+		if (newStatus === "Bezahlt" && bill.status !== "Bezahlt") {
+			// Paying a consolidated bill also pays the bills it carried.
+			statements.push(
+				...setCarriedBills(bill, {
+					from: memberBillStatus(fuchsenBills, "Übertragen"),
 					status: "Bezahlt",
 					paidAt: now,
 					now,
-				});
-			} else if (
-				newStatus !== "Bezahlt" &&
-				bill.status === "Bezahlt" &&
-				bill.paidAt
-			) {
-				// Undoing a payment reopens the carried bills paid along with it.
-				await setCarriedBills(tx, bill, {
-					from: and(
-						eq(fuchsenBills.status, "Bezahlt"),
-						eq(fuchsenBills.paidAt, bill.paidAt),
-					),
+				}),
+			);
+		} else if (
+			newStatus !== "Bezahlt" &&
+			bill.status === "Bezahlt" &&
+			bill.paidAt
+		) {
+			// Undoing a payment reopens the carried bills paid along with it.
+			statements.push(
+				...setCarriedBills(bill, {
+					from: paidAlongWith(fuchsenBills, {
+						...bill,
+						paidAt: bill.paidAt,
+					}),
 					status: "Übertragen",
 					paidAt: null,
 					now,
-				});
-			}
-		});
+				}),
+			);
+		}
+		await db.batch(statements);
 
 		return { success: true };
 	} catch (error) {
@@ -594,11 +600,11 @@ export async function updateFuchsenBillStatus(
 }
 
 /**
- * Moves the member's earlier bills matching `from` (the ones carried into
- * `bill`) to `status`, together with their orders.
+ * Statements that move the member's earlier bills matching `from` (the ones
+ * carried into `bill`) to `status`, together with their orders. The orders
+ * go first, while their bills still match `from`.
  */
-async function setCarriedBills(
-	tx: Tx,
+function setCarriedBills(
 	bill: FuchsenBill,
 	change: {
 		from: SQL | undefined;
@@ -607,36 +613,34 @@ async function setCarriedBills(
 		now: Date;
 	},
 ) {
-	const carried = await tx
-		.select({ id: fuchsenBills.id })
-		.from(fuchsenBills)
-		.where(
-			and(
-				eq(fuchsenBills.userId, bill.userId),
-				lt(fuchsenBills.createdAt, bill.createdAt),
-				change.from,
+	const carried = and(
+		eq(fuchsenBills.userId, bill.userId),
+		lt(fuchsenBills.createdAt, bill.createdAt),
+		change.from,
+	);
+	return [
+		db
+			.update(fuchsenOrders)
+			.set({
+				status: change.status === "Bezahlt" ? "Bezahlt" : "Offen",
+				paidAt: change.paidAt,
+				updatedAt: change.now,
+			})
+			.where(
+				inArray(
+					fuchsenOrders.billId,
+					db.select({ id: fuchsenBills.id }).from(fuchsenBills).where(carried),
+				),
 			),
-		);
-	if (carried.length === 0) {
-		return;
-	}
-	const ids = carried.map((c) => c.id);
-	await tx
-		.update(fuchsenBills)
-		.set({
-			status: change.status,
-			paidAt: change.paidAt,
-			updatedAt: change.now,
-		})
-		.where(inArray(fuchsenBills.id, ids));
-	await tx
-		.update(fuchsenOrders)
-		.set({
-			status: change.status === "Bezahlt" ? "Bezahlt" : "Offen",
-			paidAt: change.paidAt,
-			updatedAt: change.now,
-		})
-		.where(inArray(fuchsenOrders.billId, ids));
+		db
+			.update(fuchsenBills)
+			.set({
+				status: change.status,
+				paidAt: change.paidAt,
+				updatedAt: change.now,
+			})
+			.where(carried),
+	];
 }
 
 /** The current user's own fuchsen bills (newest first), with line items. */
