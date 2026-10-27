@@ -15,6 +15,7 @@ import {
 	kostenpunkte,
 	orders,
 } from "~/server/db/schema";
+import { expectedStock, itemLoss } from "~/server/domain/inventory/loss";
 import { ROLES, requireRole } from "~/server/lib/authz";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { ActionError, defineAction } from "~/server/lib/define-action";
@@ -190,10 +191,11 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
 			lastInventoryStock: item.previousStock,
 			purchasedSince: item.purchasedSince,
 			soldSince: soldCount,
-			calculatedStock: Math.max(
-				0,
-				item.previousStock + item.purchasedSince - soldCount,
-			),
+			calculatedStock: expectedStock({
+				previousStock: item.previousStock,
+				purchasedSince: item.purchasedSince,
+				soldSince: soldCount,
+			}),
 			countedStock: item.countedStock,
 			currentPrice: drink.price,
 			// Timestamps are stored in seconds.
@@ -253,20 +255,14 @@ export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
 	return inventoriesData.map((inv, i) => {
 		const itemsWithDetails = (itemsByInventory.get(inv.id) ?? []).map(
 			(item) => {
-				const expectedStock = Math.max(
-					0,
-					item.inventoryItem.previousStock +
-						item.inventoryItem.purchasedSince -
-						item.inventoryItem.soldSince,
-				);
-
-				const difference = item.inventoryItem.countedStock - expectedStock;
+				const expected = expectedStock(item.inventoryItem);
+				const difference = item.inventoryItem.countedStock - expected;
 
 				return {
 					drinkId: item.inventoryItem.drinkId,
 					drinkName: item.drinkName,
 					countedStock: item.inventoryItem.countedStock,
-					expectedStock,
+					expectedStock: expected,
 					difference,
 					lossValue: item.inventoryItem.lossValue,
 				};
@@ -406,17 +402,15 @@ async function countInventory(
 
 				const existing = activeItems.get(item.drinkId);
 
-				let itemLoss = 0;
 				if (existing) {
-					const expectedStock = Math.max(
-						0,
-						existing.previousStock + validatedPurchasedSince - soldSinceFinal,
-					);
-					const difference = validatedCountedStock - expectedStock;
-					if (difference < 0) {
-						itemLoss = roundToCent(Math.abs(difference) * drink.price);
-					}
-					totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
+					const loss = itemLoss({
+						previousStock: existing.previousStock,
+						purchasedSince: validatedPurchasedSince,
+						soldSince: soldSinceFinal,
+						counted: validatedCountedStock,
+						price: drink.price,
+					}).value;
+					totalInventoryLoss = addMoney(totalInventoryLoss, loss);
 
 					await tx
 						.update(inventoryItems)
@@ -424,7 +418,7 @@ async function countInventory(
 							countedStock: validatedCountedStock,
 							purchasedSince: validatedPurchasedSince,
 							soldSince: soldSinceFinal,
-							lossValue: itemLoss,
+							lossValue: loss,
 						})
 						.where(eq(inventoryItems.id, existing.id));
 				} else {
@@ -442,15 +436,14 @@ async function countInventory(
 					const baselinePreviousStock =
 						priorForBaseline[0]?.inventory_item.countedStock ?? 0;
 
-					const expectedStock = Math.max(
-						0,
-						baselinePreviousStock + validatedPurchasedSince - soldSinceFinal,
-					);
-					const difference = validatedCountedStock - expectedStock;
-					if (difference < 0) {
-						itemLoss = roundToCent(Math.abs(difference) * drink.price);
-					}
-					totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
+					const loss = itemLoss({
+						previousStock: baselinePreviousStock,
+						purchasedSince: validatedPurchasedSince,
+						soldSince: soldSinceFinal,
+						counted: validatedCountedStock,
+						price: drink.price,
+					}).value;
+					totalInventoryLoss = addMoney(totalInventoryLoss, loss);
 
 					await tx.insert(inventoryItems).values({
 						inventoryId: activeInv.id,
@@ -460,7 +453,7 @@ async function countInventory(
 						purchasedSince: validatedPurchasedSince,
 						soldSince: soldSinceFinal,
 						priceAtCount: drink.price,
-						lossValue: itemLoss,
+						lossValue: loss,
 					});
 				}
 			}
@@ -920,9 +913,13 @@ export const finishEventInventory = defineAction(
 					previousStock = prior?.inventory_item.countedStock ?? 0;
 				}
 
-				const expected = Math.max(0, previousStock + purchased - sold);
-				const consumed = Math.max(0, expected - counted);
-				const value = roundToCent(consumed * drink.price);
+				const { missing: consumed, value } = itemLoss({
+					previousStock,
+					purchasedSince: purchased,
+					soldSince: sold,
+					counted,
+					price: drink.price,
+				});
 				totalQty += consumed;
 				totalValue = roundToCent(totalValue + value);
 				if (consumed > 0) {

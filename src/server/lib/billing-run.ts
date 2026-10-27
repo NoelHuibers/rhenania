@@ -12,21 +12,15 @@
 // nobody else pays Umlage. The rounding remainder (less than one cent per
 // Hausbewohner) is not charged; the Kasse absorbs it.
 //
-// Round trips (#23): the run reads everything in one batch, computes the
-// bills in memory and writes them in one atomic write batch, however many
-// members there are. Nothing holds the write lock between round trips. The
-// PDFs are rendered from memory and mailed after the commit, a few at a time.
+// Round trips (#23): the run reads everything in one batch, plans the bills
+// in memory (server/domain/billing/plan.ts, shared with the Fuchsenladen)
+// and writes them in one atomic write batch, however many members there
+// are. Nothing holds the write lock between round trips. The PDFs are
+// rendered from memory and mailed after the commit, a few at a time.
 
 import { and, desc, eq, inArray, isNull, ne, not, or, sql } from "drizzle-orm";
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
-import { lateFeeFor } from "~/lib/late-fee";
-import {
-	fromCents,
-	roundToCent,
-	shareDown,
-	sumMoney,
-	toCents,
-} from "~/lib/money";
+import { fromCents, toCents } from "~/lib/money";
 import {
 	sendBillNotificationEmail,
 	sendTreasurerBillEmail,
@@ -46,6 +40,11 @@ import {
 	users,
 } from "~/server/db/schema";
 import {
+	GETRAENKE_RULES,
+	planBillingRun,
+	umlagePerMember,
+} from "~/server/domain/billing/plan";
+import {
 	BILLING_CONFLICT_MESSAGE,
 	insertChunks,
 	isConstraintOn,
@@ -58,7 +57,6 @@ import {
 	incompleteBillingMessage,
 	resolveGetraenkeBillSender,
 } from "~/server/lib/getraenkekasse-payment";
-import { groupBy } from "~/server/lib/group-by";
 import { log } from "~/server/lib/log";
 import { getTenantId } from "~/server/lib/tenant-context";
 import { buildUserBillData } from "~/server/lib/user-bill-data";
@@ -198,65 +196,11 @@ async function activeHausbewohner(
 	);
 }
 
-/** One bill line per drink and price, consolidating repeated orders. */
-function drinkLines(
-	billId: string,
-	billOrders: OrderWithDetails[],
-	now: Date,
-): BillItemRow[] {
-	const drinkSummary = new Map<string, BillItemRow>();
-	for (const order of billOrders) {
-		const key = `${order.drinkName}-${order.pricePerUnit}`;
-		const existing = drinkSummary.get(key);
-		if (existing) {
-			existing.amount += order.amount;
-			existing.totalPricePerDrink = sumMoney([
-				existing.totalPricePerDrink,
-				order.total,
-			]);
-		} else {
-			drinkSummary.set(key, {
-				id: crypto.randomUUID(),
-				billId,
-				drinkName: order.drinkName,
-				amount: order.amount,
-				pricePerDrink: order.pricePerUnit,
-				totalPricePerDrink: roundToCent(order.total),
-				createdAt: now,
-			});
-		}
-	}
-	return [...drinkSummary.values()];
-}
-
 /**
- * What each member still owes from earlier periods, in whole cents so
- * legacy sub-cent totals can't add up to drift, and whether any of it was
- * deferred.
+ * Every row the run writes, and what it reports and mails: the shared plan
+ * (domain/billing) with the Getränke rules, as bill and bill_item rows.
  */
-function outstandingByUser(rows: BillingState["outstanding"]) {
-	const unpaidCentsMap = new Map<string, number>();
-	const deferredStatusMap = new Map<string, boolean>();
-	const outstandingUserNameMap = new Map<string, string>();
-	for (const row of rows) {
-		// Gruppenrechnungen (event bills) are settled directly, never carried.
-		if (row.userId.startsWith("event-")) {
-			continue;
-		}
-		unpaidCentsMap.set(
-			row.userId,
-			(unpaidCentsMap.get(row.userId) ?? 0) + toCents(Number(row.total) || 0),
-		);
-		outstandingUserNameMap.set(row.userId, row.userName);
-		if (row.status === "Gestundet") {
-			deferredStatusMap.set(row.userId, true);
-		}
-	}
-	return { unpaidCentsMap, deferredStatusMap, outstandingUserNameMap };
-}
-
-/** Every row the run writes, and what it reports and mails. */
-function planBillingRun(
+function planRows(
 	state: BillingState,
 	{
 		now,
@@ -270,148 +214,67 @@ function planBillingRun(
 		umlage: number;
 	},
 ) {
-	const umlageFor = (userId: string) => (hausbewohner.has(userId) ? umlage : 0);
-	const { unpaidCentsMap, deferredStatusMap, outstandingUserNameMap } =
-		outstandingByUser(state.outstanding);
+	const plan = planBillingRun({
+		unbilledOrders: state.unbilledOrders.map((o) => ({
+			...o,
+			name: o.drinkName,
+		})),
+		outstandingBills: state.outstanding,
+		rules: GETRAENKE_RULES,
+		umlage: { perMember: umlage, members: hausbewohner },
+	});
 
-	// Personal orders by user, event orders by event name (bookingFor).
-	const userOrderMap = groupBy(
-		state.unbilledOrders.filter((o) => !o.bookingFor),
-		(o) => o.userId,
-	);
-	const eventOrderMap = groupBy(
-		state.unbilledOrders.filter((o) => o.bookingFor),
-		(o) => o.bookingFor || "Unknown Event",
-	);
-
-	const memberBills: { row: BillRow; items: BillItemRow[] }[] = [];
-	const eventBills: { row: BillRow; items: BillItemRow[] }[] = [];
-	const userBillingSummaries: UserBillingSummary[] = [];
-	// Members whose old bills move into their new one.
-	const settledUserIds: string[] = [];
-
-	// A member's bill: new drinks, the carried amount with its late fee
-	// (LATE_FEE, the same rule the bill letter states) unless deferred, and
-	// the Umlage. Every stored amount is whole cents and the total is the sum
-	// of the stored parts, so the PDF lines always add up to the total (#13).
-	const addMemberBill = (
-		userId: string,
-		userName: string,
-		userOrders: OrderWithDetails[],
-	) => {
-		const drinksTotal =
-			userOrders.length > 0 ? sumMoney(userOrders.map((o) => o.total)) : 0;
-		const oldBillingAmount = fromCents(unpaidCentsMap.get(userId) ?? 0);
-		const wasDeferred = deferredStatusMap.get(userId) || false;
-		const fees = lateFeeFor(oldBillingAmount, wasDeferred);
-		const share = umlageFor(userId);
-		const finalTotal = sumMoney([drinksTotal, oldBillingAmount, fees, share]);
-
-		const billId = crypto.randomUUID();
-		memberBills.push({
-			row: {
-				id: billId,
-				billPeriodId,
-				userId,
-				userName,
-				status: "Unbezahlt",
-				oldBillingAmount,
-				fees,
-				umlage: share,
-				drinksTotal,
-				total: finalTotal,
+	const toRows = (bill: (typeof plan.bills)[number]) => ({
+		row: {
+			id: bill.id,
+			billPeriodId,
+			userId: bill.userId,
+			userName: bill.userName,
+			status: "Unbezahlt",
+			oldBillingAmount: bill.oldBillingAmount,
+			fees: bill.fees,
+			umlage: bill.umlage,
+			drinksTotal: bill.ordersTotal,
+			total: bill.total,
+			createdAt: now,
+		} satisfies BillRow,
+		items: bill.lines.map(
+			(line): BillItemRow => ({
+				id: line.id,
+				billId: line.billId,
+				drinkName: line.name,
+				amount: line.amount,
+				pricePerDrink: line.pricePerUnit,
+				totalPricePerDrink: line.total,
 				createdAt: now,
-			},
-			items: drinkLines(billId, userOrders, now),
-		});
-		// The rolled-in old bills are settled as "Übertragen" so the member
-		// isn't listed (and counted) twice.
-		if (oldBillingAmount > 0) {
-			settledUserIds.push(userId);
-		}
-		userBillingSummaries.push({
-			userId,
-			userName,
-			orders: userOrders,
-			drinksTotal,
-			oldBillingAmount,
-			fees,
-			umlage: share,
-			finalTotal,
-		});
-	};
-
-	for (const [userId, userOrders] of userOrderMap) {
-		addMemberBill(userId, userOrders[0]?.userName ?? "", userOrders);
-	}
-
-	// Members without new orders who still get a bill:
-	// - outstanding debt: a carry-over bill, so the Altbetrag always moves
-	//   into the newest Abrechnung. Without it, their old bill stays behind
-	//   and the next run (which only sees the new period) would lose track
-	//   of it.
-	// - Hausbewohner: their Umlage share (#10), on the same bill as any
-	//   carried debt, otherwise as an Umlage-only bill.
-	const withoutOrders = new Map<string, string>();
-	for (const [userId, unpaidCents] of unpaidCentsMap) {
-		if (unpaidCents > 0) {
-			withoutOrders.set(userId, outstandingUserNameMap.get(userId) ?? "");
-		}
-	}
-	if (umlage > 0) {
-		for (const [userId, name] of hausbewohner) {
-			if (!withoutOrders.has(userId)) {
-				withoutOrders.set(userId, name);
-			}
-		}
-	}
-	for (const [userId, userName] of withoutOrders) {
-		if (!userOrderMap.has(userId)) {
-			addMemberBill(userId, userName, []);
-		}
-	}
-
-	// One bill per event, with a special userId to mark it as an event.
-	// Events don't have old billing, fees or Umlage.
-	for (const [eventName, eventOrdersList] of eventOrderMap) {
-		const drinksTotal = sumMoney(eventOrdersList.map((o) => o.total));
-		const billId = crypto.randomUUID();
-		eventBills.push({
-			row: {
-				id: billId,
-				billPeriodId,
-				userId: `event-${eventName.toLowerCase().replace(/\s+/g, "-")}`,
-				userName: eventName,
-				status: "Unbezahlt",
-				oldBillingAmount: 0,
-				fees: 0,
-				umlage: 0,
-				drinksTotal,
-				total: drinksTotal,
-				createdAt: now,
-			},
-			items: drinkLines(billId, eventOrdersList, now),
-		});
-	}
-
-	const totalAmount = fromCents(
-		[...memberBills, ...eventBills].reduce(
-			(cents, bill) => cents + toCents(bill.row.total),
-			0,
+			}),
 		),
-	);
+	});
+	const members = plan.bills.filter((b) => b.kind === "member");
 
 	return {
-		memberBills,
-		eventBills,
-		userBillingSummaries,
-		settledUserIds,
-		orderIds: state.unbilledOrders.map((o) => o.id),
-		totalAmount,
+		memberBills: members.map(toRows),
+		eventBills: plan.bills.filter((b) => b.kind === "group").map(toRows),
+		userBillingSummaries: members.map(
+			(bill): UserBillingSummary => ({
+				userId: bill.userId,
+				userName: bill.userName,
+				orders: bill.orders.map(({ name: _name, ...order }) => order),
+				drinksTotal: bill.ordersTotal,
+				oldBillingAmount: bill.oldBillingAmount,
+				fees: bill.fees,
+				umlage: bill.umlage,
+				finalTotal: bill.total,
+			}),
+		),
+		// Members whose old bills move into their new one.
+		settledUserIds: plan.settleUserIds,
+		orderIds: plan.orderIds,
+		totalAmount: plan.periodTotal,
 	};
 }
 
-type BillingPlan = ReturnType<typeof planBillingRun>;
+type BillingPlan = ReturnType<typeof planRows>;
 
 /**
  * Writes the run as one atomic batch: one round trip, and the write lock is
@@ -573,12 +436,10 @@ export async function runGetraenkeBilling({
 			lossCents > 0
 				? await activeHausbewohner(state.hausbewohnerRoleHolders)
 				: new Map<string, string>();
-		const umlageCents =
-			hausbewohner.size > 0 ? shareDown(lossCents, hausbewohner.size) : 0;
-		const umlage = fromCents(umlageCents);
+		const umlage = umlagePerMember(inventoryLoss, hausbewohner.size);
 
 		// An Umlage to charge is reason enough for a run, orders or not.
-		if (state.unbilledOrders.length === 0 && umlageCents === 0) {
+		if (state.unbilledOrders.length === 0 && umlage === 0) {
 			return {
 				success: true,
 				message: "Keine unbezahlten Bestellungen gefunden",
@@ -594,7 +455,7 @@ export async function runGetraenkeBilling({
 			createdBy: createdByUserId,
 			now,
 		};
-		const plan = planBillingRun(state, {
+		const plan = planRows(state, {
 			now,
 			billPeriodId: period.id,
 			hausbewohner,
