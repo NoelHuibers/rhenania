@@ -34,14 +34,12 @@ export type FormState = {
 	meetingUrl: string;
 };
 
-export const DEFAULT_LOCATION = "adH Rhenania";
-
 export const emptyForm: FormState = {
 	title: "",
 	description: "",
 	date: "",
 	endDate: "",
-	location: DEFAULT_LOCATION,
+	location: "",
 	type: "Intern",
 	isPublic: true,
 	rsvpDeadline: "",

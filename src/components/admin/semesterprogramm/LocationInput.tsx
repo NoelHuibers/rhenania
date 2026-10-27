@@ -20,7 +20,7 @@ export function LocationInput({
 				value={value}
 				onChange={(e) => onChange(e.target.value)}
 				list={listId}
-				placeholder="z.B. adH Rhenania"
+				placeholder="z.B. Corpshaus"
 				autoComplete="off"
 			/>
 			<datalist id={listId}>

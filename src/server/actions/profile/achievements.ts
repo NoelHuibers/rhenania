@@ -9,6 +9,8 @@ import {
 	userAchievements,
 } from "~/server/db/schema";
 import { getAchievementUnlockPercentages } from "~/server/lib/achievement-stats";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
+import { parseFoundingDay } from "~/server/lib/tenant-profile";
 
 export type UserAchievementData = {
 	id: string;
@@ -35,19 +37,25 @@ export async function getUserAchievements(): Promise<UserAchievementData[]> {
 
 	const userId = session.user.id;
 
-	const [allAchievements, userUnlocked, userProgress, unlockPercentages] =
-		await Promise.all([
-			db.select().from(achievements).where(eq(achievements.isActive, true)),
-			db
-				.select()
-				.from(userAchievements)
-				.where(eq(userAchievements.userId, userId)),
-			db
-				.select()
-				.from(achievementProgress)
-				.where(eq(achievementProgress.userId, userId)),
-			getAchievementUnlockPercentages(),
-		]);
+	const [
+		allAchievements,
+		userUnlocked,
+		userProgress,
+		unlockPercentages,
+		tenant,
+	] = await Promise.all([
+		db.select().from(achievements).where(eq(achievements.isActive, true)),
+		db
+			.select()
+			.from(userAchievements)
+			.where(eq(userAchievements.userId, userId)),
+		db
+			.select()
+			.from(achievementProgress)
+			.where(eq(achievementProgress.userId, userId)),
+		getAchievementUnlockPercentages(),
+		getCurrentTenant(),
+	]);
 
 	const unlockedMap = new Map(
 		userUnlocked.map((u) => [u.achievementId, u.unlockedAt]),
@@ -56,7 +64,15 @@ export async function getUserAchievements(): Promise<UserAchievementData[]> {
 		userProgress.map((p) => [p.achievementId, p.currentValue]),
 	);
 
-	return allAchievements.map((a) => ({
+	// The Gründungstag needs the Corps' founding day; without one it cannot
+	// be earned, so it is not listed (unless already unlocked).
+	const hasFoundingDay =
+		parseFoundingDay(tenant?.branding?.foundingDay) !== null;
+	const listed = allAchievements.filter(
+		(a) => a.key !== "grundungstag" || hasFoundingDay || unlockedMap.has(a.id),
+	);
+
+	return listed.map((a) => ({
 		id: a.id,
 		key: a.key,
 		name: a.name,

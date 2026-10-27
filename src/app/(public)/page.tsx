@@ -3,9 +3,9 @@ import { getCurrentTenant } from "~/server/lib/tenant-context";
 import { DefaultLandingPage } from "~/tenants/default/landing-page";
 import { RhenaniaLandingPage } from "~/tenants/rhenania/landing-page";
 import {
-	createRhenaniaMetadata,
 	JsonLd,
 	RHENANIA_HOME_JSON_LD,
+	RHENANIA_HOME_METADATA,
 } from "~/tenants/rhenania/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -14,12 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 		return {};
 	}
 
-	return createRhenaniaMetadata({
-		title: "Corps Rhenania – Studentenverbindung in Stuttgart",
-		description:
-			"Corps Rhenania Stuttgart: studentische Gemeinschaft, Netzwerk und Wohnen im Corpshaus – zentral nahe Universität und Hauptbahnhof.",
-		path: "/",
-	});
+	return RHENANIA_HOME_METADATA;
 }
 
 // Public landing page dispatcher.

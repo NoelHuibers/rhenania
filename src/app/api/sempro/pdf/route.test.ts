@@ -86,4 +86,26 @@ describe("GET /api/sempro/pdf", () => {
 			"attachment; filename=\"Semesterprogramm_SoSe_2027_-_Jubilaeum.pdf\"; filename*=UTF-8''Semesterprogramm_SoSe_2027_%E2%80%93_Jubil%C3%A4um.pdf",
 		);
 	}, 30_000);
+
+	// The coat of arms is the tenant's own file; without one, none (#36).
+	test.each([
+		["Wappen_Tranzparent.png", 200],
+		["fehlt.png", 200],
+	])(
+		"renders with the stored logo %s",
+		async (logoFile, status) => {
+			await createTenant({ branding: { sempro: { logoFile } } });
+			signInAs(await createUser());
+			await setSemesterConfig({
+				name: "SoSe 2027",
+				startDate: wallClockToUTC("2027-04-12"),
+				endDate: wallClockToUTC("2027-07-25"),
+			});
+
+			const res = await GET(request());
+
+			expect(res.status).toBe(status);
+		},
+		30_000,
+	);
 });

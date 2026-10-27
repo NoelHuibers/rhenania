@@ -74,7 +74,7 @@ export function LocationCombobox({
 							onValueChange={handleSearchChange}
 							onFocus={() => setOpen(true)}
 							onKeyDown={handleKeyDown}
-							placeholder="z.B. adH Rhenania"
+							placeholder="z.B. Corpshaus"
 							className="h-9"
 						/>
 					</Command>

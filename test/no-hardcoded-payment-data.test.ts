@@ -10,12 +10,10 @@ import { describe, expect, test } from "vitest";
 const ROOT = path.resolve(import.meta.dirname, "..");
 const SCANNED = ["src/server", "src/components"];
 
-// Rhenania's public club address, still hard-coded in two places that have
-// their own issues. Remove an entry once that issue is fixed.
-const KNOWN: Record<string, string> = {
-	"src/components/footer/footercontent.tsx": "#31",
-	"src/server/sempro/SemProPDF.tsx": "#62",
-};
+// Files still allowed to hold such data, with the issue that removes it.
+// Empty since #36 moved the footer and SemPro letterhead to tenant branding;
+// keep it that way (see also test/no-tenant-literals.test.ts).
+const KNOWN: Record<string, string> = {};
 
 const PATTERNS: Array<{ name: string; re: RegExp }> = [
 	// IBAN with or without blanks (DE + 20 digits, other countries alike).

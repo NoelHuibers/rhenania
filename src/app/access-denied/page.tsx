@@ -55,7 +55,7 @@ export default async function AccessDeniedPage({
 						<div>
 							<p className="mb-2 text-muted-foreground text-sm">Signed in as</p>
 							<p className="font-medium text-foreground">
-								{session.user.email || "noel.huibers@rhenania-stuttgart.de"}
+								{session.user.email || session.user.name || "—"}
 							</p>
 						</div>
 

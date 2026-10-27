@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { wallClockToUTC } from "~/lib/time";
 import { events, recurringEvents } from "~/server/db/schema";
+import { createVenue } from "../../../../test/factories/events";
 import {
 	createTenant,
 	createUser,
@@ -105,7 +106,8 @@ describe("recurring event templates", () => {
 
 		expect(t).toMatchObject({
 			title: "Stammtisch",
-			location: "adH Rhenania",
+			// No venue yet: no location, never another Corps' house (#36).
+			location: null,
 			isPublic: true,
 			isActive: true,
 			dayOfWeek: 3,
@@ -118,6 +120,17 @@ describe("recurring event templates", () => {
 			time: "19:30",
 			isPublic: false,
 			dayOfWeek: 3,
+		});
+	});
+
+	test("defaults the location to the tenant's first venue (#36)", async () => {
+		await setup();
+		await createVenue("Corpshaus", "Musterweg 1, 12345 Musterstadt");
+		await createVenue("Altes Haus", "Musterweg 2, 12345 Musterstadt");
+
+		expect(await template()).toMatchObject({ location: "Corpshaus" });
+		expect(await template({ location: "Kneipe" })).toMatchObject({
+			location: "Kneipe",
 		});
 	});
 

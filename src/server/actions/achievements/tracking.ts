@@ -24,7 +24,8 @@ import {
 	users,
 } from "~/server/db/schema";
 import { getTenantDb, type TenantDb } from "~/server/db/tenants";
-import { getTenantId } from "~/server/lib/tenant-context";
+import { getTenantById, getTenantId } from "~/server/lib/tenant-context";
+import { parseFoundingDay } from "~/server/lib/tenant-profile";
 
 export type AchievementEvent =
 	| "order_created"
@@ -51,15 +52,33 @@ export interface TrackingOptions {
 	tenantId?: string;
 }
 
-/** Where to read and write: one Corps' DB, plus its id for cross-Corps games. */
-type Scope = { db: TenantDb; tenantId: string | null };
+type FoundingDay = { month: number; day: number };
+
+/**
+ * Where to read and write: one Corps' DB, plus its id for cross-Corps games
+ * and its founding day (Gründungstag, from the tenant's branding).
+ */
+type Scope = {
+	db: TenantDb;
+	tenantId: string | null;
+	foundingDay: FoundingDay | null;
+};
+
+async function foundingDayOf(tenantId: string | null) {
+	if (!tenantId) {
+		return null;
+	}
+	const tenant = await getTenantById(tenantId);
+	return parseFoundingDay(tenant?.branding?.foundingDay);
+}
 
 async function resolveScope(options: TrackingOptions): Promise<Scope> {
 	if (options.tenantId) {
-		return {
-			db: await getTenantDb(options.tenantId),
-			tenantId: options.tenantId,
-		};
+		const [tenantDb, foundingDay] = await Promise.all([
+			getTenantDb(options.tenantId),
+			foundingDayOf(options.tenantId),
+		]);
+		return { db: tenantDb, tenantId: options.tenantId, foundingDay };
 	}
 	let tenantId: string | null = null;
 	try {
@@ -67,7 +86,7 @@ async function resolveScope(options: TrackingOptions): Promise<Scope> {
 	} catch {
 		// Outside a request (seed script): default DB, all cross-Corps games.
 	}
-	return { db, tenantId };
+	return { db, tenantId, foundingDay: await foundingDayOf(tenantId) };
 }
 
 // ── How tracking talks to the database ─────────────────────────────────────
@@ -138,6 +157,8 @@ type RuleInput = {
 	now: Date;
 	/** `now` on the Berlin wall clock. */
 	zoned: ZonedParts;
+	/** The Corps' founding day; null when none is stored. */
+	foundingDay: FoundingDay | null;
 };
 
 type Rule = {
@@ -667,9 +688,12 @@ const RULES: Record<AchievementEvent, Record<string, Rule>> = {
 			needs: ["recentOrders"],
 			value: (s, { now }) => beersToday(s.get("recentOrders"), now),
 		},
-		// targetValue=10: sum of beers ordered on Feb 21
+		// targetValue=10: sum of beers ordered on the Corps' founding day.
+		// Never applies when the tenant has not stored one (#36).
 		grundungstag: {
-			when: onDate(2, 21),
+			when: (input) =>
+				input.foundingDay !== null &&
+				onDate(input.foundingDay.month, input.foundingDay.day)(input),
 			needs: ["recentOrders"],
 			value: (s, { now }) => beersToday(s.get("recentOrders"), now),
 		},
@@ -816,9 +840,19 @@ async function saveOutcomes(
 	await runBatch(scope.db, writes);
 }
 
-function ruleInput(userId: string, context?: OrderEventContext): RuleInput {
+function ruleInput(
+	scope: Scope,
+	userId: string,
+	context?: OrderEventContext,
+): RuleInput {
 	const now = new Date();
-	return { userId, context, now, zoned: getZonedParts(now) };
+	return {
+		userId,
+		context,
+		now,
+		zoned: getZonedParts(now),
+		foundingDay: scope.foundingDay,
+	};
 }
 
 export async function checkAndUnlockAchievements(
@@ -830,7 +864,7 @@ export async function checkAndUnlockAchievements(
 	try {
 		const scope = await resolveScope(options);
 		const rules = RULES[event];
-		const input = ruleInput(userId, context);
+		const input = ruleInput(scope, userId, context);
 
 		// Unlocked achievements are no longer tracked.
 		const pending = (
@@ -1080,7 +1114,14 @@ async function recalculatedValue(
 		case "erstermai":
 			return await getMaxBeersOnCalendarDate(scope, userId, 5, 1);
 		case "grundungstag":
-			return await getMaxBeersOnCalendarDate(scope, userId, 2, 21);
+			return scope.foundingDay
+				? await getMaxBeersOnCalendarDate(
+						scope,
+						userId,
+						scope.foundingDay.month,
+						scope.foundingDay.day,
+					)
+				: null;
 		case "deutschland":
 			return await hasEverPlayedOnOct3(scope, userId);
 		case "tierlunge":
@@ -1118,7 +1159,7 @@ export async function recalculateAllAchievements(
 	options: TrackingOptions = {},
 ): Promise<void> {
 	const scope = await resolveScope(options);
-	const input = ruleInput(userId);
+	const input = ruleInput(scope, userId);
 	const [catalogue, stats] = await Promise.all([
 		loadCatalogue(scope, userId),
 		loadStats(scope, userId, RECALC_STATS, input),

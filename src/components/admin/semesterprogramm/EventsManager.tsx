@@ -15,6 +15,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { utcToWallClockInput, wallClockToUTC } from "~/lib/time";
+import { defaultVenueName } from "~/lib/venues";
 import {
 	createEvent,
 	deleteEvent,
@@ -25,7 +26,6 @@ import type { Venue } from "~/server/actions/venues";
 import { EventFormCard } from "./EventFormCard";
 import { EventRow } from "./EventRow";
 import {
-	DEFAULT_LOCATION,
 	type Event,
 	emptyForm,
 	type FormState,
@@ -44,7 +44,10 @@ export function EventsManager({
 	const router = useRouter();
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
-	const [form, setForm] = useState<FormState>(emptyForm);
+	// New events start at the tenant's first venue (#36).
+	const defaultLocation = defaultVenueName(venues);
+	const newForm: FormState = { ...emptyForm, location: defaultLocation };
+	const [form, setForm] = useState<FormState>(newForm);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -54,7 +57,7 @@ export function EventsManager({
 	const past = initialEvents.filter((e) => e.date < new Date());
 
 	function openCreate() {
-		setForm(emptyForm);
+		setForm(newForm);
 		setEditingId(null);
 		setError(null);
 		setShowCreateForm(true);
@@ -66,7 +69,7 @@ export function EventsManager({
 			description: event.description ?? "",
 			date: utcToWallClockInput(event.date),
 			endDate: event.endDate ? utcToWallClockInput(event.endDate) : "",
-			location: event.location ?? DEFAULT_LOCATION,
+			location: event.location ?? defaultLocation,
 			type: event.type,
 			isPublic: event.isPublic,
 			rsvpDeadline: event.rsvpDeadline
@@ -84,7 +87,7 @@ export function EventsManager({
 	function closeForm() {
 		setShowCreateForm(false);
 		setEditingId(null);
-		setForm(emptyForm);
+		setForm(newForm);
 		setError(null);
 	}
 

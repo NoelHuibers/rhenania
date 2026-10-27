@@ -27,7 +27,6 @@ export const HEADERS = [
 
 export const SUBTOTAL_PREFIX = "Summe ";
 export const SUBSIDY_LABEL = "Zuschuss AHV";
-export const TITLE_PREFIX = "Corps Rhenania Stuttgart Etatplan ";
 
 // German accounting € mask (matches the source file).
 export const NUMBER_FORMAT =
@@ -86,6 +85,10 @@ export function grandTotalLabel(
 	return `${SUBTOTAL_PREFIX}${semesterType}${year}`;
 }
 
-export function titleText(semesterType: "SS" | "WS"): string {
-	return `${TITLE_PREFIX}${semesterType}`;
+/** Sheet title, e.g. "Corps Xy Etatplan SS", with the tenant's display name. */
+export function titleText(
+	tenantName: string,
+	semesterType: "SS" | "WS",
+): string {
+	return `${tenantName} Etatplan ${semesterType}`;
 }

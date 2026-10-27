@@ -38,7 +38,7 @@ export type FormState = {
 export const emptyForm: FormState = {
 	title: "",
 	description: "",
-	location: "adH Rhenania",
+	location: "",
 	type: "Intern",
 	recurrenceType: "biweekly",
 	dayOfWeek: "1",

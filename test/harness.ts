@@ -14,6 +14,7 @@ import { afterEach, beforeEach } from "vitest";
 import type { FeatureKey } from "~/lib/features";
 import {
 	users as controlUsers,
+	type TenantBranding,
 	tenantDomains,
 	tenantFeatures,
 	tenantMemberships,
@@ -70,6 +71,7 @@ export async function createTenant(
 		displayName?: string;
 		status?: "active" | "suspended" | "pending";
 		features?: FeatureKey[];
+		branding?: TenantBranding;
 	} = {},
 ): Promise<TestTenant> {
 	const n = next();
@@ -85,6 +87,7 @@ export async function createTenant(
 		displayName,
 		status: opts.status ?? "active",
 		dbUrl: tenantDb.url,
+		branding: opts.branding ?? null,
 	});
 	await control.insert(tenantDomains).values({
 		tenantId: id,

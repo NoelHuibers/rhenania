@@ -99,7 +99,7 @@ export function KontoForm({
 								onChange={(e) =>
 									setForm((f) => ({ ...f, bankName: e.target.value }))
 								}
-								placeholder="z. B. Volksbank Stuttgart"
+								placeholder="z. B. Sparkasse Musterstadt"
 							/>
 						</div>
 						<div className="space-y-2">

@@ -24,6 +24,7 @@ import {
 } from "~/components/ui/sheet";
 import { useIsMobile } from "~/hooks/use-mobile";
 import { utcToDateInput, wallClockToUTC } from "~/lib/time";
+import { defaultVenueName } from "~/lib/venues";
 import {
 	createRecurringEvent,
 	deleteRecurringEvent,
@@ -51,7 +52,10 @@ export function RecurringEventsManager({
 	const isMobile = useIsMobile();
 	const [showCreateForm, setShowCreateForm] = useState(false);
 	const [editingId, setEditingId] = useState<string | null>(null);
-	const [form, setForm] = useState<FormState>(emptyForm);
+	// New templates start at the tenant's first venue (#36).
+	const defaultLocation = defaultVenueName(venues);
+	const newForm: FormState = { ...emptyForm, location: defaultLocation };
+	const [form, setForm] = useState<FormState>(newForm);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [generating, setGenerating] = useState<string | null>(null);
@@ -61,7 +65,7 @@ export function RecurringEventsManager({
 	);
 
 	function openCreate() {
-		setForm(emptyForm);
+		setForm(newForm);
 		setEditingId(null);
 		setError(null);
 		setShowCreateForm(true);
@@ -71,7 +75,7 @@ export function RecurringEventsManager({
 		setForm({
 			title: r.title,
 			description: r.description ?? "",
-			location: r.location ?? "adH Rhenania",
+			location: r.location ?? defaultLocation,
 			type: r.type,
 			recurrenceType: r.recurrenceType,
 			dayOfWeek: String(r.dayOfWeek ?? 1),
@@ -89,7 +93,7 @@ export function RecurringEventsManager({
 	function closeForm() {
 		setShowCreateForm(false);
 		setEditingId(null);
-		setForm(emptyForm);
+		setForm(newForm);
 		setError(null);
 	}
 
@@ -117,7 +121,7 @@ export function RecurringEventsManager({
 		const input = {
 			title: form.title,
 			description: form.description || undefined,
-			location: form.location || "adH Rhenania",
+			location: form.location || defaultLocation || undefined,
 			type: form.type,
 			recurrenceType: form.recurrenceType,
 			dayOfWeek:
