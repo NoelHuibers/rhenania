@@ -23,7 +23,8 @@ async function openDrawerFor(page: Page, name: string, isMobile: boolean) {
 async function minTouchSize(locator: Locator) {
 	const box = await locator.boundingBox();
 	expect(box, "element is rendered").not.toBeNull();
-	return Math.min(box?.width ?? 0, box?.height ?? 0);
+	// Rounded to 0.1 px: layout sizes like 2.75rem come back as 43.9999….
+	return Math.round(Math.min(box?.width ?? 0, box?.height ?? 0) * 10) / 10;
 }
 
 test.describe("Trinken on a phone (#74)", () => {
