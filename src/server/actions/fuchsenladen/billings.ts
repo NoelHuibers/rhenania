@@ -8,6 +8,7 @@ import {
 	isNull,
 	lt,
 	ne,
+	not,
 	or,
 	type SQL,
 	sql,
@@ -31,6 +32,13 @@ import {
 	fuchsenBills,
 	fuchsenOrders,
 } from "~/server/db/schema";
+import {
+	BILLING_CONFLICT_MESSAGE,
+	insertChunks,
+	isConstraintOn,
+	unchangedSince,
+	writeBatch,
+} from "~/server/lib/billing-batch";
 import { carriedBillRefusal } from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
 import { hasRole } from "../admin/userRoles";
@@ -71,23 +79,6 @@ async function requireFuchsenwart() {
 	return { ok: true as const, userId: session.user.id };
 }
 
-/**
- * Next bill number in KW-WW-YY format (ISO week in Europe/Berlin); further
- * runs in the same week get -2, -3, etc.
- */
-// biome-ignore lint/suspicious/noExplicitAny: Drizzle transaction type is complex
-async function generateBillNumber(tx: any, date: Date): Promise<string> {
-	const base = billNumberBase(date);
-	const existingBills: { billNumber: string }[] = await tx
-		.select({ billNumber: fuchsenBillPeriods.billNumber })
-		.from(fuchsenBillPeriods)
-		.where(sql`${fuchsenBillPeriods.billNumber} LIKE ${`${base}%`}`);
-	return nextBillNumber(
-		base,
-		existingBills.map((b) => b.billNumber),
-	);
-}
-
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type FuchsenOrderRow = typeof fuchsenOrders.$inferSelect;
 
@@ -111,15 +102,9 @@ const isOutstanding = () =>
  * member without new orders is skipped by intermediate runs, so their debt
  * can sit several periods back.
  */
-async function outstandingByUser(tx: Tx) {
-	const rows = await tx
-		.select({
-			userId: fuchsenBills.userId,
-			userName: fuchsenBills.userName,
-			total: fuchsenBills.total,
-		})
-		.from(fuchsenBills)
-		.where(isOutstanding());
+function outstandingByUser(
+	rows: { userId: string; userName: string; total: number }[],
+) {
 	const byUser = new Map<string, { cents: number; userName: string }>();
 	for (const row of rows) {
 		const entry = byUser.get(row.userId) ?? {
@@ -133,12 +118,11 @@ async function outstandingByUser(tx: Tx) {
 }
 
 /** One bill line per item and price, consolidating repeated orders. */
-async function insertBillItems(
-	tx: Tx,
+function billItemRows(
 	billId: string,
 	orders: FuchsenOrderRow[],
 	now: Date,
-) {
+): (typeof fuchsenBillItems.$inferInsert)[] {
 	const itemSummary = new Map<
 		string,
 		{ name: string; amount: number; price: number; total: number }
@@ -158,17 +142,15 @@ async function insertBillItems(
 			});
 		}
 	}
-	for (const info of itemSummary.values()) {
-		await tx.insert(fuchsenBillItems).values({
-			id: crypto.randomUUID(),
-			billId,
-			itemName: info.name,
-			amount: info.amount,
-			pricePerItem: info.price,
-			totalPrice: info.total,
-			createdAt: now,
-		});
-	}
+	return [...itemSummary.values()].map((info) => ({
+		id: crypto.randomUUID(),
+		billId,
+		itemName: info.name,
+		amount: info.amount,
+		pricePerItem: info.price,
+		totalPrice: info.total,
+		createdAt: now,
+	}));
 }
 
 /**
@@ -185,143 +167,213 @@ export async function createNewFuchsenBilling() {
 	}
 
 	try {
-		const result = await db.transaction(async (tx) => {
-			// 1. Open orders not yet on a bill.
-			const unbilledOrders = await tx
-				.select()
-				.from(fuchsenOrders)
-				.where(isBillable())
-				.orderBy(fuchsenOrders.userId, fuchsenOrders.createdAt);
+		// One read for everything the run computes from (#23).
+		const now = new Date();
+		const base = billNumberBase(now);
+		const [unbilledOrders, numbered, [lastPeriod], outstandingRows] =
+			await db.batch([
+				// 1. Open orders not yet on a bill.
+				db
+					.select()
+					.from(fuchsenOrders)
+					.where(isBillable())
+					.orderBy(fuchsenOrders.userId, fuchsenOrders.createdAt),
+				db
+					.select({ billNumber: fuchsenBillPeriods.billNumber })
+					.from(fuchsenBillPeriods)
+					.where(sql`${fuchsenBillPeriods.billNumber} LIKE ${`${base}%`}`),
+				// 2. The previous open period, closed by this run.
+				db
+					.select({ id: fuchsenBillPeriods.id })
+					.from(fuchsenBillPeriods)
+					.where(isNull(fuchsenBillPeriods.closedAt))
+					.orderBy(desc(fuchsenBillPeriods.createdAt))
+					.limit(1),
+				// 3. Debt from all earlier periods.
+				db
+					.select({
+						id: fuchsenBills.id,
+						userId: fuchsenBills.userId,
+						userName: fuchsenBills.userName,
+						total: fuchsenBills.total,
+						status: fuchsenBills.status,
+					})
+					.from(fuchsenBills)
+					.where(isOutstanding()),
+			]);
 
-			if (unbilledOrders.length === 0) {
-				return {
-					success: true,
-					message: "Keine offenen Bestellungen zum Abrechnen gefunden",
-					billsCreated: 0,
-					totalAmount: 0,
-				};
-			}
-
-			const now = new Date();
-			const nextBillNumber = await generateBillNumber(tx, now);
-
-			// 2. Close the previous open period.
-			const [lastPeriod] = await tx
-				.select({
-					id: fuchsenBillPeriods.id,
-					closedAt: fuchsenBillPeriods.closedAt,
-				})
-				.from(fuchsenBillPeriods)
-				.where(isNull(fuchsenBillPeriods.closedAt))
-				.orderBy(desc(fuchsenBillPeriods.createdAt))
-				.limit(1);
-
-			if (lastPeriod && !lastPeriod.closedAt) {
-				await tx
-					.update(fuchsenBillPeriods)
-					.set({ closedAt: now, updatedAt: now })
-					.where(eq(fuchsenBillPeriods.id, lastPeriod.id));
-			}
-
-			// 3. Debt from all earlier periods, read before the new bills exist.
-			const outstanding = await outstandingByUser(tx);
-
-			// 4. Open the new period.
-			const billPeriodId = crypto.randomUUID();
-			await tx.insert(fuchsenBillPeriods).values({
-				id: billPeriodId,
-				billNumber: nextBillNumber,
-				totalAmount: 0,
-				createdBy: authCheck.userId,
-				createdAt: now,
-			});
-
-			// 5. Group the new orders by member.
-			const userOrderMap = new Map<string, FuchsenOrderRow[]>();
-			for (const order of unbilledOrders) {
-				const list = userOrderMap.get(order.userId) ?? [];
-				list.push(order);
-				userOrderMap.set(order.userId, list);
-			}
-
-			// Every member who gets a bill: new orders and/or carried debt.
-			const billedUsers = new Map<string, string>();
-			for (const [userId, userOrders] of userOrderMap) {
-				billedUsers.set(userId, userOrders[0]?.userName ?? "");
-			}
-			for (const [userId, debt] of outstanding) {
-				if (debt.cents > 0 && !billedUsers.has(userId)) {
-					billedUsers.set(userId, debt.userName);
-				}
-			}
-
-			let totalBillingCents = 0;
-			for (const [userId, userName] of billedUsers) {
-				const userOrders = userOrderMap.get(userId) ?? [];
-				const debtCents = Math.max(0, outstanding.get(userId)?.cents ?? 0);
-				const itemsTotal = sumMoney(userOrders.map((o) => o.total));
-				const oldBillingAmount = fromCents(debtCents);
-				const total = sumMoney([itemsTotal, oldBillingAmount]);
-
-				const billId = crypto.randomUUID();
-				await tx.insert(fuchsenBills).values({
-					id: billId,
-					billPeriodId,
-					userId,
-					userName,
-					status: "Unbezahlt",
-					oldBillingAmount,
-					itemsTotal,
-					total,
-					createdAt: now,
-				});
-
-				if (outstanding.has(userId)) {
-					// The carried bills now live on in this one.
-					await tx
-						.update(fuchsenBills)
-						.set({ status: "Übertragen", updatedAt: now })
-						.where(
-							and(
-								eq(fuchsenBills.userId, userId),
-								isOutstanding(),
-								ne(fuchsenBills.billPeriodId, billPeriodId),
-							),
-						);
-				}
-
-				if (userOrders.length > 0) {
-					await insertBillItems(tx, billId, userOrders, now);
-					await tx
-						.update(fuchsenOrders)
-						.set({ billId, updatedAt: now })
-						.where(
-							inArray(
-								fuchsenOrders.id,
-								userOrders.map((o) => o.id),
-							),
-						);
-				}
-
-				totalBillingCents += toCents(total);
-			}
-
-			const totalBillingAmount = fromCents(totalBillingCents);
-			await tx
-				.update(fuchsenBillPeriods)
-				.set({ totalAmount: totalBillingAmount, updatedAt: now })
-				.where(eq(fuchsenBillPeriods.id, billPeriodId));
-
+		if (unbilledOrders.length === 0) {
 			return {
 				success: true,
-				message: `Erfolgreich ${billedUsers.size} Rechnung(en) erstellt`,
-				billsCreated: billedUsers.size,
-				totalAmount: totalBillingAmount,
-				billPeriod: { id: billPeriodId, billNumber: nextBillNumber },
+				message: "Keine offenen Bestellungen zum Abrechnen gefunden",
+				billsCreated: 0,
+				totalAmount: 0,
 			};
-		});
+		}
 
-		return result;
+		// KW-WW-YY (ISO week in Europe/Berlin); further runs in the same week
+		// get -2, -3, etc.
+		const billNumber = nextBillNumber(
+			base,
+			numbered.map((p) => p.billNumber),
+		);
+		const outstanding = outstandingByUser(outstandingRows);
+		const billPeriodId = crypto.randomUUID();
+
+		// 4. Group the new orders by member.
+		const userOrderMap = new Map<string, FuchsenOrderRow[]>();
+		for (const order of unbilledOrders) {
+			const list = userOrderMap.get(order.userId) ?? [];
+			list.push(order);
+			userOrderMap.set(order.userId, list);
+		}
+
+		// Every member who gets a bill: new orders and/or carried debt.
+		const billedUsers = new Map<string, string>();
+		for (const [userId, userOrders] of userOrderMap) {
+			billedUsers.set(userId, userOrders[0]?.userName ?? "");
+		}
+		for (const [userId, debt] of outstanding) {
+			if (debt.cents > 0 && !billedUsers.has(userId)) {
+				billedUsers.set(userId, debt.userName);
+			}
+		}
+
+		const billRows: (typeof fuchsenBills.$inferInsert)[] = [];
+		const itemRows: (typeof fuchsenBillItems.$inferInsert)[] = [];
+		// The carried bills of these members now live on in their new one.
+		const settledUserIds: string[] = [];
+		// The new orders of each bill.
+		const billedOrders: { billId: string; ids: string[] }[] = [];
+		let totalBillingCents = 0;
+		for (const [userId, userName] of billedUsers) {
+			const userOrders = userOrderMap.get(userId) ?? [];
+			const debtCents = Math.max(0, outstanding.get(userId)?.cents ?? 0);
+			const itemsTotal = sumMoney(userOrders.map((o) => o.total));
+			const oldBillingAmount = fromCents(debtCents);
+			const total = sumMoney([itemsTotal, oldBillingAmount]);
+
+			const billId = crypto.randomUUID();
+			billRows.push({
+				id: billId,
+				billPeriodId,
+				userId,
+				userName,
+				status: "Unbezahlt",
+				oldBillingAmount,
+				itemsTotal,
+				total,
+				createdAt: now,
+			});
+			if (outstanding.has(userId)) {
+				settledUserIds.push(userId);
+			}
+			if (userOrders.length > 0) {
+				itemRows.push(...billItemRows(billId, userOrders, now));
+				billedOrders.push({ billId, ids: userOrders.map((o) => o.id) });
+			}
+			totalBillingCents += toCents(total);
+		}
+		const totalBillingAmount = fromCents(totalBillingCents);
+
+		// 5. One atomic write. It is refused when another run took the bill
+		// number, or (a NULL bill number) when the debts or orders read above
+		// changed in the meantime.
+		const orderIds = unbilledOrders.map((o) => o.id);
+		try {
+			await writeBatch([
+				db.insert(fuchsenBillPeriods).values({
+					id: billPeriodId,
+					billNumber,
+					totalAmount: totalBillingAmount,
+					createdBy: authCheck.userId,
+					createdAt: now,
+					updatedAt: now,
+				}),
+				db
+					.update(fuchsenBillPeriods)
+					.set({ billNumber: sql`NULL` })
+					.where(
+						and(
+							eq(fuchsenBillPeriods.id, billPeriodId),
+							not(
+								unchangedSince(
+									{ billsTable: fuchsenBills, outstanding: outstandingRows },
+									{
+										table: fuchsenOrders,
+										stillBillable: and(
+											inArray(fuchsenOrders.id, orderIds),
+											isBillable(),
+										),
+										count: orderIds.length,
+									},
+								),
+							),
+						),
+					),
+				...(lastPeriod
+					? [
+							db
+								.update(fuchsenBillPeriods)
+								.set({ closedAt: now, updatedAt: now })
+								.where(eq(fuchsenBillPeriods.id, lastPeriod.id)),
+						]
+					: []),
+				...insertChunks(billRows).map((rows) =>
+					db.insert(fuchsenBills).values(rows),
+				),
+				...insertChunks(itemRows).map((rows) =>
+					db.insert(fuchsenBillItems).values(rows),
+				),
+				...(settledUserIds.length > 0
+					? [
+							db
+								.update(fuchsenBills)
+								.set({ status: "Übertragen", updatedAt: now })
+								.where(
+									and(
+										inArray(fuchsenBills.userId, settledUserIds),
+										isOutstanding(),
+										ne(fuchsenBills.billPeriodId, billPeriodId),
+									),
+								),
+						]
+					: []),
+				...billedOrders.map(({ billId, ids }) =>
+					db
+						.update(fuchsenOrders)
+						.set({ billId, updatedAt: now })
+						.where(inArray(fuchsenOrders.id, ids)),
+				),
+			]);
+		} catch (error) {
+			if (
+				!isConstraintOn(
+					error,
+					fuchsenBillPeriods,
+					fuchsenBillPeriods.billNumber,
+				)
+			) {
+				throw error;
+			}
+			console.error(
+				"Fuchsen billing conflicted with a concurrent change:",
+				error,
+			);
+			return {
+				success: false,
+				message: BILLING_CONFLICT_MESSAGE,
+				billsCreated: 0,
+			};
+		}
+
+		return {
+			success: true,
+			message: `Erfolgreich ${billedUsers.size} Rechnung(en) erstellt`,
+			billsCreated: billedUsers.size,
+			totalAmount: totalBillingAmount,
+			billPeriod: { id: billPeriodId, billNumber },
+		};
 	} catch (error) {
 		console.error("Error creating fuchsen billing:", error);
 		return {

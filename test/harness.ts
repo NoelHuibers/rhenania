@@ -7,6 +7,7 @@
 //   signInAs(user);
 
 import { randomUUID } from "node:crypto";
+import type { Client } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach } from "vitest";
 
@@ -229,6 +230,30 @@ export async function setKasseConfig(
 export async function flushAfter() {
 	const tasks = testState.afterTasks.splice(0);
 	await Promise.all(tasks);
+}
+
+/**
+ * Runs `change` right before the next "write" batch reaches the current
+ * tenant DB, e.g. to change data between a billing run's read and its write.
+ */
+export function beforeNextWriteBatch(change: () => Promise<unknown>) {
+	const tenant = requireTenant();
+	const original = tenant.client;
+	tenant.client = new Proxy(original, {
+		get(target, prop) {
+			if (prop === "batch") {
+				return async (...args: Parameters<Client["batch"]>) => {
+					if (args[1] === "write") {
+						tenant.client = original;
+						await change();
+					}
+					return target.batch(...args);
+				};
+			}
+			const value = Reflect.get(target, prop, target);
+			return typeof value === "function" ? value.bind(target) : value;
+		},
+	});
 }
 
 /** Direct handle on the current tenant DB for assertions. */
