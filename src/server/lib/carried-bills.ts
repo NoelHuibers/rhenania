@@ -1,4 +1,4 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, lt, type SQL } from "drizzle-orm";
 import { db } from "~/server/db";
 import type { bills, fuchsenBills } from "~/server/db/schema";
 
@@ -17,6 +17,23 @@ export const CARRIED_BILL_ERROR =
 
 export const PAID_THROUGH_LATER_BILL_ERROR =
 	"Diese Rechnung wurde mit der späteren Rechnung bezahlt, in die sie übertragen wurde. Ändere den Status dort.";
+
+/**
+ * The member's earlier bills that were paid together with `bill`: the ones
+ * it settled when it was paid, to reopen as "Übertragen" when that payment
+ * is undone.
+ */
+export function paidAlongWith(
+	table: BillTable,
+	bill: { userId: string; createdAt: Date; paidAt: Date },
+): SQL | undefined {
+	return and(
+		eq(table.userId, bill.userId),
+		lt(table.createdAt, bill.createdAt),
+		eq(table.status, "Bezahlt"),
+		eq(table.paidAt, bill.paidAt),
+	);
+}
 
 /**
  * Why the status of `bill` can't be changed on its own, or null. A carried

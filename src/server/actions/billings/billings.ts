@@ -4,7 +4,7 @@ import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
-import { carriedBillRefusal } from "~/server/lib/carried-bills";
+import { carriedBillRefusal, paidAlongWith } from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
 
 /**
@@ -199,6 +199,15 @@ export async function updateBillStatus(
 							lt(bills.createdAt, bill.createdAt),
 						),
 					),
+			]);
+		} else if (bill.status === "Bezahlt" && bill.paidAt && carries) {
+			// Undoing a payment reopens the bills it settled, as carried.
+			await db.batch([
+				setStatus,
+				db
+					.update(bills)
+					.set({ status: "Übertragen", paidAt: null, updatedAt: now })
+					.where(paidAlongWith(bills, { ...bill, paidAt: bill.paidAt })),
 			]);
 		} else {
 			await setStatus;

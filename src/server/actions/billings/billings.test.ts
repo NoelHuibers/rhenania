@@ -1302,6 +1302,67 @@ describe("updateBillStatus", () => {
 			"Unbezahlt",
 			"Bezahlt",
 		]);
+
+		// Nor does un-paying the later one reopen the earlier one.
+		await updateBillStatus(older.id, "Bezahlt");
+		await updateBillStatus(newer.id, "Unbezahlt");
+		expect((await billsOf(group.id)).map((b) => b.status)).toEqual([
+			"Bezahlt",
+			"Unbezahlt",
+		]);
+	});
+
+	test("undoing the payment of the newest bill reopens exactly the bills it settled (#182)", async () => {
+		const { member, chain } = await carriedChain();
+		// Paid on its own long before; not part of the chain.
+		const earlier = await createBillRow({
+			periodId: (await createBillPeriodRow()).id,
+			user: member,
+			status: "Bezahlt",
+			drinksTotal: 4,
+			createdAt: new Date("2026-10-01T12:00:00Z"),
+			paidAt: new Date("2026-10-02T12:00:00Z"),
+		});
+		// Another member paid in the same second.
+		const other = await createUser();
+		const otherBill = await createBillRow({
+			periodId: chain[0].billPeriodId,
+			user: other,
+			drinksTotal: 3,
+			createdAt: new Date(WEEK_43),
+		});
+		const paidAt = new Date("2026-11-05T09:00:00Z");
+		vi.setSystemTime(paidAt);
+		await updateBillStatus(otherBill.id, "Bezahlt");
+		await updateBillStatus(chain[2].id, "Bezahlt");
+
+		expect(await updateBillStatus(chain[2].id, "Unbezahlt")).toEqual({
+			success: true,
+		});
+
+		expect(
+			(await billsOf(member.id)).map((b) => [b.id, b.status, b.paidAt]),
+		).toEqual([
+			[earlier.id, "Bezahlt", new Date("2026-10-02T12:00:00Z")],
+			[chain[0].id, "Übertragen", null],
+			[chain[1].id, "Übertragen", null],
+			[chain[2].id, "Unbezahlt", null],
+		]);
+		expect((await billsOf(other.id))[0]).toMatchObject({
+			status: "Bezahlt",
+			paidAt,
+		});
+
+		// Paying again and deferring instead reopens them the same way.
+		vi.setSystemTime(new Date("2026-11-06T09:00:00Z"));
+		await updateBillStatus(chain[2].id, "Bezahlt");
+		await updateBillStatus(chain[2].id, "Gestundet");
+		expect((await billsOf(member.id)).map((b) => b.status)).toEqual([
+			"Bezahlt",
+			"Übertragen",
+			"Übertragen",
+			"Gestundet",
+		]);
 	});
 });
 

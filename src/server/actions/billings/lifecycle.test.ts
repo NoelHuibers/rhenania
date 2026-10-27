@@ -842,10 +842,9 @@ describe("Bezahlen", () => {
 		await expectKassenbuchStimmt([zahler, nachbar]);
 	});
 
-	// Bug: undoing the payment of the newest bill leaves the bills it carried
-	// "Bezahlt" with a payment date, although nothing was paid. The
-	// Fuchsenladen reopens them as "Übertragen" (updateFuchsenBillStatus).
-	test.fails("Zahlung der neuesten Rechnung zurücknehmen öffnet die mitbezahlten Vorgänger wieder als Übertragen (#182)", async () => {
+	// Undoing the payment of the newest bill reopens the bills it carried as
+	// "Übertragen" without a payment date, as in the Fuchsenladen.
+	test("Zahlung der neuesten Rechnung zurücknehmen öffnet die mitbezahlten Vorgänger wieder als Übertragen (#182)", async () => {
 		await kasseEinrichten();
 		const member = await createUser();
 		const bier = await createDrink({ price: 2.5 });
@@ -864,6 +863,7 @@ describe("Bezahlen", () => {
 				["Unbezahlt", null],
 			],
 		);
+		await expectKassenbuchStimmt([member]);
 	});
 
 	// A bill paid through the later bill it was carried into cannot be set
