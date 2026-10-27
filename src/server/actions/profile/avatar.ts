@@ -8,6 +8,7 @@ import { after } from "next/server";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
+import { isTenantBlobUrl } from "~/server/lib/blob-url";
 import {
 	requireCurrentTenant,
 	requireTenantId,
@@ -25,19 +26,7 @@ function isOwnAvatarBlob(
 	slug: string,
 	userId: string,
 ): url is string {
-	if (!url) {
-		return false;
-	}
-	try {
-		const u = new URL(url);
-		return (
-			u.protocol === "https:" &&
-			u.hostname.endsWith(".public.blob.vercel-storage.com") &&
-			u.pathname.startsWith(`/tenants/${slug}/profile/${userId}/`)
-		);
-	} catch {
-		return false;
-	}
+	return isTenantBlobUrl(url, slug, `profile/${userId}/`);
 }
 
 function isHttpsUrl(url: string) {
