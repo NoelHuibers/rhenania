@@ -157,35 +157,29 @@ vi.mock("~/server/auth", async () => {
 
 	async function auth() {
 		const user = testState.sessionUser;
-		if (!user) {
+		const tenantId = testState.tenantId;
+		if (!user || !tenantId) {
 			return null;
 		}
-		let roleNames: string[] = [];
-		const tenantId = testState.tenantId;
-		if (tenantId) {
-			const [membership] = await requireControl()
-				.db.select({ status: tenantMemberships.status })
-				.from(tenantMemberships)
-				.where(
-					and(
-						eq(tenantMemberships.userId, user.id),
-						eq(tenantMemberships.tenantId, tenantId),
-					),
-				)
-				.limit(1);
-			if (membership?.status !== "active") {
-				return null;
-			}
-			{
-				const rows = await requireTenant(tenantId)
-					.db.select({ roleName: roles.name })
-					.from(userRoles)
-					.innerJoin(roles, eq(userRoles.roleId, roles.id))
-					.where(eq(userRoles.userId, user.id));
-				roleNames = rows.map((r) => r.roleName);
-			}
+		const [membership] = await requireControl()
+			.db.select({ status: tenantMemberships.status })
+			.from(tenantMemberships)
+			.where(
+				and(
+					eq(tenantMemberships.userId, user.id),
+					eq(tenantMemberships.tenantId, tenantId),
+				),
+			)
+			.limit(1);
+		if (membership?.status !== "active") {
+			return null;
 		}
-		return { user: { ...user, roles: roleNames } };
+		const rows = await requireTenant(tenantId)
+			.db.select({ roleName: roles.name })
+			.from(userRoles)
+			.innerJoin(roles, eq(userRoles.roleId, roles.id))
+			.where(eq(userRoles.userId, user.id));
+		return { user: { ...user, roles: rows.map((r) => r.roleName) } };
 	}
 
 	const betterAuthInstance = {

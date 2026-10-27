@@ -324,10 +324,10 @@ export const auth = cache(async () => {
 		return null;
 	}
 
+	// No tenant behind the host (unknown or suspended): nobody is a member.
 	const tenantId = await getTenantId();
 	if (!tenantId) {
-		// No tenant in scope (scripts, build): identity only, no roles.
-		return { user: { ...identity.user, roles: [] as string[] } };
+		return null;
 	}
 
 	const [membership] = await controlDb
