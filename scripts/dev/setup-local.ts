@@ -48,12 +48,16 @@ async function seedTenantData(
 	await seedTenantDefaults(tdb);
 	await tdb.update(tenant.kasseConfig).set({ markupPercent: t.markupPercent });
 	await tdb.update(tenant.semesterConfig).set({ name: "Lokales Semester" });
+	// One timestamp for all demo drinks: rows inserted across a second
+	// boundary would otherwise sort differently from run to run.
+	const seededAt = new Date();
 	for (const d of t.drinks) {
 		await tdb.insert(tenant.drinks).values({
 			id: d.id,
 			name: d.name,
 			price: d.price,
 			isCurrentlyAvailable: d.available ?? true,
+			createdAt: seededAt,
 		});
 	}
 	if (t.billing) {

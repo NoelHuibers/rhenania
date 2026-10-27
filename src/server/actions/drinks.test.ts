@@ -343,4 +343,18 @@ describe("getDrinks", () => {
 			"Alt",
 		]);
 	});
+
+	test("keeps drinks created in the same second in the order they were added", async () => {
+		const createdAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+		for (const name of ["Pils", "Weizen", "Spezi", "Wasser"]) {
+			await tenantDb().insert(drinks).values({ name, price: 1, createdAt });
+		}
+
+		expect((await getDrinks()).map((d) => d.name)).toEqual([
+			"Pils",
+			"Weizen",
+			"Spezi",
+			"Wasser",
+		]);
+	});
 });
