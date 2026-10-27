@@ -7,6 +7,7 @@ import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { carriedBillRefusal, paidAlongWith } from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
+import { log } from "~/server/lib/log";
 
 /**
  * The Kasse's "Neue Rechnung": bills every unbilled order and carries open
@@ -31,7 +32,7 @@ export async function getLatestBillPeriod() {
 
 		return latestPeriod || null;
 	} catch (error) {
-		console.error("Error getting latest bill period:", error);
+		await log.error("Error getting latest bill period", { err: error });
 		return null;
 	}
 }
@@ -47,7 +48,7 @@ export async function getAllBillPeriods() {
 
 		return periods;
 	} catch (error) {
-		console.error("Error getting bill periods:", error);
+		await log.error("Error getting bill periods", { err: error });
 		return [];
 	}
 }
@@ -111,7 +112,7 @@ export async function getBillsForPeriod(billPeriodId: string) {
 
 		return billsWithItems;
 	} catch (error) {
-		console.error("Error getting bills for period:", error);
+		await log.error("Error getting bills for period", { err: error });
 		return [];
 	}
 }
@@ -135,7 +136,7 @@ export async function closeBillPeriod(billPeriodId: string) {
 			message: "Abrechnungsperiode erfolgreich abgeschlossen",
 		};
 	} catch (error) {
-		console.error("Error closing bill period:", error);
+		await log.error("Error closing bill period", { err: error });
 		return {
 			success: false,
 			message: "Fehler beim Abschließen der Abrechnungsperiode",
@@ -222,7 +223,7 @@ export async function updateBillStatus(
 
 		return { success: true };
 	} catch (error) {
-		console.error("Error updating bill status:", error);
+		await log.error("Error updating bill status", { err: error });
 		return { success: false, error: "Fehler beim Aktualisieren des Status" };
 	}
 }
@@ -302,7 +303,7 @@ export async function getBillingStatistics() {
 			pendingBillsAmount: pendingBillsTotal?.total ?? 0,
 		};
 	} catch (error) {
-		console.error("Error getting billing statistics:", error);
+		await log.error("Error getting billing statistics", { err: error });
 		return null;
 	}
 }
@@ -319,7 +320,7 @@ export async function getEventOrders() {
 
 		return eventOrders;
 	} catch (error) {
-		console.error("Error getting event orders:", error);
+		await log.error("Error getting event orders", { err: error });
 		return [];
 	}
 }

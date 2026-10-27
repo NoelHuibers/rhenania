@@ -10,6 +10,7 @@ import {
 	fuchsenBillPeriods,
 	fuchsenBills,
 } from "~/server/db/schema";
+import { log } from "~/server/lib/log";
 import { hasRole } from "../admin/userRoles";
 import { getFuchsenBillingConfig } from "./billingConfig";
 
@@ -216,7 +217,7 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 		)}.pdf`;
 		return { success: true, base64, fileName };
 	} catch (error) {
-		console.error("Error generating fuchsen bill PDF:", error);
+		await log.error("Error generating fuchsen bill PDF", { err: error });
 		return { success: false, error: "Fehler beim Erstellen der PDF" };
 	}
 }

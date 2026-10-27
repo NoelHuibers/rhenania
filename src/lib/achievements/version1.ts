@@ -457,12 +457,12 @@ export const defaultAchievements = [
 ];
 
 export async function seedAchievements() {
-	log.info("seeding achievements");
+	await log.info("seeding achievements");
 
 	await db
 		.insert(achievements)
 		.values(defaultAchievements)
 		.onConflictDoNothing();
 
-	log.info("achievements seeded", { count: defaultAchievements.length });
+	await log.info("achievements seeded", { count: defaultAchievements.length });
 }

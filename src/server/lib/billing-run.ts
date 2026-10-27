@@ -608,7 +608,9 @@ export async function runGetraenkeBilling({
 			if (!isConstraintOn(error, billPeriods, billPeriods.billNumber)) {
 				throw error;
 			}
-			console.error("Billing run conflicted with a concurrent change:", error);
+			await log.warn("billing run conflicted with a concurrent change", {
+				err: error,
+			});
 			return {
 				success: false,
 				message: BILLING_CONFLICT_MESSAGE,
@@ -620,7 +622,7 @@ export async function runGetraenkeBilling({
 
 		const billsCreated = plan.memberBills.length;
 		const eventBillsCreated = plan.eventBills.length;
-		log.info("billing run completed", {
+		await log.info("billing run completed", {
 			bills: billsCreated,
 			eventBills: eventBillsCreated,
 			total: plan.totalAmount,
@@ -633,7 +635,7 @@ export async function runGetraenkeBilling({
 		try {
 			await mailBills(plan, period, sender.sender);
 		} catch (notifyError) {
-			console.error("Error during email notification phase:", notifyError);
+			await log.error("billing run: mail phase failed", { err: notifyError });
 		}
 
 		return {
@@ -654,7 +656,7 @@ export async function runGetraenkeBilling({
 			),
 		};
 	} catch (error) {
-		console.error("Error creating billing:", error);
+		await log.error("billing run failed", { err: error });
 
 		return {
 			success: false,
@@ -692,8 +694,8 @@ function byBytes(a: string, b: string) {
 type PlannedBill = BillingPlan["memberBills"][number];
 type MailJob = {
 	bill: PlannedBill;
-	/** Logged when the mail fails. */
-	failure: string;
+	/** Who the mail goes to, for the log line when it fails. */
+	to: "member" | "treasurer";
 	send: (pdf: Buffer, fileName: string) => Promise<void>;
 };
 
@@ -721,7 +723,7 @@ async function mailBills(
 		for (const bill of periodBills) {
 			jobs.push({
 				bill,
-				failure: `Failed to send bill of ${bill.row.userName} to the treasurer:`,
+				to: "treasurer",
 				send: (pdf, fileName) =>
 					sendTreasurerBillEmail(
 						recipient.email,
@@ -763,7 +765,7 @@ async function mailBills(
 			}
 			jobs.push({
 				bill,
-				failure: `Failed to send email to ${user.email}:`,
+				to: "member",
 				send: (pdf, fileName) =>
 					sendBillNotificationEmail(
 						user.email,
@@ -780,38 +782,38 @@ async function mailBills(
 	}
 
 	let failed = 0;
-	await forEachLimited(
-		jobs,
-		MAIL_CONCURRENCY,
-		async ({ bill, failure, send }) => {
-			let pdf: Buffer;
-			try {
-				pdf = renderUserBillPDF(
-					buildUserBillData(
-						{ ...bill.row, paidAt: null },
-						{ billNumber, createdAt: period.now },
-						[...bill.items].sort((a, b) => byBytes(a.drinkName, b.drinkName)),
-					),
-					sender,
-				);
-			} catch (pdfError) {
-				failed++;
-				console.error(
-					`Failed to generate PDF for bill ${bill.row.id}:`,
-					pdfError,
-				);
-				return;
-			}
-			try {
-				await send(pdf, userBillPdfFileName(billNumber, bill.row.userName));
-			} catch (emailError) {
-				// Log but don't fail the whole billing process
-				failed++;
-				console.error(failure, emailError);
-			}
-		},
-	);
-	log.info("billing mails sent", {
+	await forEachLimited(jobs, MAIL_CONCURRENCY, async ({ bill, to, send }) => {
+		let pdf: Buffer;
+		try {
+			pdf = renderUserBillPDF(
+				buildUserBillData(
+					{ ...bill.row, paidAt: null },
+					{ billNumber, createdAt: period.now },
+					[...bill.items].sort((a, b) => byBytes(a.drinkName, b.drinkName)),
+				),
+				sender,
+			);
+		} catch (pdfError) {
+			failed++;
+			await log.error("bill pdf failed", {
+				billId: bill.row.id,
+				err: pdfError,
+			});
+			return;
+		}
+		try {
+			await send(pdf, userBillPdfFileName(billNumber, bill.row.userName));
+		} catch (emailError) {
+			// Log but don't fail the whole billing process
+			failed++;
+			await log.error("bill mail failed", {
+				billId: bill.row.id,
+				to,
+				err: emailError,
+			});
+		}
+	});
+	await log.info("billing mails sent", {
 		mode: recipient.mode,
 		sent: jobs.length - failed,
 		failed,

@@ -850,7 +850,7 @@ async function sweepExpiredChallenges(): Promise<void> {
 		try {
 			await settleChallenge(id);
 		} catch (error) {
-			log.error("challenge auto-settle failed", {
+			await log.error("challenge auto-settle failed", {
 				challengeId: id,
 				error: error instanceof Error ? error.message : String(error),
 			});

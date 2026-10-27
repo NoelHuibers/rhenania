@@ -9,6 +9,7 @@ import {
 	type GetraenkekassePayment,
 	getGetraenkekassePayment,
 } from "~/server/lib/getraenkekasse-payment";
+import { log } from "~/server/lib/log";
 
 export type BillData = {
 	status: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen";
@@ -112,7 +113,7 @@ export async function getUserBillingData(): Promise<{
 			payment,
 		};
 	} catch (error) {
-		console.error("Error fetching billing data:", error);
+		await log.error("Error fetching billing data", { err: error });
 		throw new Error("Failed to fetch billing data");
 	}
 }
@@ -190,7 +191,7 @@ export async function getAllUserBills(): Promise<
 
 		return allBills;
 	} catch (error) {
-		console.error("Error fetching all bills:", error);
+		await log.error("Error fetching all bills", { err: error });
 		throw new Error("Failed to fetch billing data");
 	}
 }
@@ -267,7 +268,7 @@ export async function getBillById(billId: string): Promise<{
 			billItems: transformedBillItems,
 		};
 	} catch (error) {
-		console.error("Error fetching bill by ID:", error);
+		await log.error("Error fetching bill by ID", { err: error });
 		throw new Error("Failed to fetch billing data");
 	}
 }

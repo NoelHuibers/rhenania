@@ -6,6 +6,7 @@ import { addMoney } from "~/lib/money";
 import { orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { requireMember } from "~/server/lib/authz";
+import { log } from "~/server/lib/log";
 
 // Entries and their items follow the order the orders were placed in, and
 // an event's `bookedBy` is whoever booked first. Without an ORDER BY, rows
@@ -134,7 +135,7 @@ export async function getCurrentOrders(): Promise<BillingEntry[]> {
 
 		return Object.values(allGroupedOrders);
 	} catch (error) {
-		console.error("Error fetching current orders:", error);
+		await log.error("Error fetching current orders", { err: error });
 		throw new Error("Failed to fetch current orders");
 	}
 }
@@ -206,7 +207,7 @@ export async function getCurrentEventOrders(): Promise<
 
 		return Object.values(groupedEvents);
 	} catch (error) {
-		console.error("Error fetching event orders:", error);
+		await log.error("Error fetching event orders", { err: error });
 		throw new Error("Failed to fetch event orders");
 	}
 }

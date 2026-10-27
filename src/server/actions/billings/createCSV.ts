@@ -9,6 +9,7 @@ import { sumMoney } from "~/lib/money";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills, drinks } from "~/server/db/schema";
 import { getGetraenkekassePayment } from "~/server/lib/getraenkekasse-payment";
+import { log } from "~/server/lib/log";
 
 interface BillWithItems {
 	id: string;
@@ -180,7 +181,7 @@ export async function generateBillPeriodCSV(
 			drinkColumns,
 		};
 	} catch (error) {
-		console.error("Error generating CSV:", error);
+		await log.error("Error generating CSV", { err: error });
 		return {
 			success: false,
 			error:

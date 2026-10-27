@@ -7,6 +7,7 @@
 // guards check membership and roles in one go.
 
 import { auth } from "~/server/auth";
+import { noteRequestUser } from "~/server/lib/log-context";
 
 export class AuthzError extends Error {
 	constructor(readonly code: "UNAUTHENTICATED" | "FORBIDDEN") {
@@ -35,6 +36,8 @@ export async function requireMember(): Promise<Member> {
 	if (!session) {
 		throw new AuthzError("UNAUTHENTICATED");
 	}
+	// Log lines written later in this request carry the caller's id.
+	await noteRequestUser(session.user.id);
 	return session.user;
 }
 

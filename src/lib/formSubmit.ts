@@ -29,13 +29,13 @@ export async function onSubmitAction(
 	const currentTime = Date.now();
 
 	if (currentTime - formLoadTime < 3000) {
-		log.info("contact form rejected", { reason: "too-fast" });
+		await log.info("contact form rejected", { reason: "too-fast" });
 		return { message: "Success" };
 	}
 
 	const urlRegex = /(https?:\/\/[^\s]+)/g;
 	if (urlRegex.test(parsed.data.message)) {
-		log.info("contact form rejected", { reason: "suspicious-url" });
+		await log.info("contact form rejected", { reason: "suspicious-url" });
 		return { message: "Success" };
 	}
 

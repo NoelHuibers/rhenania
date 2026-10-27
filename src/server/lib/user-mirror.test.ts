@@ -23,6 +23,11 @@ import {
 	updateUserIdentity,
 } from "./user-mirror";
 
+/** The JSON log lines a console spy received. */
+function logLines(spy: { mock: { calls: unknown[][] } }) {
+	return spy.mock.calls.map(([line]) => JSON.parse(String(line)));
+}
+
 setupTestDatabases();
 
 const identity = (overrides: Partial<MirroredUser> = {}): MirroredUser => ({
@@ -111,9 +116,13 @@ describe("mirrorUserToAllMemberTenants", () => {
 		).resolves.toEqual({ failedTenantIds: [unreachable.id] });
 
 		expect((await mirrorOf(user.id, a.id))?.name).toBe("Neu");
-		expect(error).toHaveBeenCalledWith(
-			`Failed to mirror user ${user.id} to tenant ${unreachable.id}:`,
-			expect.any(Error),
+		expect(logLines(error)).toContainEqual(
+			expect.objectContaining({
+				level: "error",
+				msg: "user mirror write failed",
+				mirroredUserId: user.id,
+				mirrorTenantId: unreachable.id,
+			}),
 		);
 	});
 
@@ -222,9 +231,13 @@ describe("mirror writes are reliable (#35)", () => {
 		await expect(mirrorUserToTenant(user, tenant.id)).rejects.toBe(down);
 
 		expect(batch).toHaveBeenCalledTimes(MIRROR_RETRY_DELAYS_MS.length + 1);
-		expect(error).toHaveBeenCalledWith(
-			`Failed to mirror user ${user.id} to tenant ${tenant.id}:`,
-			down,
+		expect(logLines(error)).toContainEqual(
+			expect.objectContaining({
+				msg: "user mirror write failed",
+				mirroredUserId: user.id,
+				mirrorTenantId: tenant.id,
+				err: expect.objectContaining({ message: "fetch failed" }),
+			}),
 		);
 	});
 });
