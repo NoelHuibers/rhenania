@@ -264,3 +264,32 @@ test("password reset mail carries the reset link", async () => {
 	expect(mail.text).toContain("https://hassia.example/auth/reset?token=xyz");
 	expect(mail.text).toContain("nur 1 Stunde gültig");
 });
+
+// Every HTML mail, with markup in every value a user or admin can set:
+// display names, bill numbers, Beitrag run names, the tenant name and the
+// PayPal link. None of it may reach the HTML unescaped (#91).
+test("no HTML mail interpolates user values unescaped (#91)", async () => {
+	const evil = `<i>x</i>"'`;
+	await createTenant({ displayName: `Corps ${evil}` });
+	await createKonto({
+		kasseType: "CC-Kasse",
+		paypalLink: `https://paypal.me/a"><img src=x>`,
+	});
+
+	const sends: Array<() => Promise<unknown>> = [
+		() => sendVerificationEmail("a@example.test", `t${evil}`),
+		() => sendPasswordResetEmail("a@example.test", `https://x/r?t=${evil}`),
+		() =>
+			sendBillNotificationEmail("a@example.test", evil, evil, 1, pdf, "r", 14),
+		() => sendTreasurerBillEmail("k@example.test", evil, evil, 1, pdf, "r"),
+		() => sendBeitragEmail("a@example.test", evil, evil, 1, pdf, "b"),
+		() => sendMahnungEmail("a@example.test", evil, evil, 1, pdf, "m"),
+	];
+	for (const send of sends) {
+		vi.mocked(sendTenantMail).mockClear();
+		await send();
+		const html = sentMail().html ?? "";
+		expect(html).not.toMatch(/<i>|<img|"'/);
+		expect(html).toContain("&lt;");
+	}
+});
