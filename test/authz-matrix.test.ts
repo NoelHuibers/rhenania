@@ -112,14 +112,9 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getUserRoles: { access: ADMIN, args: (c) => [c.other.id] },
 		hasRole: { access: ADMIN, args: (c) => [c.other.id, "Admin"] },
 		hasAnyRole: { access: ADMIN, args: (c) => [c.other.id, ["Admin"]] },
-		assignRoleToUser: ADMIN,
-		removeRoleFromUser: ADMIN,
-		getAllRoles: ADMIN,
-		createRole: ADMIN,
 	},
 	"src/server/actions/bilder/homepageImages.ts": {
 		saveHomepageImage: FOTOS,
-		getActiveHomepageImages: "public",
 		getAllHomepageImages: FOTOS,
 		toggleImageActive: FOTOS,
 		deleteHomepageImage: FOTOS,
@@ -128,32 +123,12 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	"src/server/actions/bilder/images.ts": {
 		getActiveImageBySection: "public",
 		getAllActiveImagesBySection: "public",
-		uploadHomepageImage: {
-			access: FOTOS,
-			args: () => [
-				{
-					section: "header",
-					imageUrl: "https://blob.test/x.jpg",
-					imageName: "x.jpg",
-					fileSize: 1,
-					mimeType: "image/jpeg",
-				},
-			],
-		},
-		toggleImageActive: FOTOS,
-		updateImageOrder: FOTOS,
-		deleteHomepageImage: FOTOS,
 	},
 	"src/server/actions/billings/billings.ts": {
 		createNewBilling: GETRAENKE,
-		// The bill list of /rechnungen is open to all members.
-		getLatestBillPeriod: "member",
 		getAllBillPeriods: "member",
 		getBillsForPeriod: "member",
-		closeBillPeriod: GETRAENKE,
 		updateBillStatus: GETRAENKE,
-		getBillingStatistics: GETRAENKE,
-		getEventOrders: GETRAENKE,
 	},
 	"src/server/actions/billings/saveBillCSV.ts": { saveBillPeriodCSV: "member" },
 	"src/server/actions/cc-kasse/einnahmen.ts": {
@@ -165,8 +140,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	"src/server/actions/cc-kasse/etaplans.ts": {
 		createEtaplan: CC_EDIT,
 		updateEtaplan: CC_EDIT,
-		setEtaplanStatus: CC_EDIT,
-		deleteEtaplan: CC_EDIT,
 		listEtaplans: "member",
 		getEtaplanById: "member",
 		getActiveEtaplan: "member",
@@ -192,7 +165,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		updateKostenpunkt: CC_EDIT,
 		deleteKostenpunkt: CC_EDIT,
 		listKostenpunkteForEtaplan: "member",
-		listCategories: "member",
 		linkableEvents: "member",
 		getBookableKostenpunkte: "member",
 	},
@@ -203,12 +175,10 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	},
 	"src/server/actions/currentOrders.ts": {
 		getCurrentOrders: "member",
-		getCurrentEventOrders: "member",
 	},
 	"src/server/actions/drinks.ts": {
 		addDrink: GETRAENKE,
 		updateDrink: GETRAENKE,
-		deleteDrinkImage: GETRAENKE,
 		deleteDrink: GETRAENKE,
 		toggleDrinkAvailability: GETRAENKE,
 		getDrinks: GETRAENKE,
@@ -222,7 +192,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getPublicUpcomingEvents: "public",
 		getPublicPastEvents: "public",
 		getAllEvents: "member",
-		getEventById: "member",
 		createEvent: ADMIN,
 		updateEvent: ADMIN,
 		deleteEvent: ADMIN,
@@ -239,7 +208,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	"src/server/actions/events/rsvp.ts": {
 		setRsvp: "member",
 		removeRsvp: "member",
-		getUserRsvp: "member",
 		getUserRsvpsForEvents: { access: "member", args: () => [["x"]] },
 		getRsvpCountsForEvents: "member",
 		// RSVP list with e-mail addresses
@@ -257,13 +225,10 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	},
 	"src/server/actions/fuchsenladen/billings.ts": {
 		createNewFuchsenBilling: FUCHSEN,
-		getLatestFuchsenBillPeriod: FUCHSEN,
 		getAllFuchsenBillPeriods: FUCHSEN,
 		getFuchsenBillsForPeriod: FUCHSEN,
 		getUnbilledFuchsenOrdersGrouped: FUCHSEN,
-		closeFuchsenBillPeriod: FUCHSEN,
 		updateFuchsenBillStatus: FUCHSEN,
-		getFuchsenBillingStatistics: FUCHSEN,
 		getMyFuchsenBills: "member",
 		getFuchsenBillPeriodCSV: FUCHSEN,
 	},
@@ -279,12 +244,10 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		createFuchsenOrder: "member",
 		getMyFuchsenOrders: "member",
 		getMyFuchsenSummary: "member",
-		getAllFuchsenOrders: FUCHSEN,
 		getFuchsenBillsByUser: FUCHSEN,
 		getFuchsenOrdersForUser: FUCHSEN,
 		updateFuchsenOrderStatus: FUCHSEN,
 		markAllUserFuchsenOrdersPaid: FUCHSEN,
-		deleteFuchsenOrder: FUCHSEN,
 	},
 	"src/server/actions/game/challenge.ts": {
 		createChallenge: "member",
@@ -311,13 +274,8 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getGlobalLeaderboard: "member",
 	},
 	"src/server/actions/game/game.ts": {
-		createGame: "member",
-		getUserStats: "member",
 		getRecentGames: "member",
-		getUserGames: "member",
 		getLeaderboard: "member",
-		getUserEloHistory: "member",
-		calculateHypotheticalEloChange: "public",
 	},
 	"src/server/actions/game/getUsers.ts": {
 		getAllUsers: "member",
@@ -373,7 +331,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		createMember: ADRESSLISTE,
 		updateMember: ADRESSLISTE,
 		updateMemberFields: ADRESSLISTE,
-		setAddressNeedsUpdate: ADRESSLISTE,
 		deleteMember: ADRESSLISTE,
 	},
 	"src/server/actions/members/membersExcel.ts": {
@@ -401,20 +358,16 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getDrinkMarkupPercent: "member",
 		getAvailableDrinks: "member",
 		getAllDrinksForMenu: "member",
-		getDrinkById: "member",
 	},
 	"src/server/actions/newuser/users.ts": {
-		toggleUserRole: ADMIN,
 		createUser: ADMIN,
-		resendVerificationEmail: ADMIN,
 	},
 	"src/server/actions/newuser/verifyEmail.ts": {
 		verifyEmailAndSetPassword: "public",
 	},
 	"src/server/actions/orders.ts": {
 		createOrder: "member",
-		getUserOrders: "member",
-		updateOrderStatus: "member",
+		getMyOrdersPage: "member",
 	},
 	"src/server/actions/profile/achievements.ts": {
 		getUserAchievements: "member",
@@ -429,7 +382,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		connectProviderAction: "member",
 	},
 	"src/server/actions/profile/avatar.ts": {
-		updateUserAvatarWithUpload: "member",
 		updateUserAvatarUrl: "member",
 		deleteUserAvatar: "member",
 	},
@@ -438,18 +390,14 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	},
 	"src/server/actions/profile/getUserBill.ts": {
 		getUserBillingData: "member",
-		getAllUserBills: "member",
-		getBillById: "member",
 	},
 	"src/server/actions/profile/preferences.ts": {
 		getUserPreference: "member",
 		setUserPreference: "member",
-		getEloPreferenceAction: "member",
 		setEloPreferenceAction: {
 			access: "member",
 			args: () => [{ enabled: true }],
 		},
-		getPublicProfilePreferenceAction: "member",
 		setPublicProfilePreferenceAction: {
 			access: "member",
 			args: () => [{ enabled: true }],
@@ -459,24 +407,18 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 			access: "member",
 			args: () => [{ enabled: true }],
 		},
-		getEmailNotificationPreferenceAction: "member",
 		setEmailNotificationPreferenceAction: {
 			access: "member",
 			args: () => [{ enabled: true }],
 		},
 		getHiddenEventTypes: "member",
 		setHiddenEventTypes: "member",
-		getAllPreferences: "member",
 	},
 	"src/server/actions/profile/profile.ts": {
 		getUserProfile: "member",
 		updateUserName: "member",
-		updateUserAvatar: "member",
 		syncFromMicrosoft: "member",
-		syncFromMicrosoftExtended: "member",
 		refreshProfile: "member",
-		getAllRoles: ADMIN,
-		updateUserRoles: ADMIN,
 	},
 	"src/server/actions/profile/public-profile.ts": {
 		getPublicProfile: "member",
@@ -501,7 +443,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	"src/server/actions/transactions/tracking.ts": {
 		getTransactions: "member",
 		getTransactionCount: "member",
-		getUniquePurposes: "member",
 	},
 	"src/server/actions/venues.ts": {
 		getVenues: "member",

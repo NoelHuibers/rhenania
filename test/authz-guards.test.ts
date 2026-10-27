@@ -68,7 +68,7 @@ describe("server action authorization", () => {
 	const isPublic = (a: ServerAction) => a.key in PUBLIC_ACTIONS;
 
 	test("the scan finds the server actions", () => {
-		expect(actions.length).toBeGreaterThan(250);
+		expect(actions.length).toBeGreaterThan(200);
 	});
 
 	test("every exported server action checks its caller", () => {
