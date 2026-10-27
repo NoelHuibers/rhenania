@@ -17,8 +17,6 @@ import {
 } from "../../../../test/harness";
 import {
 	createFuchsenOrder as createOrderAction,
-	deleteFuchsenOrder,
-	getAllFuchsenOrders,
 	getFuchsenBillsByUser,
 	getFuchsenOrdersForUser,
 	getMyFuchsenOrders,
@@ -209,7 +207,6 @@ describe("Fuchsenwart views", () => {
 				totalCount: 2,
 			},
 		]);
-		expect(await getAllFuchsenOrders()).toHaveLength(4);
 		expect(await getFuchsenOrdersForUser(anton.id)).toHaveLength(2);
 	});
 });
@@ -365,32 +362,5 @@ describe("paying orders of billed members (#143)", () => {
 		).toBe(true);
 		const mine = await getFuchsenOrdersForUser(member.id);
 		expect(mine.every((o) => o.status === "Bezahlt")).toBe(true);
-	});
-});
-
-describe("deleteFuchsenOrder", () => {
-	test("removes the order", async () => {
-		await createTenant();
-		const order = await createFuchsenOrder({
-			user: await createUser(),
-			item: await createFuchsenItem(),
-		});
-		signInAs(await createUser({ roles: ["Fuchs"] }));
-
-		expect(await deleteFuchsenOrder(order.id)).toEqual({ success: true });
-		expect(await orderRow(order.id)).toBeUndefined();
-	});
-
-	test("is refused for plain members", async () => {
-		await createTenant();
-		const member = await createUser();
-		const order = await createFuchsenOrder({
-			user: member,
-			item: await createFuchsenItem(),
-		});
-		signInAs(member);
-
-		expect((await deleteFuchsenOrder(order.id)).success).toBe(false);
-		expect(await orderRow(order.id)).toBeDefined();
 	});
 });

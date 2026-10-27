@@ -29,18 +29,11 @@ import {
 } from "../../../../test/harness";
 import { getOpenMemberBills } from "../getraenkewart/kasse";
 import { createOrder } from "../orders";
+import { getUserBillingData } from "../profile/getUserBill";
 import {
-	getAllUserBills,
-	getBillById,
-	getUserBillingData,
-} from "../profile/getUserBill";
-import {
-	closeBillPeriod,
 	createNewBilling,
 	getAllBillPeriods,
-	getBillingStatistics,
 	getBillsForPeriod,
-	getEventOrders,
 	getLatestBillPeriod,
 	updateBillStatus,
 } from "./billings";
@@ -825,8 +818,6 @@ describe("Umlage (#10)", () => {
 			total: 12.5,
 			umlage: 12.5,
 		});
-		expect((await getAllUserBills())[0]?.billData.umlage).toBe(12.5);
-		expect((await getBillById(bill.id)).billData?.umlage).toBe(12.5);
 	});
 
 	test("an unpaid Umlage-only bill is carried into the next period with the late fee", async () => {
@@ -1398,71 +1389,5 @@ describe("billing overview reads", () => {
 			fees: 2,
 			items: [{ name: "Pils", quantity: 2, unitPrice: 1.5, subtotal: 3 }],
 		});
-	});
-
-	test("closeBillPeriod stamps closedAt", async () => {
-		await setupKasse();
-		const period = await createBillPeriodRow();
-
-		expect((await closeBillPeriod(period.id)).success).toBe(true);
-
-		const [row] = await tenantDb()
-			.select()
-			.from(billPeriods)
-			.where(eq(billPeriods.id, period.id));
-		expect(row?.closedAt).toEqual(new Date(WEEK_43));
-	});
-
-	test("getBillingStatistics splits unbilled personal and group orders", async () => {
-		await setupKasse();
-		const a = await createUser({ name: "Alf" });
-		const b = await createUser({ name: "Bert" });
-		const drink = await createDrink({ price: 2 });
-		await createOrderRow({ user: a, drink, amount: 2 });
-		await createOrderRow({ user: b, drink });
-		await createOrderRow({ user: b, drink, inBill: true });
-		await createOrderRow({ user: a, drink, bookingFor: "CC" });
-		await createOrderRow({ user: b, drink, amount: 3, bookingFor: "CC" });
-		await createOrderRow({ user: b, drink, bookingFor: "AHV" });
-		const period = await createBillPeriodRow();
-		await createBillRow({ periodId: period.id, user: a, drinksTotal: 7 });
-		await createBillRow({
-			periodId: period.id,
-			user: b,
-			status: "Gestundet",
-			drinksTotal: 100,
-		});
-
-		const stats = await getBillingStatistics();
-
-		expect(stats?.unbilledOrders).toEqual({ count: 2, totalAmount: 6 });
-		expect(stats?.eventOrders.count).toBe(3);
-		expect(stats?.eventOrders.totalAmount).toBe(10);
-		const cc = stats?.eventOrders.events.find((e) => e.name === "CC");
-		expect(cc).toMatchObject({ orderCount: 2, totalAmount: 8 });
-		expect(cc?.bookedBy.sort()).toEqual(["Alf", "Bert"]);
-		expect(stats?.totalBillPeriods).toBe(1);
-		expect(stats?.pendingBillsAmount).toBe(7);
-	});
-
-	test("getEventOrders returns only group orders, newest first", async () => {
-		await setupKasse();
-		const member = await createUser();
-		await createOrderRow({ user: member });
-		await createOrderRow({
-			user: member,
-			bookingFor: "CC",
-			createdAt: new Date("2026-10-01T12:00:00Z"),
-		});
-		await createOrderRow({
-			user: member,
-			bookingFor: "AHV",
-			inBill: true,
-			createdAt: new Date("2026-10-10T12:00:00Z"),
-		});
-
-		const result = await getEventOrders();
-
-		expect(result.map((o) => o.bookingFor)).toEqual(["AHV", "CC"]);
 	});
 });

@@ -233,19 +233,6 @@ export async function updateMemberFields(
 	}
 }
 
-export async function setAddressNeedsUpdate(id: string, value: boolean) {
-	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	await db
-		.update(members)
-		.set({ addressNeedsUpdate: value, updatedBy: guard.userId })
-		.where(eq(members.id, id));
-	revalidatePath("/adressliste");
-	return { success: true as const };
-}
-
 export async function deleteMember(id: string) {
 	const guard = await requireRoles(MEMBER_EDIT_ROLES);
 	if (!guard.ok) {

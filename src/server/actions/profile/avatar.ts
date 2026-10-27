@@ -37,68 +37,6 @@ function isHttpsUrl(url: string) {
 	}
 }
 
-export async function updateUserAvatarWithUpload(formData: FormData) {
-	try {
-		const session = await auth();
-
-		if (!session?.user?.id) {
-			return {
-				success: false,
-				message: "Nicht authentifiziert",
-			};
-		}
-
-		const file = formData.get("file") as File;
-
-		if (!file) {
-			return {
-				success: false,
-				message: "Keine Datei hochgeladen",
-			};
-		}
-
-		// Validate file type
-		const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-		if (!allowedTypes.includes(file.type)) {
-			return {
-				success: false,
-				message: "Ungültiger Dateityp. Erlaubt sind: JPEG, PNG, WebP",
-			};
-		}
-
-		// Validate file size (5MB max for profile pictures)
-		const maxSize = 5 * 1024 * 1024; // 5MB
-		if (file.size > maxSize) {
-			return {
-				success: false,
-				message: "Datei ist zu groß. Maximum: 5MB",
-			};
-		}
-
-		// Get current user to check for existing image
-		const currentUser = await db
-			.select({ image: users.image })
-			.from(users)
-			.where(eq(users.id, session.user.id))
-			.limit(1);
-
-		const _oldImageUrl = currentUser[0]?.image;
-
-		// For now, we'll return instructions for client-side upload
-		return {
-			success: true,
-			requiresClientUpload: true,
-			message: "Datei bereit zum Upload",
-		};
-	} catch (error) {
-		console.error("Avatar upload error:", error);
-		return {
-			success: false,
-			message: error instanceof Error ? error.message : "Upload fehlgeschlagen",
-		};
-	}
-}
-
 export async function updateUserAvatarUrl(formData: FormData) {
 	try {
 		const session = await auth();

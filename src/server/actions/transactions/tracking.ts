@@ -190,31 +190,3 @@ export async function getTransactionCount(filters: TransactionFilters = {}) {
 		};
 	}
 }
-
-// Server action to get unique purposes for filter dropdown
-export async function getUniquePurposes() {
-	await requireMember();
-	try {
-		const purposes = await db
-			.select({ bookingFor: orders.bookingFor })
-			.from(orders)
-			.where(and(isNotNull(orders.bookingFor), ne(orders.bookingFor, "")))
-			.groupBy(orders.bookingFor)
-			.orderBy(orders.bookingFor);
-
-		return {
-			success: true,
-			data: purposes
-				.map((p) => p.bookingFor)
-				.filter(
-					(purpose): purpose is string => purpose !== null && purpose !== "",
-				),
-		};
-	} catch (error) {
-		console.error("Error fetching unique purposes:", error);
-		return {
-			success: false,
-			data: [],
-		};
-	}
-}

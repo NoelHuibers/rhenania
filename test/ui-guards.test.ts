@@ -64,7 +64,6 @@ describe("status colours come from theme tokens (#76)", () => {
 		"src/components/eloranking/leaderboard-client.tsx": 8,
 		"src/components/semesterprogramm/WeekPreview.tsx": 7,
 		"src/components/orders/TransactionList.tsx": 3,
-		"src/components/bilder/DraggableImageGrid.tsx": 2,
 		"src/components/bilder/OptimizedImagePreview.tsx": 1,
 		"src/components/getraenkewart/kasse/SummarySection.tsx": 1,
 		"src/app/(protected)/semesterprogramm/page.tsx": 14,

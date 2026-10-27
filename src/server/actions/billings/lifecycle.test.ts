@@ -54,12 +54,9 @@ import {
 import { closeInventoryAndBill } from "../inventur/inventur";
 import { createOrder } from "../orders";
 import {
-	closeBillPeriod,
 	createNewBilling,
 	getAllBillPeriods,
-	getBillingStatistics,
 	getBillsForPeriod,
-	getEventOrders,
 	getLatestBillPeriod,
 	updateBillStatus,
 } from "./billings";
@@ -342,13 +339,6 @@ describe("Erste Abrechnung", () => {
 		await bestellen(moritz, pils, 4);
 		await bestellen(moritz, pils, 2, "CC");
 
-		expect(await getBillingStatistics()).toMatchObject({
-			unbilledOrders: { count: 4, totalAmount: 13.5 },
-			eventOrders: { count: 1, totalAmount: 3 },
-			totalBillPeriods: 0,
-			pendingBillsAmount: 0,
-		});
-
 		const run = await abrechnenMitPeriode(woche(0));
 
 		expect(run).toMatchObject({
@@ -380,11 +370,6 @@ describe("Erste Abrechnung", () => {
 			["Pils", 3, 4.5],
 			["Wasser", 3, 3],
 		]);
-		expect(await getBillingStatistics()).toMatchObject({
-			unbilledOrders: { count: 0, totalAmount: 0 },
-			totalBillPeriods: 1,
-			pendingBillsAmount: 16.5,
-		});
 		await expectGeldInvarianten();
 
 		// CSV: group bills first, quantities per drink, money columns, GESAMT.
@@ -1241,11 +1226,6 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 		expect(await getLatestBillPeriod()).toBeNull();
 		expect(await getAllBillPeriods()).toEqual([]);
 		expect(await getBillsForPeriod(run.billPeriod.id)).toEqual([]);
-		expect(await getBillingStatistics()).toBeNull();
-		expect(await getEventOrders()).toEqual([]);
-		expect(await closeBillPeriod(run.billPeriod.id)).toMatchObject({
-			success: false,
-		});
 		expect(await updateBillStatus("egal", "Bezahlt")).toEqual({
 			success: false,
 			error: "Fehler beim Aktualisieren des Status",

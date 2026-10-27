@@ -57,7 +57,6 @@ const updateDrinkSchema = z.object({
 	pictureUrl: z.string().url().optional(), // Added for image updates
 });
 
-export type AddDrinkInput = z.infer<typeof addDrinkSchema>;
 export type UpdateDrinkInput = z.infer<typeof updateDrinkSchema>;
 
 // Type for database drinks
@@ -200,59 +199,6 @@ export async function updateDrink(id: string, input: UpdateDrinkInput) {
 				error instanceof Error
 					? error.message
 					: "Fehler beim Aktualisieren des Getränks",
-		};
-	}
-}
-
-// Function to delete an image
-export async function deleteDrinkImage(id: string) {
-	await requireRole(ROLES.getraenke);
-	try {
-		const [currentDrink] = await db
-			.select()
-			.from(drinks)
-			.where(eq(drinks.id, id))
-			.limit(1);
-
-		if (!currentDrink) {
-			return {
-				success: false,
-				error: "Getränk nicht gefunden",
-			};
-		}
-
-		if (currentDrink.picture) {
-			try {
-				await del(currentDrink.picture);
-			} catch (error) {
-				console.error("Error deleting image:", error);
-				return {
-					success: false,
-					error: "Fehler beim Löschen des Bildes",
-				};
-			}
-
-			// Update database to remove picture reference
-			await db
-				.update(drinks)
-				.set({
-					picture: null,
-					updatedAt: new Date(),
-				})
-				.where(eq(drinks.id, id));
-		}
-
-		revalidatePath("/getraenkewart");
-
-		return {
-			success: true,
-			message: "Bild erfolgreich gelöscht",
-		};
-	} catch (error) {
-		console.error("Error deleting drink image:", error);
-		return {
-			success: false,
-			error: "Fehler beim Löschen des Bildes",
 		};
 	}
 }

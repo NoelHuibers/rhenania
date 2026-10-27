@@ -10,10 +10,8 @@ import {
 	deleteUser,
 	updateUser,
 } from "~/server/actions/admin/admin";
-import { createRole } from "~/server/actions/admin/userRoles";
-import { uploadHomepageImage } from "~/server/actions/bilder/images";
+import { saveHomepageImage } from "~/server/actions/bilder/homepageImages";
 import {
-	closeBillPeriod,
 	createNewBilling,
 	updateBillStatus,
 } from "~/server/actions/billings/billings";
@@ -23,7 +21,7 @@ import { createEvent } from "~/server/actions/events/events";
 import { createRecurringEvent } from "~/server/actions/events/recurring";
 import { getEventRsvps } from "~/server/actions/events/rsvp";
 import { addFuchsenItem } from "~/server/actions/fuchsenladen/items";
-import { getAllFuchsenOrders } from "~/server/actions/fuchsenladen/orders";
+import { getFuchsenBillsByUser } from "~/server/actions/fuchsenladen/orders";
 import {
 	addBankEntry,
 	getKasseSummary,
@@ -59,11 +57,9 @@ const PRIVILEGED: Array<[string, () => Promise<unknown>]> = [
 	["admin.updateUser", () => updateUser("x", { name: "y" })],
 	["admin.deleteUser", () => deleteUser("x")],
 	["admin.assignUserRole", () => assignUserRole("x", "y")],
-	["userRoles.createRole", () => createRole("x")],
 	["users.createUser (invite)", () => inviteUser(anyArg)],
 	["billings.createNewBilling", () => createNewBilling()],
 	["billings.updateBillStatus", () => updateBillStatus("x", "Bezahlt")],
-	["billings.closeBillPeriod", () => closeBillPeriod("x")],
 	["kasse.getKasseSummary", () => getKasseSummary()],
 	[
 		"kasse.addBankEntry",
@@ -80,8 +76,8 @@ const PRIVILEGED: Array<[string, () => Promise<unknown>]> = [
 	["venues.createVenue", () => createVenue("x", "y")],
 	["semesterConfig.upsertSemesterConfig", () => upsertSemesterConfig(anyArg)],
 	["fuchsen.addFuchsenItem", () => addFuchsenItem(anyArg)],
-	["fuchsen.getAllFuchsenOrders", () => getAllFuchsenOrders()],
-	["bilder.uploadHomepageImage", () => uploadHomepageImage(anyArg)],
+	["fuchsen.getFuchsenBillsByUser", () => getFuchsenBillsByUser()],
+	["bilder.saveHomepageImage", () => saveHomepageImage(anyArg)],
 ];
 
 async function expectDenied(call: () => Promise<unknown>) {

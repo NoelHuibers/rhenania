@@ -13,11 +13,7 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import { testState } from "../../../../test/state";
-import {
-	deleteUserAvatar,
-	updateUserAvatarUrl,
-	updateUserAvatarWithUpload,
-} from "./avatar";
+import { deleteUserAvatar, updateUserAvatarUrl } from "./avatar";
 
 vi.mock("@vercel/blob", () => ({ del: vi.fn() }));
 vi.mock("~/server/actions/achievements/tracking", () => ({
@@ -51,48 +47,6 @@ async function memberWithImage(
 
 const imageOf = async (id: string) =>
 	(await tenantDb().select().from(users).where(eq(users.id, id)))[0]?.image;
-
-function fileForm(file?: File) {
-	const data = new FormData();
-	if (file) {
-		data.set("file", file);
-	}
-	return data;
-}
-
-describe("updateUserAvatarWithUpload (pre-check)", () => {
-	test("accepts JPEG, PNG and WebP up to 5 MB for client upload", async () => {
-		await memberWithImage(null);
-
-		for (const type of ["image/jpeg", "image/png", "image/webp"]) {
-			const file = new File([new Uint8Array(1024)], "me", { type });
-			expect(await updateUserAvatarWithUpload(fileForm(file))).toEqual({
-				success: true,
-				requiresClientUpload: true,
-				message: "Datei bereit zum Upload",
-			});
-		}
-	});
-
-	test("rejects missing files, other types and files over 5 MB", async () => {
-		await memberWithImage(null);
-
-		expect(await updateUserAvatarWithUpload(fileForm())).toEqual({
-			success: false,
-			message: "Keine Datei hochgeladen",
-		});
-		const gif = new File(["x"], "a.gif", { type: "image/gif" });
-		expect((await updateUserAvatarWithUpload(fileForm(gif))).message).toBe(
-			"Ungültiger Dateityp. Erlaubt sind: JPEG, PNG, WebP",
-		);
-		const big = new File([new Uint8Array(5 * 1024 * 1024 + 1)], "big.png", {
-			type: "image/png",
-		});
-		expect((await updateUserAvatarWithUpload(fileForm(big))).message).toBe(
-			"Datei ist zu groß. Maximum: 5MB",
-		);
-	});
-});
 
 describe("updateUserAvatarUrl", () => {
 	test("stores the uploaded avatar and replaces the previous blob", async () => {

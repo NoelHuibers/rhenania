@@ -207,37 +207,3 @@ export async function getUserOrders() {
 		throw error;
 	}
 }
-
-export async function updateOrderStatus(orderId: string) {
-	try {
-		const db = await getCurrentTenantDb();
-		const session = await auth();
-
-		if (!session?.user?.id) {
-			throw new Error("User must be authenticated to update orders");
-		}
-
-		const existingOrder = await db
-			.select()
-			.from(orders)
-			.where(eq(orders.id, orderId))
-			.limit(1);
-
-		if (!existingOrder.length) {
-			throw new Error("Order not found");
-		}
-
-		await db
-			.update(orders)
-			.set({
-				updatedAt: new Date(),
-			})
-			.where(eq(orders.id, orderId));
-
-		revalidatePath("/orders");
-		return { success: true };
-	} catch (error) {
-		await log.error("Error updating order", { err: error });
-		throw error;
-	}
-}

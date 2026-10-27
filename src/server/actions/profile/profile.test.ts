@@ -4,25 +4,20 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { getGraphAccessToken } from "~/server/auth/microsoft-tokens";
 import { users as controlUsers } from "~/server/db/control-schema";
-import { userRoles, users } from "~/server/db/schema";
+import { users } from "~/server/db/schema";
 import {
 	controlDb,
 	createTenant,
 	createUser,
-	ensureRole,
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
 import {
-	getAllRoles,
 	getUserProfile,
 	refreshProfile,
 	syncFromMicrosoft,
-	syncFromMicrosoftExtended,
-	updateUserAvatar,
 	updateUserName,
-	updateUserRoles,
 } from "./profile";
 
 vi.mock("~/server/auth/microsoft-tokens", () => ({
@@ -146,89 +141,6 @@ describe("updateUserName", () => {
 	});
 });
 
-describe("updateUserAvatar", () => {
-	test("stores a valid image URL", async () => {
-		await createTenant();
-		const member = await createUser();
-		signInAs(member);
-
-		await updateUserAvatar(form({ imageUrl: "https://img.example/max.png" }));
-
-		expect((await mirrorOf(member.id))?.image).toBe(
-			"https://img.example/max.png",
-		);
-	});
-
-	test("rejects missing and malformed URLs", async () => {
-		await createTenant();
-		signInAs(await createUser());
-
-		await expect(updateUserAvatar(form({ imageUrl: " " }))).rejects.toThrow(
-			"Image URL is required",
-		);
-		await expect(
-			updateUserAvatar(form({ imageUrl: "not a url" })),
-		).rejects.toThrow("Invalid image URL");
-	});
-});
-
-describe("roles (Admin)", () => {
-	test("lists all roles alphabetically", async () => {
-		await createTenant();
-		await ensureRole("Senior");
-		signInAs(await createUser({ roles: ["Admin"] }));
-
-		expect((await getAllRoles()).map((r) => r.name)).toEqual([
-			"Admin",
-			"Senior",
-		]);
-	});
-
-	test("replaces a member's roles and records who assigned them", async () => {
-		await createTenant();
-		const admin = await createUser({ roles: ["Admin"] });
-		const member = await createUser({ roles: ["Fuchs"] });
-		const senior = await ensureRole("Senior");
-		const fm = await ensureRole("Fuchsmajor");
-		signInAs(admin);
-
-		await updateUserRoles(member.id, [senior, fm]);
-		const rows = await tenantDb()
-			.select()
-			.from(userRoles)
-			.where(eq(userRoles.userId, member.id));
-		expect(rows.map((r) => r.roleId).sort()).toEqual([senior, fm].sort());
-		expect(rows.every((r) => r.assignedBy === admin.id)).toBe(true);
-
-		await updateUserRoles(member.id, []);
-		expect(
-			await tenantDb()
-				.select()
-				.from(userRoles)
-				.where(eq(userRoles.userId, member.id)),
-		).toHaveLength(0);
-	});
-
-	test("members without Admin are refused", async () => {
-		await createTenant();
-		const member = await createUser({ roles: ["Fuchs"] });
-		signInAs(member);
-
-		await expect(getAllRoles()).rejects.toThrow(
-			"Unauthorized: Admin access required",
-		);
-		await expect(updateUserRoles(member.id, [])).rejects.toThrow(
-			"Unauthorized: Admin access required",
-		);
-		expect(
-			await tenantDb()
-				.select()
-				.from(userRoles)
-				.where(eq(userRoles.userId, member.id)),
-		).toHaveLength(1);
-	});
-});
-
 describe("syncFromMicrosoft", () => {
 	function graphReturns(me: object, photo: object | Error) {
 		const api = vi.fn((path: string) => ({
@@ -294,7 +206,7 @@ describe("syncFromMicrosoft", () => {
 		vi.mocked(getGraphAccessToken).mockResolvedValue("graph-token");
 		graphReturns({ displayName: "Neu" }, new Error("ImageNotFound"));
 
-		const result = await syncFromMicrosoftExtended();
+		const result = await syncFromMicrosoft();
 
 		expect(result.syncedData).toMatchObject({ name: "Neu", hasPhoto: false });
 		expect(await mirrorOf(member.id)).toMatchObject({

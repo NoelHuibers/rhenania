@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { eventRsvps, events } from "~/server/db/schema";
@@ -14,7 +15,6 @@ import {
 	createEvent as createEventAction,
 	deleteEvent,
 	getAllEvents,
-	getEventById,
 	getPublicPastEvents,
 	getPublicUpcomingEvents,
 	getUpcomingEvents,
@@ -25,6 +25,11 @@ setupTestDatabases();
 
 const NOW = new Date("2026-10-26T12:00:00Z");
 const days = (n: number) => new Date(NOW.getTime() + n * 86_400_000);
+
+async function storedEvent(id: string) {
+	const [row] = await tenantDb().select().from(events).where(eq(events.id, id));
+	return row ?? null;
+}
 
 beforeEach(() => {
 	vi.useFakeTimers({ toFake: ["Date"] });
@@ -85,7 +90,7 @@ describe("createEvent / updateEvent / deleteEvent", () => {
 
 		await updateEvent(event.id, { title: "Fuxenkneipe", maxAttendees: null });
 
-		expect(await getEventById(event.id)).toMatchObject({
+		expect(await storedEvent(event.id)).toMatchObject({
 			title: "Fuxenkneipe",
 			location: "adH",
 			maxAttendees: null,
@@ -99,7 +104,7 @@ describe("createEvent / updateEvent / deleteEvent", () => {
 
 		expect(await deleteEvent(event.id)).toEqual({ success: true });
 
-		expect(await getEventById(event.id)).toBeNull();
+		expect(await storedEvent(event.id)).toBeNull();
 		expect(await tenantDb().select().from(eventRsvps)).toHaveLength(0);
 	});
 

@@ -8,7 +8,7 @@ import { formatDate, formatEUR } from "~/lib/format";
 import { SiteHeader } from "../trinken/SiteHeader";
 import { useBillingDashboard } from "./use-billing-dashboard";
 
-export type { BillingEntry, DrinkItem } from "./billing-types";
+export type { BillingEntry } from "./billing-types";
 
 export function BillingDashboard() {
 	const {

@@ -1,3 +1,4 @@
+import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { eventRsvps } from "~/server/db/schema";
@@ -13,7 +14,6 @@ import {
 	getEventAttendees,
 	getEventRsvps,
 	getRsvpCountsForEvents,
-	getUserRsvp,
 	getUserRsvpsForEvents,
 	getYesAttendeePreviewForEvents,
 	removeRsvp,
@@ -36,6 +36,14 @@ async function member(name?: string) {
 	return createUser({ name });
 }
 
+async function storedRsvp(eventId: string, userId: string) {
+	const [row] = await tenantDb()
+		.select({ status: eventRsvps.status, note: eventRsvps.note })
+		.from(eventRsvps)
+		.where(and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.userId, userId)));
+	return row ?? null;
+}
+
 describe("setRsvp", () => {
 	test("records an answer with a note and lets the member change it", async () => {
 		await createTenant();
@@ -46,13 +54,16 @@ describe("setRsvp", () => {
 		expect(await setRsvp(event.id, "maybe", "komme später")).toEqual({
 			success: true,
 		});
-		expect(await getUserRsvp(event.id)).toEqual({
+		expect(await storedRsvp(event.id, me.id)).toEqual({
 			status: "maybe",
 			note: "komme später",
 		});
 
 		await setRsvp(event.id, "yes");
-		expect(await getUserRsvp(event.id)).toEqual({ status: "yes", note: null });
+		expect(await storedRsvp(event.id, me.id)).toEqual({
+			status: "yes",
+			note: null,
+		});
 		expect(await tenantDb().select().from(eventRsvps)).toHaveLength(1);
 	});
 
@@ -174,7 +185,7 @@ describe("removeRsvp", () => {
 
 		expect(await removeRsvp(event.id)).toEqual({ success: true });
 
-		expect(await getUserRsvp(event.id)).toBeNull();
+		expect(await storedRsvp(event.id, me.id)).toBeNull();
 		expect(await tenantDb().select().from(eventRsvps)).toHaveLength(1);
 	});
 });

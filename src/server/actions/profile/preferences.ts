@@ -193,26 +193,3 @@ export async function setHiddenEventTypes(types: EventTypeName[]) {
 }
 
 // --- (Optional) Fetch all preferences to render a generic card ---
-
-export async function getAllPreferences() {
-	const session = await auth();
-	const userId = session?.user?.id;
-	if (!userId) {
-		return {};
-	}
-
-	const rows = await db.query.userPreferences.findMany({
-		where: (t, { eq }) => eq(t.userId, userId),
-		columns: { key: true, value: true, valueType: true },
-	});
-
-	const out: Record<string, unknown> = {};
-	for (const r of rows) {
-		try {
-			out[r.key] = decodeValue(r.value, r.valueType as ValueType);
-		} catch {
-			out[r.key] = null;
-		}
-	}
-	return out;
-}

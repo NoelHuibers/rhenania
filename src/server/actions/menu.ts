@@ -101,21 +101,3 @@ export async function getAllDrinksForMenu() {
 		return [];
 	}
 }
-
-// Get drink by ID
-export async function getDrinkById(id: string) {
-	await requireMember();
-	try {
-		const db = await getCurrentTenantDb();
-		const [drink] = await db
-			.select()
-			.from(drinks)
-			.where(eq(drinks.id, id))
-			.limit(1);
-
-		return drink || null;
-	} catch (error) {
-		console.error("Error fetching drink by ID:", error);
-		return null;
-	}
-}

@@ -2,10 +2,8 @@
 "use server";
 
 import { and, desc, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { homepageImages } from "~/server/db/schema";
-import { ROLES, requireRole } from "~/server/lib/authz";
 
 export async function getActiveImageBySection(
 	section: "header" | "aktive" | "haus" | "footer",
@@ -49,98 +47,5 @@ export async function getAllActiveImagesBySection(
 	} catch (error) {
 		console.error(`Error fetching ${section} images:`, error);
 		return [];
-	}
-}
-
-export async function uploadHomepageImage({
-	section,
-	imageUrl,
-	imageName,
-	fileSize,
-	mimeType,
-	displayOrder = 0,
-	uploadedBy,
-}: {
-	section: "header" | "aktive" | "haus" | "footer";
-	imageUrl: string;
-	imageName: string;
-	fileSize?: number;
-	mimeType?: string;
-	displayOrder?: number;
-	uploadedBy?: string;
-}) {
-	await requireRole(ROLES.fotos);
-	try {
-		const result = await db.insert(homepageImages).values({
-			section,
-			imageUrl,
-			imageName,
-			fileSize,
-			mimeType,
-			displayOrder,
-			uploadedBy,
-			isActive: true,
-		});
-
-		revalidatePath("/");
-		return { success: true, data: result };
-	} catch (error) {
-		console.error("Error uploading homepage image:", error);
-		return { success: false, error: "Failed to upload image" };
-	}
-}
-
-export async function toggleImageActive(imageId: string) {
-	await requireRole(ROLES.fotos);
-	try {
-		const image = await db
-			.select()
-			.from(homepageImages)
-			.where(eq(homepageImages.id, imageId))
-			.limit(1);
-
-		if (!image[0]) {
-			return { success: false, error: "Image not found" };
-		}
-
-		await db
-			.update(homepageImages)
-			.set({ isActive: !image[0].isActive })
-			.where(eq(homepageImages.id, imageId));
-
-		revalidatePath("/");
-		return { success: true };
-	} catch (error) {
-		console.error("Error toggling image active status:", error);
-		return { success: false, error: "Failed to toggle image status" };
-	}
-}
-
-export async function updateImageOrder(imageId: string, newOrder: number) {
-	await requireRole(ROLES.fotos);
-	try {
-		await db
-			.update(homepageImages)
-			.set({ displayOrder: newOrder })
-			.where(eq(homepageImages.id, imageId));
-
-		revalidatePath("/");
-		return { success: true };
-	} catch (error) {
-		console.error("Error updating image order:", error);
-		return { success: false, error: "Failed to update image order" };
-	}
-}
-
-export async function deleteHomepageImage(imageId: string) {
-	await requireRole(ROLES.fotos);
-	try {
-		await db.delete(homepageImages).where(eq(homepageImages.id, imageId));
-
-		revalidatePath("/");
-		return { success: true };
-	} catch (error) {
-		console.error("Error deleting image:", error);
-		return { success: false, error: "Failed to delete image" };
 	}
 }

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 
-import { calculateHypotheticalEloChange } from "~/server/actions/game/game";
 import { calculateEloChange, DEFAULT_ELO } from "./elo";
 
 // Expected score E = 1 / (1 + 10^((Rb - Ra) / 400)), change = round(K * (S - E)).
@@ -72,28 +71,5 @@ describe("calculateEloChange", () => {
 		});
 		// 2399 is still below the threshold: K=32 for a new player
 		expect(calculateEloChange(2399, 2399, 0, 0, true).player1NewElo).toBe(2415);
-	});
-});
-
-describe("calculateHypotheticalEloChange", () => {
-	test("reports win and loss deltas for both sides", async () => {
-		expect(await calculateHypotheticalEloChange(1400, 1200)).toEqual({
-			player1WinChange: 8,
-			player1LossChange: -24,
-			player2WinChange: 24,
-			player2LossChange: -8,
-		});
-	});
-
-	test("matches the shared ELO library for experienced players", async () => {
-		const win = calculateEloChange(1500, 1450, 40, 3, true);
-		const loss = calculateEloChange(1500, 1450, 40, 3, false);
-
-		expect(await calculateHypotheticalEloChange(1500, 1450, 40, 3)).toEqual({
-			player1WinChange: win.player1NewElo - 1500,
-			player1LossChange: loss.player1NewElo - 1500,
-			player2WinChange: loss.player2NewElo - 1450,
-			player2LossChange: win.player2NewElo - 1450,
-		});
 	});
 });

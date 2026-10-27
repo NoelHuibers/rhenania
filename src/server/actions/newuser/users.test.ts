@@ -6,19 +6,18 @@ import {
 	users as controlUsers,
 	tenantMemberships,
 } from "~/server/db/control-schema";
-import { userRoles, users, verificationTokens } from "~/server/db/schema";
+import { users, verificationTokens } from "~/server/db/schema";
 import {
 	controlDb,
 	createTenant,
 	createUser as createTestUser,
-	ensureRole,
 	setupTestDatabases,
 	signInAs,
 	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
 import { sendVerificationEmail } from "./email";
-import { createUser, resendVerificationEmail, toggleUserRole } from "./users";
+import { createUser } from "./users";
 
 vi.mock("./email", () => ({ sendVerificationEmail: vi.fn() }));
 vi.mock("~/server/actions/achievements/tracking", () => ({
@@ -48,9 +47,8 @@ const tokensFor = (email: string, tenantId?: string) =>
 		.where(eq(verificationTokens.identifier, email));
 
 describe("admin gate", () => {
-	test("members without the Admin role cannot invite or manage roles", async () => {
+	test("members without the Admin role cannot invite", async () => {
 		await createTenant();
-		const roleId = await ensureRole("Fotowart");
 		const member = await createTestUser({ roles: ["Getränkewart"] });
 
 		await expect(createUser({ email: "neu@example.test" })).rejects.toThrow(
@@ -58,12 +56,6 @@ describe("admin gate", () => {
 		);
 		signInAs(member);
 		await expect(createUser({ email: "neu@example.test" })).rejects.toThrow(
-			"Keine Berechtigung",
-		);
-		await expect(resendVerificationEmail(member.email)).rejects.toThrow(
-			"Keine Berechtigung",
-		);
-		await expect(toggleUserRole(member.id, roleId)).rejects.toThrow(
 			"Keine Berechtigung",
 		);
 
@@ -196,86 +188,5 @@ describe("createUser (invite)", () => {
 
 		expect(result.success).toBe(true);
 		expect(await tokensFor("neu@example.test")).toHaveLength(1);
-	});
-});
-
-describe("resendVerificationEmail", () => {
-	test("replaces the open invitation with a fresh token", async () => {
-		await createTenant();
-		await signInAsAdmin();
-		await createUser({ email: "neu@example.test" });
-		const [first] = await tokensFor("neu@example.test");
-
-		expect(await resendVerificationEmail("NEU@example.test")).toEqual({
-			success: true,
-		});
-
-		const tokens = await tokensFor("neu@example.test");
-		expect(tokens).toHaveLength(1);
-		expect(tokens[0]?.token).not.toBe(first?.token);
-		expect(sendVerificationEmail).toHaveBeenLastCalledWith(
-			"NEU@example.test",
-			tokens[0]?.token,
-		);
-	});
-
-	test("refuses unknown and already verified addresses", async () => {
-		await createTenant();
-		await signInAsAdmin();
-		const verified = await createTestUser();
-
-		expect(await resendVerificationEmail("nobody@example.test")).toEqual({
-			success: false,
-			error: "Benutzer nicht gefunden.",
-		});
-		expect(await resendVerificationEmail(verified.email)).toEqual({
-			success: false,
-			error: "E-Mail-Adresse ist bereits verifiziert.",
-		});
-		expect(sendVerificationEmail).not.toHaveBeenCalled();
-	});
-
-	test("reports a failed mail", async () => {
-		await createTenant();
-		await signInAsAdmin();
-		await createUser({ email: "neu@example.test" });
-		vi.mocked(sendVerificationEmail).mockRejectedValueOnce(new Error("smtp"));
-
-		expect(await resendVerificationEmail("neu@example.test")).toEqual({
-			success: false,
-			error: "Fehler beim Senden der Verifizierungs-E-Mail.",
-		});
-	});
-});
-
-describe("toggleUserRole", () => {
-	test("assigns a missing role and removes an assigned one", async () => {
-		await createTenant();
-		await signInAsAdmin();
-		const member = await createTestUser();
-		const roleId = await ensureRole("Fotowart");
-		const rolesOf = () =>
-			tenantDb()
-				.select()
-				.from(userRoles)
-				.where(eq(userRoles.userId, member.id));
-
-		expect(await toggleUserRole(member.id, roleId)).toEqual({ success: true });
-		expect(await rolesOf()).toEqual([
-			expect.objectContaining({ roleId, assignedAt: expect.any(Date) }),
-		]);
-
-		await toggleUserRole(member.id, roleId);
-		expect(await rolesOf()).toHaveLength(0);
-	});
-
-	test("reports unknown roles", async () => {
-		await createTenant();
-		await signInAsAdmin();
-		const member = await createTestUser();
-
-		await expect(toggleUserRole(member.id, "no-such-role")).rejects.toThrow(
-			"Fehler beim Ändern der Rolle",
-		);
 	});
 });

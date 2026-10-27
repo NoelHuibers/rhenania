@@ -3,7 +3,7 @@
 
 import { ADRESSLISTE_ROLES } from "~/lib/roles";
 
-export { requireAuth, requireRoles } from "~/server/actions/cc-kasse/_guards";
+export { requireRoles } from "~/server/actions/cc-kasse/_guards";
 
 // Only Admins and the AHV Vorstand may view + edit the member directory.
 export const MEMBER_EDIT_ROLES = ADRESSLISTE_ROLES;

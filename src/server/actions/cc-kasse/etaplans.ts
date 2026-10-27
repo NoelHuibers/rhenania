@@ -1,17 +1,10 @@
 "use server";
 
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
-import {
-	einnahmen,
-	etaplans,
-	kostenerstattungen,
-	kostenpunkte,
-	semesterbeitragCharges,
-	semesterbeitragRuns,
-} from "~/server/db/schema";
+import { etaplans } from "~/server/db/schema";
 import { requireMember } from "~/server/lib/authz";
 import { EDIT_ROLES, requireRoles } from "./_guards";
 
@@ -128,102 +121,6 @@ export async function updateEtaplan(
 		}
 		console.error("Error updating etaplan:", error);
 		return { success: false as const, error: "Fehler beim Speichern" };
-	}
-}
-
-export async function setEtaplanStatus(
-	id: string,
-	status: "Aktiv" | "Abgeschlossen",
-) {
-	await requireMember();
-	return updateEtaplan(id, { status });
-}
-
-export async function deleteEtaplan(id: string) {
-	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	try {
-		// Refuse if any approved/paid reimbursements exist — prefer "Abschließen".
-		const [blocking] = await db
-			.select({ c: sql<number>`count(*)` })
-			.from(kostenerstattungen)
-			.where(
-				and(
-					eq(kostenerstattungen.etaplanId, id),
-					inArray(kostenerstattungen.status, ["Genehmigt", "Ausgezahlt"]),
-				),
-			);
-		if (Number(blocking?.c ?? 0) > 0) {
-			return {
-				success: false as const,
-				error:
-					"Etatplan hat genehmigte/ausgezahlte Erstattungen. Bitte stattdessen abschließen.",
-			};
-		}
-
-		// Paid Semesterbeiträge and booked Einnahmen are financial records: the
-		// cascade below would silently erase them, so refuse like
-		// deleteBeitragRun / deleteKostenpunkt do.
-		const planKostenpunkte = db
-			.select({ id: kostenpunkte.id })
-			.from(kostenpunkte)
-			.where(eq(kostenpunkte.etaplanId, id));
-		const [paidCharges] = await db
-			.select({ c: sql<number>`count(*)` })
-			.from(semesterbeitragCharges)
-			.innerJoin(
-				semesterbeitragRuns,
-				eq(semesterbeitragCharges.runId, semesterbeitragRuns.id),
-			)
-			.where(
-				and(
-					eq(semesterbeitragCharges.status, "Bezahlt"),
-					or(
-						eq(semesterbeitragRuns.etaplanId, id),
-						inArray(semesterbeitragRuns.kostenpunktId, planKostenpunkte),
-					),
-				),
-			);
-		if (Number(paidCharges?.c ?? 0) > 0) {
-			return {
-				success: false as const,
-				error:
-					"Etatplan hat bereits bezahlte Semesterbeiträge und kann nicht gelöscht werden. Bitte stattdessen abschließen.",
-			};
-		}
-		const [booked] = await db
-			.select({ c: sql<number>`count(*)` })
-			.from(einnahmen)
-			.where(
-				or(
-					eq(einnahmen.etaplanId, id),
-					inArray(einnahmen.kostenpunktId, planKostenpunkte),
-				),
-			);
-		if (Number(booked?.c ?? 0) > 0) {
-			return {
-				success: false as const,
-				error:
-					"Etatplan hat gebuchte Einnahmen und kann nicht gelöscht werden. Bitte stattdessen abschließen.",
-			};
-		}
-
-		// Remove remaining (eingereicht/abgelehnt) reimbursements first so the
-		// restrict-FK on kostenpunkt doesn't block the cascade, then delete the
-		// plan (kostenpunkte + positions cascade).
-		await db.batch([
-			db.delete(kostenerstattungen).where(eq(kostenerstattungen.etaplanId, id)),
-			db.delete(etaplans).where(eq(etaplans.id, id)),
-		]);
-
-		revalidatePath("/cc-kasse");
-		return { success: true as const };
-	} catch (error) {
-		console.error("Error deleting etaplan:", error);
-		return { success: false as const, error: "Fehler beim Löschen" };
 	}
 }
 

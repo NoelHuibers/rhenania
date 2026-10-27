@@ -29,8 +29,6 @@ const PUBLIC_ACTIONS: Record<string, string> = {
 	"src/lib/formSubmit.ts#onSubmitAction": "public contact form",
 	"src/server/actions/newuser/verifyEmail.ts#verifyEmailAndSetPassword":
 		"invite link; authorised by the single-use token",
-	"src/server/actions/bilder/homepageImages.ts#getActiveHomepageImages":
-		"images of the public website",
 	"src/server/actions/bilder/images.ts#getActiveImageBySection":
 		"images of the public website",
 	"src/server/actions/bilder/images.ts#getAllActiveImagesBySection":
@@ -39,8 +37,6 @@ const PUBLIC_ACTIONS: Record<string, string> = {
 		"public events on the website",
 	"src/server/actions/events/events.ts#getPublicPastEvents":
 		"public events on the website",
-	"src/server/actions/game/game.ts#calculateHypotheticalEloChange":
-		"pure arithmetic, reads no data",
 };
 
 type Finding = { file: string; name: string };

@@ -1,26 +1,7 @@
-import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 
-import {
-	einnahmen,
-	etaplans,
-	kostenerstattungen,
-	kostenpunkte,
-	kostenpunktPositionen,
-	semesterbeitragCharges,
-	semesterbeitragRuns,
-} from "~/server/db/schema";
-import {
-	createEinnahme,
-	createKostenpunkt,
-	createReimbursement,
-	createEtaplan as seedEtaplan,
-} from "../../../../test/factories/cc-kasse";
-import {
-	createBeitragRun,
-	createCharge,
-	createMember,
-} from "../../../../test/factories/members";
+import { etaplans } from "~/server/db/schema";
+import { createEtaplan as seedEtaplan } from "../../../../test/factories/cc-kasse";
 import {
 	createTenant,
 	createUser,
@@ -30,11 +11,9 @@ import {
 } from "../../../../test/harness";
 import {
 	createEtaplan,
-	deleteEtaplan,
 	getActiveEtaplan,
 	getEtaplanById,
 	listEtaplans,
-	setEtaplanStatus,
 	updateEtaplan,
 } from "./etaplans";
 
@@ -105,7 +84,7 @@ describe("createEtaplan", () => {
 	});
 });
 
-describe("updateEtaplan / setEtaplanStatus", () => {
+describe("updateEtaplan", () => {
 	test("patches only the given fields", async () => {
 		await signInSenior();
 		const plan = await seedEtaplan({ name: "Alt", notes: "bleibt" });
@@ -145,136 +124,15 @@ describe("updateEtaplan / setEtaplanStatus", () => {
 		const newer = await seedEtaplan({ year: 2026 });
 		expect((await getActiveEtaplan())?.id).toBe(newer.id);
 
-		expect(await setEtaplanStatus(newer.id, "Abgeschlossen")).toMatchObject({
+		expect(
+			await updateEtaplan(newer.id, { status: "Abgeschlossen" }),
+		).toMatchObject({
 			success: true,
 		});
 
 		expect((await getActiveEtaplan())?.id).toBe(older.id);
-		await setEtaplanStatus(older.id, "Abgeschlossen");
+		await updateEtaplan(older.id, { status: "Abgeschlossen" });
 		expect(await getActiveEtaplan()).toBeNull();
-	});
-});
-
-describe("deleteEtaplan", () => {
-	test("refuses while approved or paid reimbursements exist", async () => {
-		await signInSenior();
-		const plan = await seedEtaplan();
-		const kp = await createKostenpunkt(plan.id);
-
-		for (const status of ["Genehmigt", "Ausgezahlt"] as const) {
-			const r = await createReimbursement(kp, { status });
-			const result = await deleteEtaplan(plan.id);
-			expect(result.success).toBe(false);
-			expect(result.success === false && result.error).toMatch(
-				/bitte stattdessen abschließen/i,
-			);
-			await tenantDb()
-				.delete(kostenerstattungen)
-				.where(eq(kostenerstattungen.id, r.id));
-		}
-		expect(await getEtaplanById(plan.id)).not.toBeNull();
-	});
-
-	test("removes open/rejected requests, Kostenpunkte and positions", async () => {
-		await signInSenior();
-		const plan = await seedEtaplan();
-		const keep = await seedEtaplan();
-		const kp = await createKostenpunkt(plan.id, {
-			positionen: [{ ausgaben: 10 }, { ausgaben: 5 }],
-		});
-		const otherKp = await createKostenpunkt(keep.id, {
-			positionen: [{ ausgaben: 1 }],
-		});
-		await createReimbursement(kp, { status: "Eingereicht" });
-		await createReimbursement(kp, { status: "Abgelehnt" });
-		await createReimbursement(otherKp, { status: "Eingereicht" });
-
-		expect(await deleteEtaplan(plan.id)).toEqual({ success: true });
-
-		const db = tenantDb();
-		expect((await db.select().from(etaplans)).map((p) => p.id)).toEqual([
-			keep.id,
-		]);
-		expect((await db.select().from(kostenpunkte)).map((k) => k.id)).toEqual([
-			otherKp.id,
-		]);
-		expect(
-			(await db.select().from(kostenpunktPositionen)).map(
-				(p) => p.kostenpunktId,
-			),
-		).toEqual([otherKp.id]);
-		expect(
-			(await db.select().from(kostenerstattungen)).map((r) => r.kostenpunktId),
-		).toEqual([otherKp.id]);
-	});
-
-	test("removes an unpaid Beitragslauf of the plan with it", async () => {
-		await signInSenior();
-		const plan = await seedEtaplan();
-		const kp = await createKostenpunkt(plan.id);
-		const run = await createBeitragRun(kp);
-		await createCharge(run.id, await createMember());
-
-		expect(await deleteEtaplan(plan.id)).toEqual({ success: true });
-		expect(await tenantDb().select().from(semesterbeitragRuns)).toHaveLength(0);
-		expect(await tenantDb().select().from(semesterbeitragCharges)).toHaveLength(
-			0,
-		);
-	});
-
-	// Like deleteBeitragRun, deleting the whole plan must not cascade paid
-	// charges ("financial records") away.
-	test("refuses while paid Semesterbeiträge exist (#150)", async () => {
-		await signInSenior();
-		const plan = await seedEtaplan();
-		const kp = await createKostenpunkt(plan.id);
-		const run = await createBeitragRun(kp);
-		await createCharge(run.id, await createMember(), { status: "Bezahlt" });
-
-		const result = await deleteEtaplan(plan.id);
-
-		expect(result).toEqual({
-			success: false,
-			error:
-				"Etatplan hat bereits bezahlte Semesterbeiträge und kann nicht gelöscht werden. Bitte stattdessen abschließen.",
-		});
-		expect(await tenantDb().select().from(semesterbeitragCharges)).toHaveLength(
-			1,
-		);
-		expect(await tenantDb().select().from(etaplans)).toHaveLength(1);
-	});
-
-	test("refuses while a paid Beitrag of a foreign run books onto its Kostenpunkt (#150)", async () => {
-		await signInSenior();
-		const plan = await seedEtaplan();
-		const other = await seedEtaplan();
-		const kp = await createKostenpunkt(plan.id);
-		const run = await createBeitragRun({ ...kp, etaplanId: other.id });
-		await createCharge(run.id, await createMember(), { status: "Bezahlt" });
-
-		const result = await deleteEtaplan(plan.id);
-
-		expect(result.success).toBe(false);
-		expect(await tenantDb().select().from(semesterbeitragCharges)).toHaveLength(
-			1,
-		);
-	});
-
-	test("refuses while booked Einnahmen exist (#150)", async () => {
-		await signInSenior();
-		const plan = await seedEtaplan();
-		const kp = await createKostenpunkt(plan.id);
-		await createEinnahme(kp, { amount: 250 });
-
-		const result = await deleteEtaplan(plan.id);
-
-		expect(result).toEqual({
-			success: false,
-			error:
-				"Etatplan hat gebuchte Einnahmen und kann nicht gelöscht werden. Bitte stattdessen abschließen.",
-		});
-		expect(await tenantDb().select().from(einnahmen)).toHaveLength(1);
-		expect(await tenantDb().select().from(etaplans)).toHaveLength(1);
 	});
 });
 

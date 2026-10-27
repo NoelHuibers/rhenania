@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 
 import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
@@ -15,7 +14,7 @@ import {
 	tenantDb,
 } from "../../../test/harness";
 import { testState } from "../../../test/state";
-import { createOrder, getUserOrders, updateOrderStatus } from "./orders";
+import { createOrder, getUserOrders } from "./orders";
 
 // Achievements run after the response; they have their own tests.
 vi.mock("~/server/actions/achievements/tracking", () => ({
@@ -213,39 +212,6 @@ describe("getUserOrders", () => {
 
 		await expect(getUserOrders()).rejects.toThrow(
 			"User must be authenticated to view orders",
-		);
-	});
-});
-
-describe("updateOrderStatus", () => {
-	test("touches updatedAt and leaves the booking untouched", async () => {
-		await createTenant();
-		const wart = await createUser({ roles: ["Getränkewart"] });
-		const drink = await createDrink();
-		const order = await createOrderRow({ drink, amount: 3, total: 4.5 });
-		await tenantDb()
-			.update(orders)
-			.set({ updatedAt: daysAgo(30) })
-			.where(eq(orders.id, order.id));
-		signInAs(wart);
-
-		expect(await updateOrderStatus(order.id)).toEqual({ success: true });
-
-		const [row] = await tenantDb()
-			.select()
-			.from(orders)
-			.where(eq(orders.id, order.id));
-		expect(row?.updatedAt?.getTime()).toBeGreaterThan(daysAgo(1).getTime());
-		expect(row).toMatchObject({ amount: 3, total: 4.5, inBill: false });
-	});
-
-	test("throws for unknown orders", async () => {
-		await createTenant();
-		signInAs(await createUser({ roles: ["Getränkewart"] }));
-		vi.spyOn(console, "error").mockImplementation(() => {});
-
-		await expect(updateOrderStatus("deleted-order")).rejects.toThrow(
-			"Order not found",
 		);
 	});
 });

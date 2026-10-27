@@ -9,7 +9,7 @@ import {
 	signInAs,
 	type TestUser,
 } from "../../../test/harness";
-import { getCurrentEventOrders, getCurrentOrders } from "./currentOrders";
+import { getCurrentOrders } from "./currentOrders";
 
 setupTestDatabases();
 
@@ -112,9 +112,6 @@ describe("getCurrentOrders", () => {
 
 		expect(entries.map((e) => e.id)).toEqual(["u-zora", "u-anton", "event-CC"]);
 		expect(entries[2]?.items.map((i) => i.name)).toEqual(["Cola", "Pils"]);
-		expect(await getCurrentEventOrders()).toEqual([
-			expect.objectContaining({ eventName: "CC", bookedBy: "Zora" }),
-		]);
 	});
 
 	test("is empty when everything has been billed", async () => {
@@ -134,50 +131,5 @@ describe("getCurrentOrders", () => {
 		const [entry] = await getCurrentOrders();
 
 		expect(entry?.totalDue).toBe(3.3);
-	});
-});
-
-describe("getCurrentEventOrders", () => {
-	test("returns only unbilled group bookings, with who booked first", async () => {
-		const pils = await createDrink({ name: "Pils", price: 1.5 });
-		const cola = await createDrink({ name: "Cola", price: 2 });
-		await createOrderRow({
-			drink: pils,
-			user: moritz,
-			amount: 2,
-			bookingFor: "CC",
-		});
-		await createOrderRow({
-			drink: cola,
-			user: max,
-			amount: 1,
-			bookingFor: "CC",
-		});
-		await createOrderRow({
-			drink: pils,
-			user: max,
-			amount: 2,
-			bookingFor: "CC",
-		});
-		await createOrderRow({
-			drink: pils,
-			user: max,
-			amount: 5,
-			bookingFor: "CC",
-			inBill: true,
-		});
-		await createOrderRow({ drink: pils, user: max, amount: 1 });
-
-		expect(await getCurrentEventOrders()).toEqual([
-			{
-				eventName: "CC",
-				bookedBy: "Moritz",
-				totalAmount: 8,
-				items: [
-					expect.objectContaining({ name: "Pils", quantity: 4, subtotal: 6 }),
-					expect.objectContaining({ name: "Cola", quantity: 1, subtotal: 2 }),
-				],
-			},
-		]);
 	});
 });
