@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import {
 	addDaysInTZ,
+	addMonthsInTZ,
 	dayKeyInTZ,
 	getZonedParts,
 	startOfDayInTZ,
@@ -335,8 +336,8 @@ export async function generateInstances(recurringEventId: string) {
 		// Default range: today → +6 months (fallback if no startDate/endDate)
 		const now = new Date();
 		const defaultFrom = startOfDayInTZ(now);
-		const defaultTo = new Date(now);
-		defaultTo.setMonth(defaultTo.getMonth() + 6);
+		// Same Berlin wall-clock time six months on, also across a DST switch.
+		const defaultTo = addMonthsInTZ(now, 6);
 
 		const items = generateOccurrences(template, defaultFrom, defaultTo);
 

@@ -10,15 +10,20 @@ import {
 	type TestUser,
 	tenantDb,
 } from "../../../../test/harness";
+import { useServerTimeZone } from "../../../../test/server-tz";
 import { updateFuchsenBillingConfig } from "./billingConfig";
 import { generateFuchsenBillPDF } from "./billingPdf";
 
 setupTestDatabases();
 
-async function billFor(user: TestUser, total = 12.5) {
+async function billFor(
+	user: TestUser,
+	total = 12.5,
+	createdAt = new Date("2026-10-28T11:00:00Z"),
+) {
 	const { bills } = await createFuchsenBillPeriod({
 		billNumber: "KW-44-26",
-		createdAt: new Date("2026-10-28T11:00:00Z"),
+		createdAt,
 		bills: [{ user, itemsTotal: total - 2, oldBillingAmount: 2 }],
 	});
 	const bill = bills[0];
@@ -69,6 +74,37 @@ describe("generateFuchsenBillPDF", () => {
 		expect(text).toContain("https://paypal.me/maxfux/012,50");
 		expect(text).toContain("IBAN: DE89370400440532013000");
 		expect(text).toContain("Stuttgart, den 28.10.26");
+	});
+
+	test("dates the letter and the payment by the Berlin day on a UTC server (#15)", async () => {
+		useServerTimeZone("UTC");
+		await createTenant();
+		signInAs(await createUser({ roles: ["Fuchs"] }));
+		await updateFuchsenBillingConfig({
+			senderName: "Fuchsenwart",
+			senderStreet: "",
+			senderCity: "",
+			location: "Stuttgart",
+			iban: "DE89370400440532013000",
+			accountHolder: "Max Fux",
+			paypalBaseUrl: "",
+			paymentDueDays: 14,
+		});
+		// Thursday 29 Oct and Friday 6 Nov, both at 00:30 in Berlin.
+		const bill = await billFor(
+			await createUser(),
+			12.5,
+			new Date("2026-10-28T23:30:00Z"),
+		);
+		await tenantDb()
+			.update(fuchsenBills)
+			.set({ status: "Bezahlt", paidAt: new Date("2026-11-05T23:30:00Z") })
+			.where(eq(fuchsenBills.id, bill.id));
+
+		const text = pdfText((await generateFuchsenBillPDF(bill.id)).base64);
+
+		expect(text).toContain("Stuttgart, den 29.10.26");
+		expect(text).toContain("BEZAHLT am 06.11.26");
 	});
 
 	test("Fuchsenwart can download any member's bill", async () => {

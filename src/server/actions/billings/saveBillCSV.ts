@@ -3,6 +3,7 @@
 
 import { head, put } from "@vercel/blob";
 import { eq } from "drizzle-orm";
+import { getZonedParts } from "~/lib/time";
 import { db } from "~/server/db";
 import { billCSVs, billPeriods } from "~/server/db/schema";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
@@ -77,8 +78,9 @@ export async function saveBillPeriodCSV(
 
 		let fileName: string;
 		if (billDate) {
-			const date = new Date(billDate);
-			const day = date.getDate().toString().padStart(2, "0");
+			// The Berlin calendar day of the run, whatever the server's zone.
+			const date = getZonedParts(new Date(billDate));
+			const day = date.day.toString().padStart(2, "0");
 			const monthNames = [
 				"Jan",
 				"Feb",
@@ -93,8 +95,8 @@ export async function saveBillPeriodCSV(
 				"Nov",
 				"Dez",
 			];
-			const month = monthNames[date.getMonth()];
-			const year = date.getFullYear();
+			const month = monthNames[date.month - 1];
+			const year = date.year;
 			fileName = `tenants/${tenant.slug}/bills/Rechnung_${day}_${month}_${year}.csv`;
 		} else {
 			fileName = `tenants/${tenant.slug}/bills/Rechnung_${billPeriodId}.csv`;

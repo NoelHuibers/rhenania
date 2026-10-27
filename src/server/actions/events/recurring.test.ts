@@ -515,6 +515,29 @@ describe("generateInstances", () => {
 		);
 	});
 
+	test.each(
+		SERVER_TZS,
+	)("without dates the range ends six months later at the same Berlin time (%s server, #15)", async (tz) => {
+		await setup();
+		serverTimeZone(tz);
+		// Monday 4 May, 20:30 CEST. Six months later is 4 Nov, 20:30 CET, so
+		// the 20:00 meeting that Wednesday is in.
+		vi.setSystemTime(new Date("2026-05-04T18:30:00Z"));
+		const t = await template({ recurrenceType: "monthly_1st_wednesday" });
+
+		await generateInstances(t.id);
+
+		expect((await instances(t.id)).map((e) => shown(e.date))).toEqual([
+			"Mi., 06.05., 20:00",
+			"Mi., 03.06., 20:00",
+			"Mi., 01.07., 20:00",
+			"Mi., 05.08., 20:00",
+			"Mi., 02.09., 20:00",
+			"Mi., 07.10., 20:00",
+			"Mi., 04.11., 20:00",
+		]);
+	});
+
 	test("deduplicates by Berlin day, including events stored at the old UTC times (#15)", async () => {
 		await setup();
 		serverTimeZone("UTC");

@@ -3,6 +3,7 @@
 
 import { eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
+import { formatDateWith } from "~/lib/format";
 import { lateFeeSentence } from "~/lib/late-fee";
 import { db } from "~/server/db/index";
 import { billItems, billPeriods, bills } from "~/server/db/schema";
@@ -301,13 +302,11 @@ function formatPayPalAmount(amount: number): string {
 	return parts.join(",");
 }
 
-/**
- * Helper function to format date for German locale
- */
+/** The Berlin calendar day as `dd.mm.yy`, whatever the server's time zone. */
 function formatDate(date: Date): string {
-	const d = new Date(date);
-	const day = d.getDate().toString().padStart(2, "0");
-	const month = (d.getMonth() + 1).toString().padStart(2, "0");
-	const year = d.getFullYear().toString().slice(-2); // Last 2 digits of year
-	return `${day}.${month}.${year}`;
+	return formatDateWith(date, {
+		day: "2-digit",
+		month: "2-digit",
+		year: "2-digit",
+	});
 }
