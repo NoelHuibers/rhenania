@@ -119,5 +119,13 @@ describe("test harness", () => {
 			"transaction",
 			"transaction",
 		]);
+		// Arguments are logged per statement, so tests can replay them.
+		expect(counted.log[1]?.args).toEqual([
+			[],
+			[2, expect.any(Number), drink.id],
+		]);
+		for (const entry of counted.log) {
+			expect(entry.args).toHaveLength(entry.sql.length);
+		}
 	});
 });

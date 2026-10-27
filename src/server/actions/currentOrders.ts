@@ -6,6 +6,11 @@ import { addMoney } from "~/lib/money";
 import { orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 
+// Entries and their items follow the order the orders were placed in, and
+// an event's `bookedBy` is whoever booked first. Without an ORDER BY, rows
+// come back in whatever order the index SQLite picks yields.
+const inOrderPlaced = [orders.createdAt, sql`${orders}.rowid`] as const;
+
 interface DrinkItem {
 	id: string;
 	name: string;
@@ -28,7 +33,8 @@ export async function getCurrentOrders(): Promise<BillingEntry[]> {
 		const allCurrentOrders = await db
 			.select()
 			.from(orders)
-			.where(eq(orders.inBill, false));
+			.where(eq(orders.inBill, false))
+			.orderBy(...inOrderPlaced);
 
 		// Separate personal and event orders
 		const personalOrders = allCurrentOrders.filter(
@@ -148,7 +154,8 @@ export async function getCurrentEventOrders(): Promise<
 			.from(orders)
 			.where(
 				and(eq(orders.inBill, false), sql`${orders.bookingFor} IS NOT NULL`),
-			);
+			)
+			.orderBy(...inOrderPlaced);
 
 		// Group by bookingFor (event name)
 		const groupedEvents = eventOrders.reduce(

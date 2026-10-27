@@ -7,7 +7,7 @@
 // One round trip is one `execute`, one `batch` (all its statements travel
 // together), or one statement / commit inside an interactive transaction.
 
-import type { Client, InStatement, Transaction } from "@libsql/client";
+import type { Client, InArgs, InStatement, Transaction } from "@libsql/client";
 
 export type QueryDb = "tenant" | "control";
 
@@ -16,6 +16,8 @@ export type QueryLogEntry = {
 	kind: "execute" | "batch" | "transaction";
 	/** SQL of the round trip; several for a batch. */
 	sql: string[];
+	/** Bound arguments, one entry per `sql` statement. */
+	args: InArgs[];
 };
 
 let activeLog: QueryLogEntry[] | null = null;
@@ -29,6 +31,15 @@ function sqlOf(stmt: AnyStatement): string {
 	return Array.isArray(stmt) ? stmt[0] : stmt.sql;
 }
 
+function argsOf(stmt: AnyStatement): InArgs {
+	if (typeof stmt === "string") {
+		return [];
+	}
+	return (
+		((Array.isArray(stmt) ? stmt[1] : stmt.args) as InArgs | undefined) ?? []
+	);
+}
+
 function record(entry: QueryLogEntry) {
 	activeLog?.push(entry);
 }
@@ -38,19 +49,29 @@ function instrumentTransaction(tx: Transaction, db: QueryDb): Transaction {
 		get(target, prop) {
 			if (prop === "execute") {
 				return (stmt: InStatement) => {
-					record({ db, kind: "transaction", sql: [sqlOf(stmt)] });
+					record({
+						db,
+						kind: "transaction",
+						sql: [sqlOf(stmt)],
+						args: [argsOf(stmt)],
+					});
 					return target.execute(stmt);
 				};
 			}
 			if (prop === "batch") {
 				return (stmts: InStatement[]) => {
-					record({ db, kind: "transaction", sql: stmts.map(sqlOf) });
+					record({
+						db,
+						kind: "transaction",
+						sql: stmts.map(sqlOf),
+						args: stmts.map(argsOf),
+					});
 					return target.batch(stmts);
 				};
 			}
 			if (prop === "commit") {
 				return () => {
-					record({ db, kind: "transaction", sql: ["COMMIT"] });
+					record({ db, kind: "transaction", sql: ["COMMIT"], args: [[]] });
 					return target.commit();
 				};
 			}
@@ -70,13 +91,24 @@ export function instrumentClient(client: Client, db: QueryDb): Client {
 						db,
 						kind: "execute",
 						sql: [sqlOf(args[0] as AnyStatement)],
+						// `execute(sql, args)` or `execute({ sql, args })`.
+						args: [
+							typeof args[0] === "string"
+								? ((args[1] as InArgs | undefined) ?? [])
+								: argsOf(args[0] as AnyStatement),
+						],
 					});
 					return (target.execute as (...a: unknown[]) => unknown)(...args);
 				};
 			}
 			if (prop === "batch") {
 				return (...args: Parameters<Client["batch"]>) => {
-					record({ db, kind: "batch", sql: args[0].map(sqlOf) });
+					record({
+						db,
+						kind: "batch",
+						sql: args[0].map(sqlOf),
+						args: args[0].map(argsOf),
+					});
 					return target.batch(...args);
 				};
 			}
