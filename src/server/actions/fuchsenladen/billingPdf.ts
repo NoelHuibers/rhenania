@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
+import { isCredit } from "~/lib/bill-payment";
 import { formatDateWith } from "~/lib/format";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -20,6 +21,44 @@ function eur(amount: number): string {
 function payPalAmount(amount: number): string {
 	const [whole, cents] = amount.toFixed(2).replace(".", ",").split(",");
 	return `${(whole ?? "0").padStart(3, "0")},${cents}`;
+}
+
+/**
+ * The bill's amount as the letter states it: a sum to pay, or a credit
+ * (Guthaben) with nothing to pay and no PayPal link (#220).
+ */
+function amountWording(
+	total: number,
+	config: { paypalBaseUrl: string | null; paymentDueDays: number },
+) {
+	if (isCredit(total)) {
+		return {
+			letter: [
+				"auf der nächsten Seite findest du deine Fuchsenladen-Rechnung aufgeschlüsselt.",
+				`Du hast ein Guthaben von: ${eur(-total)}`,
+			],
+			payInfo:
+				"Du musst nichts zahlen. Das Guthaben wird mit deiner nächsten Rechnung verrechnet.",
+			paypalLink: "",
+			totalLabel: "Guthaben:",
+			totalAmount: eur(-total),
+		};
+	}
+	const paypalLink = config.paypalBaseUrl
+		? `${config.paypalBaseUrl}${payPalAmount(total)}`
+		: "";
+	return {
+		letter: [
+			"auf der nächsten Seite findest du deine Fuchsenladen-Rechnung aufgeschlüsselt,",
+			`in Höhe von: ${eur(total)}`,
+		],
+		payInfo: paypalLink
+			? `Bitte zahle den Betrag per PayPal-Link oder auf das genannte Konto innerhalb von ${config.paymentDueDays} Tagen.`
+			: `Bitte zahle den Betrag auf das genannte Konto innerhalb von ${config.paymentDueDays} Tagen.`,
+		paypalLink,
+		totalLabel: "Gesamtbetrag:",
+		totalAmount: eur(total),
+	};
 }
 
 /** The Berlin calendar day as `dd.mm.yy`, whatever the server's time zone. */
@@ -84,9 +123,8 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 		});
 		const billNumber = period?.billNumber ?? "—";
 		const createdAt = period?.createdAt ?? bill.createdAt;
-		const paypalLink = config.paypalBaseUrl
-			? `${config.paypalBaseUrl}${payPalAmount(bill.total)}`
-			: "";
+		const amount = amountWording(bill.total, config);
+		const { paypalLink } = amount;
 
 		// ---- Page 1: cover letter ----
 		doc.setFont("helvetica");
@@ -108,18 +146,12 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 
 		doc.text(`Lieber ${bill.userName},`, 20, 70);
 		let y = 85;
-		for (const line of [
-			"auf der nächsten Seite findest du deine Fuchsenladen-Rechnung aufgeschlüsselt,",
-			`in Höhe von: ${eur(bill.total)}`,
-		]) {
+		for (const line of amount.letter) {
 			doc.text(line, 20, y);
 			y += 7;
 		}
 		y += 5;
-		const payInfo = paypalLink
-			? `Bitte zahle den Betrag per PayPal-Link oder auf das genannte Konto innerhalb von ${config.paymentDueDays} Tagen.`
-			: `Bitte zahle den Betrag auf das genannte Konto innerhalb von ${config.paymentDueDays} Tagen.`;
-		for (const line of doc.splitTextToSize(payInfo, 170) as string[]) {
+		for (const line of doc.splitTextToSize(amount.payInfo, 170) as string[]) {
 			doc.text(line, 20, y);
 			y += 7;
 		}
@@ -175,7 +207,8 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 		doc.text("Rechnungsbetrag:", 20, yp);
 		doc.text(eur(bill.itemsTotal), 190, yp, { align: "right" });
 		yp += 7;
-		if (bill.oldBillingAmount > 0) {
+		// A carried credit is negative and printed too, so the lines add up.
+		if (bill.oldBillingAmount !== 0) {
 			doc.text("Alter Saldo:", 20, yp);
 			doc.text(eur(bill.oldBillingAmount), 190, yp, { align: "right" });
 			yp += 7;
@@ -184,8 +217,8 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 		yp += 8;
 		doc.setFont("helvetica", "bold");
 		doc.setFontSize(14);
-		doc.text("Gesamtbetrag:", 20, yp);
-		doc.text(eur(bill.total), 190, yp, { align: "right" });
+		doc.text(amount.totalLabel, 20, yp);
+		doc.text(amount.totalAmount, 190, yp, { align: "right" });
 
 		yp += 15;
 		doc.setFontSize(12);

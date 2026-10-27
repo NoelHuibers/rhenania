@@ -856,6 +856,51 @@ describe("markAllMemberBillsPaid", () => {
 		]);
 	});
 
+	// A credit is nothing anybody paid: it stays open for the next run (#220).
+	test("leaves a credit open, with the bills carried into it, and pays a zero bill", async () => {
+		await signInWart({ features: ["billing.markAllPaid"] });
+		const period = await createBillPeriodRow();
+		const at = (day: number) => new Date(Date.UTC(2026, 9, day, 12));
+		const lena = { id: "u-lena", name: "Lena" };
+		const max = { id: "u-max", name: "Max" };
+		await createBillRow({
+			periodId: period.id,
+			user: lena,
+			status: "Übertragen",
+			total: -2.5,
+			createdAt: at(1),
+		});
+		await createBillRow({
+			periodId: period.id,
+			user: lena,
+			drinksTotal: 1.5,
+			oldBillingAmount: -2.5,
+			createdAt: at(8),
+		});
+		await createBillRow({
+			periodId: period.id,
+			user: max,
+			total: 0,
+			createdAt: at(8),
+		});
+
+		expect(await markAllMemberBillsPaid()).toEqual({
+			ok: true,
+			data: { count: 1 },
+		});
+
+		const state = async (userId: string) =>
+			(await billsOf(userId)).map((b) => [b.total, b.status, b.paidAt]);
+		expect(await state(lena.id)).toEqual([
+			[-2.5, "Übertragen", null],
+			[-1, "Unbezahlt", null],
+		]);
+		expect(await state(max.id)).toEqual([[0, "Bezahlt", NOW]]);
+		expect(
+			(await getOpenMemberBills()).map((b) => [b.userName, b.total]),
+		).toEqual([["Lena", -1]]);
+	});
+
 	test("is all or nothing: a failing bill leaves every bill open", async () => {
 		await signInWart({ features: ["billing.markAllPaid"] });
 		const period = await createBillPeriodRow();

@@ -47,6 +47,10 @@ export function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const markAllPaidEnabled = useFeature("billing.markAllPaid");
 	const total = bills.reduce((s, b) => s + b.total, 0);
+	// "Alle haben gezahlt" leaves credits open, to be carried (#220).
+	const payable = bills.filter((b) => b.total >= 0);
+	const credits = bills.length - payable.length;
+	const payableTotal = payable.reduce((s, b) => s + b.total, 0);
 
 	function setStatus(id: string, name: string, status: BillStatus) {
 		setPendingId(id);
@@ -91,7 +95,7 @@ export function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 				) : undefined
 			}
 			action={
-				markAllPaidEnabled && bills.length > 0 ? (
+				markAllPaidEnabled && payable.length > 0 ? (
 					<AlertDialog>
 						<AlertDialogTrigger asChild>
 							<Button
@@ -110,9 +114,11 @@ export function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 									Alle Rechnungen als bezahlt markieren?
 								</AlertDialogTitle>
 								<AlertDialogDescription>
-									{bills.length} offene Mitgliederrechnungen über insgesamt{" "}
-									{formatEUR(total)} werden auf „Bezahlt" gesetzt, auch
+									{payable.length} offene Mitgliederrechnungen über insgesamt{" "}
+									{formatEUR(payableTotal)} werden auf „Bezahlt" gesetzt, auch
 									gestundete. Gruppenrechnungen bleiben unverändert.
+									{credits > 0 &&
+										` ${credits} Guthaben bleiben offen und werden mit der nächsten Rechnung verrechnet.`}
 								</AlertDialogDescription>
 							</AlertDialogHeader>
 							<AlertDialogFooter>

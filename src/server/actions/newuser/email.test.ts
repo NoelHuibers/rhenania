@@ -147,6 +147,45 @@ describe("bill mails", () => {
 		expect(mail.attachments?.[0]?.filename).toBe("r.pdf");
 	});
 
+	test("a credit reads as Guthaben, not as an amount to pay (#220)", async () => {
+		await createTenant({ displayName: "Corps Hassia" });
+
+		await sendBillNotificationEmail(
+			"lena@example.test",
+			"Lena",
+			"KW-43-26",
+			-1,
+			pdf,
+			"r.pdf",
+			21,
+		);
+		const member = sentMail();
+		await sendTreasurerBillEmail(
+			"kasse@hassia.example",
+			"Lena",
+			"KW-43-26",
+			-1,
+			pdf,
+			"r.pdf",
+		);
+		const treasurer = sentMail();
+
+		expect(member.text).toContain("Guthaben: 1,00€");
+		expect(member.text).toContain(
+			"Du musst nichts überweisen. Dein Guthaben wird mit deiner nächsten Rechnung verrechnet.",
+		);
+		expect(member.html).toContain(">Guthaben</p>");
+		expect(member.html).toContain(">1,00€</div>");
+		for (const mail of [member, treasurer]) {
+			expect(mail.text).not.toContain("Gesamtbetrag");
+			expect(mail.text).not.toContain("überweise den Betrag");
+			expect(mail.text).not.toContain("-1,00");
+			expect(mail.html).not.toContain("überweise den Betrag");
+		}
+		expect(treasurer.text).toContain("Guthaben: 1,00€");
+		expect(treasurer.html).toContain(">Guthaben</p>");
+	});
+
 	test("signs with a neutral label outside a tenant request", async () => {
 		await sendBillNotificationEmail(
 			"a@example.test",

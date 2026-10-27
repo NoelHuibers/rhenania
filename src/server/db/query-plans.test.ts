@@ -259,11 +259,12 @@ describe("hot query plans use the composite indexes (#25)", () => {
 			markAllMemberBillsPaid,
 		);
 		// Only the carried bills, each checked against its member's own open
-		// bills; then only the open bills.
+		// bills (reading their total too, to skip credits, #220); then only
+		// the open bills.
 		expect(carried?.plan).toEqual([
 			"SEARCH bill USING INDEX bill_status_idx (status=?)",
 			"CORRELATED SCALAR SUBQUERY 1",
-			"SEARCH later USING COVERING INDEX bill_user_status_idx (userId=? AND status=? AND createdAt>?)",
+			"SEARCH later USING INDEX bill_user_status_idx (userId=? AND status=? AND createdAt>?)",
 		]);
 		expect(open?.plan).toEqual([
 			"SEARCH bill USING INDEX bill_status_idx (status=?)",

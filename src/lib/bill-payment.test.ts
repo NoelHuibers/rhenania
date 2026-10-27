@@ -2,11 +2,20 @@ import { describe, expect, test } from "vitest";
 
 import {
 	girocodePayload,
+	isCredit,
 	paymentReference,
 	paypalAmountUrl,
 } from "./bill-payment";
 
 describe("bill payment helpers", () => {
+	test("a negative total is a credit, a sub-cent one is not (#220)", () => {
+		expect(isCredit(-1)).toBe(true);
+		expect(isCredit(-0.01)).toBe(true);
+		expect(isCredit(-0.004)).toBe(false);
+		expect(isCredit(0)).toBe(false);
+		expect(isCredit(12.5)).toBe(false);
+	});
+
 	test("the reference names the member and the bill", () => {
 		expect(paymentReference("Max Muster", "KW-43-26")).toBe(
 			"Max Muster - Rechnung KW-43-26",

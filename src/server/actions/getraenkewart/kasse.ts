@@ -1,6 +1,17 @@
 "use server";
 
-import { and, desc, eq, exists, gt, inArray, ne, or, sql } from "drizzle-orm";
+import {
+	and,
+	desc,
+	eq,
+	exists,
+	gt,
+	gte,
+	inArray,
+	ne,
+	or,
+	sql,
+} from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 import { isValidMarkupPercent, MAX_MARKUP_PERCENT } from "~/lib/pricing";
@@ -547,7 +558,9 @@ export const markAllMemberBillsPaid = defineAction(
 	},
 	async () => {
 		// Same set the Kasse lists as open: unpaid and deferred member bills.
-		// Group bills are settled separately and stay untouched. Settles what
+		// Group bills are settled separately and stay untouched. A credit
+		// (negative total) is nothing anybody paid: it stays open, so the next
+		// run carries it into the member's bill (#220). Settles what
 		// paying each of them on its own settles (updateBillStatus): the bill and
 		// the member's carried bills created before it, all with the same paidAt,
 		// which links them for an undo (see carried-bills). One atomic batch, so
@@ -555,6 +568,7 @@ export const markAllMemberBillsPaid = defineAction(
 		const isOpenMemberBill = and(
 			inArray(bills.status, ["Unbezahlt", "Gestundet"]),
 			sql`${bills.userId} NOT LIKE 'event-%'`,
+			gte(bills.total, 0),
 		);
 		const later = alias(bills, "later");
 		const now = new Date();
@@ -577,6 +591,7 @@ export const markAllMemberBillsPaid = defineAction(
 										eq(later.userId, bills.userId),
 										inArray(later.status, ["Unbezahlt", "Gestundet"]),
 										sql`${later.userId} NOT LIKE 'event-%'`,
+										gte(later.total, 0),
 										gt(later.createdAt, bills.createdAt),
 									),
 								),

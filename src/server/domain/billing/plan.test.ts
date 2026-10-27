@@ -170,49 +170,128 @@ describe("carry-over", () => {
 		expect(plan.settleUserIds).toEqual(["b"]);
 	});
 
-	test("a carry-only bill takes the last (Getränke) or first (Fuchsen) name", () => {
+	test("a carry-only bill takes the member's current name", () => {
 		const outstanding = [
-			open("a", 1, "Unbezahlt", "Old"),
-			open("a", 1, "Unbezahlt", "New"),
+			{ ...open("a", 1, "Unbezahlt", "Old"), memberName: "Current" },
+			{ ...open("a", 1, "Unbezahlt", "New"), memberName: "Current" },
 		];
-		expect(getraenke([], outstanding).bills[0]?.userName).toBe("New");
-		expect(
-			planBillingRun({
+		for (const rules of [GETRAENKE_RULES, FUCHSEN_RULES]) {
+			const plan = planBillingRun({
 				unbilledOrders: [],
 				outstandingBills: outstanding,
-				rules: FUCHSEN_RULES,
-			}).bills[0]?.userName,
-		).toBe("Old");
+				rules,
+			});
+			expect(plan.bills[0]?.userName).toBe("Current");
+		}
 	});
 
-	test("Getränke carries a credit but keeps the old bills open", () => {
+	test("without a current name, the newest open bill names a carry-only bill", () => {
+		// The runs read the open bills oldest first.
+		const outstanding = [
+			{ ...open("a", 1, "Unbezahlt", "Old"), memberName: null },
+			{ ...open("a", 1, "Unbezahlt", "New"), memberName: "" },
+		];
+		for (const rules of [GETRAENKE_RULES, FUCHSEN_RULES]) {
+			const plan = planBillingRun({
+				unbilledOrders: [],
+				outstandingBills: outstanding,
+				rules,
+			});
+			expect(plan.bills[0]?.userName).toBe("New");
+		}
+	});
+
+	describe.each([
+		["Getränke", GETRAENKE_RULES],
+		["Fuchsenladen", FUCHSEN_RULES],
+	])("%s", (_run, rules) => {
+		const plan = (
+			unbilledOrders: BillableOrder[],
+			outstandingBills: OutstandingBill[],
+		) =>
+			planBillingRun({
+				unbilledOrders,
+				outstandingBills,
+				rules,
+				newId: ids(),
+			});
+
+		test("carries a credit once and settles the old bills (#220)", () => {
+			const result = plan(
+				[order("a", "Pils", 1, 1.5)],
+				[open("a", -4), open("a", 1.5)],
+			);
+			expect(result.bills).toMatchObject([
+				{ userId: "a", oldBillingAmount: -2.5, fees: 0, total: -1 },
+			]);
+			expect(result.settleUserIds).toEqual(["a"]);
+			expect(result.periodTotal).toBe(-1);
+		});
+
+		test("the next run carries the remaining credit, not the old one again", () => {
+			const first = plan([order("a", "Pils", 1, 1.5)], [open("a", -2.5)]);
+			// The old bill is Übertragen now; only the new one is still open.
+			const second = plan(
+				[order("a", "Pils", 1, 1.5)],
+				[open("a", first.bills[0]?.total ?? Number.NaN)],
+			);
+			expect(second.bills).toMatchObject([
+				{ oldBillingAmount: -1, total: 0.5 },
+			]);
+			expect(second.settleUserIds).toEqual(["a"]);
+		});
+
+		test("settles a zero open bill of a billed member", () => {
+			const result = plan(
+				[order("z", "Pils", 1, 1.5)],
+				[open("z", 0), open("y", 2), open("y", -2)],
+			);
+			expect(result.bills).toMatchObject([
+				{ userId: "z", oldBillingAmount: 0, fees: 0, total: 1.5 },
+			]);
+			// y's bills add up to nothing and y has no orders: no bill.
+			expect(result.settleUserIds).toEqual(["z"]);
+		});
+
+		test("a credit alone gets no bill and stays open", () => {
+			const result = plan([order("a", "Pils", 1, 1.5)], [open("c", -1)]);
+			expect(result.bills.map((b) => b.userId)).toEqual(["a"]);
+			expect(result.settleUserIds).toEqual([]);
+		});
+
+		test("a deferred credit is carried the same way", () => {
+			const result = plan(
+				[order("a", "Pils", 1, 1.5)],
+				[open("a", -20, "Gestundet")],
+			);
+			expect(result.bills[0]).toMatchObject({
+				oldBillingAmount: -20,
+				fees: 0,
+				total: -18.5,
+			});
+			expect(result.settleUserIds).toEqual(["a"]);
+		});
+	});
+
+	test("a credit, however large, pays no late fee", () => {
+		const plan = getraenke([order("a", "Pils", 1, 1.5)], [open("a", -50)]);
+		expect(billOf(plan, "a")).toMatchObject({
+			oldBillingAmount: -50,
+			fees: 0,
+			total: -48.5,
+		});
+	});
+
+	test("a credit lowers the debt the late fee is charged on", () => {
 		const plan = getraenke(
-			[order("a", "Pils", 1, 1.5), order("z", "Pils", 1, 1.5)],
-			[open("a", -2.5), open("z", 0), open("c", -1)],
+			[order("a", "Pils", 1, 1.5)],
+			[open("a", 10), open("a", -4)],
 		);
 		expect(billOf(plan, "a")).toMatchObject({
-			oldBillingAmount: -2.5,
-			total: -1,
+			oldBillingAmount: 6,
+			fees: 0.6,
+			total: 8.1,
 		});
-		expect(billOf(plan, "z")).toMatchObject({ oldBillingAmount: 0 });
-		// Nobody is settled, and the credit-only member gets no bill.
-		expect(plan.settleUserIds).toEqual([]);
-		expect(billOf(plan, "c")).toBeUndefined();
-	});
-
-	test("the Fuchsenladen drops a credit and settles the old bills", () => {
-		const plan = planBillingRun({
-			unbilledOrders: [order("a", "Mars", 1, 1.2), order("z", "Mars", 1, 1.2)],
-			outstandingBills: [open("a", -2.5), open("z", 0), open("c", -1)],
-			rules: FUCHSEN_RULES,
-		});
-		expect(
-			plan.bills.map((b) => [b.userId, b.oldBillingAmount, b.total]),
-		).toEqual([
-			["a", 0, 1.2],
-			["z", 0, 1.2],
-		]);
-		expect(plan.settleUserIds).toEqual(["a", "z"]);
 	});
 
 	test("unreadable totals count as nothing", () => {
