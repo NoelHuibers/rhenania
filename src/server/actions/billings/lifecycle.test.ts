@@ -866,11 +866,10 @@ describe("Bezahlen", () => {
 		);
 	});
 
-	// Bug: a bill that was paid through the later bill it was carried into
-	// can be set back to Unbezahlt/Gestundet (the status button cycles
-	// Bezahlt → Gestundet). The next run then carries its amount again, so
-	// the member is charged twice, plus Mahnung.
-	test.fails("eine über die neuere Rechnung bezahlte Vorgängerin wieder öffnen berechnet die Schuld nicht doppelt (#183)", async () => {
+	// A bill paid through the later bill it was carried into cannot be set
+	// back to Unbezahlt/Gestundet on its own: the next run would carry its
+	// amount again and charge the member twice, plus Mahnung.
+	test("eine über die neuere Rechnung bezahlte Vorgängerin wieder öffnen berechnet die Schuld nicht doppelt (#183)", async () => {
 		await kasseEinrichten();
 		const member = await createUser();
 		const bier = await createDrink({ price: 2.5 });
@@ -881,7 +880,9 @@ describe("Bezahlen", () => {
 		await bezahlen(await neuesteRechnung(member.id));
 		const [p1] = await billsOf(member.id);
 
-		await updateBillStatus(p1?.id ?? "", "Gestundet");
+		expect(await updateBillStatus(p1?.id ?? "", "Gestundet")).toMatchObject({
+			success: false,
+		});
 		await bestellen(member, bier);
 		await abrechnenMitPeriode(woche(2));
 
@@ -1212,7 +1213,8 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 
 		expect(await getLatestBillPeriod()).toBeNull();
 		expect(await updateBillStatus("gibt-es-nicht", "Bezahlt")).toEqual({
-			success: true,
+			success: false,
+			error: "Rechnung nicht gefunden",
 		});
 
 		await abrechnenMitPeriode(woche(0));
@@ -1237,6 +1239,7 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 		});
 		expect(await updateBillStatus("egal", "Bezahlt")).toEqual({
 			success: false,
+			error: "Fehler beim Aktualisieren des Status",
 		});
 	});
 });

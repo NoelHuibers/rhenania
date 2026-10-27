@@ -57,6 +57,8 @@ setupTestDatabases();
 
 const mail = vi.mocked(sendTenantMail);
 
+type Bill = typeof bills.$inferSelect;
+
 // A Wednesday in ISO week 43/2026, at noon so the date is the same in
 // Europe/Berlin and UTC.
 const WEEK_43 = "2026-10-21T12:00:00Z";
@@ -1174,6 +1176,132 @@ describe("updateBillStatus", () => {
 		await updateBillStatus(older.id, "Gestundet");
 		const [deferred] = await billsOf(member.id);
 		expect(deferred).toMatchObject({ status: "Gestundet", paidAt: null });
+	});
+
+	/** A member with P1 → P2 carried and P3 open, P1 and P2 "Übertragen". */
+	async function carriedChain() {
+		await setupKasse();
+		const member = await createUser();
+		const drink = await createDrink({ price: 10 });
+		for (const week of [WEEK_43, WEEK_44, WEEK_45]) {
+			await createOrderRow({ user: member, drink });
+			await billAt(week);
+		}
+		const chain = await billsOf(member.id);
+		expect(chain.map((b) => b.status)).toEqual([
+			"Übertragen",
+			"Übertragen",
+			"Unbezahlt",
+		]);
+		return { member, chain: chain as [Bill, Bill, Bill] };
+	}
+
+	const PAID_THROUGH =
+		"Diese Rechnung wurde mit der späteren Rechnung bezahlt, in die sie übertragen wurde. Ändere den Status dort.";
+
+	test("refuses to reopen a bill that was paid through the later bill it was carried into (#183)", async () => {
+		const { member, chain } = await carriedChain();
+		const paidAt = new Date("2026-11-05T09:00:00Z");
+		vi.setSystemTime(paidAt);
+		await updateBillStatus(chain[2].id, "Bezahlt");
+
+		for (const bill of chain.slice(0, 2)) {
+			for (const status of ["Unbezahlt", "Gestundet", "Bezahlt"] as const) {
+				expect(await updateBillStatus(bill.id, status)).toEqual({
+					success: false,
+					error: PAID_THROUGH,
+				});
+			}
+		}
+
+		expect((await billsOf(member.id)).map((b) => [b.status, b.paidAt])).toEqual(
+			[
+				["Bezahlt", paidAt],
+				["Bezahlt", paidAt],
+				["Bezahlt", paidAt],
+			],
+		);
+	});
+
+	test("refuses to pay an Übertragen bill on its own (#183)", async () => {
+		const { member, chain } = await carriedChain();
+
+		for (const status of ["Bezahlt", "Gestundet", "Unbezahlt"] as const) {
+			expect(await updateBillStatus(chain[0].id, status)).toEqual({
+				success: false,
+				error:
+					"Diese Rechnung wurde in eine spätere Rechnung übertragen und wird dort bezahlt",
+			});
+		}
+		expect((await billsOf(member.id)).map((b) => b.status)).toEqual([
+			"Übertragen",
+			"Übertragen",
+			"Unbezahlt",
+		]);
+	});
+
+	test("marking the paid bill paid again keeps the bills it settled tied to it (#183)", async () => {
+		const { member, chain } = await carriedChain();
+		const paidAt = new Date("2026-11-05T09:00:00Z");
+		vi.setSystemTime(paidAt);
+		await updateBillStatus(chain[2].id, "Bezahlt");
+		vi.setSystemTime(new Date("2026-11-06T09:00:00Z"));
+
+		expect(await updateBillStatus(chain[2].id, "Bezahlt")).toEqual({
+			success: true,
+		});
+
+		expect((await billsOf(member.id)).map((b) => b.paidAt)).toEqual([
+			paidAt,
+			paidAt,
+			paidAt,
+		]);
+		expect(await updateBillStatus(chain[0].id, "Unbezahlt")).toEqual({
+			success: false,
+			error: PAID_THROUGH,
+		});
+	});
+
+	test("refuses Übertragen as a new status and unknown bills", async () => {
+		const { member, chain } = await carriedChain();
+
+		expect(await updateBillStatus(chain[2].id, "Übertragen")).toEqual({
+			success: false,
+			error: "Ungültiger Status",
+		});
+		expect(await updateBillStatus("gibt-es-nicht", "Bezahlt")).toEqual({
+			success: false,
+			error: "Rechnung nicht gefunden",
+		});
+		expect((await billsOf(member.id)).at(-1)?.status).toBe("Unbezahlt");
+	});
+
+	test("group bills are never carried: one paid in the same second as a later one stays changeable", async () => {
+		await setupKasse();
+		const group = eventUser("CC");
+		const older = await createBillRow({
+			periodId: (await createBillPeriodRow()).id,
+			user: group,
+			drinksTotal: 5,
+			createdAt: new Date(WEEK_43),
+		});
+		const newer = await createBillRow({
+			periodId: (await createBillPeriodRow()).id,
+			user: group,
+			drinksTotal: 7,
+			createdAt: new Date(WEEK_44),
+		});
+		vi.setSystemTime(new Date(WEEK_45));
+		await updateBillStatus(older.id, "Bezahlt");
+		await updateBillStatus(newer.id, "Bezahlt");
+
+		expect(await updateBillStatus(older.id, "Unbezahlt")).toEqual({
+			success: true,
+		});
+		expect((await billsOf(group.id)).map((b) => b.status)).toEqual([
+			"Unbezahlt",
+			"Bezahlt",
+		]);
 	});
 });
 
