@@ -842,10 +842,9 @@ describe("Bezahlen", () => {
 		await expectKassenbuchStimmt([zahler, nachbar]);
 	});
 
-	// Bug: undoing the payment of the newest bill leaves the bills it carried
-	// "Bezahlt" with a payment date, although nothing was paid. The
-	// Fuchsenladen reopens them as "Übertragen" (updateFuchsenBillStatus).
-	test.fails("Zahlung der neuesten Rechnung zurücknehmen öffnet die mitbezahlten Vorgänger wieder als Übertragen (#182)", async () => {
+	// Undoing the payment of the newest bill reopens the bills it carried as
+	// "Übertragen" without a payment date, as in the Fuchsenladen.
+	test("Zahlung der neuesten Rechnung zurücknehmen öffnet die mitbezahlten Vorgänger wieder als Übertragen (#182)", async () => {
 		await kasseEinrichten();
 		const member = await createUser();
 		const bier = await createDrink({ price: 2.5 });
@@ -864,13 +863,13 @@ describe("Bezahlen", () => {
 				["Unbezahlt", null],
 			],
 		);
+		await expectKassenbuchStimmt([member]);
 	});
 
-	// Bug: a bill that was paid through the later bill it was carried into
-	// can be set back to Unbezahlt/Gestundet (the status button cycles
-	// Bezahlt → Gestundet). The next run then carries its amount again, so
-	// the member is charged twice, plus Mahnung.
-	test.fails("eine über die neuere Rechnung bezahlte Vorgängerin wieder öffnen berechnet die Schuld nicht doppelt (#183)", async () => {
+	// A bill paid through the later bill it was carried into cannot be set
+	// back to Unbezahlt/Gestundet on its own: the next run would carry its
+	// amount again and charge the member twice, plus Mahnung.
+	test("eine über die neuere Rechnung bezahlte Vorgängerin wieder öffnen berechnet die Schuld nicht doppelt (#183)", async () => {
 		await kasseEinrichten();
 		const member = await createUser();
 		const bier = await createDrink({ price: 2.5 });
@@ -881,7 +880,9 @@ describe("Bezahlen", () => {
 		await bezahlen(await neuesteRechnung(member.id));
 		const [p1] = await billsOf(member.id);
 
-		await updateBillStatus(p1?.id ?? "", "Gestundet");
+		expect(await updateBillStatus(p1?.id ?? "", "Gestundet")).toMatchObject({
+			success: false,
+		});
 		await bestellen(member, bier);
 		await abrechnenMitPeriode(woche(2));
 
@@ -1212,7 +1213,8 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 
 		expect(await getLatestBillPeriod()).toBeNull();
 		expect(await updateBillStatus("gibt-es-nicht", "Bezahlt")).toEqual({
-			success: true,
+			success: false,
+			error: "Rechnung nicht gefunden",
 		});
 
 		await abrechnenMitPeriode(woche(0));
@@ -1237,6 +1239,7 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 		});
 		expect(await updateBillStatus("egal", "Bezahlt")).toEqual({
 			success: false,
+			error: "Fehler beim Aktualisieren des Status",
 		});
 	});
 });
@@ -1252,16 +1255,19 @@ describe("Mails der Abrechnung", () => {
 		expect(pdfText(pdf).join(" ")).toContain("innerhalb von 30");
 	});
 
-	// Bug: the bill mail always says 14 days, whatever Zahlungsziel the Kasse
-	// set (the PDF attached to the same mail uses the configured one).
-	test.fails("die Mail nennt dasselbe Zahlungsziel wie das PDF (#184)", async () => {
+	// The bill mail names the Zahlungsziel the Kasse set, like the PDF
+	// attached to it.
+	test("die Mail nennt dasselbe Zahlungsziel wie das PDF (#184)", async () => {
 		await kasseEinrichten();
 		await setGetraenkeBillingProfile({ paymentDueDays: 30 });
 		await bestellen(await createUser(), await createDrink());
 		await abrechnenMitPeriode(woche(0));
 
-		expect(mail.mock.calls[0]?.[0].text).toContain(
+		const sent = mail.mock.calls[0]?.[0];
+		expect(sent?.text).toContain(
 			"Bitte überweise den Betrag innerhalb von 30 Tagen.",
 		);
+		expect(sent?.html).toContain("innerhalb von <strong>30 Tagen</strong>");
+		expect(sent?.text).not.toContain("14 Tagen");
 	});
 });

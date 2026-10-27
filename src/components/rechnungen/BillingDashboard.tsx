@@ -307,7 +307,7 @@ export function BillingDashboard() {
 					),
 				);
 				console.error(`Failed to update status for ${entryId}`);
-				toast.error("Fehler beim Aktualisieren des Status");
+				toast.error(result.error ?? "Fehler beim Aktualisieren des Status");
 			}
 		} catch (error) {
 			// Revert the optimistic update on error

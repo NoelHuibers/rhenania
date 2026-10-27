@@ -655,7 +655,7 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 				);
 				router.refresh();
 			} else {
-				toast.error("Status konnte nicht geändert werden");
+				toast.error(res.error ?? "Status konnte nicht geändert werden");
 			}
 			setPendingId(null);
 		});
@@ -817,7 +817,7 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 				);
 				router.refresh();
 			} else {
-				toast.error("Status konnte nicht geändert werden");
+				toast.error(res.error ?? "Status konnte nicht geändert werden");
 			}
 			setPendingId(null);
 		});

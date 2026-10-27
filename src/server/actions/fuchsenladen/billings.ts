@@ -31,6 +31,7 @@ import {
 	fuchsenBills,
 	fuchsenOrders,
 } from "~/server/db/schema";
+import { carriedBillRefusal } from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
 import { hasRole } from "../admin/userRoles";
 
@@ -507,13 +508,16 @@ export async function updateFuchsenBillStatus(
 		if (!bill) {
 			return { success: false, error: "Rechnung nicht gefunden" };
 		}
-		// A carried bill is settled through the bill it was rolled into.
-		if (bill.status === "Übertragen") {
-			return {
-				success: false,
-				error:
-					"Diese Rechnung wurde in eine spätere Rechnung übertragen und wird dort bezahlt",
-			};
+		// A carried bill is settled (and reopened) through the bill it was
+		// rolled into.
+		const refusal = await carriedBillRefusal(fuchsenBills, bill);
+		if (refusal) {
+			return { success: false, error: refusal };
+		}
+		// Paying a paid bill again would move its paidAt away from the bills
+		// it settled, and with it the link to them.
+		if (bill.status === newStatus) {
+			return { success: true };
 		}
 
 		const now = new Date();

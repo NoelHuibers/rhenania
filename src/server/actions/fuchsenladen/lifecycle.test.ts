@@ -303,10 +303,10 @@ describe("Fuchsenladen über drei Perioden", () => {
 		await expectKassenbuchStimmt(members);
 	});
 
-	// Bug: a bill that was paid through the later bill it was carried into
-	// can be set back to Unbezahlt (only "Übertragen" bills are refused).
-	// The next run carries its amount again: the member is charged twice.
-	test.fails("eine über die neuere Rechnung bezahlte Vorgängerin wieder öffnen berechnet die Schuld nicht doppelt (#183)", async () => {
+	// A bill paid through the later bill it was carried into cannot be set
+	// back to Unbezahlt on its own: the next run would carry its amount again
+	// and charge the member twice.
+	test("eine über die neuere Rechnung bezahlte Vorgängerin wieder öffnen berechnet die Schuld nicht doppelt (#183)", async () => {
 		await ladenEinrichten();
 		const fux = await createUser({ name: "Fux" });
 		const mappe = await createFuchsenItem({ price: 2.5 });
@@ -318,7 +318,9 @@ describe("Fuchsenladen über drei Perioden", () => {
 		await setStatus(await neuesteRechnung(fux), "Bezahlt");
 		const [p1] = await rechnungenVon(fux);
 
-		await updateFuchsenBillStatus(p1?.id ?? "", "Unbezahlt");
+		expect(
+			await updateFuchsenBillStatus(p1?.id ?? "", "Unbezahlt"),
+		).toMatchObject({ success: false });
 		await bestellen(fux, mappe);
 		await abrechnen(periode(2));
 

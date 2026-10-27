@@ -613,6 +613,59 @@ describe("updateFuchsenBillStatus", () => {
 		expect(result).toEqual({ success: false, error: "Keine Berechtigung" });
 		expect((await billsOf(member))[0]?.status).toBe("Unbezahlt");
 	});
+
+	/** P1 carried into P2, and P2 paid at RUN_3. */
+	async function paidThroughP2() {
+		await setup();
+		const member = await createUser();
+		const item = await createFuchsenItem({ price: 3 });
+		await createFuchsenOrder({ user: member, item });
+		await runAt(RUN_1);
+		await createFuchsenOrder({ user: member, item });
+		await runAt(RUN_2);
+		const [p1, p2] = await billsOf(member);
+		vi.setSystemTime(RUN_3);
+		await updateFuchsenBillStatus(p2?.id ?? "", "Bezahlt");
+		return { member, p1: p1?.id ?? "", p2: p2?.id ?? "" };
+	}
+
+	test("refuses to reopen a bill that was paid through the later bill it was carried into (#183)", async () => {
+		const { member, p1 } = await paidThroughP2();
+
+		for (const status of ["Unbezahlt", "Gestundet", "Bezahlt"] as const) {
+			expect(await updateFuchsenBillStatus(p1, status)).toEqual({
+				success: false,
+				error:
+					"Diese Rechnung wurde mit der späteren Rechnung bezahlt, in die sie übertragen wurde. Ändere den Status dort.",
+			});
+		}
+		expect((await billsOf(member)).map((b) => [b.status, b.paidAt])).toEqual([
+			["Bezahlt", RUN_3],
+			["Bezahlt", RUN_3],
+		]);
+		const orders = await tenantDb()
+			.select()
+			.from(fuchsenOrders)
+			.where(eq(fuchsenOrders.userId, member.id));
+		expect(orders.map((o) => o.status)).toEqual(["Bezahlt", "Bezahlt"]);
+	});
+
+	test("marking the paid bill paid again keeps the bills it settled tied to it (#183)", async () => {
+		const { member, p1, p2 } = await paidThroughP2();
+		vi.setSystemTime(new Date("2026-11-26T11:00:00Z"));
+
+		expect(await updateFuchsenBillStatus(p2, "Bezahlt")).toEqual({
+			success: true,
+		});
+
+		expect((await billsOf(member)).map((b) => b.paidAt)).toEqual([
+			RUN_3,
+			RUN_3,
+		]);
+		expect(await updateFuchsenBillStatus(p1, "Unbezahlt")).toMatchObject({
+			success: false,
+		});
+	});
 });
 
 describe("closeFuchsenBillPeriod", () => {

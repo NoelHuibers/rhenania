@@ -4,6 +4,7 @@ import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
+import { carriedBillRefusal, paidAlongWith } from "~/server/lib/carried-bills";
 import { groupBy } from "~/server/lib/group-by";
 
 /**
@@ -136,55 +137,86 @@ export async function closeBillPeriod(billPeriodId: string) {
 	}
 }
 
-// Update bill status
+/**
+ * Sets a bill's status from the Kasse. "Übertragen" is set by billing runs
+ * only. Carried bills and bills paid through the later bill they were
+ * carried into change only through that later bill (see carried-bills).
+ */
 export async function updateBillStatus(
 	billId: string,
 	newStatus: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen",
-) {
+): Promise<{ success: true } | { success: false; error?: string }> {
+	if (
+		newStatus !== "Bezahlt" &&
+		newStatus !== "Unbezahlt" &&
+		newStatus !== "Gestundet"
+	) {
+		return { success: false, error: "Ungültiger Status" };
+	}
 	try {
-		const now = new Date();
-		// biome-ignore lint/suspicious/noExplicitAny: dynamic update data with optional paidAt field
-		const updateData: any = {
-			status: newStatus,
-			updatedAt: now,
-		};
-
-		// Set paidAt if marking as paid
-		if (newStatus === "Bezahlt") {
-			updateData.paidAt = now;
-		} else {
-			updateData.paidAt = null;
+		const [bill] = await db
+			.select()
+			.from(bills)
+			.where(eq(bills.id, billId))
+			.limit(1);
+		if (!bill) {
+			return { success: false, error: "Rechnung nicht gefunden" };
+		}
+		// Gruppenrechnungen are settled directly and never carried.
+		const carries = !bill.userId.startsWith("event-");
+		const refusal = carries ? await carriedBillRefusal(bills, bill) : null;
+		if (refusal) {
+			return { success: false, error: refusal };
+		}
+		// Paying a paid bill again would move its paidAt away from the bills
+		// it settled, and with it the link to them.
+		if (bill.status === newStatus) {
+			return { success: true };
 		}
 
-		await db.update(bills).set(updateData).where(eq(bills.id, billId));
+		const now = new Date();
+		const setStatus = db
+			.update(bills)
+			.set({
+				status: newStatus,
+				paidAt: newStatus === "Bezahlt" ? now : null,
+				updatedAt: now,
+			})
+			.where(eq(bills.id, billId));
 
-		// When a consolidated bill is paid, also settle the carried-over
-		// ("Übertragen") predecessor bills of the same member — their amount was
-		// rolled into this bill's Übertrag, so they are now paid too.
-		if (newStatus === "Bezahlt") {
-			const [paid] = await db
-				.select({ userId: bills.userId, createdAt: bills.createdAt })
-				.from(bills)
-				.where(eq(bills.id, billId))
-				.limit(1);
-			if (paid) {
-				await db
+		if (newStatus === "Bezahlt" && carries) {
+			// The carried ("Übertragen") bills of the member were rolled into
+			// this bill's Übertrag, so paying it pays them too.
+			await db.batch([
+				setStatus,
+				db
 					.update(bills)
 					.set({ status: "Bezahlt", paidAt: now, updatedAt: now })
 					.where(
 						and(
-							eq(bills.userId, paid.userId),
+							eq(bills.userId, bill.userId),
 							eq(bills.status, "Übertragen"),
-							lt(bills.createdAt, paid.createdAt),
+							lt(bills.createdAt, bill.createdAt),
 						),
-					);
-			}
+					),
+			]);
+		} else if (bill.status === "Bezahlt" && bill.paidAt && carries) {
+			// Undoing a payment reopens the bills it settled, as carried.
+			await db.batch([
+				setStatus,
+				db
+					.update(bills)
+					.set({ status: "Übertragen", paidAt: null, updatedAt: now })
+					.where(paidAlongWith(bills, { ...bill, paidAt: bill.paidAt })),
+			]);
+		} else {
+			await setStatus;
 		}
 
 		return { success: true };
 	} catch (error) {
 		console.error("Error updating bill status:", error);
-		return { success: false };
+		return { success: false, error: "Fehler beim Aktualisieren des Status" };
 	}
 }
 

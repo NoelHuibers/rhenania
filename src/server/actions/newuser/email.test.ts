@@ -78,6 +78,7 @@ describe("bill mails", () => {
 			1234.5,
 			pdf,
 			"Rechnung-KW-43-26.pdf",
+			21,
 		);
 
 		const mail = sentMail();
@@ -88,6 +89,11 @@ describe("bill mails", () => {
 		expect(mail.text).toMatch(/Mit freundlichen Grüßen,\s+Corps Hassia/);
 		expect(mail.html).toContain("1234,50€");
 		expect(mail.html).toContain("Corps Hassia");
+		// The Zahlungsziel of the Kasse, as printed on the PDF (#184).
+		expect(mail.text).toContain(
+			"Bitte überweise den Betrag innerhalb von 21 Tagen.",
+		);
+		expect(mail.html).toContain("innerhalb von <strong>21 Tagen</strong>");
 		expect(mail.attachments).toEqual([
 			{
 				filename: "Rechnung-KW-43-26.pdf",
@@ -108,6 +114,7 @@ describe("bill mails", () => {
 			5,
 			pdf,
 			"r.pdf",
+			14,
 		);
 
 		const mail = sentMail();
@@ -148,6 +155,7 @@ describe("bill mails", () => {
 			1,
 			pdf,
 			"r.pdf",
+			14,
 		);
 		expect(sentMail().text).toMatch(/Grüßen,\s+Corps\s*$/);
 	});
@@ -157,7 +165,15 @@ describe("bill mails", () => {
 		vi.mocked(sendTenantMail).mockRejectedValue(new Error("down"));
 
 		await expect(
-			sendBillNotificationEmail("a@example.test", "A", "KW-1", 1, pdf, "r.pdf"),
+			sendBillNotificationEmail(
+				"a@example.test",
+				"A",
+				"KW-1",
+				1,
+				pdf,
+				"r.pdf",
+				14,
+			),
 		).rejects.toThrow(
 			"Failed to send bill notification email to a@example.test",
 		);

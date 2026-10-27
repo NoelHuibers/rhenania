@@ -635,7 +635,11 @@ export async function runGetraenkeBilling({
 				if (recipient.mode === "treasurer") {
 					await sendBillsToTreasurer(billPeriodId, billNumber, recipient.email);
 				} else {
-					await sendBillsToMembers(billPeriodId, billNumber);
+					await sendBillsToMembers(
+						billPeriodId,
+						billNumber,
+						sender.sender.paymentDueDays,
+					);
 				}
 			} catch (notifyError) {
 				console.error("Error during email notification phase:", notifyError);
@@ -657,7 +661,12 @@ export async function runGetraenkeBilling({
 }
 
 // Mails every member their own bill, unless they disabled notifications.
-async function sendBillsToMembers(billPeriodId: string, billNumber: string) {
+// The mail names the Zahlungsziel (`paymentDueDays`) the bill PDF prints.
+async function sendBillsToMembers(
+	billPeriodId: string,
+	billNumber: string,
+	paymentDueDays: number,
+) {
 	// Left join on preferences so users without a row default to enabled (true)
 	const usersWithBills = await db
 		.select({
@@ -700,6 +709,7 @@ async function sendBillsToMembers(billPeriodId: string, billNumber: string) {
 				user.total,
 				pdfResult.pdfContent,
 				pdfResult.fileName ?? `Rechnung_${billNumber}.pdf`,
+				paymentDueDays,
 			);
 		} catch (emailError) {
 			// Log but don't fail the whole billing process
