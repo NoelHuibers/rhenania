@@ -1255,16 +1255,19 @@ describe("Mails der Abrechnung", () => {
 		expect(pdfText(pdf).join(" ")).toContain("innerhalb von 30");
 	});
 
-	// Bug: the bill mail always says 14 days, whatever Zahlungsziel the Kasse
-	// set (the PDF attached to the same mail uses the configured one).
-	test.fails("die Mail nennt dasselbe Zahlungsziel wie das PDF (#184)", async () => {
+	// The bill mail names the Zahlungsziel the Kasse set, like the PDF
+	// attached to it.
+	test("die Mail nennt dasselbe Zahlungsziel wie das PDF (#184)", async () => {
 		await kasseEinrichten();
 		await setGetraenkeBillingProfile({ paymentDueDays: 30 });
 		await bestellen(await createUser(), await createDrink());
 		await abrechnenMitPeriode(woche(0));
 
-		expect(mail.mock.calls[0]?.[0].text).toContain(
+		const sent = mail.mock.calls[0]?.[0];
+		expect(sent?.text).toContain(
 			"Bitte überweise den Betrag innerhalb von 30 Tagen.",
 		);
+		expect(sent?.html).toContain("innerhalb von <strong>30 Tagen</strong>");
+		expect(sent?.text).not.toContain("14 Tagen");
 	});
 });

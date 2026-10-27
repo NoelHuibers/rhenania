@@ -119,6 +119,10 @@ export async function sendVerificationEmail(
 	}
 }
 
+/**
+ * The member's bill mail. `paymentDueDays` is the Zahlungsziel from the
+ * Getränke billing profile, the one the attached PDF prints.
+ */
 export async function sendBillNotificationEmail(
 	email: string,
 	userName: string,
@@ -126,6 +130,7 @@ export async function sendBillNotificationEmail(
 	total: number,
 	pdfBuffer: Buffer,
 	fileName: string,
+	paymentDueDays: number,
 ): Promise<void> {
 	try {
 		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
@@ -143,7 +148,7 @@ Im Anhang findest du deine Rechnung als PDF.
 
 Gesamtbetrag: ${formattedTotal}
 
-Bitte überweise den Betrag innerhalb von 14 Tagen.
+Bitte überweise den Betrag innerhalb von ${paymentDueDays} Tagen.
 
 Mit freundlichen Grüßen,
 ${tenantLabel}
@@ -180,7 +185,7 @@ ${tenantLabel}
                   <p style="margin: 0 0 4px 0; font-size: 13px; color: #6c757d;">Gesamtbetrag</p>
                   <div class="amount">${formattedTotal}</div>
                 </div>
-                <p>Bitte überweise den Betrag innerhalb von <strong>14 Tagen</strong>.</p>
+                <p>Bitte überweise den Betrag innerhalb von <strong>${paymentDueDays} Tagen</strong>.</p>
                 <p>Falls du Fragen zu deiner Rechnung hast, wende dich an den Getränkewart.</p>
                 <p>Mit freundlichen Grüßen <br><strong>${escapeHtml(tenantLabel)}</strong></p>
               </div>
