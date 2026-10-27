@@ -1,11 +1,8 @@
 "use client";
 
-import { Minus, Plus, ShoppingCart } from "lucide-react";
-import Image from "next/image";
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
+import { Minus, Plus } from "lucide-react";
+import { useState } from "react";
 import { NumericInput } from "~/components/NumericInput";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
 	Drawer,
@@ -16,205 +13,148 @@ import {
 	DrawerTitle,
 } from "~/components/ui/drawer";
 import { IconButton } from "~/components/ui/icon-button";
+import { StatusBadge } from "~/components/ui/status-badge";
+import {
+	clampOrderAmount,
+	confirmLabel,
+	MAX_ORDER_AMOUNT,
+	MIN_ORDER_AMOUNT,
+	quantityPresets,
+} from "~/lib/drink-order";
 import { formatEUR } from "~/lib/format";
+import { roundToCent } from "~/lib/money";
 import type { MenuItem } from "~/server/actions/menu";
-import { createOrder } from "~/server/actions/orders";
 import type { BillingOption } from "./Billingselector";
 
+/** One opened drawer: the drink (priced for `billing`) and its gate key. */
+export type OrderIntent = {
+	key: number;
+	drink: MenuItem;
+	billing: BillingOption;
+	quantity: number;
+};
+
 interface OrderDrawerProps {
-	drink: MenuItem | null;
-	isOpen: boolean;
-	onClose: () => void;
-	selectedBilling: BillingOption;
+	intent: OrderIntent | null;
+	open: boolean;
+	onCancel: () => void;
+	onConfirm: (intent: OrderIntent) => void;
 }
 
+/**
+ * Bottom sheet with quantity 1 preselected, so the default order is one
+ * tap on the drink and one on the confirm button. The confirm button sits
+ * full width at the bottom, in the thumb zone, and says what it books.
+ */
 export function OrderDrawer({
-	drink,
-	isOpen,
-	onClose,
-	selectedBilling,
+	intent,
+	open,
+	onCancel,
+	onConfirm,
 }: OrderDrawerProps) {
-	const [quantity, setQuantity] = useState(1);
-	const [isPending, startTransition] = useTransition();
-
-	const handleQuantityChange = (value: number) => {
-		if (!Number.isNaN(value) && value >= 1) {
-			setQuantity(value);
-		}
-	};
-
-	const adjustQuantity = (delta: number) => {
-		setQuantity(Math.max(1, quantity + delta));
-	};
-
-	const setPresetQuantity = (preset: number) => {
-		setQuantity(preset);
-	};
-
-	const handleConfirm = () => {
-		if (!drink) {
-			return;
-		}
-
-		startTransition(async () => {
-			try {
-				const orderResult = await createOrder({
-					drinkId: drink.id,
-					drinkName: drink.name,
-					amount: quantity,
-					pricePerUnit: drink.price,
-					total: drink.price * quantity,
-					bookingFor: selectedBilling,
-				});
-
-				if (orderResult.success) {
-					handleClose();
-					toast.success(
-						`${quantity}x ${drink.name} bestellt (${formatEUR(drink.price * quantity)}) - Abrechnung auf ${
-							selectedBilling ? selectedBilling : "eigene Kosten"
-						}`,
-					);
-				} else {
-					toast.error(orderResult.error || "Ein Fehler ist aufgetreten.");
-				}
-			} catch (error) {
-				console.error("Order error:", error);
-				toast.error("Ein unerwarteter Fehler ist aufgetreten.");
-			}
-		});
-	};
-
-	const handleClose = () => {
-		onClose();
-		setQuantity(1);
-	};
-
-	if (!drink) {
-		return null;
-	}
-
-	const totalPrice = drink.price * quantity;
-
 	return (
-		<Drawer open={isOpen} onOpenChange={handleClose}>
+		<Drawer
+			open={open && intent !== null}
+			onOpenChange={(next) => {
+				if (!next) {
+					onCancel();
+				}
+			}}
+		>
 			<DrawerContent className="flex max-h-[90vh] flex-col">
-				<DrawerHeader className="flex-shrink-0 text-center">
-					<div className="mb-2 flex justify-center">
-						<div className="relative h-20 w-20">
-							<Image
-								src={drink.picture || "/placeholder.svg"}
-								alt={drink.name}
-								fill
-								className="rounded-lg object-cover"
-							/>
-						</div>
-					</div>
-					<DrawerTitle className="font-bold text-lg">{drink.name}</DrawerTitle>
-					<DrawerDescription className="flex items-center justify-center gap-2 text-sm">
-						<Badge variant="success" className="h-5 text-xs">
-							Verfügbar
-						</Badge>
-						<span>{formatEUR(drink.price)} pro Stück</span>
-					</DrawerDescription>
-				</DrawerHeader>
-
-				<div className="flex-1 space-y-4 overflow-y-auto px-6 pb-2">
-					{selectedBilling ? (
-						<div className="rounded-lg border border-info/40 bg-info-muted p-2">
-							<div className="flex items-center justify-between">
-								<span className="font-medium text-info-muted-foreground text-sm">
-									Abrechnung:
-								</span>
-								<Badge
-									variant="secondary"
-									className="h-5 bg-info-muted text-info-muted-foreground text-xs"
-								>
-									{selectedBilling}
-								</Badge>
-							</div>
-						</div>
-					) : null}
-
-					{/* Quantity Controls */}
-					<div className="space-y-3">
-						<div className="flex items-center justify-center gap-3">
-							<IconButton
-								label="Menge verringern"
-								variant="outline"
-								onClick={() => adjustQuantity(-1)}
-								disabled={quantity <= 1 || isPending}
-								className="h-9 w-9"
-							>
-								<Minus className="h-4 w-4" />
-							</IconButton>
-
-							<NumericInput
-								value={quantity}
-								onChange={handleQuantityChange}
-								className="w-20 text-center font-bold text-lg"
-								min={1}
-								disabled={isPending}
-								max={200}
-							/>
-
-							<IconButton
-								label="Menge erhöhen"
-								variant="outline"
-								onClick={() => adjustQuantity(1)}
-								disabled={isPending}
-								className="h-9 w-9"
-							>
-								<Plus className="h-4 w-4" />
-							</IconButton>
-						</div>
-
-						{/* Preset Buttons */}
-						<div className="flex justify-center gap-3">
-							<Button
-								variant="secondary"
-								onClick={() => setPresetQuantity(drink.kastengroesse ?? 20)}
-								className="h-9 px-5"
-								disabled={isPending}
-							>
-								K
-							</Button>
-						</div>
-					</div>
-
-					{/* Price Summary */}
-					<div className="space-y-1 rounded-lg bg-muted/50 p-3">
-						<div className="flex justify-between text-sm">
-							<span>
-								{quantity}x {drink.name}
-							</span>
-							<span>{formatEUR(totalPrice)}</span>
-						</div>
-						<div className="mt-1 flex justify-between border-t pt-1 font-bold text-base">
-							<span>Gesamt</span>
-							<span className="text-success">{formatEUR(totalPrice)}</span>
-						</div>
-					</div>
-				</div>
-
-				<DrawerFooter className="flex flex-shrink-0 flex-row gap-3 pt-3 pb-4">
-					<Button
-						variant="outline"
-						onClick={handleClose}
-						className="flex-1 bg-transparent"
-						disabled={isPending}
-					>
-						Abbrechen
-					</Button>
-					<Button
-						onClick={handleConfirm}
-						className="flex-1"
-						disabled={isPending}
-					>
-						<ShoppingCart className="mr-2 h-4 w-4" />
-						{isPending ? "Bestelle..." : "Bestätigen"}
-					</Button>
-				</DrawerFooter>
+				{intent ? (
+					// Keyed by the gate key: every opened drawer starts at its own quantity.
+					<OrderForm key={intent.key} intent={intent} onConfirm={onConfirm} />
+				) : null}
 			</DrawerContent>
 		</Drawer>
+	);
+}
+
+function OrderForm({
+	intent,
+	onConfirm,
+}: {
+	intent: OrderIntent;
+	onConfirm: (intent: OrderIntent) => void;
+}) {
+	const { drink, billing } = intent;
+	const [quantity, setQuantity] = useState(clampOrderAmount(intent.quantity));
+	const total = roundToCent(drink.price * quantity);
+	const presets = quantityPresets(drink.kastengroesse);
+
+	return (
+		<>
+			<DrawerHeader className="flex-shrink-0">
+				<DrawerTitle className="font-bold text-xl">{drink.name}</DrawerTitle>
+				<DrawerDescription>
+					{formatEUR(drink.price)} pro Stück
+				</DrawerDescription>
+				{billing ? (
+					<StatusBadge tone="warning" className="mx-auto mt-1 md:mx-0">
+						Buchung auf {billing}
+					</StatusBadge>
+				) : null}
+			</DrawerHeader>
+
+			<div className="flex-1 space-y-4 overflow-y-auto px-4 pb-2">
+				<div className="flex items-center justify-center gap-3">
+					<IconButton
+						label="Menge verringern"
+						tooltip={false}
+						variant="outline"
+						onClick={() => setQuantity((q) => clampOrderAmount(q - 1))}
+						disabled={quantity <= MIN_ORDER_AMOUNT}
+						className="size-11"
+					>
+						<Minus className="size-5" />
+					</IconButton>
+					<NumericInput
+						aria-label="Menge"
+						value={quantity}
+						onChange={(value) => setQuantity(clampOrderAmount(value))}
+						className="h-11 w-20 text-center font-bold text-lg"
+						min={MIN_ORDER_AMOUNT}
+						max={MAX_ORDER_AMOUNT}
+					/>
+					<IconButton
+						label="Menge erhöhen"
+						tooltip={false}
+						variant="outline"
+						onClick={() => setQuantity((q) => clampOrderAmount(q + 1))}
+						disabled={quantity >= MAX_ORDER_AMOUNT}
+						className="size-11"
+					>
+						<Plus className="size-5" />
+					</IconButton>
+				</div>
+
+				<fieldset className="flex justify-center gap-2">
+					<legend className="sr-only">Menge wählen</legend>
+					{presets.map((preset) => (
+						<Button
+							key={preset.label}
+							type="button"
+							variant={quantity === preset.amount ? "default" : "secondary"}
+							aria-pressed={quantity === preset.amount}
+							onClick={() => setQuantity(preset.amount)}
+							className="h-11 min-w-11 px-4"
+						>
+							{preset.label}
+						</Button>
+					))}
+				</fieldset>
+			</div>
+
+			<DrawerFooter className="flex-shrink-0 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+				<Button
+					type="button"
+					onClick={() => onConfirm({ ...intent, quantity })}
+					className="h-12 w-full text-base"
+				>
+					{confirmLabel(billing, total)}
+				</Button>
+			</DrawerFooter>
+		</>
 	);
 }

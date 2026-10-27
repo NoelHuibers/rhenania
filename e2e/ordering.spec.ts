@@ -12,10 +12,14 @@ test.describe("ordering drinks", () => {
 
 	test("unavailable drinks cannot be ordered", async ({ page }) => {
 		await signIn(page, USERS.rhMember);
-		await page.goto("/trinken");
+		await page.goto("/trinken", { waitUntil: "networkidle" });
 		const radler = drinkCard(page, "Radler");
-		await expect(radler).toBeVisible();
-		await expect(radler.getByRole("button")).toBeDisabled();
+		// Unavailable drinks are folded away under "Nicht verfügbar (n)" (#74).
+		await expect(async () => {
+			await page.getByRole("button", { name: /^Nicht verfügbar/ }).click();
+			await expect(radler).toBeVisible({ timeout: 2_000 });
+		}).toPass({ timeout: 20_000 });
+		await expect(radler).toBeDisabled();
 	});
 
 	test("Hassia's markup is applied to personal orders", async ({ page }) => {

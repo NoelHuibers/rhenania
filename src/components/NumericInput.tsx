@@ -8,6 +8,7 @@ interface NumericInputProps {
 	max?: number;
 	className?: string;
 	disabled?: boolean;
+	"aria-label"?: string;
 }
 
 export function NumericInput({
@@ -17,6 +18,7 @@ export function NumericInput({
 	max,
 	className,
 	disabled,
+	"aria-label": ariaLabel,
 }: NumericInputProps) {
 	const [inputValue, setInputValue] = useState(value.toString());
 
@@ -61,6 +63,7 @@ export function NumericInput({
 			onBlur={handleBlur}
 			className={className}
 			disabled={disabled}
+			aria-label={ariaLabel}
 		/>
 	);
 }

@@ -117,11 +117,17 @@ export function mailCount(): number {
 	return existsSync(MAIL_DIR) ? readdirSync(MAIL_DIR).length : 0;
 }
 
-/** The shadcn card that shows a drink on /trinken. */
+/**
+ * The menu button of a drink on /trinken (#74). A drink can also appear as
+ * a "Zuletzt bestellt" shortcut above the menu; the menu row comes last.
+ */
 export function drinkCard(page: Page, name: string) {
-	return page
-		.locator('[data-slot="card"]')
-		.filter({ has: page.getByText(name, { exact: true }) });
+	return page.locator(`button[data-drink="${name}"]`).last();
+}
+
+/** The full-width confirm button of the order drawer ("Bestellen · 1,20 €"). */
+export function confirmButton(page: Page) {
+	return page.getByRole("button", { name: /^(Bestellen|Auf .+ buchen) · / });
 }
 
 /** Opens /trinken and books `name` once, waiting for the success toast. */
@@ -129,10 +135,10 @@ export async function orderDrink(page: Page, name: string, origin = RHENANIA) {
 	await page.goto(`${origin}/trinken`, { waitUntil: "networkidle" });
 	const card = drinkCard(page, name);
 	await expect(card).toBeVisible();
-	const confirm = page.getByRole("button", { name: "Bestätigen" });
+	const confirm = confirmButton(page);
 	// The first click can land before hydration; retry until the drawer opens.
 	await expect(async () => {
-		await card.getByRole("button", { name: "Bestellen" }).click();
+		await card.click();
 		await expect(confirm).toBeVisible({ timeout: 2_000 });
 	}).toPass({ timeout: 20_000 });
 	await confirm.click();
