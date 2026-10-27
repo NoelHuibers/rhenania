@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { ADRESSLISTE_ROLES } from "~/lib/roles";
-import { betterAuthInstance } from "~/server/auth";
+import { getAuthForTenant } from "~/server/auth";
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 import { logLine } from "~/server/lib/log";
@@ -163,6 +163,14 @@ function withTenantHeader(
 	return response;
 }
 
+/** Session via the tenant's Better Auth instance (built per tenant, #27). */
+async function getSession(tenantId: string, request: NextRequest) {
+	const tenantAuth = await getAuthForTenant(tenantId);
+	return tenantAuth
+		? tenantAuth.api.getSession({ headers: request.headers })
+		: null;
+}
+
 export default async function middleware(request: NextRequest) {
 	const { pathname } = request.nextUrl;
 
@@ -198,9 +206,7 @@ export default async function middleware(request: NextRequest) {
 
 	// 2) Redirect unknown paths instead of 404
 	if (!isValidPath(pathname)) {
-		const session = await betterAuthInstance.api.getSession({
-			headers: request.headers,
-		});
+		const session = await getSession(tenantId, request);
 		const fallbackUrl = request.nextUrl.clone();
 		fallbackUrl.pathname = session?.user ? "/profile" : "/";
 		fallbackUrl.search = "";
@@ -221,9 +227,7 @@ export default async function middleware(request: NextRequest) {
 	}
 
 	// 4) Check session via Better Auth
-	const session = await betterAuthInstance.api.getSession({
-		headers: request.headers,
-	});
+	const session = await getSession(tenantId, request);
 
 	if (!session?.user) {
 		const signInUrl = request.nextUrl.clone();

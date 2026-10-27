@@ -2,11 +2,12 @@
 //
 // It answers the questions every request asks the control DB:
 //   - which tenant does this host belong to (hits and misses)?
-//   - what is that tenant's name, status, branding, flags, DB credentials
-//     and Graph mail config?
+//   - what is that tenant's name, status, branding, flags, DB credentials,
+//     Graph mail config, domains and Microsoft login?
 // `tenant-context.ts` (host resolution, TenantContext), `db/tenants.ts`
-// (tenant DB clients) and `mailer.ts` all read through here instead of
-// keeping caches of their own.
+// (tenant DB clients), `mailer.ts` and `auth/index.ts` (one Better Auth
+// instance per tenant) all read through here instead of keeping caches of
+// their own.
 //
 // Consistency
 // -----------
@@ -32,7 +33,7 @@
 // The cost of the interval is that another instance may serve the old
 // config for up to 5 s after a superadmin change.
 
-import { count, eq, max, sql } from "drizzle-orm";
+import { asc, count, desc, eq, max, sql } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
 
 import {
@@ -66,6 +67,13 @@ export type GraphMailConfig = {
 	senderEmail: string;
 };
 
+/** The Corps' Entra app for "Mit Microsoft anmelden". */
+export type MicrosoftLoginConfig = {
+	clientId: string;
+	clientSecret: string;
+	azureTenantId: string;
+};
+
 /** Server-only: contains DB credentials and the Azure client secret. */
 export type TenantConfig = {
 	id: string;
@@ -76,6 +84,10 @@ export type TenantConfig = {
 	features: FeatureFlags;
 	db: { url: string; authToken: string | null };
 	graphMail: GraphMailConfig | null;
+	/** Every domain of the tenant, primary first. */
+	hostnames: string[];
+	/** Null unless Microsoft login is enabled and fully configured. */
+	microsoftLogin: MicrosoftLoginConfig | null;
 };
 
 type Entry<T> = { value: T; loadedAt: number };
@@ -195,7 +207,8 @@ async function loadFeatureFlags(tenantId: string): Promise<FeatureFlags> {
 }
 
 async function loadTenantConfig(id: string): Promise<TenantConfig | null> {
-	const [row] = await controlDb
+	// One row per domain (or one with a null hostname).
+	const rows = await controlDb
 		.select({
 			id: tenants.id,
 			slug: tenants.slug,
@@ -204,15 +217,19 @@ async function loadTenantConfig(id: string): Promise<TenantConfig | null> {
 			branding: tenants.branding,
 			dbUrl: tenants.dbUrl,
 			dbAuthToken: tenants.dbAuthToken,
+			microsoftEnabled: tenantAuthConfig.microsoftEnabled,
 			azureClientId: tenantAuthConfig.azureClientId,
 			azureClientSecret: tenantAuthConfig.azureClientSecret,
 			azureTenantId: tenantAuthConfig.azureTenantId,
 			mailSenderEmail: tenantAuthConfig.mailSenderEmail,
+			hostname: tenantDomains.hostname,
 		})
 		.from(tenants)
 		.leftJoin(tenantAuthConfig, eq(tenantAuthConfig.tenantId, tenants.id))
+		.leftJoin(tenantDomains, eq(tenantDomains.tenantId, tenants.id))
 		.where(eq(tenants.id, id))
-		.limit(1);
+		.orderBy(desc(tenantDomains.isPrimary), asc(tenantDomains.hostname));
+	const row = rows[0];
 	if (!row) {
 		return null;
 	}
@@ -234,6 +251,18 @@ async function loadTenantConfig(id: string): Promise<TenantConfig | null> {
 						clientSecret: row.azureClientSecret,
 						azureTenantId: row.azureTenantId,
 						senderEmail: row.mailSenderEmail,
+					}
+				: null,
+		hostnames: rows.flatMap((r) => (r.hostname ? [r.hostname] : [])),
+		microsoftLogin:
+			row.microsoftEnabled &&
+			row.azureClientId &&
+			row.azureClientSecret &&
+			row.azureTenantId
+				? {
+						clientId: row.azureClientId,
+						clientSecret: row.azureClientSecret,
+						azureTenantId: row.azureTenantId,
 					}
 				: null,
 	};

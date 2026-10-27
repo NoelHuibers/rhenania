@@ -1,15 +1,20 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 
+import { tenantAuthConfig } from "~/server/db/control-schema";
 import {
 	microsoftConfig,
 	setAuthConfig,
 } from "../../../test/factories/platform";
 import {
+	controlDb,
 	createTenant,
 	setupTestDatabases,
 	switchTenant,
 } from "../../../test/harness";
 import { getCurrentTenantAzureConfig } from "./tenant-azure-config";
+import { commitTenantConfigChange } from "./tenant-config";
+import { clearTenantCache } from "./tenant-context";
 
 setupTestDatabases();
 
@@ -40,13 +45,34 @@ describe("getCurrentTenantAzureConfig", () => {
 			...microsoftConfig(),
 			azureTenantId: null,
 		});
+		clearTenantCache(tenant.id);
 		expect(await getCurrentTenantAzureConfig()).toBeNull();
 
 		await setAuthConfig(tenant.id, {
 			...microsoftConfig(),
 			microsoftEnabled: false,
 		});
+		clearTenantCache(tenant.id);
 		expect(await getCurrentTenantAzureConfig()).toBeNull();
+	});
+
+	test("sees a rotated secret through the tenant-config cache", async () => {
+		const tenant = await createTenant();
+		await setAuthConfig(tenant.id, microsoftConfig(1));
+		expect((await getCurrentTenantAzureConfig())?.azureClientSecret).toBe(
+			"secret-1",
+		);
+
+		await commitTenantConfigChange(tenant.id, [
+			controlDb()
+				.update(tenantAuthConfig)
+				.set({ azureClientSecret: "rotated" })
+				.where(eq(tenantAuthConfig.tenantId, tenant.id)),
+		]);
+
+		expect((await getCurrentTenantAzureConfig())?.azureClientSecret).toBe(
+			"rotated",
+		);
 	});
 
 	test("requires a tenant in the request", async () => {

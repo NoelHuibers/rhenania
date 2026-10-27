@@ -193,7 +193,8 @@ vi.mock("~/server/auth", async () => {
 		return { tenantId, tenant, identity, member: session?.user ?? null };
 	}
 
-	const betterAuthInstance = {
+	// Every tenant's Better Auth instance answers with the test session.
+	const tenantAuth = {
 		api: {
 			getSession: async () => {
 				const user = testState.sessionUser;
@@ -203,8 +204,18 @@ vi.mock("~/server/auth", async () => {
 			},
 		},
 	};
+	const getAuthForTenant = async (tenantId: string) =>
+		testState.tenants.has(tenantId) ? tenantAuth : null;
 
-	return { auth, getIdentity, getRequestContext, betterAuthInstance };
+	return {
+		auth,
+		getIdentity,
+		getRequestContext,
+		getAuthForTenant,
+		getAuthForRequest: async () =>
+			testState.tenantId ? getAuthForTenant(testState.tenantId) : null,
+		clearAuthInstances: () => {},
+	};
 });
 
 // ─── Isolation between tests ────────────────────────────────────────────────

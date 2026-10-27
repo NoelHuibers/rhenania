@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { tenantDomains } from "~/server/db/control-schema";
+import { getTenantConfig } from "~/server/lib/tenant-config";
 import {
 	addDomain,
 	microsoftConfig,
@@ -12,14 +13,23 @@ import {
 	setupTestDatabases,
 } from "../../../test/harness";
 import {
-	loadTenantOAuthProviders,
 	microsoftProviderIdForSlug,
+	type TenantAuthSettings,
+	tenantAuthSettings,
 } from "./load-providers";
 
 setupTestDatabases();
 
-describe("loadTenantOAuthProviders", () => {
-	test("registers one Microsoft provider per fully configured tenant", async () => {
+async function settingsOf(tenantId: string): Promise<TenantAuthSettings> {
+	const config = await getTenantConfig(tenantId);
+	if (!config) {
+		throw new Error("no tenant");
+	}
+	return tenantAuthSettings(config);
+}
+
+describe("tenantAuthSettings", () => {
+	test("registers the tenant's own Microsoft provider", async () => {
 		const tenant = await createTenant({ slug: "hassia" });
 		await setAuthConfig(tenant.id, {
 			microsoftEnabled: true,
@@ -28,10 +38,13 @@ describe("loadTenantOAuthProviders", () => {
 			azureTenantId: "azure-tenant",
 		});
 
-		const { providers } = await loadTenantOAuthProviders();
-
-		expect(providers).toEqual([
-			{
+		expect(await settingsOf(tenant.id)).toEqual({
+			tenantId: tenant.id,
+			tenantSlug: "hassia",
+			allowedHosts: ["hassia.test.localhost"],
+			trustedOrigins: ["http://hassia.test.localhost:3000"],
+			fallbackOrigin: "http://hassia.test.localhost:3000",
+			provider: {
 				providerId: "microsoft-hassia",
 				tenantSlug: "hassia",
 				clientId: "client-id",
@@ -44,10 +57,10 @@ describe("loadTenantOAuthProviders", () => {
 				userInfoUrl: "https://graph.microsoft.com/oidc/userinfo",
 				scopes: ["openid", "profile", "email", "offline_access", "User.Read"],
 			},
-		]);
+		});
 	});
 
-	test("skips Microsoft for disabled or incomplete configs but keeps their hosts", async () => {
+	test("has no provider for disabled or incomplete configs but keeps the hosts", async () => {
 		const disabled = await createTenant({ slug: "disabled" });
 		await setAuthConfig(disabled.id, {
 			...microsoftConfig(),
@@ -58,61 +71,57 @@ describe("loadTenantOAuthProviders", () => {
 			...microsoftConfig(),
 			azureClientSecret: null,
 		});
-		await createTenant({ slug: "noconfig" });
+		const noConfig = await createTenant({ slug: "noconfig" });
 
-		const loaded = await loadTenantOAuthProviders();
-
-		expect(loaded.providers).toEqual([]);
-		expect(loaded.allowedHosts.sort()).toEqual([
-			"disabled.test.localhost",
-			"noconfig.test.localhost",
-			"nosecret.test.localhost",
-		]);
+		for (const [tenant, host] of [
+			[disabled, "disabled.test.localhost"],
+			[noSecret, "nosecret.test.localhost"],
+			[noConfig, "noconfig.test.localhost"],
+		] as const) {
+			const settings = await settingsOf(tenant.id);
+			expect(settings.provider).toBeNull();
+			expect(settings.allowedHosts).toEqual([host]);
+		}
 	});
 
-	test("derives trusted origins from every domain: http for local, https otherwise", async () => {
+	test("derives origins from every domain, http for local; primary first", async () => {
 		const tenant = await createTenant({ slug: "rhenania" });
-		await addDomain(tenant.id, "rhenania-stuttgart.de");
 		await addDomain(tenant.id, "www.rhenania-stuttgart.de");
 		await addDomain(tenant.id, "localhost");
 		await addDomain(tenant.id, "127.0.0.1");
-		await setAuthConfig(tenant.id, microsoftConfig());
+		await controlDb().update(tenantDomains).set({ isPrimary: false });
+		await addDomain(tenant.id, "rhenania-stuttgart.de", true);
 
-		const loaded = await loadTenantOAuthProviders();
+		const settings = await settingsOf(tenant.id);
 
-		expect(loaded.providers).toHaveLength(1);
-		expect(loaded.trustedOrigins.sort()).toEqual([
+		expect(settings.allowedHosts).toEqual([
+			"rhenania-stuttgart.de",
+			"127.0.0.1",
+			"localhost",
+			"rhenania.test.localhost",
+			"www.rhenania-stuttgart.de",
+		]);
+		expect(settings.trustedOrigins).toEqual([
+			"https://rhenania-stuttgart.de",
 			"http://127.0.0.1:3000",
 			"http://localhost:3000",
 			"http://rhenania.test.localhost:3000",
-			"https://rhenania-stuttgart.de",
 			"https://www.rhenania-stuttgart.de",
 		]);
-		expect(loaded.allowedHosts).toHaveLength(5);
+		expect(settings.fallbackOrigin).toBe("https://rhenania-stuttgart.de");
 	});
 
-	test("leaves suspended tenants out entirely", async () => {
-		const tenant = await createTenant({ slug: "gone", status: "suspended" });
-		await setAuthConfig(tenant.id, microsoftConfig());
-
-		expect(await loadTenantOAuthProviders()).toEqual({
-			providers: [],
-			trustedOrigins: [],
-			allowedHosts: [],
-		});
-	});
-
-	test("includes tenants without any domain as providers only", async () => {
+	test("a tenant without any domain gets no hosts and no fallback", async () => {
 		const tenant = await createTenant({ slug: "nodomain" });
 		await setAuthConfig(tenant.id, microsoftConfig());
 		await controlDb().delete(tenantDomains);
 
-		const loaded = await loadTenantOAuthProviders();
+		const settings = await settingsOf(tenant.id);
 
-		expect(loaded.providers.map((p) => p.providerId)).toEqual([
-			"microsoft-nodomain",
-		]);
-		expect(loaded.trustedOrigins).toEqual([]);
+		expect(settings.provider?.providerId).toBe("microsoft-nodomain");
+		expect(settings.allowedHosts).toEqual([]);
+		expect(settings.trustedOrigins).toEqual([]);
+		expect(settings.fallbackOrigin).toBeNull();
 	});
 });
 

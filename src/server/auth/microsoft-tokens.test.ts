@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { accounts } from "~/server/db/control-schema";
+import { clearTenantCache } from "~/server/lib/tenant-context";
 import {
 	createAccount,
 	microsoftConfig,
@@ -157,6 +158,7 @@ describe("getGraphAccessToken", () => {
 		);
 
 		await setAuthConfig(tenant.id, microsoftConfig());
+		clearTenantCache(tenant.id); // as the superadmin action's commit does
 		await createAccount(user.id, "microsoft-other-corps", {
 			accessToken: "other",
 			accessTokenExpiresAt: inSeconds(3600),

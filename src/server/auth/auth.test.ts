@@ -33,20 +33,26 @@ vi.mock("~/server/actions/achievements/tracking", () => ({
 
 setupTestDatabases();
 
+/** The real module, with every existing tenant's session lookup stubbed. */
 async function realAuth() {
 	const mod = await import("./index");
-	vi.spyOn(mod.betterAuthInstance.api, "getSession").mockImplementation(
-		(async () => {
+	for (const tenantId of testState.tenants.keys()) {
+		const tenantAuth = await mod.getAuthForTenant(tenantId);
+		if (!tenantAuth) {
+			continue;
+		}
+		vi.spyOn(tenantAuth.api, "getSession").mockImplementation((async () => {
 			const user = testState.sessionUser;
 			return user ? { user, session: { id: "s", userId: user.id } } : null;
-		}) as never,
-	);
+		}) as never);
+	}
 	return mod;
 }
 
-afterEach(() => {
+afterEach(async () => {
 	vi.restoreAllMocks();
 	vi.useRealTimers();
+	(await import("./index")).clearAuthInstances();
 });
 
 async function setTenantStatus(id: string, status: "active" | "suspended") {
@@ -150,13 +156,18 @@ describe("getRequestContext() (#20)", () => {
 		});
 	});
 
-	test("outside a tenant the identity has no roles", async () => {
-		const user = await createUser({ tenantId: null });
-		signInAs(user);
+	test("a host of no tenant has neither identity nor member", async () => {
+		await createTenant();
+		signInAs(await createUser({ roles: ["Admin"] }));
 		testState.headers = { host: "unknown.example" };
-		const { auth } = await realAuth();
+		const { getRequestContext } = await realAuth();
 
-		expect(await auth()).toEqual({ user: { ...user, roles: [] } });
+		expect(await getRequestContext()).toEqual({
+			tenantId: null,
+			tenant: null,
+			identity: null,
+			member: null,
+		});
 	});
 });
 
