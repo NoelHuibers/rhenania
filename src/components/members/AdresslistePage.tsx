@@ -14,17 +14,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import { StatTile } from "~/components/ui/stat-tile";
 import { downloadBase64, fileToBase64, XLSX_MIME } from "~/lib/file-download";
 import { relinkMemberAccounts } from "~/server/actions/members/linkAccounts";
@@ -244,30 +235,17 @@ export function AdresslistePage({
 				statusOptions={statusOptions}
 			/>
 
-			<AlertDialog
+			<ConfirmAction
 				open={deleteTarget !== null}
 				onOpenChange={(o) => {
 					if (!o) {
 						setDeleteTarget(null);
 					}
 				}}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Mitglied löschen?</AlertDialogTitle>
-						<AlertDialogDescription>
-							{deleteTarget?.lastName}, {deleteTarget?.firstName} wird gelöscht.
-							Nicht möglich, wenn bezahlte Beiträge daran hängen.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete}>
-							Löschen
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+				title="Mitglied löschen?"
+				description={`${deleteTarget?.lastName}, ${deleteTarget?.firstName} wird gelöscht. Nicht möglich, wenn bezahlte Beiträge daran hängen.`}
+				onConfirm={confirmDelete}
+			/>
 		</div>
 	);
 }

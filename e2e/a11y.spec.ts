@@ -49,6 +49,8 @@ const SCREENS: Array<{
 		user: USERS.rhWart,
 	},
 	{ name: "admin", url: `${RHENANIA}/admin`, user: USERS.rhAdmin },
+	// No baseline entry: the members table must stay free of violations (#88).
+	{ name: "adressliste", url: `${RHENANIA}/adressliste`, user: USERS.rhAdmin },
 	{ name: "cc-kasse", url: `${RHENANIA}/cc-kasse`, user: USERS.rhAdmin },
 	{
 		name: "trinken-hassia",

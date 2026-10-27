@@ -454,3 +454,38 @@ describe("one tabs, chip and tile pattern (#87)", () => {
 		).toEqual([]);
 	});
 });
+
+describe("edits are saved on purpose, not on blur (#88)", () => {
+	/** Body of every `onBlur={…}` handler, with its line. */
+	function blurHandlers(source: string): Array<{ body: string; line: number }> {
+		const out: Array<{ body: string; line: number }> = [];
+		for (const m of source.matchAll(/onBlur=\{/g)) {
+			const start = (m.index ?? 0) + m[0].length;
+			let depth = 1;
+			let i = start;
+			for (; i < source.length && depth > 0; i++) {
+				depth += source[i] === "{" ? 1 : source[i] === "}" ? -1 : 0;
+			}
+			out.push({
+				body: source.slice(start, i - 1),
+				line: source.slice(0, m.index).split("\n").length,
+			});
+		}
+		return out;
+	}
+
+	test("no onBlur handler saves or calls a server action", () => {
+		const saving: string[] = [];
+		for (const file of UI_FILES) {
+			const source = readFileSync(path.join(ROOT, file), "utf8");
+			for (const { body, line } of blurHandlers(source)) {
+				if (
+					/\b(on)?(save|update|commit|submit)\w*\(|startTransition/i.test(body)
+				) {
+					saving.push(`${file}:${line}`);
+				}
+			}
+		}
+		expect(saving).toEqual([]);
+	});
+});
