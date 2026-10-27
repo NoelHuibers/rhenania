@@ -472,7 +472,7 @@ export function ProfileIdentity() {
 								<DialogTitle>Profilbild ändern</DialogTitle>
 							</DialogHeader>
 							<Tabs defaultValue="upload">
-								<TabsList className="grid w-full grid-cols-2">
+								<TabsList layout="fill">
 									<TabsTrigger value="upload">Upload</TabsTrigger>
 									<TabsTrigger value="url">URL</TabsTrigger>
 								</TabsList>

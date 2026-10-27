@@ -14,19 +14,10 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
+import { ConfirmAction } from "~/components/ui/confirm-action";
+import { StatTile } from "~/components/ui/stat-tile";
 import { downloadBase64, fileToBase64, XLSX_MIME } from "~/lib/file-download";
-import { cn } from "~/lib/utils";
 import { relinkMemberAccounts } from "~/server/actions/members/linkAccounts";
 import {
 	deleteMember,
@@ -39,39 +30,6 @@ import {
 import { MemberDialog } from "./MemberDialog";
 import { MembersTable } from "./MembersTable";
 import { memberCategory } from "./member-constants";
-
-function Stat({
-	icon,
-	label,
-	value,
-	accent,
-}: {
-	icon: React.ReactNode;
-	label: string;
-	value: number;
-	accent: string;
-}) {
-	return (
-		<div className="flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm">
-			<div
-				className={cn(
-					"flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-					accent,
-				)}
-			>
-				{icon}
-			</div>
-			<div className="min-w-0">
-				<div className="font-semibold text-2xl tabular-nums leading-none">
-					{value}
-				</div>
-				<div className="mt-1 truncate text-muted-foreground text-xs">
-					{label}
-				</div>
-			</div>
-		</div>
-	);
-}
 
 export function AdresslistePage({
 	members,
@@ -243,30 +201,18 @@ export function AdresslistePage({
 				</div>
 
 				<div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-					<Stat
-						icon={<GraduationCap className="h-5 w-5" />}
+					<StatTile
+						icon={<GraduationCap />}
 						label="Alte Herren"
 						value={counts.ah}
-						accent="bg-slate-500/10 text-muted-foreground"
 					/>
-					<Stat
-						icon={<UserMinus className="h-5 w-5" />}
+					<StatTile
+						icon={<UserMinus />}
 						label="Inaktive"
 						value={counts.inaktive}
-						accent="bg-info/10 text-info"
 					/>
-					<Stat
-						icon={<UserCheck className="h-5 w-5" />}
-						label="Aktive"
-						value={counts.aktive}
-						accent="bg-success/10 text-success"
-					/>
-					<Stat
-						icon={<Sprout className="h-5 w-5" />}
-						label="Füchse"
-						value={counts.fuchs}
-						accent="bg-warning/10 text-warning-muted-foreground"
-					/>
+					<StatTile icon={<UserCheck />} label="Aktive" value={counts.aktive} />
+					<StatTile icon={<Sprout />} label="Füchse" value={counts.fuchs} />
 				</div>
 
 				<MembersTable
@@ -289,30 +235,17 @@ export function AdresslistePage({
 				statusOptions={statusOptions}
 			/>
 
-			<AlertDialog
+			<ConfirmAction
 				open={deleteTarget !== null}
 				onOpenChange={(o) => {
 					if (!o) {
 						setDeleteTarget(null);
 					}
 				}}
-			>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Mitglied löschen?</AlertDialogTitle>
-						<AlertDialogDescription>
-							{deleteTarget?.lastName}, {deleteTarget?.firstName} wird gelöscht.
-							Nicht möglich, wenn bezahlte Beiträge daran hängen.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Abbrechen</AlertDialogCancel>
-						<AlertDialogAction onClick={confirmDelete}>
-							Löschen
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+				title="Mitglied löschen?"
+				description={`${deleteTarget?.lastName}, ${deleteTarget?.firstName} wird gelöscht. Nicht möglich, wenn bezahlte Beiträge daran hängen.`}
+				onConfirm={confirmDelete}
+			/>
 		</div>
 	);
 }

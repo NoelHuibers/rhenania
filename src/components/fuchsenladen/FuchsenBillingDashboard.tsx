@@ -286,7 +286,7 @@ function FuchsenwartBilling({
 
 	return (
 		<Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-			<TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted p-1 lg:flex lg:w-auto">
+			<TabsList>
 				<TabsTrigger value="current-orders">Offene Bestellungen</TabsTrigger>
 				<TabsTrigger value="current-billing">Aktuelle Abrechnung</TabsTrigger>
 				{olderPeriods.length > 0 && (

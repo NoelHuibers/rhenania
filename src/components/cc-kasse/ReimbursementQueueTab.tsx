@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
+import { ChipGroup } from "~/components/ui/chip-group";
 import {
 	Dialog,
 	DialogContent,
@@ -46,7 +47,6 @@ import {
 	type QueueReimbursement,
 	rejectReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
-import { FilterChips } from "./KasseUi";
 import { ReceiptLinks } from "./ReceiptLinks";
 import {
 	type EditingReimbursement,
@@ -212,9 +212,11 @@ export function ReimbursementQueueTab({
 	return (
 		<div className="space-y-4">
 			<div className="space-y-2">
-				<FilterChips<Filter>
+				<ChipGroup<Filter>
+					aria-label="Anträge filtern"
+					bleed
 					value={filter}
-					onChange={setFilter}
+					onValueChange={setFilter}
 					options={[
 						{ value: "offen", label: "Offen", count: count("offen") },
 						{

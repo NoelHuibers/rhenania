@@ -97,7 +97,7 @@ test.describe("Trinken on a phone (#74)", () => {
 		isMobile,
 	}) => {
 		await page.goto("/trinken", { waitUntil: "networkidle" });
-		const akn = page.getByRole("button", { name: "AKN", exact: true });
+		const akn = page.getByRole("radio", { name: "AKN", exact: true });
 		await expect(async () => {
 			await tap(akn, isMobile);
 			await expect(page.getByText("Buchung auf AKN").first()).toBeVisible({
@@ -127,7 +127,7 @@ test.describe("Trinken on a phone (#74)", () => {
 			44,
 		);
 		for (const name of ["CC", "AKN", "CBesuch"]) {
-			const chip = page.getByRole("button", { name, exact: true });
+			const chip = page.getByRole("radio", { name, exact: true });
 			expect(await minTouchSize(chip), name).toBeGreaterThanOrEqual(44);
 		}
 

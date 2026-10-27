@@ -1,10 +1,13 @@
 "use client";
 import { ChevronDown } from "lucide-react";
+import { useId } from "react";
 import { Button } from "~/components/ui/button";
+import { ChipGroup, type ChipOption } from "~/components/ui/chip-group";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuItem,
+	DropdownMenuRadioGroup,
+	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import {
@@ -21,6 +24,11 @@ interface BillingSelectorProps {
 	onBillingChange: (billing: BillingOption) => void;
 }
 
+/** Chip value for "no group account": the order goes on the member's bill. */
+const PERSONAL = "privat";
+/** Label of that chip. */
+const PERSONAL_LABEL = "Privat";
+
 const rareOptions = BOOKING_ACCOUNTS.filter(
 	(a) => !COMMON_BOOKING_ACCOUNTS.includes(a),
 );
@@ -29,54 +37,66 @@ export function BillingSelector({
 	selectedBilling,
 	onBillingChange,
 }: BillingSelectorProps) {
-	// Tapping the selected account again books on the member again.
-	const toggle = (option: BookingAccount) =>
-		onBillingChange(selectedBilling === option ? null : option);
+	const labelId = useId();
 	const rareSelected =
 		selectedBilling !== null && rareOptions.includes(selectedBilling);
 
+	// The common accounts are chips; a rarer account picked from "Weitere"
+	// joins them as a chip so the choice stays visible.
+	const options: ChipOption<string>[] = [
+		{ value: PERSONAL, label: PERSONAL_LABEL },
+		...COMMON_BOOKING_ACCOUNTS.map((a) => ({ value: a, label: a })),
+		...(rareSelected
+			? [{ value: selectedBilling, label: selectedBilling }]
+			: []),
+	];
+
+	const select = (value: string) =>
+		onBillingChange(value === PERSONAL ? null : (value as BookingAccount));
+
 	return (
-		<fieldset className="min-w-0">
-			<legend className="mb-1.5 text-muted-foreground text-xs">
+		<div className="min-w-0">
+			<p id={labelId} className="mb-1.5 text-muted-foreground text-xs">
 				Auf ein Konto buchen (optional)
-			</legend>
-			<div className="flex flex-nowrap gap-2 overflow-x-auto">
-				{COMMON_BOOKING_ACCOUNTS.map((option) => (
-					<Button
-						key={option}
-						type="button"
-						variant={selectedBilling === option ? "default" : "outline"}
-						aria-pressed={selectedBilling === option}
-						onClick={() => toggle(option)}
-						className="h-11 min-w-16 shrink-0 px-3"
-					>
-						{option}
-					</Button>
-				))}
+			</p>
+			<div className="flex min-w-0 items-center gap-1.5">
+				<ChipGroup
+					aria-labelledby={labelId}
+					size="lg"
+					value={selectedBilling ?? PERSONAL}
+					onValueChange={select}
+					options={options}
+					className="flex-1"
+				/>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button
 							type="button"
-							variant={rareSelected ? "default" : "outline"}
-							className="h-11 shrink-0 gap-1 px-3"
+							variant="outline"
+							className="h-11 shrink-0 gap-1 rounded-full px-3"
 						>
-							{rareSelected ? selectedBilling : "Weitere"}
+							Weitere
 							<ChevronDown className="size-4" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
-						{rareOptions.map((option) => (
-							<DropdownMenuItem
-								key={option}
-								onClick={() => toggle(option)}
-								className={`min-h-11 ${selectedBilling === option ? "bg-accent" : ""}`}
-							>
-								{option}
-							</DropdownMenuItem>
-						))}
+						<DropdownMenuRadioGroup
+							value={selectedBilling ?? PERSONAL}
+							onValueChange={select}
+						>
+							{rareOptions.map((option) => (
+								<DropdownMenuRadioItem
+									key={option}
+									value={option}
+									className="min-h-11"
+								>
+									{option}
+								</DropdownMenuRadioItem>
+							))}
+						</DropdownMenuRadioGroup>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>
-		</fieldset>
+		</div>
 	);
 }

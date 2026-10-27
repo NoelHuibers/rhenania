@@ -333,22 +333,20 @@ export function BillingDashboard() {
 					onValueChange={setActiveTab}
 					className="space-y-4"
 				>
-					<TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted p-1 group-data-horizontal/tabs:h-auto lg:flex lg:h-9 lg:w-auto lg:p-0.75">
-						<TabsTrigger value="current-orders" className="text-sm">
+					<TabsList>
+						<TabsTrigger value="current-orders">
 							Aktuelle Bestellungen
 						</TabsTrigger>
-						<TabsTrigger value="current-billing" className="text-sm">
+						<TabsTrigger value="current-billing">
 							Aktuelle Abrechnung
 						</TabsTrigger>
 						{allBillPeriods.length > 1 && (
-							<TabsTrigger value="previous-billing" className="text-sm">
+							<TabsTrigger value="previous-billing">
 								Letzte Abrechnung
 							</TabsTrigger>
 						)}
 						{olderPeriods.length > 0 && (
-							<TabsTrigger value="older-bills" className="text-sm">
-								Ältere Rechnungen
-							</TabsTrigger>
+							<TabsTrigger value="older-bills">Ältere Rechnungen</TabsTrigger>
 						)}
 					</TabsList>
 
