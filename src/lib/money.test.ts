@@ -132,6 +132,7 @@ describe("pctOf", () => {
 
 describe("allocate", () => {
 	test("splits into whole cents that add up exactly, largest remainder first", () => {
+		expect(allocate(1000, 3)).toEqual([334, 333, 333]);
 		expect(allocate(5000, 3)).toEqual([1667, 1667, 1666]);
 		expect(allocate(100, 4)).toEqual([25, 25, 25, 25]);
 		expect(allocate(2, 5)).toEqual([1, 1, 0, 0, 0]);
