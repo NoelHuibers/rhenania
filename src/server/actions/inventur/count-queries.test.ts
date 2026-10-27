@@ -54,11 +54,14 @@ describe("saveInventoryCount query budget (#25)", () => {
 	test("reads drinks and sales once, not per drink (was 41 round trips)", async () => {
 		const counted = await countSave(5);
 
-		expect(counted.result).toEqual({ success: true, totalInventoryLoss: 5 });
-		// Role guard (2) and session (2), then one transaction: 4 reads, an
-		// UPDATE per counted drink, close, open, one insert of all opening
-		// items, commit. (Production memoizes auth() per request.)
-		expect(counted.total).toBe(2 + 2 + 4 + 5 + 4);
+		expect(counted.result).toEqual({
+			ok: true,
+			data: { totalInventoryLoss: 5 },
+		});
+		// Role guard (2), then one transaction: 4 reads, an UPDATE per counted
+		// drink, close, open, one insert of all opening items, commit. The
+		// guard's session is reused, so no second auth() (was 2 + 2 + …).
+		expect(counted.total).toBe(2 + 4 + 5 + 4);
 		const items = await tenantDb().select().from(inventoryItems);
 		// Five closed items with a loss of 1 each, five opening items of 8.
 		expect(items.filter((i) => i.lossValue === 1)).toHaveLength(5);
@@ -83,7 +86,7 @@ describe("saveInventoryCount query budget (#25)", () => {
 			{ drinkId: pils.id, countedStock: 7, purchasedSince: 0 },
 		]);
 
-		expect(result).toEqual({ success: true, totalInventoryLoss: 3 });
+		expect(result).toEqual({ ok: true, data: { totalInventoryLoss: 3 } });
 		const closed = await tenantDb()
 			.select()
 			.from(inventoryItems)
@@ -102,8 +105,8 @@ describe("saveInventoryCount query budget (#25)", () => {
 		await createInventory({ createdAt: daysAgo(10) });
 
 		expect(await saveInventoryCount([])).toEqual({
-			success: true,
-			totalInventoryLoss: 0,
+			ok: true,
+			data: { totalInventoryLoss: 0 },
 		});
 		expect(await tenantDb().select().from(inventoryItems)).toEqual([]);
 		expect(await getInventoryHistory()).toHaveLength(1);

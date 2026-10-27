@@ -103,7 +103,7 @@ export function EventInventoryDialogs({
 		}
 		startTransition(async () => {
 			const res = await saveInventoryCount(buildItems(), { startEvent: info });
-			if (res.success) {
+			if (res.ok) {
 				toast.success(
 					"Veranstaltungs-Inventur gestartet — Anfangsbestand gespeichert",
 				);
@@ -111,7 +111,7 @@ export function EventInventoryDialogs({
 				onStartOpenChange(false);
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Fehler beim Starten");
+				toast.error(res.error);
 			}
 		});
 	};
@@ -121,8 +121,8 @@ export function EventInventoryDialogs({
 			const res = await finishEventInventory(buildItems(), {
 				kostenpunktId: doBook ? kostenpunktId || null : null,
 			});
-			if (res.success) {
-				const r = res.report;
+			if (res.ok) {
+				const r = res.data;
 				toast.success(
 					`Veranstaltung abgeschlossen — ${r.totalQty} Fl., ${formatEUR(r.totalValue)} Verbrauch${r.booked ? " · in CC-Kasse gebucht" : ""}`,
 				);

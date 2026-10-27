@@ -191,7 +191,10 @@ describe("saveInventoryCount", () => {
 			{ drinkId: "deleted-drink", countedStock: 5, purchasedSince: 0 },
 		]);
 
-		expect(result).toEqual({ success: true, totalInventoryLoss: 0 });
+		expect(result).toEqual({
+			ok: true,
+			data: { totalInventoryLoss: 0 },
+		});
 		const [inv, ...rest] = await allInventories();
 		expect(rest).toHaveLength(0);
 		expect(inv).toMatchObject({
@@ -235,7 +238,10 @@ describe("saveInventoryCount", () => {
 			{ drinkId: cola.id, countedStock: 8, purchasedSince: 0 },
 		]);
 
-		expect(result).toEqual({ success: true, totalInventoryLoss: 4.5 });
+		expect(result).toEqual({
+			ok: true,
+			data: { totalInventoryLoss: 4.5 },
+		});
 
 		const [closed, next] = await allInventories();
 		expect(closed).toMatchObject({
@@ -289,7 +295,10 @@ describe("saveInventoryCount", () => {
 		]);
 
 		// 10 − 1 = 9 expected, 7 counted → 2 × 2 €.
-		expect(result).toEqual({ success: true, totalInventoryLoss: 4 });
+		expect(result).toEqual({
+			ok: true,
+			data: { totalInventoryLoss: 4 },
+		});
 		expect(await itemsOf(running.id)).toEqual([
 			expect.objectContaining({
 				previousStock: 10,
@@ -341,11 +350,15 @@ describe("saveInventoryCount", () => {
 
 		const result = await saveInventoryCount([
 			{ drinkId: pils.id, countedStock: 5, purchasedSince: 0 },
-			// NaN survives Math.max and violates the NOT NULL column.
+			// Not a whole number: refused before anything is written.
 			{ drinkId: cola.id, countedStock: Number.NaN, purchasedSince: 0 },
 		]);
 
-		expect(result.success).toBe(false);
+		expect(result).toEqual({
+			ok: false,
+			error: "Bestände müssen ganze Zahlen sein",
+			code: "INVALID_INPUT",
+		});
 		expect(await allInventories()).toEqual([
 			expect.objectContaining({ id: running.id, status: "active" }),
 		]);
@@ -369,7 +382,7 @@ describe("saveInventoryCount", () => {
 			{ drinkId: pils.id, countedStock: 7, purchasedSince: 0 },
 		]);
 
-		expect(result.totalInventoryLoss).toBe(3.3);
+		expect(result.ok && result.data.totalInventoryLoss).toBe(3.3);
 		const [closed] = await allInventories();
 		expect(closed?.totalLoss).toBe(3.3);
 	});
@@ -395,7 +408,7 @@ describe("saveQuickAdjustments", () => {
 			{ drinkId: mate.id },
 		]);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		const byDrink = new Map(
 			(await itemsOf(running.id)).map((i) => [
 				i.drinkId,
@@ -417,7 +430,7 @@ describe("saveQuickAdjustments", () => {
 			{ drinkId: "deleted-drink", countedStock: 4 },
 		]);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await itemsOf(running.id)).toEqual([
 			expect.objectContaining({
 				drinkId: pils.id,
@@ -442,7 +455,7 @@ describe("saveQuickAdjustments", () => {
 			{ drinkId: pils.id, purchasedQuantity: 24 },
 		]);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		const running = await activeInventory();
 		expect(running).toBeDefined();
 		expect(await itemsOf(running?.id ?? "")).toEqual([
@@ -479,7 +492,7 @@ describe("saveQuickAdjustments", () => {
 			{ drinkId: cola.id, countedStock: 1 },
 		]);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		const running = await activeInventory();
 		expect(running).toMatchObject({
 			kind: "routine",
@@ -616,7 +629,7 @@ describe("Veranstaltungs-Inventur", () => {
 		const pils = await createDrink();
 		const running = await startEventInventory([{ drink: pils, count: 10 }]);
 
-		expect(await cancelEventInventory()).toEqual({ success: true });
+		expect(await cancelEventInventory()).toEqual({ ok: true });
 
 		expect(await getActiveEventInventory()).toBeNull();
 		expect(await activeInventory()).toMatchObject({
@@ -649,8 +662,8 @@ describe("Veranstaltungs-Inventur", () => {
 		]);
 
 		expect(result).toEqual({
-			success: true,
-			report: {
+			ok: true,
+			data: {
 				eventName: "Stiftungsfest",
 				eventDate: new Date("2026-11-07T18:00:00Z"),
 				// 6 × 1.10 € = 6.6000000000000005 before rounding.
@@ -698,8 +711,8 @@ describe("Veranstaltungs-Inventur", () => {
 		);
 
 		expect(result).toMatchObject({
-			success: true,
-			report: { totalValue: 18, booked: true },
+			ok: true,
+			data: { totalValue: 18, booked: true },
 		});
 		expect(await tenantDb().select().from(kostenerstattungen)).toEqual([
 			expect.objectContaining({
@@ -730,8 +743,8 @@ describe("Veranstaltungs-Inventur", () => {
 			{ kostenpunktId: kostenpunkte[0]?.id },
 		);
 		expect(nothingDrunk).toMatchObject({
-			success: true,
-			report: { totalValue: 0, booked: false, items: [] },
+			ok: true,
+			data: { totalValue: 0, booked: false, items: [] },
 		});
 
 		await tenantDb()
@@ -743,8 +756,8 @@ describe("Veranstaltungs-Inventur", () => {
 			{ kostenpunktId: "deleted-kostenpunkt" },
 		);
 		expect(unknownKp).toMatchObject({
-			success: true,
-			report: { totalValue: 9, booked: false },
+			ok: true,
+			data: { totalValue: 9, booked: false },
 		});
 
 		expect(await tenantDb().select().from(kostenerstattungen)).toHaveLength(0);
@@ -755,14 +768,16 @@ describe("Veranstaltungs-Inventur", () => {
 		const item = { drinkId: pils.id, countedStock: 1, purchasedSince: 0 };
 
 		expect(await finishEventInventory([item])).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine aktive Inventur vorhanden",
+			code: "NOT_FOUND",
 		});
 
 		const routine = await createInventory({ createdAt: daysAgo(1) });
 		expect(await finishEventInventory([item])).toEqual({
-			success: false,
+			ok: false,
 			error: "Die aktive Inventur ist keine Veranstaltung",
+			code: "NOT_AN_EVENT",
 		});
 		expect(await allInventories()).toEqual([
 			expect.objectContaining({ id: routine.id, status: "active" }),

@@ -1030,9 +1030,8 @@ describe("Inventur + Rechnung: Umlage (#10)", () => {
 		]);
 
 		expect(result).toMatchObject({
-			success: true,
-			totalInventoryLoss: 10,
-			billsCreated: 4,
+			ok: true,
+			data: { totalInventoryLoss: 10, billsCreated: 4 },
 		});
 		// 10 € / 3 active Hausbewohner = 3.33 € each; the cent is the Kasse's.
 		const umlage = await Promise.all(
