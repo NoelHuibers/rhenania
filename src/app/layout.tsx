@@ -9,9 +9,11 @@ import { Toaster } from "~/components/ui/sonner";
 import { cn } from "~/lib/utils";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 
-const geistHeading = Geist({ subsets: ["latin"], variable: "--font-heading" });
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+// One next/font call per family. Inter is the text face, Geist the heading
+// face. They set their own variables; `globals.css` builds the Tailwind
+// `--font-sans` / `--font-heading` stacks (with system fallbacks) on top.
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 
 export async function generateMetadata(): Promise<Metadata> {
 	const tenant = await getCurrentTenant();
@@ -26,11 +28,6 @@ export async function generateMetadata(): Promise<Metadata> {
 	};
 }
 
-const geist = Geist({
-	subsets: ["latin"],
-	variable: "--font-geist-sans",
-});
-
 // The only document root. Nested layouts render fragments, never <html> or
 // <body>, so the theme class and `lang` always land on the real element.
 export default function RootLayout({
@@ -41,12 +38,7 @@ export default function RootLayout({
 			lang="de"
 			// next-themes sets the theme class before hydration.
 			suppressHydrationWarning
-			className={cn(
-				geist.variable,
-				"font-sans",
-				inter.variable,
-				geistHeading.variable,
-			)}
+			className={cn(inter.variable, geist.variable, "font-sans")}
 		>
 			<body>
 				<AppThemeProvider>

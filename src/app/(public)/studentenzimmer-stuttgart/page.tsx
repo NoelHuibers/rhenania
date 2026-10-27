@@ -24,12 +24,12 @@ import {
 	JsonLd,
 } from "~/tenants/rhenania/seo";
 
-const DEFAULT_HERO_IMAGE = "/Haus0.png";
+const DEFAULT_HERO_IMAGE = "/Haus0.webp";
 const FALLBACK_IMAGES = [
 	DEFAULT_HERO_IMAGE,
-	"/Haus1.png",
-	"/Haus2.png",
-	"/Haus3.png",
+	"/Haus1.webp",
+	"/Haus2.webp",
+	"/Haus3.webp",
 ];
 
 const FAQS: readonly FaqItem[] = [

@@ -10,7 +10,7 @@ export function Haus({ images }: { images: string[] }) {
 	const section = useRef<HTMLDivElement>(null);
 	const bg = useRef<HTMLDivElement>(null);
 
-	const hero = images[0] ?? "/Haus0.png";
+	const hero = images[0] ?? "/Haus0.webp";
 	const thumbs = images.slice(1, 5);
 
 	useLayoutEffect(() => {
