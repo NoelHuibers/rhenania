@@ -17,6 +17,9 @@ interface TabContentProps {
 	detailsComponent?: React.ComponentType<{ entry: BillingEntry }>;
 	canEditStatus?: boolean;
 	billPeriodId?: string;
+	/** With `onExpandedChange`: the card can be collapsed and starts as given. */
+	expanded?: boolean;
+	onExpandedChange?: (expanded: boolean) => void;
 }
 
 export const TabContent = ({
@@ -32,12 +35,16 @@ export const TabContent = ({
 	detailsComponent,
 	canEditStatus,
 	billPeriodId,
+	expanded,
+	onExpandedChange,
 }: TabContentProps) => (
 	<BillingCard
 		title={cardTitle}
 		description={cardDescription}
 		headerDate={headerDate}
 		billPeriodId={billPeriodId}
+		expanded={expanded}
+		onExpandedChange={onExpandedChange}
 	>
 		<BillingTable
 			entries={entries}
