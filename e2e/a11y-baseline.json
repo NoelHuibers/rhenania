@@ -2,6 +2,9 @@
 	"admin": {
 		"target-size": 1
 	},
+	"adressliste": {
+		"target-size": 1
+	},
 	"cc-kasse": {
 		"target-size": 1
 	},

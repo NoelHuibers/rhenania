@@ -761,7 +761,7 @@ export function MembersTable({
 					<span className="whitespace-nowrap text-muted-foreground text-sm tabular-nums">
 						<span aria-hidden="true">
 							{visibleRows.length}
-							<span className="text-muted-foreground/60"> / {rows.length}</span>
+							<span className="text-muted-foreground"> / {rows.length}</span>
 						</span>
 						<span className="sr-only">
 							{visibleRows.length} von {rows.length} Mitgliedern
@@ -979,7 +979,12 @@ export function MembersTable({
 					<div
 						ref={scrollRef}
 						onScroll={updateOverflow}
-						className="overflow-x-auto"
+						className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						// Wide table: keyboard users can focus the region to scroll it.
+						// biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be focusable (WCAG 2.1.1)
+						tabIndex={0}
+						role="region"
+						aria-label="Mitgliedertabelle, seitlich scrollbar"
 					>
 						<table
 							className="w-full border-collapse"
