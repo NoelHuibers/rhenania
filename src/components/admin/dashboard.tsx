@@ -12,6 +12,7 @@ import { EditUserDialog } from "./EditUserDialog";
 import { GruppenSection } from "./GruppenSection";
 import { RoleManagementDialog } from "./RoleManagementDialog";
 import { RoleSection } from "./RoleSection";
+import { TenantExportCard } from "./TenantExportCard";
 import { UsersTab } from "./UsersTab";
 
 export const SINGLE_PERSON_ROLES = [
@@ -198,6 +199,13 @@ export function AdminDashboard({
 						onAddUser={() => setShowAddUserModal(true)}
 					/>
 				</div>
+
+				<section>
+					<h2 className="mb-3 font-semibold text-muted-foreground text-sm uppercase tracking-wide">
+						Daten
+					</h2>
+					<TenantExportCard />
+				</section>
 
 				<AddUserDialog
 					open={showAddUserModal}
