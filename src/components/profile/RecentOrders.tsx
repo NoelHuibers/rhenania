@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { DataList, type DataListColumn } from "~/components/ui/data-list";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
@@ -17,14 +18,6 @@ import {
 	SheetTrigger,
 } from "~/components/ui/sheet";
 import { Switch } from "~/components/ui/switch";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "~/components/ui/table";
 import { formatDate, formatEUR } from "~/lib/format";
 import { getUserOrders } from "~/server/actions/orders";
 
@@ -36,6 +29,52 @@ type Order = {
 	total: number;
 	inBill: boolean;
 };
+
+const ORDER_COLUMNS: DataListColumn<Order>[] = [
+	{
+		id: "date",
+		header: "Datum",
+		cell: ({ row }) => formatDate(new Date(row.original.createdAt)),
+		meta: {
+			mobile: "subtitle",
+			className: "align-top",
+			cellClassName: "max-md:order-first",
+		},
+	},
+	{
+		id: "drink",
+		header: "Getränk",
+		cell: ({ row }) => row.original.drinkName,
+		meta: { mobile: "title", className: "align-top font-medium" },
+	},
+	{
+		id: "amount",
+		header: "Anzahl",
+		cell: ({ row }) => row.original.amount,
+		meta: { mobile: "meta", className: "align-top md:text-right" },
+	},
+	{
+		id: "total",
+		header: "Gesamt",
+		cell: ({ row }) => formatEUR(row.original.total),
+		meta: {
+			mobile: "meta",
+			className: "align-top md:text-right",
+			cellClassName: "max-md:font-semibold",
+		},
+	},
+	{
+		id: "status",
+		header: "Status",
+		cell: ({ row }) =>
+			row.original.inBill ? (
+				<Badge variant="secondary">Abgerechnet</Badge>
+			) : (
+				<span className="md:hidden">Nicht abgerechnet</span>
+			),
+		meta: { mobile: "meta", className: "align-top" },
+	},
+];
 
 export function RecentOrders() {
 	const [showOutOfBillOnly, setShowOutOfBillOnly] = useState(false);
@@ -303,103 +342,21 @@ export function RecentOrders() {
 					</div>
 				</div>
 
-				{/* Mobile list (cards) */}
-				<div className="space-y-2 sm:hidden">
-					{paginatedOrders.length === 0 ? (
+				<DataList
+					data={paginatedOrders}
+					columns={ORDER_COLUMNS}
+					getRowId={(order) => order.id}
+					caption="Letzte Bestellungen"
+					className="md:rounded-md md:border"
+					headerClassName="bg-muted/50"
+					empty={
 						<div className="rounded-lg border p-6 text-center">
 							<p className="text-muted-foreground">
 								Keine Bestellungen gefunden
 							</p>
 						</div>
-					) : (
-						paginatedOrders.map((order) => {
-							const d = new Date(order.createdAt);
-							return (
-								<div key={order.id} className="rounded-lg border p-4">
-									<div className="flex items-start justify-between gap-3">
-										<div className="min-w-0">
-											<p className="text-muted-foreground text-sm">
-												{formatDate(d)}
-											</p>
-											<p className="truncate font-medium">{order.drinkName}</p>
-										</div>
-										<div className="text-right">
-											<p className="font-semibold">{formatEUR(order.total)}</p>
-											{order.inBill && (
-												<Badge variant="secondary" className="mt-1">
-													Abgerechnet
-												</Badge>
-											)}
-										</div>
-									</div>
-									<div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-										<div className="text-muted-foreground">Anzahl</div>
-										<div className="text-right">{order.amount}</div>
-										<div className="text-muted-foreground">Status</div>
-										<div className="text-right">
-											{order.inBill ? "Abgerechnet" : "Nicht abgerechnet"}
-										</div>
-									</div>
-								</div>
-							);
-						})
-					)}
-				</div>
-
-				{/* Desktop table */}
-				<div className="hidden overflow-x-auto rounded-md border sm:block">
-					<Table>
-						<TableHeader className="bg-muted/50">
-							<TableRow>
-								<TableHead className="whitespace-nowrap">Datum</TableHead>
-								<TableHead className="whitespace-nowrap">Getränk</TableHead>
-								<TableHead className="whitespace-nowrap text-right">
-									Anzahl
-								</TableHead>
-								<TableHead className="whitespace-nowrap text-right">
-									Gesamt
-								</TableHead>
-								<TableHead className="whitespace-nowrap">Status</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{paginatedOrders.length === 0 ? (
-								<TableRow>
-									<TableCell colSpan={5} className="py-8 text-center">
-										<p className="text-muted-foreground">
-											Keine Bestellungen gefunden
-										</p>
-									</TableCell>
-								</TableRow>
-							) : (
-								paginatedOrders.map((order) => {
-									const d = new Date(order.createdAt);
-									return (
-										<TableRow key={order.id}>
-											<TableCell className="align-top">
-												{formatDate(d)}
-											</TableCell>
-											<TableCell className="align-top font-medium">
-												{order.drinkName}
-											</TableCell>
-											<TableCell className="text-right align-top">
-												{order.amount}
-											</TableCell>
-											<TableCell className="text-right align-top">
-												{formatEUR(order.total)}
-											</TableCell>
-											<TableCell className="align-top">
-												{order.inBill && (
-													<Badge variant="secondary">Abgerechnet</Badge>
-												)}
-											</TableCell>
-										</TableRow>
-									);
-								})
-							)}
-						</TableBody>
-					</Table>
-				</div>
+					}
+				/>
 
 				{/* Pagination */}
 				{filteredOrders.length > 0 && (

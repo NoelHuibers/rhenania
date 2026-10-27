@@ -9,14 +9,7 @@ import { TableSkeleton } from "~/components/ui/page-skeleton";
 import { BillStatusBadge } from "~/components/ui/status-badge";
 import { formatEUR } from "~/lib/format";
 import { Button } from "../ui/button";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "../ui/table";
+import { DataList, type DataListColumn } from "../ui/data-list";
 import type { BillingEntry } from "./BillingDashboard";
 import { DefaultDetailsDialog } from "./DefaultDetailsDialog";
 import { StatusButton } from "./StatusButton";
@@ -105,100 +98,65 @@ export const BillingTable = ({
 		);
 	}
 
-	return (
-		<>
-			<div className="block space-y-3 sm:hidden">
-				{sortEntries(entries).map((entry) => (
-					<div key={entry.id} className="space-y-3 rounded-lg border p-4">
-						<div className="flex items-start justify-between">
-							<div className="min-w-0 flex-1">
-								<h3 className="truncate font-medium">{entry.name}</h3>
-								<p className="mt-1 font-bold text-lg text-success">
-									{formatEUR(entry.totalDue)}
-								</p>
-							</div>
-							<DetailsComponent entry={entry} />
-						</div>
-						{showStatus && (
-							<div className="flex items-center justify-between border-t pt-2">
-								<span className="text-muted-foreground text-sm">Status:</span>
-								{canEditStatus && onStatusChange ? (
-									<StatusButton
-										status={entry.status}
-										onStatusChange={(newStatus) =>
-											onStatusChange(entry.id, newStatus)
-										}
-									/>
-								) : (
-									<StatusDisplay status={entry.status} />
-								)}
-							</div>
-						)}
-					</div>
-				))}
-			</div>
+	const sortButton = (field: SortField, label: string) => (
+		<Button
+			variant="ghost"
+			onClick={() => handleSort(field)}
+			className="h-auto p-0 font-semibold hover:bg-transparent"
+		>
+			{label}
+			<ArrowUpDown className="ml-2 h-4 w-4" />
+		</Button>
+	);
 
-			<div className="hidden overflow-x-auto sm:block">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead className="min-w-[150px]">
-								<Button
-									variant="ghost"
-									onClick={() => handleSort("name")}
-									className="h-auto p-0 font-semibold hover:bg-transparent"
-								>
-									Name
-									<ArrowUpDown className="ml-2 h-4 w-4" />
-								</Button>
-							</TableHead>
-							<TableHead className="min-w-[120px] text-right">
-								<Button
-									variant="ghost"
-									onClick={() => handleSort("totalDue")}
-									className="h-auto p-0 font-semibold hover:bg-transparent"
-								>
-									Gesamtbetrag
-									<ArrowUpDown className="ml-2 h-4 w-4" />
-								</Button>
-							</TableHead>
-							{showStatus && (
-								<TableHead className="min-w-[100px]">Status</TableHead>
-							)}
-							<TableHead className="min-w-[100px] text-right">
-								Aktionen
-							</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{sortEntries(entries).map((entry) => (
-							<TableRow key={entry.id}>
-								<TableCell className="font-medium">{entry.name}</TableCell>
-								<TableCell className="text-right font-mono">
-									{formatEUR(entry.totalDue)}
-								</TableCell>
-								{showStatus && (
-									<TableCell>
-										{canEditStatus && onStatusChange ? (
-											<StatusButton
-												status={entry.status}
-												onStatusChange={(newStatus) =>
-													onStatusChange(entry.id, newStatus)
-												}
-											/>
-										) : (
-											<StatusDisplay status={entry.status} />
-										)}
-									</TableCell>
-								)}
-								<TableCell className="text-right">
-									<DetailsComponent entry={entry} />
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</div>
-		</>
+	const columns: DataListColumn<BillingEntry>[] = [
+		{
+			id: "name",
+			header: () => sortButton("name", "Name"),
+			cell: ({ row }) => row.original.name,
+			meta: { mobile: "title", className: "font-medium md:min-w-[150px]" },
+		},
+		{
+			id: "totalDue",
+			header: () => sortButton("totalDue", "Gesamtbetrag"),
+			cell: ({ row }) => formatEUR(row.original.totalDue),
+			meta: {
+				mobile: "subtitle",
+				className: "md:min-w-[120px] md:text-right",
+				cellClassName:
+					"md:font-mono max-md:font-bold max-md:text-lg max-md:text-success",
+			},
+		},
+	];
+	if (showStatus) {
+		columns.push({
+			id: "status",
+			header: "Status",
+			cell: ({ row: { original: entry } }) =>
+				canEditStatus && onStatusChange ? (
+					<StatusButton
+						status={entry.status}
+						onStatusChange={(newStatus) => onStatusChange(entry.id, newStatus)}
+					/>
+				) : (
+					<StatusDisplay status={entry.status} />
+				),
+			meta: { mobile: "meta", className: "md:min-w-[100px]" },
+		});
+	}
+	columns.push({
+		id: "actions",
+		header: "Aktionen",
+		cell: ({ row }) => <DetailsComponent entry={row.original} />,
+		meta: { mobile: "action", className: "md:min-w-[100px] md:text-right" },
+	});
+
+	return (
+		<DataList
+			data={sortEntries(entries)}
+			columns={columns}
+			getRowId={(entry) => entry.id}
+			caption="Rechnungen"
+		/>
 	);
 };

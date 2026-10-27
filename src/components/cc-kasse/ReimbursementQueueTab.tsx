@@ -14,6 +14,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { ChipGroup } from "~/components/ui/chip-group";
+import { DataList, type DataListColumn } from "~/components/ui/data-list";
 import {
 	Dialog,
 	DialogContent,
@@ -30,14 +31,6 @@ import {
 import { EmptyState } from "~/components/ui/empty-state";
 import { Label } from "~/components/ui/label";
 import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "~/components/ui/table";
 import { Textarea } from "~/components/ui/textarea";
 import { formatDate, formatEUR } from "~/lib/format";
 import { formatIban } from "~/lib/iban";
@@ -142,7 +135,7 @@ export function ReimbursementQueueTab({
 	};
 
 	// The one action that moves a request forward — big and obvious.
-	const primaryAction = (r: QueueReimbursement, full?: boolean) => {
+	const primaryAction = (r: QueueReimbursement) => {
 		if (!isTreasury) {
 			return null;
 		}
@@ -150,7 +143,7 @@ export function ReimbursementQueueTab({
 			return (
 				<Button
 					size="sm"
-					className={full ? "h-9 flex-1" : undefined}
+					className="max-md:h-9 max-md:flex-1"
 					disabled={isPending}
 					onClick={() => run(() => approveReimbursement(r.id), "Genehmigt")}
 				>
@@ -162,7 +155,7 @@ export function ReimbursementQueueTab({
 			return (
 				<Button
 					size="sm"
-					className={full ? "h-9 flex-1" : undefined}
+					className="max-md:h-9 max-md:flex-1"
 					disabled={isPending}
 					onClick={() =>
 						run(() => markReimbursementPaid(r.id), "Als ausgezahlt markiert")
@@ -175,39 +168,137 @@ export function ReimbursementQueueTab({
 		return null;
 	};
 
-	const moreMenu = (r: QueueReimbursement, size: "sm" | "default" = "sm") =>
-		isTreasury ? (
-			<DropdownMenu>
-				<DropdownMenuTrigger asChild>
-					<Button
-						variant="outline"
-						size={size === "sm" ? "icon-sm" : "icon"}
-						disabled={isPending}
-						aria-label="Weitere Aktionen"
-					>
-						<MoreHorizontal />
-					</Button>
-				</DropdownMenuTrigger>
-				<DropdownMenuContent align="end">
-					<DropdownMenuItem onClick={() => setEditing(toEditing(r))}>
-						<Pencil /> Bearbeiten
+	const moreMenu = (r: QueueReimbursement) => (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					variant="outline"
+					size="icon-sm"
+					className="max-md:size-9"
+					disabled={isPending}
+					aria-label="Weitere Aktionen"
+				>
+					<MoreHorizontal />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				<DropdownMenuItem onClick={() => setEditing(toEditing(r))}>
+					<Pencil /> Bearbeiten
+				</DropdownMenuItem>
+				{r.iban && (
+					<DropdownMenuItem onClick={() => copyIban(r.iban ?? "")}>
+						<Copy /> IBAN kopieren
 					</DropdownMenuItem>
+				)}
+				{isOpen(r) && (
+					<DropdownMenuItem
+						variant="destructive"
+						onClick={() => openReject(r.id)}
+					>
+						<X /> Ablehnen
+					</DropdownMenuItem>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+
+	const columns: DataListColumn<QueueReimbursement>[] = [
+		{
+			id: "request",
+			header: "Antrag",
+			cell: ({ row: { original: r } }) => (
+				<>
+					<div className="font-medium">{r.description}</div>
+					<div className="text-muted-foreground text-xs">
+						{r.kostenpunkt?.category} › {r.kostenpunkt?.name ?? "—"}
+					</div>
+					<div className="text-muted-foreground text-xs">
+						{formatDate(r.expenseDate)} · {submitterLabel(r)}
+					</div>
+					{r.status === "Abgelehnt" && r.rejectionReason && (
+						<div className="mt-1 text-destructive text-xs">
+							{r.rejectionReason}
+						</div>
+					)}
+				</>
+			),
+			meta: {
+				mobile: "title",
+				className: "md:pl-4",
+				cellClassName:
+					"max-md:font-normal md:max-w-[320px] md:whitespace-normal",
+			},
+		},
+		{
+			id: "recipient",
+			header: "Empfänger",
+			cell: ({ row: { original: r } }) => (
+				<>
+					<div>{r.recipientName}</div>
 					{r.iban && (
-						<DropdownMenuItem onClick={() => copyIban(r.iban ?? "")}>
-							<Copy /> IBAN kopieren
-						</DropdownMenuItem>
-					)}
-					{isOpen(r) && (
-						<DropdownMenuItem
-							variant="destructive"
-							onClick={() => openReject(r.id)}
+						<button
+							type="button"
+							onClick={() => copyIban(r.iban ?? "")}
+							className="group/iban inline-flex items-center gap-1 font-mono text-muted-foreground text-xs hover:text-foreground"
+							title="IBAN kopieren"
 						>
-							<X /> Ablehnen
-						</DropdownMenuItem>
+							{formatIban(r.iban)}
+							<Copy className="size-3 opacity-0 transition-opacity group-hover/iban:opacity-100 max-md:opacity-100" />
+						</button>
 					)}
-				</DropdownMenuContent>
-			</DropdownMenu>
-		) : null;
+				</>
+			),
+			meta: { mobile: "meta" },
+		},
+		{
+			id: "receipt",
+			header: "Beleg",
+			cell: ({ row: { original: r } }) => (
+				<ReceiptLinks
+					receipts={r.receipts}
+					legacyUrl={r.receiptUrl}
+					legacyName={r.receiptName}
+				/>
+			),
+			meta: { mobile: "meta" },
+		},
+		{
+			id: "amount",
+			header: "Betrag",
+			cell: ({ row }) => formatEUR(row.original.amount),
+			meta: {
+				mobile: "subtitle",
+				className: "md:text-right",
+				cellClassName:
+					"font-semibold max-md:order-first max-md:font-bold max-md:text-foreground max-md:text-xl max-md:tracking-tight",
+			},
+		},
+		{
+			id: "status",
+			header: "Status",
+			cell: ({ row }) => (
+				<ReimbursementStatusBadge status={row.original.status} />
+			),
+			meta: { mobile: "meta" },
+		},
+	];
+	if (isTreasury) {
+		columns.push({
+			id: "actions",
+			header: () => <span className="sr-only">Aktionen</span>,
+			cell: ({ row }) => (
+				<div className="flex justify-end gap-1.5 max-md:w-full">
+					{primaryAction(row.original)}
+					{moreMenu(row.original)}
+				</div>
+			),
+			meta: {
+				mobile: "action",
+				className: "md:w-0",
+				cellClassName: "max-md:border-t max-md:pt-2.5",
+			},
+		});
+	}
 
 	return (
 		<div className="space-y-4">
@@ -255,147 +346,16 @@ export function ReimbursementQueueTab({
 						: "Für diesen Filter gibt es keine Anträge."}
 				</EmptyState>
 			) : (
-				<>
-					{/* Mobile: cards */}
-					<ul className="space-y-3 md:hidden">
-						{filtered.map((r) => (
-							<li
-								key={r.id}
-								className="overflow-hidden rounded-xl border bg-card shadow-xs"
-							>
-								<div className="space-y-2 p-4">
-									<div className="flex items-start justify-between gap-3">
-										<div className="font-bold text-xl tabular-nums tracking-tight">
-											{formatEUR(r.amount)}
-										</div>
-										<ReimbursementStatusBadge status={r.status} />
-									</div>
-									<p className="text-sm leading-snug">{r.description}</p>
-									<p className="text-muted-foreground text-xs">
-										{r.kostenpunkt?.category}
-										{r.kostenpunkt?.category && " › "}
-										<span className="text-foreground">
-											{r.kostenpunkt?.name ?? "—"}
-										</span>
-									</p>
-									<p className="text-muted-foreground text-xs">
-										{formatDate(r.expenseDate)} · {submitterLabel(r)}
-									</p>
-
-									{r.status === "Abgelehnt" && r.rejectionReason && (
-										<p className="rounded-lg bg-danger-muted px-3 py-2 text-danger-muted-foreground text-xs">
-											{r.rejectionReason}
-										</p>
-									)}
-
-									<div className="flex items-center justify-between gap-2 rounded-lg bg-muted/60 px-3 py-2">
-										<div className="min-w-0">
-											<div className="truncate text-sm">{r.recipientName}</div>
-											{r.iban && (
-												<div className="truncate font-mono text-muted-foreground text-xs">
-													{formatIban(r.iban)}
-												</div>
-											)}
-										</div>
-										{r.iban && (
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												aria-label="IBAN kopieren"
-												onClick={() => copyIban(r.iban ?? "")}
-											>
-												<Copy />
-											</Button>
-										)}
-									</div>
-
-									<ReceiptLinks
-										receipts={r.receipts}
-										legacyUrl={r.receiptUrl}
-										legacyName={r.receiptName}
-									/>
-								</div>
-								{isTreasury && (
-									<div className="flex items-center gap-2 border-t bg-muted/20 px-4 py-2.5">
-										{primaryAction(r, true) ?? <span className="flex-1" />}
-										{moreMenu(r, "default")}
-									</div>
-								)}
-							</li>
-						))}
-					</ul>
-
-					{/* Desktop: table */}
-					<div className="hidden overflow-hidden rounded-xl border bg-card shadow-xs md:block">
-						<Table>
-							<TableHeader>
-								<TableRow className="bg-muted/40 hover:bg-muted/40">
-									<TableHead className="pl-4">Antrag</TableHead>
-									<TableHead>Empfänger</TableHead>
-									<TableHead>Beleg</TableHead>
-									<TableHead className="text-right">Betrag</TableHead>
-									<TableHead>Status</TableHead>
-									{isTreasury && <TableHead className="w-0" />}
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{filtered.map((r) => (
-									<TableRow key={r.id} className="align-top">
-										<TableCell className="max-w-[320px] whitespace-normal pl-4">
-											<div className="font-medium">{r.description}</div>
-											<div className="text-muted-foreground text-xs">
-												{r.kostenpunkt?.category} › {r.kostenpunkt?.name ?? "—"}
-											</div>
-											<div className="text-muted-foreground text-xs">
-												{formatDate(r.expenseDate)} · {submitterLabel(r)}
-											</div>
-											{r.status === "Abgelehnt" && r.rejectionReason && (
-												<div className="mt-1 text-destructive text-xs">
-													{r.rejectionReason}
-												</div>
-											)}
-										</TableCell>
-										<TableCell>
-											<div>{r.recipientName}</div>
-											{r.iban && (
-												<button
-													type="button"
-													onClick={() => copyIban(r.iban ?? "")}
-													className="group/iban inline-flex items-center gap-1 font-mono text-muted-foreground text-xs hover:text-foreground"
-													title="IBAN kopieren"
-												>
-													{formatIban(r.iban)}
-													<Copy className="size-3 opacity-0 transition-opacity group-hover/iban:opacity-100" />
-												</button>
-											)}
-										</TableCell>
-										<TableCell>
-											<ReceiptLinks
-												receipts={r.receipts}
-												legacyUrl={r.receiptUrl}
-												legacyName={r.receiptName}
-											/>
-										</TableCell>
-										<TableCell className="text-right font-semibold tabular-nums">
-											{formatEUR(r.amount)}
-										</TableCell>
-										<TableCell>
-											<ReimbursementStatusBadge status={r.status} />
-										</TableCell>
-										{isTreasury && (
-											<TableCell>
-												<div className="flex justify-end gap-1.5">
-													{primaryAction(r)}
-													{moreMenu(r)}
-												</div>
-											</TableCell>
-										)}
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</div>
-				</>
+				<div className="md:overflow-hidden md:rounded-xl md:border md:bg-card md:shadow-xs">
+					<DataList
+						data={filtered}
+						columns={columns}
+						getRowId={(r) => r.id}
+						caption="Kostenerstattungen"
+						headerClassName="bg-muted/40 hover:bg-muted/40"
+						rowClassName="align-top max-md:rounded-xl max-md:p-4 max-md:shadow-xs"
+					/>
+				</div>
 			)}
 
 			<Dialog

@@ -2,6 +2,7 @@
 
 import { formatEUR } from "~/lib/format";
 import { Button } from "../ui/button";
+import { DataList, type DataListColumn } from "../ui/data-list";
 import {
 	Dialog,
 	DialogContent,
@@ -9,15 +10,43 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "../ui/dialog";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "../ui/table";
 import type { BillingEntry } from "./BillingDashboard";
+
+type BillItem = BillingEntry["items"][number];
+
+const ITEM_COLUMNS: DataListColumn<BillItem>[] = [
+	{
+		id: "name",
+		header: "Artikel",
+		cell: ({ row }) => row.original.name,
+		meta: {
+			mobile: "title",
+			className: "font-medium max-md:break-words max-md:text-sm",
+		},
+	},
+	{
+		id: "quantity",
+		header: "Anzahl",
+		cell: ({ row }) => row.original.quantity,
+		meta: { mobile: "meta", className: "md:text-right" },
+	},
+	{
+		id: "unitPrice",
+		header: "Einzelpreis",
+		cell: ({ row }) => formatEUR(row.original.unitPrice),
+		meta: { mobile: "meta", className: "md:text-right" },
+	},
+	{
+		id: "subtotal",
+		header: "Zwischensumme",
+		cell: ({ row }) => formatEUR(row.original.subtotal),
+		meta: {
+			mobile: "meta",
+			className: "font-medium md:text-right",
+			cellClassName: "max-md:border-t max-md:pt-1.5 max-md:font-semibold",
+		},
+	},
+];
 
 /** The non-zero bill parts besides the drinks, so the lines add up to Gesamt. */
 function billExtras(entry: BillingEntry): Array<[string, number]> {
@@ -43,66 +72,13 @@ export const DefaultDetailsDialog = ({ entry }: { entry: BillingEntry }) => (
 				</DialogTitle>
 			</DialogHeader>
 			<div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
-				{/* Desktop Table View */}
-				<div className="hidden sm:block">
-					<Table>
-						<TableHeader>
-							<TableRow>
-								<TableHead>Artikel</TableHead>
-								<TableHead className="text-right">Anzahl</TableHead>
-								<TableHead className="text-right">Einzelpreis</TableHead>
-								<TableHead className="text-right">Zwischensumme</TableHead>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{entry.items.map((item) => (
-								<TableRow key={item.id}>
-									<TableCell className="font-medium">{item.name}</TableCell>
-									<TableCell className="text-right">{item.quantity}</TableCell>
-									<TableCell className="text-right">
-										{formatEUR(item.unitPrice)}
-									</TableCell>
-									<TableCell className="text-right font-medium">
-										{formatEUR(item.subtotal)}
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				</div>
-
-				{/* Mobile Card View */}
-				<div className="space-y-3 sm:hidden">
-					{entry.items.map((item) => (
-						<div key={item.id} className="space-y-2 rounded-lg bg-muted p-3">
-							<div className="break-words font-medium text-sm leading-tight">
-								{item.name}
-							</div>
-							<div className="space-y-1.5 text-sm">
-								<div className="flex items-center justify-between">
-									<span className="text-muted-foreground text-xs">Anzahl:</span>
-									<span className="font-medium">{item.quantity}</span>
-								</div>
-								<div className="flex items-center justify-between">
-									<span className="text-muted-foreground text-xs">
-										Einzelpreis:
-									</span>
-									<span className="font-medium">
-										{formatEUR(item.unitPrice)}
-									</span>
-								</div>
-								<div className="flex items-center justify-between border-border border-t pt-1.5">
-									<span className="text-muted-foreground text-xs">
-										Zwischensumme:
-									</span>
-									<span className="font-semibold text-sm">
-										{formatEUR(item.subtotal)}
-									</span>
-								</div>
-							</div>
-						</div>
-					))}
-				</div>
+				<DataList
+					data={entry.items}
+					columns={ITEM_COLUMNS}
+					getRowId={(item) => item.id}
+					caption="Artikel"
+					rowClassName="max-md:border-0 max-md:bg-muted"
+				/>
 
 				{billExtras(entry).length > 0 && (
 					<dl className="space-y-1 border-border border-t pt-4 text-sm">

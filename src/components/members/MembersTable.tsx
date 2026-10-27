@@ -1,19 +1,11 @@
 "use client";
 
+import type { VisibilityState } from "@tanstack/react-table";
 import {
-	type ColumnDef,
-	flexRender,
-	getCoreRowModel,
-	useReactTable,
-	type VisibilityState,
-} from "@tanstack/react-table";
-import {
-	Cake,
 	ChevronLeft,
 	ChevronRight,
 	Link2,
 	Mail,
-	MapPin,
 	Pencil,
 	Phone,
 	Search,
@@ -31,9 +23,9 @@ import {
 	useTransition,
 } from "react";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
+import { DataList, type DataListColumn } from "~/components/ui/data-list";
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
@@ -51,7 +43,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { StatusBadge } from "~/components/ui/status-badge";
 import { cn } from "~/lib/utils";
 import {
 	type MemberListItem,
@@ -60,7 +51,6 @@ import {
 import { MemberStatusBadge } from "./MemberStatusBadge";
 import {
 	avatarColorClasses,
-	formatMemberAddress,
 	MEMBER_STATUS_OPTIONS,
 	memberInitials,
 } from "./member-constants";
@@ -84,8 +74,6 @@ import {
 	withoutDrafts,
 } from "./member-edits";
 
-type ColMeta = { thClass?: string; tdClass?: string };
-
 /** How long "Rückgängig" stays available after a save. */
 const UNDO_MS = 10_000;
 
@@ -94,9 +82,12 @@ const INPUT_CLS =
 	// Unsaved: amber frame and tint. Saving: dimmed. Failed: red frame.
 	"data-[state=dirty]:border-warning-muted-foreground data-[state=dirty]:bg-warning-muted data-[state=saving]:opacity-60 aria-invalid:border-destructive aria-invalid:bg-danger-muted";
 
+// Header and cell styles of the wide table (from md up; below md every row
+// is a card, see DataList).
 const BASE_TH =
-	"sticky top-0 z-20 whitespace-nowrap border-border border-b bg-card px-3 py-2.5 text-left align-middle font-medium text-muted-foreground text-xs uppercase tracking-wide";
-const BASE_TD = "border-border/50 border-t px-1 py-0.5 align-middle text-sm";
+	"sticky top-0 z-20 h-auto whitespace-nowrap border-border border-b bg-card px-3 py-2.5 text-left align-middle font-medium text-muted-foreground text-xs uppercase tracking-wide";
+const BASE_TD =
+	"align-middle text-sm md:border-border/50 md:border-t md:px-1 md:py-0.5";
 
 type CellStatus = "saving" | { error: string } | undefined;
 
@@ -591,17 +582,20 @@ export function MembersTable({
 		};
 	};
 
-	const cols: ColumnDef<MemberListItem>[] = [
+	const cols: DataListColumn<MemberListItem>[] = [
 		{
 			id: "identity",
 			header: "Mitglied",
 			enableHiding: false,
 			cell: ({ row }) => <Identity m={row.original} />,
 			meta: {
-				thClass: "left-0 z-30! min-w-[210px] bg-card",
-				tdClass:
-					"sticky left-0 z-10 min-w-[210px] bg-card font-normal group-hover:bg-muted/40",
-			} satisfies ColMeta,
+				mobile: "title",
+				headerClassName: cn(BASE_TH, "left-0 z-30! min-w-[210px] bg-card"),
+				cellClassName: cn(
+					BASE_TD,
+					"font-normal md:sticky md:left-0 md:z-10 md:min-w-[210px] md:bg-card md:group-hover:bg-muted/40",
+				),
+			},
 		},
 		{
 			id: "status",
@@ -617,13 +611,14 @@ export function MembersTable({
 				/>
 			),
 			meta: {
-				thClass: "min-w-[120px]",
-				tdClass: "min-w-[120px]",
-			} satisfies ColMeta,
+				mobile: "subtitle",
+				headerClassName: cn(BASE_TH, "min-w-[120px]"),
+				cellClassName: cn(BASE_TD, "md:min-w-[120px]"),
+			},
 		},
 	];
 	for (const c of TEXT_COLS) {
-		const border = c.border ? "border-border/60 border-l" : "";
+		const border = c.border ? "md:border-border/60 md:border-l" : "";
 		cols.push({
 			id: c.key,
 			header: c.header,
@@ -638,13 +633,14 @@ export function MembersTable({
 				/>
 			),
 			meta: {
-				thClass: cn(c.w, border),
-				tdClass: cn(c.w, border),
-			} satisfies ColMeta,
+				mobile: "meta",
+				headerClassName: cn(BASE_TH, c.w, border),
+				cellClassName: cn(BASE_TD, c.w, border),
+			},
 		});
 	}
 	for (const c of BOOL_COLS) {
-		const border = c.border ? "border-border/60 border-l" : "";
+		const border = c.border ? "md:border-border/60 md:border-l" : "";
 		cols.push({
 			id: c.key,
 			header: c.header,
@@ -655,7 +651,7 @@ export function MembersTable({
 				const draft = drafts[id]?.to;
 				const status = cellStatus[id];
 				return (
-					<div className="flex justify-center">
+					<div className="flex md:justify-center">
 						<Checkbox
 							checked={typeof draft === "boolean" ? draft : saved}
 							disabled={!canEdit || status === "saving"}
@@ -672,49 +668,77 @@ export function MembersTable({
 				);
 			},
 			meta: {
-				thClass: cn("text-center!", border),
-				tdClass: cn("text-center!", border),
-			} satisfies ColMeta,
+				mobile: "meta",
+				label: c.label,
+				headerClassName: cn(BASE_TH, "text-center!", border),
+				cellClassName: cn(BASE_TD, "md:text-center!", border),
+			},
 		});
 	}
 	cols.push({
 		id: "actions",
-		header: "Aktionen",
+		header: () => <span className="sr-only">Aktionen</span>,
 		enableHiding: false,
-		cell: ({ row }) =>
-			canEdit ? (
-				<div className="flex justify-end gap-0.5 px-1">
+		cell: ({ row: { original: m } }) => (
+			<div className="flex justify-end gap-0.5 px-1 max-md:w-full max-md:gap-2 max-md:px-0">
+				{/* Phones: mail and call straight from the card. */}
+				{m.email && (
 					<IconButton
-						size="icon-sm"
-						label={`${memberName(row.original)} bearbeiten`}
-						onClick={() => onEditFull(row.original)}
+						asChild
+						variant="outline"
+						label={`E-Mail an ${memberName(m)}`}
+						className="md:hidden"
 					>
-						<Pencil className="h-4 w-4" />
+						<a href={`mailto:${m.email}`}>
+							<Mail className="h-4 w-4" />
+						</a>
 					</IconButton>
+				)}
+				{(m.mobile || m.phonePrivate) && (
 					<IconButton
-						size="icon-sm"
-						label={`${memberName(row.original)} löschen`}
-						className="text-muted-foreground hover:text-destructive"
-						onClick={() => onRequestDelete(row.original)}
+						asChild
+						variant="outline"
+						label={`${memberName(m)} anrufen`}
+						className="md:hidden"
 					>
-						<Trash2 className="h-4 w-4" />
+						<a href={`tel:${m.mobile || m.phonePrivate}`}>
+							<Phone className="h-4 w-4" />
+						</a>
 					</IconButton>
-				</div>
-			) : null,
+				)}
+				{canEdit && (
+					<>
+						<IconButton
+							size="icon-sm"
+							label={`${memberName(m)} bearbeiten`}
+							className="max-md:size-9"
+							onClick={() => onEditFull(m)}
+						>
+							<Pencil className="h-4 w-4" />
+						</IconButton>
+						<IconButton
+							size="icon-sm"
+							label={`${memberName(m)} löschen`}
+							className="text-muted-foreground hover:text-destructive max-md:size-9"
+							onClick={() => onRequestDelete(m)}
+						>
+							<Trash2 className="h-4 w-4" />
+						</IconButton>
+					</>
+				)}
+			</div>
+		),
 		meta: {
-			thClass: "right-0 z-30! w-[84px] border-border/60 border-l bg-card",
-			tdClass:
-				"sticky right-0 z-10 w-[84px] border-border/60 border-l bg-card group-hover:bg-muted/40",
-		} satisfies ColMeta,
-	});
-
-	const table = useReactTable({
-		data: visibleRows,
-		columns: cols,
-		getRowId: (m) => m.id,
-		state: { columnVisibility },
-		onColumnVisibilityChange: setColumnVisibility,
-		getCoreRowModel: getCoreRowModel(),
+			mobile: "action",
+			headerClassName: cn(
+				BASE_TH,
+				"right-0 z-30! w-[84px] border-border/60 border-l bg-card",
+			),
+			cellClassName: cn(
+				BASE_TD,
+				"md:sticky md:right-0 md:z-10 md:w-[84px] md:border-border/60 md:border-l md:bg-card md:group-hover:bg-muted/40",
+			),
+		},
 	});
 
 	const errors = Object.entries(cellStatus).flatMap(([id, s]) =>
@@ -780,17 +804,21 @@ export function MembersTable({
 							>
 								<DropdownMenuLabel>Spalten anzeigen</DropdownMenuLabel>
 								<DropdownMenuSeparator />
-								{table
-									.getAllColumns()
-									.filter((c) => c.getCanHide())
+								{cols
+									.filter((c) => c.enableHiding !== false)
 									.map((c) => (
 										<DropdownMenuCheckboxItem
 											key={c.id}
-											checked={c.getIsVisible()}
-											onCheckedChange={(v) => c.toggleVisibility(!!v)}
+											checked={columnVisibility[c.id ?? ""] !== false}
+											onCheckedChange={(v) =>
+												setColumnVisibility((prev) => ({
+													...prev,
+													[c.id ?? ""]: !!v,
+												}))
+											}
 											onSelect={(e) => e.preventDefault()}
 										>
-											{String(c.columnDef.header)}
+											{String(c.header)}
 										</DropdownMenuCheckboxItem>
 									))}
 							</DropdownMenuContent>
@@ -840,247 +868,60 @@ export function MembersTable({
 				</span>
 			))}
 
-			{/* Mobile: member cards */}
-			<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:hidden">
-				{visibleRows.length === 0 ? (
-					<p className="col-span-full py-12 text-center text-muted-foreground text-sm">
-						Keine Mitglieder gefunden.
-					</p>
-				) : (
-					visibleRows.map((m) => {
-						const address = formatMemberAddress(m);
-						return (
-							<div
-								key={m.id}
-								className="rounded-xl border bg-card p-4 shadow-sm transition-shadow hover:shadow-md"
-							>
-								<div className="flex items-start gap-3">
-									<Avatar size="lg" className="shrink-0" aria-hidden="true">
-										<AvatarFallback
-											className={cn(
-												"font-semibold text-sm",
-												avatarColorClasses(m.lastName + m.firstName),
-											)}
-										>
-											{memberInitials(m.firstName, m.lastName)}
-										</AvatarFallback>
-									</Avatar>
-									<div className="min-w-0 flex-1">
-										<div className="flex items-start justify-between gap-2">
-											<div className="min-w-0">
-												<div className="truncate font-semibold">
-													{memberName(m)}
-												</div>
-												{m.title && (
-													<div className="truncate text-muted-foreground text-xs">
-														{m.title}
-													</div>
-												)}
-											</div>
-											{m.linked && (
-												<Link2
-													role="img"
-													aria-label="Mit App-Account verknüpft"
-													className="mt-1 h-4 w-4 shrink-0 text-muted-foreground"
-												/>
-											)}
-										</div>
-										<div className="mt-1.5">
-											<MemberStatusBadge status={m.status} />
-										</div>
-									</div>
-								</div>
+			{canEdit && (
+				<p
+					id={ids.hint}
+					className="text-muted-foreground text-xs max-md:hidden"
+				>
+					Zelle anklicken und tippen: <kbd>Enter</kbd> speichert, <kbd>Esc</kbd>{" "}
+					verwirft, <kbd>↑</kbd>/<kbd>↓</kbd> wechselt die Zeile. Nicht
+					gespeicherte Felder sind gelb markiert.
+				</p>
+			)}
 
-								<div className="mt-3 space-y-1.5 text-sm">
-									{m.email && (
-										<a
-											href={`mailto:${m.email}`}
-											className="flex items-center gap-2 text-foreground hover:text-primary"
-										>
-											<Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
-											<span className="truncate">{m.email}</span>
-										</a>
-									)}
-									{(m.mobile || m.phonePrivate) && (
-										<a
-											href={`tel:${m.mobile || m.phonePrivate}`}
-											className="flex items-center gap-2 text-foreground hover:text-primary"
-										>
-											<Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
-											<span className="truncate">
-												{m.mobile || m.phonePrivate}
-											</span>
-										</a>
-									)}
-									{address && (
-										<div className="flex items-start gap-2 text-muted-foreground">
-											<MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-											<span>{address}</span>
-										</div>
-									)}
-									{m.birthday && (
-										<div className="flex items-center gap-2 text-muted-foreground">
-											<Cake className="h-4 w-4 shrink-0" />
-											<span>{m.birthday}</span>
-										</div>
-									)}
-								</div>
-
-								{(m.lettersOptOut || m.addressNeedsUpdate || m.forwarding) && (
-									<div className="mt-3 flex flex-wrap gap-1.5">
-										{m.addressNeedsUpdate && (
-											<StatusBadge tone="warning">Adresse veraltet</StatusBadge>
-										)}
-										{m.lettersOptOut && (
-											<Badge variant="secondary">Nur E-Mail</Badge>
-										)}
-										{m.forwarding && (
-											<Badge variant="outline">Weiterleitung</Badge>
-										)}
-									</div>
-								)}
-
-								{canEdit && (
-									<div className="mt-4 flex gap-2">
-										<Button
-											variant="outline"
-											size="sm"
-											className="flex-1"
-											onClick={() => onEditFull(m)}
-											aria-label={`${memberName(m)} bearbeiten`}
-										>
-											<Pencil className="mr-1 h-4 w-4" /> Bearbeiten
-										</Button>
-										<IconButton
-											label={`${memberName(m)} löschen`}
-											className="text-muted-foreground hover:text-destructive"
-											onClick={() => onRequestDelete(m)}
-										>
-											<Trash2 className="h-4 w-4" />
-										</IconButton>
-									</div>
-								)}
-							</div>
-						);
-					})
-				)}
+			{/* One list: an editable table from md up, a card per member below. */}
+			<div className="md:overflow-hidden md:rounded-xl md:border md:bg-card md:shadow-sm">
+				<DataList
+					data={visibleRows}
+					columns={cols}
+					getRowId={(m) => m.id}
+					caption="Mitglieder"
+					columnVisibility={columnVisibility}
+					empty={
+						<p className="py-12 text-center text-muted-foreground text-sm">
+							Keine Mitglieder gefunden.
+						</p>
+					}
+					className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					containerProps={{
+						ref: scrollRef,
+						onScroll: updateOverflow,
+						// Wide table: keyboard users can focus the region to scroll
+						// it (WCAG 2.1.1).
+						tabIndex: 0,
+						role: "region",
+						"aria-label": "Mitgliedertabelle, seitlich scrollbar",
+					}}
+					tableProps={{
+						className: "border-collapse",
+						"aria-describedby": canEdit ? ids.hint : undefined,
+					}}
+					bodyClassName="sm:max-md:grid-cols-2"
+					rowClassName="group hover:bg-muted/40 md:border-b-0 max-md:rounded-xl max-md:p-4 max-md:shadow-sm"
+				/>
 			</div>
 
-			{/* Desktop: editable table (horizontal scroll; page scrolls vertically) */}
-			<div className="hidden space-y-2 md:block">
-				{canEdit && (
-					<p id={ids.hint} className="text-muted-foreground text-xs">
-						Zelle anklicken und tippen: <kbd>Enter</kbd> speichert,{" "}
-						<kbd>Esc</kbd> verwirft, <kbd>↑</kbd>/<kbd>↓</kbd> wechselt die
-						Zeile. Nicht gespeicherte Felder sind gelb markiert.
-					</p>
-				)}
-				<div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-					<div
-						ref={scrollRef}
-						onScroll={updateOverflow}
-						className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						// Wide table: keyboard users can focus the region to scroll it.
-						// biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must be focusable (WCAG 2.1.1)
-						tabIndex={0}
-						role="region"
-						aria-label="Mitgliedertabelle, seitlich scrollbar"
-					>
-						<table
-							className="w-full border-collapse"
-							aria-describedby={canEdit ? ids.hint : undefined}
-						>
-							<caption className="sr-only">Mitglieder</caption>
-							<thead>
-								{table.getHeaderGroups().map((hg) => (
-									<tr key={hg.id}>
-										{hg.headers.map((h) => {
-											const meta = h.column.columnDef.meta as
-												| ColMeta
-												| undefined;
-											const actions = h.column.id === "actions";
-											return (
-												<th
-													key={h.id}
-													scope="col"
-													className={cn(BASE_TH, meta?.thClass)}
-												>
-													{h.isPlaceholder ? null : actions ? (
-														<span className="sr-only">Aktionen</span>
-													) : (
-														flexRender(
-															h.column.columnDef.header,
-															h.getContext(),
-														)
-													)}
-												</th>
-											);
-										})}
-									</tr>
-								))}
-							</thead>
-							<tbody>
-								{table.getRowModel().rows.length === 0 ? (
-									<tr>
-										<td
-											colSpan={table.getVisibleLeafColumns().length}
-											className="h-28 text-center text-muted-foreground text-sm"
-										>
-											Keine Mitglieder gefunden.
-										</td>
-									</tr>
-								) : (
-									table.getRowModel().rows.map((row) => (
-										<tr
-											key={row.id}
-											className="group transition-colors hover:bg-muted/40"
-										>
-											{row.getVisibleCells().map((cell) => {
-												const meta = cell.column.columnDef.meta as
-													| ColMeta
-													| undefined;
-												const content = flexRender(
-													cell.column.columnDef.cell,
-													cell.getContext(),
-												);
-												// The member column names the row for every cell in it.
-												return cell.column.id === "identity" ? (
-													<th
-														key={cell.id}
-														scope="row"
-														className={cn(BASE_TD, "text-left", meta?.tdClass)}
-													>
-														{content}
-													</th>
-												) : (
-													<td
-														key={cell.id}
-														className={cn(BASE_TD, meta?.tdClass)}
-													>
-														{content}
-													</td>
-												);
-											})}
-										</tr>
-									))
-								)}
-							</tbody>
-						</table>
-					</div>
-				</div>
-
-				{showBar && (
-					<SaveBar
-						result={result}
-						pending={pendingCount}
-						saving={saving}
-						onSave={() => save(Object.values(drafts))}
-						onDiscard={discardAll}
-						onUndo={(changes) => save(inverse(changes), { undo: true })}
-						onDismiss={() => setResult(null)}
-					/>
-				)}
-			</div>
+			{showBar && (
+				<SaveBar
+					result={result}
+					pending={pendingCount}
+					saving={saving}
+					onSave={() => save(Object.values(drafts))}
+					onDiscard={discardAll}
+					onUndo={(changes) => save(inverse(changes), { undo: true })}
+					onDismiss={() => setResult(null)}
+				/>
+			)}
 		</div>
 	);
 }

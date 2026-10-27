@@ -60,7 +60,7 @@ describe("status colours come from theme tokens (#76)", () => {
 		"src/components/profile/achievement-ui.tsx": 16,
 		"src/components/eloranking/leaderboard-client.tsx": 8,
 		"src/components/semesterprogramm/WeekPreview.tsx": 7,
-		"src/components/orders/Orderspage.tsx": 6,
+		"src/components/orders/Orderspage.tsx": 3,
 		"src/components/bilder/DraggableImageGrid.tsx": 2,
 		"src/components/bilder/OptimizedImagePreview.tsx": 1,
 		"src/components/getraenkewart/KasseTab.tsx": 1,
@@ -487,5 +487,113 @@ describe("edits are saved on purpose, not on blur (#88)", () => {
 			}
 		}
 		expect(saving).toEqual([]);
+	});
+});
+
+describe("one responsive list instead of a table plus cards (#89)", () => {
+	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
+	const key = (f: string) => f.split(path.sep).join("/");
+
+	/** Children of the element whose opening tag starts at `from`, with
+	 *  nested elements of the same tag balanced. */
+	function children(source: string, from: number, tag: string): string {
+		const end = openingTagEnd(source, from + tag.length + 1);
+		if (source[end - 1] === "/") {
+			return "";
+		}
+		const rest = source.slice(end + 1);
+		const re = new RegExp(`<(/?)${tag.replace(".", "\\.")}(?=[\\s/>])`, "g");
+		let depth = 1;
+		for (const m of rest.matchAll(re)) {
+			const at = end + 1 + (m.index ?? 0);
+			if (m[1]) {
+				depth--;
+				if (depth === 0) {
+					return source.slice(end + 1, at);
+				}
+			} else if (
+				source[openingTagEnd(source, at + tag.length + 1) - 1] !== "/"
+			) {
+				depth++;
+			}
+		}
+		return rest;
+	}
+
+	// `md:hidden` (phones only) and `hidden md:block` (desktop only).
+	const PHONE_ONLY = /(?<![\w:-])(?:sm|md|lg):hidden(?![\w-])/;
+	const DESKTOP_ONLY =
+		/(?<![\w:-])hidden\s+(?:[\w:/[\].-]+\s+)*?(?:sm|md|lg):(?:block|flex|grid|table|inline|inline-flex|inline-block)(?![\w-])/;
+	/** `rows.map(`, `sortRows(rows).map(` */
+	const MAPPED = /([\w$.?]+(?:\([^()]*\))?)\.map\(/g;
+	const TABLE = /<(?:table|Table)[\s>]|getRowModel\(\)/;
+
+	/**
+	 * Lists rendered in a phone-only and again in a desktop-only element of
+	 * the same file: the same array mapped in both, or cards on phones next
+	 * to a desktop-only table.
+	 */
+	function twiceRendered(source: string): string[] {
+		const phone = new Set<string>();
+		const desktop = new Set<string>();
+		let desktopTable = false;
+		for (const m of source.matchAll(/<([A-Za-z][\w.]*)(?=[\s>])/g)) {
+			const tag = m[1] as string;
+			const at = m.index ?? 0;
+			const attrs = source.slice(
+				at,
+				openingTagEnd(source, at + tag.length + 1),
+			);
+			const isPhone = PHONE_ONLY.test(attrs);
+			if (!/className=/.test(attrs) || !(isPhone || DESKTOP_ONLY.test(attrs))) {
+				continue;
+			}
+			const inner = children(source, at, tag);
+			desktopTable ||= !isPhone && TABLE.test(inner);
+			for (const map of inner.matchAll(MAPPED)) {
+				(isPhone ? phone : desktop).add(map[1] as string);
+			}
+		}
+		const twice = [...phone].filter((array) => desktop.has(array));
+		if (twice.length === 0 && desktopTable && phone.size > 0) {
+			return [`${[...phone].join(", ")} (cards next to a desktop table)`];
+		}
+		return twice;
+	}
+
+	test("the heuristic spots a table plus cards over the same rows", () => {
+		const twice = `
+			<div className="space-y-3 md:hidden">
+				{rows.map((r) => <div key={r.id}><div>{r.name}</div></div>)}
+			</div>
+			<div className="hidden rounded-md md:block">
+				<Table>{rows.map((r) => <TableRow key={r.id} />)}</Table>
+			</div>`;
+		expect(twiceRendered(twice)).toEqual(["rows"]);
+		const sorted = `
+			<div className="sm:hidden">{sort(rows).map((r) => <b key={r} />)}</div>
+			<div className="hidden sm:block">{sort(rows).map((r) => <i key={r} />)}</div>`;
+		expect(twiceRendered(sorted)).toEqual(["sort(rows)"]);
+		const tanstack = `
+			<div className="md:hidden">{visible.map((r) => <b key={r} />)}</div>
+			<div className="hidden md:block"><table>{rowModel.rows.map(cell)}</table></div>`;
+		expect(twiceRendered(tanstack)).toHaveLength(1);
+		const once = `
+			<div className="md:hidden">{tabs.map((t) => <b key={t} />)}</div>
+			<div className="hidden md:flex">{rows.map((r) => <i key={r} />)}</div>
+			<TableHead className="hidden sm:table-cell">Datum</TableHead>
+			<DataList data={rows} columns={columns} />`;
+		expect(twiceRendered(once)).toEqual([]);
+	});
+
+	test("no list renders its rows twice (use DataList)", () => {
+		const twice = [
+			...UI_FILES,
+			...sourceFiles(path.join("src", "components", "ui")),
+		]
+			.map((f) => ({ f, arrays: twiceRendered(read(f)) }))
+			.filter(({ arrays }) => arrays.length > 0)
+			.map(({ f, arrays }) => `${key(f)}: ${arrays.join(", ")}`);
+		expect(twice).toEqual([]);
 	});
 });

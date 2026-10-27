@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { DataList, type DataListColumn } from "~/components/ui/data-list";
 import { EmptyState } from "~/components/ui/empty-state";
 import { ErrorState } from "~/components/ui/error-state";
 import { IconButton } from "~/components/ui/icon-button";
@@ -26,14 +27,6 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "~/components/ui/sheet";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "~/components/ui/table";
 import { formatDate, formatEUR, formatTime } from "~/lib/format";
 import {
 	getTransactionCount,
@@ -333,182 +326,120 @@ const MobileFilterSheet = ({
 	</Sheet>
 );
 
-// Component: Mobile Transaction Card
-const MobileTransactionCard = ({
-	transaction,
-}: {
-	transaction: Transaction;
-}) => (
-	<Card className="mb-3">
-		<CardContent className="p-4">
-			<div className="mb-3 flex items-start justify-between">
-				<div className="flex-1">
-					<div className="font-semibold text-base">{transaction.userName}</div>
-					<div className="text-muted-foreground text-sm">
-						{transaction.drinkName}
-					</div>
-				</div>
-				<div className="text-right">
-					<div className="font-bold text-base">
-						{formatEUR(transaction.total)}
-					</div>
-					<div className="text-muted-foreground text-xs">
-						{transaction.amount}x @ {formatEUR(transaction.pricePerUnit)}
-					</div>
-				</div>
-			</div>
+const ADMIN_BADGE = "border-purple-300 bg-purple-50 text-purple-700";
 
-			<div className="flex flex-wrap items-center gap-2 text-xs">
-				<Badge
-					variant={transaction.inBill ? "default" : "outline"}
-					className="text-xs"
-				>
-					{transaction.inBill ? "Abgerechnet" : "Offen"}
+const hasPurpose = (t: Transaction) =>
+	!!t.bookingFor && t.bookingFor.trim() !== "";
+
+const TRANSACTION_COLUMNS: DataListColumn<Transaction>[] = [
+	{
+		id: "user",
+		header: "Käufer",
+		cell: ({ row }) => row.original.userName,
+		meta: { mobile: "title", className: "font-medium max-md:font-semibold" },
+	},
+	{
+		id: "drink",
+		header: "Getränk",
+		cell: ({ row }) => row.original.drinkName,
+		meta: { mobile: "subtitle" },
+	},
+	{
+		id: "amount",
+		header: "Menge",
+		cell: ({ row }) => `${row.original.amount}x`,
+		meta: { mobile: "meta", className: "font-mono" },
+	},
+	{
+		id: "pricePerUnit",
+		header: "Preis/Einheit",
+		cell: ({ row }) => formatEUR(row.original.pricePerUnit),
+		meta: { mobile: "meta", className: "font-mono" },
+	},
+	{
+		id: "total",
+		header: "Gesamt",
+		cell: ({ row }) => formatEUR(row.original.total),
+		meta: { mobile: "meta", className: "font-mono font-semibold" },
+	},
+	{
+		id: "purpose",
+		header: "Zweck",
+		cell: ({ row: { original: t } }) =>
+			hasPurpose(t) ? (
+				<Badge variant="secondary">{t.bookingFor}</Badge>
+			) : (
+				<span className="text-muted-foreground">Persönlich</span>
+			),
+		meta: { mobile: "meta" },
+	},
+	{
+		id: "bookedBy",
+		header: "Gebucht von",
+		cell: ({ row: { original: t } }) =>
+			t.bookedByAdminName ? (
+				<Badge variant="outline" className={ADMIN_BADGE}>
+					{t.bookedByAdminName}
 				</Badge>
-				{transaction.bookingFor && transaction.bookingFor.trim() !== "" && (
-					<Badge variant="secondary" className="text-xs">
-						{transaction.bookingFor}
-					</Badge>
-				)}
-				{transaction.bookedByAdminName && (
-					<Badge
-						variant="outline"
-						className="border-purple-300 bg-purple-50 text-purple-700 text-xs"
-					>
-						Admin: {transaction.bookedByAdminName}
-					</Badge>
-				)}
-				<span className="ml-auto text-muted-foreground">
-					{formatDate(transaction.createdAt)} •{" "}
-					{formatTime(transaction.createdAt, { seconds: true })}
-				</span>
-			</div>
-		</CardContent>
-	</Card>
-);
+			) : (
+				<span className="text-muted-foreground">—</span>
+			),
+		meta: { mobile: "meta" },
+	},
+	{
+		id: "date",
+		header: "Datum",
+		cell: ({ row }) => formatDate(row.original.createdAt),
+		meta: { mobile: "meta" },
+	},
+	{
+		id: "time",
+		header: "Uhrzeit",
+		cell: ({ row }) => formatTime(row.original.createdAt, { seconds: true }),
+		meta: { mobile: "meta", className: "font-mono" },
+	},
+	{
+		id: "billStatus",
+		header: "Rechnungsstatus",
+		cell: ({ row: { original: t } }) => (
+			<Badge variant={t.inBill ? "default" : "outline"}>
+				{t.inBill ? "Abgerechnet" : "Offen"}
+			</Badge>
+		),
+		meta: { mobile: "meta" },
+	},
+];
 
-// Component: Mobile Transaction List
-interface MobileTransactionListProps {
+// Component: Transaction list (table from md up, cards below)
+interface TransactionListProps {
 	transactions: Transaction[];
-	loading: boolean;
 	hasFilters: boolean;
 }
 
-const MobileTransactionList = ({
+const TransactionList = ({
 	transactions,
-	loading: _loading,
 	hasFilters,
-}: MobileTransactionListProps) => (
-	<div className="sm:hidden">
-		<h2 className="mb-3 font-semibold text-lg">
-			Transaktionen ({transactions.length})
-		</h2>
-		{transactions.length > 0 ? (
-			<div>
-				{transactions.map((transaction) => (
-					<MobileTransactionCard
-						key={transaction.id}
-						transaction={transaction}
-					/>
-				))}
-			</div>
-		) : (
-			<Card>
-				<CardContent className="p-0">
-					<TransactionsEmpty hasFilters={hasFilters} />
-				</CardContent>
-			</Card>
-		)}
-	</div>
-);
-
-// Component: Desktop Transaction Table
-interface DesktopTransactionTableProps {
-	transactions: Transaction[];
-	loading: boolean;
-	hasFilters: boolean;
-}
-
-const DesktopTransactionTable = ({
-	transactions,
-	loading,
-	hasFilters,
-}: DesktopTransactionTableProps) => (
-	<Card className="hidden sm:block">
-		<CardHeader>
-			<CardTitle>
+}: TransactionListProps) => (
+	<Card className="max-md:gap-3 max-md:overflow-visible max-md:bg-transparent max-md:py-0 max-md:shadow-none max-md:ring-0">
+		<CardHeader className="max-md:px-0">
+			<CardTitle className="max-md:font-semibold max-md:text-lg">
 				Transaktionsverlauf ({transactions.length} Transaktionen)
 			</CardTitle>
 		</CardHeader>
-		<CardContent>
-			<div className="rounded-md border">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Käufer</TableHead>
-							<TableHead>Getränk</TableHead>
-							<TableHead>Menge</TableHead>
-							<TableHead>Preis/Einheit</TableHead>
-							<TableHead>Gesamt</TableHead>
-							<TableHead>Zweck</TableHead>
-							<TableHead>Gebucht von</TableHead>
-							<TableHead>Datum</TableHead>
-							<TableHead>Uhrzeit</TableHead>
-							<TableHead>Rechnungsstatus</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{transactions.map((transaction) => (
-							<TableRow key={transaction.id} className="hover:bg-muted/50">
-								<TableCell className="font-medium">
-									{transaction.userName}
-								</TableCell>
-								<TableCell>{transaction.drinkName}</TableCell>
-								<TableCell className="font-mono">
-									{transaction.amount}x
-								</TableCell>
-								<TableCell className="font-mono">
-									{formatEUR(transaction.pricePerUnit)}
-								</TableCell>
-								<TableCell className="font-mono font-semibold">
-									{formatEUR(transaction.total)}
-								</TableCell>
-								<TableCell>
-									{transaction.bookingFor &&
-									transaction.bookingFor.trim() !== "" ? (
-										<Badge variant="secondary">{transaction.bookingFor}</Badge>
-									) : (
-										<span className="text-muted-foreground">Persönlich</span>
-									)}
-								</TableCell>
-								<TableCell>
-									{transaction.bookedByAdminName ? (
-										<Badge
-											variant="outline"
-											className="border-purple-300 bg-purple-50 text-purple-700"
-										>
-											{transaction.bookedByAdminName}
-										</Badge>
-									) : (
-										<span className="text-muted-foreground">—</span>
-									)}
-								</TableCell>
-								<TableCell>{formatDate(transaction.createdAt)}</TableCell>
-								<TableCell className="font-mono">
-									{formatTime(transaction.createdAt, { seconds: true })}
-								</TableCell>
-								<TableCell>
-									<Badge variant={transaction.inBill ? "default" : "outline"}>
-										{transaction.inBill ? "Abgerechnet" : "Offen"}
-									</Badge>
-								</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-				{transactions.length === 0 && !loading && (
-					<TransactionsEmpty hasFilters={hasFilters} />
-				)}
+		<CardContent className="max-md:px-0">
+			<div className="md:rounded-md md:border">
+				<DataList
+					data={transactions}
+					columns={TRANSACTION_COLUMNS}
+					getRowId={(t) => t.id}
+					caption="Transaktionen"
+					metaLayout="grid"
+					empty={
+						<div className="max-md:rounded-xl max-md:border max-md:bg-card">
+							<TransactionsEmpty hasFilters={hasFilters} />
+						</div>
+					}
+				/>
 			</div>
 		</CardContent>
 	</Card>
@@ -678,19 +609,8 @@ export function OrdersTracker() {
 					onPurposeChange={setPurposeFilter}
 				/>
 
-				{/* Desktop Transaction Table */}
-				<DesktopTransactionTable
-					transactions={transactions}
-					loading={loading}
-					hasFilters={hasFilters}
-				/>
-
-				{/* Mobile Transaction List */}
-				<MobileTransactionList
-					transactions={transactions}
-					loading={loading}
-					hasFilters={hasFilters}
-				/>
+				{/* Transactions: one list, table from md up and cards below */}
+				<TransactionList transactions={transactions} hasFilters={hasFilters} />
 			</div>
 		</div>
 	);

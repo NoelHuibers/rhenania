@@ -4,15 +4,8 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
+import { DataList, type DataListColumn } from "~/components/ui/data-list";
 import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "~/components/ui/table";
 import { formatDate, formatEUR } from "~/lib/format";
 import {
 	cancelMyReimbursement,
@@ -72,99 +65,84 @@ export function MyReimbursementsTable({
 			</div>
 		) : null;
 
-	return (
-		<>
-			{/* Mobile: stacked cards */}
-			<div className="space-y-3 md:hidden">
-				{reimbursements.map((r) => (
-					<div key={r.id} className="space-y-2 rounded-lg border p-3">
-						<div className="flex items-start justify-between gap-2">
-							<div className="min-w-0">
-								<div className="text-muted-foreground text-xs">
-									{r.kostenpunkt?.category}
-								</div>
-								<div className="font-medium">{r.kostenpunkt?.name ?? "—"}</div>
-							</div>
-							<ReimbursementStatusBadge status={r.status} />
-						</div>
-						<div className="flex items-center justify-between text-sm">
-							<span className="text-muted-foreground">
-								{formatDate(r.expenseDate)}
-							</span>
-							<span className="font-semibold">{formatEUR(r.amount)}</span>
-						</div>
-						<p className="text-sm">{r.description}</p>
-						{r.status === "Abgelehnt" && r.rejectionReason && (
-							<p className="text-danger-muted-foreground text-xs">
-								Abgelehnt: {r.rejectionReason}
-							</p>
-						)}
-						<div className="flex items-center justify-between gap-2">
-							<ReceiptLinks
-								receipts={r.receipts}
-								legacyUrl={r.receiptUrl}
-								legacyName={r.receiptName}
-							/>
-							{actions(r)}
-						</div>
-					</div>
-				))}
-			</div>
+	const columns: DataListColumn<MyReimbursement>[] = [
+		{
+			id: "date",
+			header: "Datum",
+			cell: ({ row }) => formatDate(row.original.expenseDate),
+			meta: { mobile: "meta" },
+		},
+		{
+			id: "kostenpunkt",
+			header: "Kostenpunkt",
+			cell: ({ row: { original: r } }) => (
+				<>
+					<span className="block text-muted-foreground text-xs">
+						{r.kostenpunkt?.category}
+					</span>
+					{r.kostenpunkt?.name ?? "—"}
+				</>
+			),
+			meta: { mobile: "title" },
+		},
+		{
+			id: "description",
+			header: "Beschreibung",
+			cell: ({ row: { original: r } }) => (
+				<>
+					<span className="md:line-clamp-2">{r.description}</span>
+					{r.status === "Abgelehnt" && r.rejectionReason && (
+						<span className="mt-1 block text-danger-muted-foreground text-xs">
+							Abgelehnt: {r.rejectionReason}
+						</span>
+					)}
+				</>
+			),
+			meta: {
+				mobile: "subtitle",
+				className: "md:max-w-[220px] md:whitespace-normal",
+			},
+		},
+		{
+			id: "amount",
+			header: "Betrag",
+			cell: ({ row }) => formatEUR(row.original.amount),
+			meta: { mobile: "meta", className: "text-right font-medium" },
+		},
+		{
+			id: "status",
+			header: "Status",
+			cell: ({ row }) => (
+				<ReimbursementStatusBadge status={row.original.status} />
+			),
+			meta: { mobile: "meta" },
+		},
+		{
+			id: "receipt",
+			header: "Beleg",
+			cell: ({ row: { original: r } }) => (
+				<ReceiptLinks
+					receipts={r.receipts}
+					legacyUrl={r.receiptUrl}
+					legacyName={r.receiptName}
+				/>
+			),
+			meta: { mobile: "meta" },
+		},
+		{
+			id: "actions",
+			header: () => <span className="sr-only">Aktionen</span>,
+			cell: ({ row }) => actions(row.original),
+			meta: { mobile: "action", className: "md:text-right" },
+		},
+	];
 
-			{/* Desktop: table */}
-			<div className="hidden md:block">
-				<Table>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Datum</TableHead>
-							<TableHead>Kostenpunkt</TableHead>
-							<TableHead>Beschreibung</TableHead>
-							<TableHead className="text-right">Betrag</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead>Beleg</TableHead>
-							<TableHead />
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{reimbursements.map((r) => (
-							<TableRow key={r.id}>
-								<TableCell className="whitespace-nowrap">
-									{formatDate(r.expenseDate)}
-								</TableCell>
-								<TableCell>
-									<span className="text-muted-foreground text-xs">
-										{r.kostenpunkt?.category}
-									</span>
-									<br />
-									{r.kostenpunkt?.name ?? "—"}
-								</TableCell>
-								<TableCell className="max-w-[220px]">
-									<span className="line-clamp-2">{r.description}</span>
-									{r.status === "Abgelehnt" && r.rejectionReason && (
-										<span className="mt-1 block text-danger-muted-foreground text-xs">
-											Abgelehnt: {r.rejectionReason}
-										</span>
-									)}
-								</TableCell>
-								<TableCell className="text-right font-medium">
-									{formatEUR(r.amount)}
-								</TableCell>
-								<TableCell>
-									<ReimbursementStatusBadge status={r.status} />
-								</TableCell>
-								<TableCell>
-									<ReceiptLinks
-										receipts={r.receipts}
-										legacyUrl={r.receiptUrl}
-										legacyName={r.receiptName}
-									/>
-								</TableCell>
-								<TableCell className="text-right">{actions(r)}</TableCell>
-							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</div>
-		</>
+	return (
+		<DataList
+			data={reimbursements}
+			columns={columns}
+			getRowId={(r) => r.id}
+			caption="Meine Kostenerstattungen"
+		/>
 	);
 }
