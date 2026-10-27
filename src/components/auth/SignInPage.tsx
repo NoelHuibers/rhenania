@@ -24,6 +24,17 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { authClient, signIn } from "~/server/auth/client";
 
+// Error codes Better Auth appends when a Microsoft login is refused.
+function oauthErrorMessage(code: string | null): string {
+	if (!code) {
+		return "";
+	}
+	if (code === "account_not_linked") {
+		return "Zu dieser E-Mail-Adresse gibt es schon ein Konto, das noch nicht Mitglied dieses Corps ist. Melden Sie sich mit E-Mail und Passwort an oder bitten Sie einen Admin dieses Corps, Sie hinzuzufügen.";
+	}
+	return "Die Anmeldung mit Microsoft ist fehlgeschlagen. Bitte versuchen Sie es erneut.";
+}
+
 type SignInPageProps = {
 	microsoftProviderId: string | null;
 };
@@ -36,7 +47,9 @@ export function SignInPage({ microsoftProviderId }: SignInPageProps) {
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState("");
+	const [error, setError] = useState(() =>
+		oauthErrorMessage(searchParams.get("error")),
+	);
 
 	const callbackUrl = searchParams.get("callbackUrl") || "/";
 	const message = searchParams.get("message");
@@ -74,6 +87,7 @@ export function SignInPage({ microsoftProviderId }: SignInPageProps) {
 		await authClient.signIn.oauth2({
 			providerId: microsoftProviderId,
 			callbackURL: callbackUrl,
+			errorCallbackURL: "/auth/signin",
 		});
 		setIsLoading(false);
 	};

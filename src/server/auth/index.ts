@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { and, eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -18,12 +19,17 @@ import {
 } from "~/server/db/control-schema";
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
-import { getTenantId, TENANT_HEADER } from "~/server/lib/tenant-context";
+import {
+	getTenantId,
+	resolveTenantByHost,
+	TENANT_HEADER,
+} from "~/server/lib/tenant-context";
 import {
 	mirrorUserToAllMemberTenants,
 	mirrorUserToTenant,
 } from "~/server/lib/user-mirror";
 import { loadTenantOAuthProviders } from "./load-providers";
+import { getMicrosoftUserInfo, requestedProviderId } from "./microsoft-linking";
 
 // Per-tenant Microsoft OAuth providers are loaded from the control DB at
 // process start. Adding a tenant or rotating an Azure secret requires a
@@ -43,6 +49,8 @@ const oauthConfigs = tenantOAuthProviders.map((p) => ({
 	tokenUrl: p.tokenUrl,
 	userInfoUrl: p.userInfoUrl,
 	scopes: p.scopes,
+	getUserInfo: (tokens: Parameters<typeof getMicrosoftUserInfo>[0]) =>
+		getMicrosoftUserInfo(tokens, p),
 	// No redirectURI — Better Auth derives `${baseURL}/oauth2/callback/${providerId}`
 	// per request from the dynamic baseURL config below.
 }));
@@ -59,6 +67,31 @@ async function tenantIdFromSlug(slug: string): Promise<string | null> {
 		.limit(1);
 	return row?.id ?? null;
 }
+
+/**
+ * Refuses an OAuth sign-in, link or callback whose provider belongs to
+ * another Corps than the request's host: each Corps' Microsoft login only
+ * works on that Corps' own domains (GHSA-6f66-w6m6-cx4x).
+ */
+const providerMustMatchHost = createAuthMiddleware(async (ctx) => {
+	const providerId = requestedProviderId(ctx);
+	if (providerId === null) {
+		return;
+	}
+	const headers = ctx.request?.headers ?? ctx.headers;
+	const hostTenantId = await resolveTenantByHost(
+		headers?.get("x-forwarded-host") ??
+			headers?.get("host") ??
+			(ctx.request ? new URL(ctx.request.url).host : null),
+	);
+	const slug = providerIdToTenantSlug.get(providerId);
+	const providerTenantId = slug ? await tenantIdFromSlug(slug) : null;
+	if (!hostTenantId || providerTenantId !== hostTenantId) {
+		throw new APIError("FORBIDDEN", {
+			message: "Dieser Anmeldeanbieter gehört nicht zu diesem Corps.",
+		});
+	}
+});
 
 export const betterAuthInstance = betterAuth({
 	// Dynamic baseURL — derived from the request's host per call. This makes
@@ -137,12 +170,14 @@ export const betterAuthInstance = betterAuth({
 	account: {
 		accountLinking: {
 			enabled: true,
-			// Per-tenant Microsoft providers are all trusted (they're owned by
-			// the tenant's own Azure tenant — same identity guarantee as the
-			// previous single-provider setup).
-			trustedProviders: tenantOAuthProviders.map((p) => p.providerId),
+			// No trusted providers: a Microsoft login links to an existing
+			// identity only when its e-mail counts as verified, which
+			// getMicrosoftUserInfo grants only for members of the provider's
+			// Corps. Everyone else links explicitly while signed in.
 		},
 	},
+
+	hooks: { before: providerMustMatchHost },
 
 	databaseHooks: {
 		user: {
@@ -197,9 +232,10 @@ export const betterAuthInstance = betterAuth({
 		},
 		account: {
 			create: {
-				// Fires when an OAuth account is linked. For an EXISTING user
-				// signing in via OAuth at a new tenant, this is where we
-				// auto-create the tenant membership + mirror the user.
+				// Fires when an OAuth account is linked: a new user's first
+				// login, a member's implicit link, or an explicit link by a
+				// signed-in user (`/oauth2/link`), which is how an existing
+				// identity joins another Corps through its Microsoft login.
 				// (The user.create hook only fires for brand-new users.)
 				after: async (account) => {
 					const tenantSlug = providerIdToTenantSlug.get(account.providerId);
