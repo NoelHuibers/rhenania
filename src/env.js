@@ -27,6 +27,8 @@ export const env = createEnv({
 		MAIL_OUTBOX_DIR: z.string().optional(),
 		// Bearer token for /api/health/tenants (scheduled drift checks).
 		HEALTH_TOKEN: z.string().min(24).optional(),
+		// Bearer token Vercel Cron sends to /api/cron/*; unset = jobs refuse.
+		CRON_SECRET: z.string().min(16).optional(),
 		NODE_ENV: z
 			.enum(["development", "test", "production"])
 			.default("development"),
@@ -58,6 +60,7 @@ export const env = createEnv({
 		TURSO_GROUP: process.env.TURSO_GROUP,
 		MAIL_OUTBOX_DIR: process.env.MAIL_OUTBOX_DIR,
 		HEALTH_TOKEN: process.env.HEALTH_TOKEN,
+		CRON_SECRET: process.env.CRON_SECRET,
 		NODE_ENV: process.env.NODE_ENV,
 	},
 	/**

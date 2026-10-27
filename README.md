@@ -92,3 +92,22 @@ CONFIRM_PROD=<control-db-host> pnpm db:migrate-tenants # alle Tenant-DBs
 
 `drizzle-kit push` gibt es bewusst nicht mehr als Skript: Es umgeht das
 Migrations-Journal und hat früher zu Drift geführt.
+
+## Geplante Jobs
+
+Der GitHub-Actions-Workflow `challenge-sweep.yml` ruft alle 5 Minuten
+`/api/cron/challenges` auf: Herausforderungen nach Ablauf der Antwort- oder
+Spielfrist verfallen, unbestätigte Ergebnisse werden nach 10 Minuten wie
+gemeldet verbucht, in allen aktiven Corps und für Cross-Corps-Herausforderungen.
+Seitenaufrufe und der Badge-Poll schreiben nichts; bis der Job gelaufen ist,
+zeigen sie Überfälliges als abgelaufen an. (GitHub Actions statt Vercel Cron,
+weil der Hobby-Plan nur tägliche Cron-Jobs erlaubt.)
+
+- `CRON_SECRET` (mind. 16 Zeichen, `openssl rand -base64 32`) in Vercel
+  (Production) **und** als Repository-Secret `CRON_SECRET` setzen; ohne die
+  Variable lehnt die Route jeden Aufruf ab, ohne das Secret überspringt der
+  Workflow den Lauf.
+- Optional die Repository-Variable `HEALTH_URL` (Standard
+  `https://rhenania-stuttgart.de`).
+- Manuell auslösen: Workflow „Challenge sweep" in GitHub starten, oder
+  `curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/challenges`

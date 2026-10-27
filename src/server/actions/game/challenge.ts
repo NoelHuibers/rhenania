@@ -1,23 +1,18 @@
 "use server";
 
-import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
-import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { db } from "~/server/db";
-import { challenges, drinks, games, orders, users } from "~/server/db/schema";
+import { challenges, drinks, users } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
-import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
-import { log } from "~/server/lib/log";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import { settleChallenge } from "~/server/lib/challenge-settlement";
 import {
-	applyEloOutcome,
-	type EloOutcome,
-	revertEloOutcome,
-} from "~/server/lib/user-stats";
+	expireOverdueChallenges,
+	shownChallengeStatus,
+} from "~/server/lib/challenge-sweep";
+import { requireTenantId } from "~/server/lib/tenant-context";
 import { auth } from "../../auth";
-import { checkAndUnlockAchievements } from "../achievements/tracking";
 import { isEloEnabledForUser } from "../profile/preferences";
 
 const RESPOND_WINDOW_MS = 30 * 60 * 1000; // 30 min to accept
@@ -34,7 +29,7 @@ export type ChallengeStatus =
 	| "pending"
 	| "accepted"
 	| "result_proposed"
-	| "confirmed" // claimed: settlement in progress (see settle below)
+	| "confirmed" // claimed: settlement in progress (lib/challenge-settlement)
 	| "settled"
 	| "declined"
 	| "expired"
@@ -129,8 +124,8 @@ export async function createChallenge(input: {
 		return { success: false, error: "Getränk ist nicht verfügbar" };
 	}
 
-	// Lazy sweep expired challenges so stale rows don't block
-	await sweepExpiredChallenges();
+	// Expire stale rows so they don't block (results are settled by the sweep)
+	await expireOverdueChallenges(db);
 
 	// At most one open challenge in the same direction
 	const existingOpen = await db.query.challenges.findFirst({
@@ -395,7 +390,10 @@ export async function confirmResult(
 		return { success: false, error: "Keine Berechtigung" };
 	}
 
-	return await settleChallenge(row.id);
+	return await settleChallenge(
+		{ tenantId: await requireTenantId(), db: await getCurrentTenantDb() },
+		row.id,
+	);
 }
 
 // ---------- Dispute result ----------
@@ -454,222 +452,6 @@ export async function disputeResult(
 	return { success: true };
 }
 
-// ---------- Settle (internal) ----------
-
-/**
- * Atomically moves a proposed result into settlement. Of any number of
- * concurrent callers (double-tapped confirm, two auto-settle sweeps) exactly
- * one gets the row back; everyone else gets `undefined` and books nothing.
- */
-async function claimProposedResult(challengeId: string) {
-	const [row] = await db
-		.update(challenges)
-		.set({ status: "confirmed" })
-		.where(
-			and(
-				eq(challenges.id, challengeId),
-				eq(challenges.status, "result_proposed"),
-			),
-		)
-		.returning();
-	return row;
-}
-
-/** Hands a claimed challenge back so the result can be confirmed again. */
-async function releaseClaim(challengeId: string) {
-	await db
-		.update(challenges)
-		.set({ status: "result_proposed" })
-		.where(
-			and(eq(challenges.id, challengeId), eq(challenges.status, "confirmed")),
-		);
-}
-
-type ClaimedChallenge = typeof challenges.$inferSelect;
-
-type PlannedOrder = { userId: string; userName: string; amount: number };
-
-/** Reads what settling needs; returns an error message if something is missing. */
-async function planSettlement(row: ClaimedChallenge) {
-	if (row.proposedWinnerId == null) {
-		return { error: "Kein Gewinner vorgeschlagen" } as const;
-	}
-	const winnerId = row.proposedWinnerId;
-	const loserId =
-		winnerId === row.challengerId ? row.opponentId : row.challengerId;
-
-	const [drink, winner, loser, pricing] = await Promise.all([
-		db.query.drinks.findFirst({
-			where: (t, { eq }) => eq(t.id, row.drinkId),
-		}),
-		db.query.users.findFirst({
-			where: (t, { eq }) => eq(t.id, winnerId),
-			columns: { id: true, name: true, email: true },
-		}),
-		db.query.users.findFirst({
-			where: (t, { eq }) => eq(t.id, loserId),
-			columns: { id: true, name: true, email: true },
-		}),
-		getDrinkPricingConfig(),
-	]);
-	if (!drink) {
-		return { error: "Getränk nicht gefunden" } as const;
-	}
-	if (!winner || !loser) {
-		return { error: "Spieler nicht gefunden" } as const;
-	}
-
-	// Orders per payment rule
-	const planned: PlannedOrder[] = [];
-	const challengerIsWinner = row.challengerId === winnerId;
-	const winnerName = winner.name || winner.email || "Unbekannt";
-	const loserName = loser.name || loser.email || "Unbekannt";
-	const challengerName = challengerIsWinner ? winnerName : loserName;
-	const challengerUserId = row.challengerId;
-
-	switch (row.payment) {
-		case "challenger":
-			planned.push({
-				userId: challengerUserId,
-				userName: challengerName,
-				amount: row.quantity,
-			});
-			break;
-		case "loser":
-			planned.push({
-				userId: loserId,
-				userName: loserName,
-				amount: row.quantity,
-			});
-			break;
-		case "split": {
-			const each = Math.floor(row.quantity / 2);
-			const rem = row.quantity - each * 2;
-			// Even split; if odd remainder, challenger absorbs it
-			planned.push({
-				userId: challengerUserId,
-				userName: challengerName,
-				amount: each + rem,
-			});
-			planned.push({
-				userId: challengerIsWinner ? loserId : winnerId,
-				userName: challengerIsWinner ? loserName : winnerName,
-				amount: each,
-			});
-			break;
-		}
-	}
-
-	// Challenge drinks are personal orders, so they carry the tenant's markup
-	// when that feature is on.
-	const pricePerUnit = unitPriceFor(drink.price, pricing.markupPercent, null);
-	const orderRows = planned
-		.filter((o) => o.amount > 0)
-		.map((o) => ({
-			userId: o.userId,
-			userName: o.userName,
-			drinkId: drink.id,
-			drinkName: drink.name,
-			amount: o.amount,
-			pricePerUnit,
-			costPerUnit: pricing.enabled ? drink.price : null,
-			total: orderTotal(pricePerUnit, o.amount, pricing.markupPercent),
-			bookingFor: null,
-		}));
-
-	return { winnerId, loserId, challengerIsWinner, orderRows } as const;
-}
-
-async function settleChallenge(
-	challengeId: string,
-): Promise<{ success: boolean; error?: string; gameId?: string }> {
-	const tenantId = await requireTenantId();
-	const row = await claimProposedResult(challengeId);
-	if (!row) {
-		return { success: false, error: "Kein Ergebnis zum Bestätigen" };
-	}
-
-	// Until the ELO is applied, giving the claim back undoes everything.
-	let plan: Awaited<ReturnType<typeof planSettlement>>;
-	let elo: EloOutcome;
-	try {
-		plan = await planSettlement(row);
-		if ("error" in plan) {
-			await releaseClaim(row.id);
-			return { success: false, error: plan.error };
-		}
-		// Unified userStats (control DB), atomic for both players.
-		elo = await applyEloOutcome(plan.winnerId, plan.loserId);
-	} catch (error) {
-		await releaseClaim(row.id);
-		throw error;
-	}
-
-	const { winnerId, loserId, challengerIsWinner, orderRows } = plan;
-	const gameId = crypto.randomUUID();
-	const tenantDb = await getCurrentTenantDb();
-	try {
-		// Orders, game and final status land together or not at all.
-		await tenantDb.batch([
-			tenantDb.insert(games).values({
-				id: gameId,
-				player1Id: row.challengerId,
-				player2Id: row.opponentId,
-				winnerId,
-				player1EloBefore: challengerIsWinner
-					? elo.winnerEloBefore
-					: elo.loserEloBefore,
-				player2EloBefore: challengerIsWinner
-					? elo.loserEloBefore
-					: elo.winnerEloBefore,
-				player1EloAfter: challengerIsWinner
-					? elo.winnerEloAfter
-					: elo.loserEloAfter,
-				player2EloAfter: challengerIsWinner
-					? elo.loserEloAfter
-					: elo.winnerEloAfter,
-				challengeId: row.id,
-			}),
-			tenantDb
-				.update(challenges)
-				.set({ status: "settled", gameId })
-				.where(
-					and(eq(challenges.id, row.id), eq(challenges.status, "confirmed")),
-				),
-			...orderRows.map((o) => tenantDb.insert(orders).values(o)),
-		]);
-	} catch (error) {
-		// Take the ELO back first; if that fails too, the claim stays so
-		// nobody applies it a second time.
-		await revertEloOutcome(winnerId, loserId, elo);
-		await releaseClaim(row.id);
-		throw error;
-	}
-
-	// Achievements run after the response, against this Corps explicitly.
-	after(() =>
-		Promise.all([
-			checkAndUnlockAchievements(row.challengerId, "game_played", undefined, {
-				tenantId,
-			}),
-			checkAndUnlockAchievements(row.opponentId, "game_played", undefined, {
-				tenantId,
-			}),
-			checkAndUnlockAchievements(winnerId, "game_won", undefined, { tenantId }),
-			checkAndUnlockAchievements(loserId, "game_lost", undefined, { tenantId }),
-		]),
-	);
-
-	revalidatePath("/eloranking");
-	revalidatePath("/challenges");
-	revalidatePath("/rechnung");
-
-	return { success: true, gameId };
-}
-
-// Local `getOrCreateUserStats` / `updateUserStats` helpers were removed —
-// see `~/server/lib/user-stats.ts` for the unified control-DB versions.
-
 // ---------- Feed ----------
 
 export async function getMyChallenges(): Promise<ChallengeFeed> {
@@ -689,9 +471,9 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 	}
 	const userId = session.user.id;
 
-	await sweepExpiredChallenges();
-
-	// Challenge, drink and both players in one query.
+	// Challenge, drink and both players in one query. Reads never write:
+	// expiry and auto-settle run from the scheduled sweep, and until it has
+	// run, overdue rows are shown as it will leave them.
 	const challenger = alias(users, "challenger");
 	const opponent = alias(users, "opponent");
 	const rows = await db
@@ -735,10 +517,11 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 		return empty;
 	}
 
+	const now = new Date();
 	const views: ChallengeView[] = rows.map((r) => {
 		return {
 			id: r.id,
-			status: r.status as ChallengeStatus,
+			status: shownChallengeStatus(r, now) as ChallengeStatus,
 			payment: r.payment as PaymentRule,
 			quantity: r.quantity,
 			drinkId: r.drinkId,
@@ -798,62 +581,4 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 	}
 
 	return feed;
-}
-
-// ---------- Sweeper ----------
-
-/**
- * Expires unanswered and unplayed challenges and auto-settles results nobody
- * confirmed in time. Every open page polls the challenge feed, so the sweep
- * first looks (one indexed read) and only writes when something is due: an
- * UPDATE that matches nothing still takes the write lock on the primary.
- */
-export async function sweepExpiredChallenges(): Promise<void> {
-	const now = new Date();
-	const respondMissed = and(
-		eq(challenges.status, "pending"),
-		lt(challenges.respondDeadline, now),
-	);
-	const playMissed = and(
-		eq(challenges.status, "accepted"),
-		lt(challenges.playDeadline, now),
-	);
-	const confirmMissed = and(
-		eq(challenges.status, "result_proposed"),
-		lt(challenges.confirmDeadline, now),
-	);
-
-	const due = await db
-		.select({ id: challenges.id, status: challenges.status })
-		.from(challenges)
-		.where(or(respondMissed, playMissed, confirmMissed));
-	if (due.length === 0) {
-		return;
-	}
-
-	// pending past respondDeadline / accepted past playDeadline → expired.
-	// The UPDATE re-checks both, so a reply landing meanwhile is kept.
-	if (due.some((c) => c.status !== "result_proposed")) {
-		await db
-			.update(challenges)
-			.set({ status: "expired" })
-			.where(or(respondMissed, playMissed));
-	}
-
-	// result_proposed past confirmDeadline → auto-settle. Each settlement
-	// claims its row first, so concurrent sweeps (every open page polls this)
-	// book every challenge exactly once.
-	for (const { id, status } of due) {
-		if (status !== "result_proposed") {
-			continue;
-		}
-		try {
-			await settleChallenge(id);
-		} catch (error) {
-			log.error("challenge auto-settle failed", {
-				challengeId: id,
-				error: error instanceof Error ? error.message : String(error),
-			});
-		}
-	}
 }

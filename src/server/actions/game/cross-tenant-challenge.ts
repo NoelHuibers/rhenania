@@ -5,7 +5,7 @@
 // through the same unified `userStats` as intra-Corps games — there is one
 // ELO per user, period.
 
-import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
+import { and, desc, eq, inArray, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 
@@ -19,6 +19,10 @@ import {
 	users,
 } from "~/server/db/control-schema";
 import { getTenantDb } from "~/server/db/tenants";
+import {
+	shownCrossChallengeStatus,
+	sweepCrossCorpsChallenges,
+} from "~/server/lib/challenge-sweep";
 import { readEloEnabled } from "~/server/lib/elo-preference";
 import {
 	applyEloOutcome,
@@ -197,7 +201,7 @@ export async function createCrossTenantChallenge(input: {
 		};
 	}
 
-	await sweepExpiredCrossTenantChallenges();
+	await sweepCrossCorpsChallenges();
 
 	// Block if there's already an open cross-tenant challenge between these two.
 	const [existingOpen] = await controlDb
@@ -656,42 +660,6 @@ async function settleCrossTenantChallenge(
 	return { success: true, gameId };
 }
 
-// ---------- Sweep expired ----------
-
-export async function sweepExpiredCrossTenantChallenges(): Promise<void> {
-	const now = new Date();
-	// pending + past respondDeadline → expired
-	await controlDb
-		.update(crossTenantChallenges)
-		.set({ status: "expired" })
-		.where(
-			and(
-				eq(crossTenantChallenges.status, "pending"),
-				lt(crossTenantChallenges.respondDeadline, now),
-			),
-		);
-	// accepted + past playDeadline → expired
-	await controlDb
-		.update(crossTenantChallenges)
-		.set({ status: "expired" })
-		.where(
-			and(
-				eq(crossTenantChallenges.status, "accepted"),
-				lt(crossTenantChallenges.playDeadline, now),
-			),
-		);
-	// result_proposed + past confirmDeadline → expired
-	await controlDb
-		.update(crossTenantChallenges)
-		.set({ status: "expired" })
-		.where(
-			and(
-				eq(crossTenantChallenges.status, "result_proposed"),
-				lt(crossTenantChallenges.confirmDeadline, now),
-			),
-		);
-}
-
 // ---------- Feed ----------
 
 export async function getMyCrossTenantChallenges(): Promise<CrossChallengeFeed> {
@@ -711,8 +679,9 @@ export async function getMyCrossTenantChallenges(): Promise<CrossChallengeFeed> 
 	}
 	const userId = session.user.id;
 
-	await sweepExpiredCrossTenantChallenges();
-
+	// Reads never write: the scheduled sweep expires overdue rows, and until
+	// it has run they are shown as it will leave them.
+	const now = new Date();
 	const rows = await controlDb
 		.select()
 		.from(crossTenantChallenges)
@@ -774,7 +743,7 @@ export async function getMyCrossTenantChallenges(): Promise<CrossChallengeFeed> 
 		const opponentTenant = tenantById.get(r.opponentTenantId);
 		const view: CrossChallengeView = {
 			id: r.id,
-			status: r.status,
+			status: shownCrossChallengeStatus(r, now),
 			payment: r.payment,
 			quantity: r.quantity,
 			drinkName: r.drinkName,
@@ -797,7 +766,7 @@ export async function getMyCrossTenantChallenges(): Promise<CrossChallengeFeed> 
 			role,
 		};
 
-		switch (r.status) {
+		switch (view.status) {
 			case "pending":
 				if (role === "challenger") {
 					feed.outgoingPending.push(view);

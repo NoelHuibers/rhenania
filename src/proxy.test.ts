@@ -38,6 +38,23 @@ describe("proxy lowercase redirect", () => {
 		expect(res.headers.get("location")).toBeNull();
 	});
 
+	test("scheduled jobs pass on any host, without a session or tenant header", async () => {
+		await createTenant();
+		const res = await middleware(
+			new NextRequest(new URL("http://app-abc123.vercel.app/api/cron/x"), {
+				headers: { host: "app-abc123.vercel.app", "x-tenant-id": "forged" },
+			}),
+		);
+
+		expect(res.status).toBe(200);
+		expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+		expect(res.headers.get("location")).toBeNull();
+		expect(res.headers.get("x-middleware-request-x-tenant-id")).toBeNull();
+		expect(res.headers.get("x-middleware-override-headers")).not.toContain(
+			"x-tenant-id",
+		);
+	});
+
 	test("unknown hosts are rewritten to the not-found page", async () => {
 		await createTenant();
 		const res = await middleware(request("unknown.test.localhost", "/"));
