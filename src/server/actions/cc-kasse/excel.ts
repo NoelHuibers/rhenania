@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { kostenpunkte, kostenpunktPositionen } from "~/server/db/schema";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
+import { protectFormulaLikeText } from "~/server/lib/xlsx-safe";
 import { EDIT_ROLES, requireRoles } from "./_guards";
 import {
 	BODY_START_ROW,
@@ -216,6 +217,7 @@ export async function exportEtaplanXlsx(etaplanId: string) {
 		subD.numFmt = NUMBER_FORMAT;
 		subD.font = { bold: true };
 
+		protectFormulaLikeText(ws);
 		const buffer = await wb.xlsx.writeBuffer();
 		const base64 = Buffer.from(buffer).toString("base64");
 		const fileName = `Etatplan_${plan.semesterType}${plan.year}.xlsx`;

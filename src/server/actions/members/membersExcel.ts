@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { members } from "~/server/db/schema";
+import { protectFormulaLikeText } from "~/server/lib/xlsx-safe";
 import { MEMBER_EDIT_ROLES, requireRoles } from "./_guards";
 import { applyLink, computeLinkablePairs } from "./link-helpers";
 import {
@@ -92,6 +93,7 @@ export async function exportMembersXlsx() {
 			r++;
 		}
 
+		protectFormulaLikeText(ws);
 		const buffer = await wb.xlsx.writeBuffer();
 		return {
 			success: true as const,

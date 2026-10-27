@@ -189,6 +189,64 @@ describe("exportEtaplanXlsx", () => {
 		expect(cell("D9")).toMatchObject({ formula: "D8-E8" });
 	});
 
+	test("writes formula-like names as Text cells and keeps them on re-import (#91)", async () => {
+		await setup();
+		const plan = await createEtaplan({ semesterType: "WS", year: 2026 });
+		await createKostenpunkt(plan.id, {
+			name: '=HYPERLINK("http://x","Klick")',
+			category: "@Kneipen",
+			categoryOrder: 0,
+			positionen: [{ bemerkung: "+Bier", ausgaben: 10 }],
+		});
+		await createKostenpunkt(plan.id, {
+			name: "-Putzen",
+			category: "Haus",
+			categoryOrder: 1,
+			budget: 5,
+		});
+
+		const result = await exportEtaplanXlsx(plan.id);
+		if (!result.success) {
+			throw new Error(result.error);
+		}
+		const ws = (await loadWorkbook(result.base64)).getWorksheet(SHEET_NAME);
+		if (!ws) {
+			throw new Error("sheet missing");
+		}
+		const cells: ExcelJS.Cell[] = [];
+		ws.eachRow((row) => {
+			row.eachCell((c) => {
+				cells.push(c);
+			});
+		});
+		// The only formulas are the plan's own sums in the amount columns.
+		const formulaColumns = cells
+			.filter((c) => c.type === ExcelJS.ValueType.Formula)
+			.map((c) => c.address.replace(/\d+/, ""));
+		expect(new Set(formulaColumns)).toEqual(new Set(["D", "E"]));
+		const formulaLike = cells.filter(
+			(c) => c.type === ExcelJS.ValueType.String && /^[=+\-@\t\r]/.test(c.text),
+		);
+		expect(formulaLike.map((c) => c.text)).toEqual([
+			'=HYPERLINK("http://x","Klick")',
+			"+Bier",
+			"-Putzen",
+		]);
+		for (const c of formulaLike) {
+			expect(c.numFmt).toBe("@");
+		}
+		expect(ws.getCell("A1").numFmt).toBeUndefined();
+
+		const target = await createEtaplan({ semesterType: "WS", year: 2027 });
+		expect(
+			await importEtaplanXlsx({ etaplanId: target.id, base64: result.base64 }),
+		).toMatchObject({ success: true });
+		expect(await snapshot(target.id)).toMatchObject([
+			{ category: "@Kneipen", name: '=HYPERLINK("http://x","Klick")' },
+			{ category: "Haus", name: "-Putzen" },
+		]);
+	});
+
 	test("reports an unknown plan", async () => {
 		await setup();
 		expect(await exportEtaplanXlsx("missing")).toEqual({
