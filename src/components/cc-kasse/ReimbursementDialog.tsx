@@ -1,6 +1,5 @@
 "use client";
 
-import { FileText, Upload, X } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useTenantSlug } from "~/components/TenantProvider";
@@ -14,10 +13,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
-import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { Progress } from "~/components/ui/progress";
 import {
 	Select,
 	SelectContent,
@@ -27,7 +24,7 @@ import {
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
 import { parseDecimalInput } from "~/lib/decimal";
-import { uploadReceipt, validateReceiptFile } from "~/lib/receipt-upload";
+import { uploadReceipt } from "~/lib/receipt-upload";
 import {
 	createDirectBooking,
 	submitReimbursement,
@@ -35,59 +32,18 @@ import {
 	updateReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
 import { setMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
+import type {
+	EditingReimbursement,
+	KostenpunktOption,
+	ReceiptFile,
+} from "./reimbursement-dialog/editing";
+import { ReceiptsField } from "./reimbursement-dialog/ReceiptsField";
 
-export type KostenpunktOption = {
-	id: string;
-	name: string;
-	category: string;
-};
-
-type ReceiptFile = { url: string; name: string };
-
-export type EditingReimbursement = {
-	id: string;
-	kostenpunktId: string;
-	kostenpunktName: string;
-	kostenpunktCategory: string;
-	amount: number;
-	description: string;
-	recipientName: string;
-	iban: string | null;
-	expenseDate: Date | number;
-	receipts: ReceiptFile[];
-};
-
-// Build an EditingReimbursement from a (member or queue) reimbursement row.
-export function toEditing(r: {
-	id: string;
-	kostenpunktId: string;
-	amount: number;
-	description: string;
-	recipientName: string;
-	iban: string | null;
-	expenseDate: Date | number;
-	receipts: ReceiptFile[] | null;
-	receiptUrl?: string | null;
-	receiptName?: string | null;
-	kostenpunkt?: { name: string; category: string } | null;
-}): EditingReimbursement {
-	return {
-		id: r.id,
-		kostenpunktId: r.kostenpunktId,
-		kostenpunktName: r.kostenpunkt?.name ?? "",
-		kostenpunktCategory: r.kostenpunkt?.category ?? "",
-		amount: r.amount,
-		description: r.description,
-		recipientName: r.recipientName,
-		iban: r.iban,
-		expenseDate: r.expenseDate,
-		receipts: r.receipts?.length
-			? r.receipts
-			: r.receiptUrl
-				? [{ url: r.receiptUrl, name: r.receiptName ?? "Beleg" }]
-				: [],
-	};
-}
+export {
+	type EditingReimbursement,
+	type KostenpunktOption,
+	toEditing,
+} from "./reimbursement-dialog/editing";
 
 type Props = {
 	open: boolean;
@@ -170,25 +126,6 @@ export function ReimbursementDialog({
 	const num = (s: string) => {
 		const v = parseDecimalInput(s);
 		return Number.isFinite(v) ? v : 0;
-	};
-
-	const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const selected = Array.from(e.target.files ?? []);
-		e.target.value = "";
-		const valid: File[] = [];
-		for (const f of selected) {
-			try {
-				validateReceiptFile(f);
-				valid.push(f);
-			} catch (err) {
-				toast.error(
-					`${f.name}: ${err instanceof Error ? err.message : "ungültig"}`,
-				);
-			}
-		}
-		if (valid.length) {
-			setFiles((prev) => [...prev, ...valid]);
-		}
 	};
 
 	const removeFile = (idx: number) =>
@@ -421,97 +358,18 @@ export function ReimbursementDialog({
 						</div>
 					)}
 
-					<div className="grid gap-2">
-						<Label>
-							Belege (PDF/Bild{mode === "direct" ? ", optional" : ""})
-						</Label>
-
-						{existingReceipts.length > 0 && (
-							<div className="space-y-1">
-								{existingReceipts.map((r, i) => (
-									<div
-										key={r.url}
-										className="flex items-center gap-2 rounded-md border p-2"
-									>
-										<FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-										<a
-											href={r.url}
-											target="_blank"
-											rel="noopener noreferrer"
-											className="min-w-0 flex-1 truncate text-primary text-sm hover:underline"
-										>
-											{r.name}
-										</a>
-										<IconButton
-											label="Beleg entfernen"
-											type="button"
-											disabled={isSubmitting}
-											onClick={() => removeExisting(i)}
-										>
-											<X className="h-4 w-4" />
-										</IconButton>
-									</div>
-								))}
-							</div>
-						)}
-
-						{files.length > 0 && (
-							<div className="space-y-1">
-								{files.map((f, i) => (
-									<div
-										// biome-ignore lint/suspicious/noArrayIndexKey: file list is order-stable within the dialog session
-										key={`${f.name}-${i}`}
-										className="flex items-center gap-2 rounded-md border p-2"
-									>
-										<div className="min-w-0 flex-1">
-											<p className="truncate font-medium text-sm">{f.name}</p>
-											<p className="text-muted-foreground text-xs">
-												{(f.size / 1024 / 1024).toFixed(2)} MB
-											</p>
-										</div>
-										<IconButton
-											label="Datei entfernen"
-											type="button"
-											disabled={isSubmitting}
-											onClick={() => removeFile(i)}
-										>
-											<X className="h-4 w-4" />
-										</IconButton>
-									</div>
-								))}
-							</div>
-						)}
-
-						<Input
-							id="re-file"
-							type="file"
-							multiple
-							accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
-							onChange={handleFiles}
-							className="hidden"
-						/>
-						<Button
-							type="button"
-							variant="outline"
-							onClick={() => document.getElementById("re-file")?.click()}
-							disabled={isSubmitting}
-							className="w-full"
-						>
-							<Upload className="mr-2 h-4 w-4" />
-							{existingReceipts.length || files.length
-								? "Weitere Belege hinzufügen"
-								: "Belege auswählen"}
-						</Button>
-						{isUploading && (
-							<div className="space-y-1">
-								<Progress value={progress} />
-								<p className="text-muted-foreground text-xs">
-									Beleg {uploadIndex + 1} von {files.length} wird hochgeladen…{" "}
-									{Math.round(progress)}%
-								</p>
-							</div>
-						)}
-					</div>
+					<ReceiptsField
+						mode={mode}
+						existingReceipts={existingReceipts}
+						files={files}
+						isSubmitting={isSubmitting}
+						isUploading={isUploading}
+						progress={progress}
+						uploadIndex={uploadIndex}
+						onAddFiles={(valid) => setFiles((prev) => [...prev, ...valid])}
+						onRemoveFile={removeFile}
+						onRemoveExisting={removeExisting}
+					/>
 				</div>
 
 				<DialogFooter>

@@ -6,149 +6,29 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
-import { Checkbox } from "~/components/ui/checkbox";
-import { DataList, type DataListColumn } from "~/components/ui/data-list";
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "~/components/ui/dialog";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "~/components/ui/select";
-import { StatusBadge } from "~/components/ui/status-badge";
-import { formatDate, formatDateTime, formatEUR } from "~/lib/format";
+import { formatDateTime, formatEUR } from "~/lib/format";
 import {
 	type ActiveEventInventory,
-	type CloseInventoryAndBillResult,
 	cancelEventInventory,
-	closeInventoryAndBill,
 	type EtaplanWithKostenpunkte,
-	finishEventInventory,
-	type InventoryCountItem,
 	type InventurEvent,
-	saveInventoryCount,
 	saveQuickAdjustments,
 } from "~/server/actions/inventur/inventur";
-import { NumericInput } from "../NumericInput";
+import { InventoryCountDialog, submitInventory } from "./CountMode";
 import { removeSavedItemIds } from "./changed-items";
+import { EventInventoryDialogs } from "./EventInventoryDialogs";
 import {
 	buildInventoryCount,
 	buildQuickAdjustments,
 	findUncountedDrinks,
 	isBlockedByUncounted,
 } from "./inventory-count";
+import { StockTable } from "./StockTable";
 import type { StockStatusWithDetails } from "./utils";
-import { calculateLostValue, getStockStatus } from "./utils";
-
-/** Toasts the outcome of a full inventory; true when it was saved. */
-function notifyInventory(
-	result: Awaited<ReturnType<typeof saveInventoryCount>>,
-): boolean {
-	if (!result.success) {
-		toast.error(result.error ?? "Inventur konnte nicht erstellt werden");
-		return false;
-	}
-	toast.success("Inventur erfolgreich erstellt");
-	return true;
-}
-
-/** Toasts which step of "Inventur + Rechnung" failed; true when the inventory was saved. */
-function notifyInventoryAndBilling(
-	result: CloseInventoryAndBillResult,
-): boolean {
-	if (result.success) {
-		if (result.billsCreated > 0) {
-			toast.success("Inventur und Rechnung erfolgreich erstellt");
-		} else {
-			toast.warning(
-				`Inventur gespeichert, keine Rechnung erstellt: ${result.message}`,
-			);
-		}
-		return true;
-	}
-	// A billing failure leaves the inventory closed: only billing is missing.
-	toast.error(result.error);
-	return result.failedStep === "billing";
-}
-
-/**
- * Saves a full inventory, with billing when asked, and toasts the outcome.
- * True when the inventory was saved (even if the billing then failed).
- */
-async function submitInventory(
-	items: InventoryCountItem[],
-	withInvoice: boolean,
-): Promise<boolean> {
-	if (withInvoice) {
-		return notifyInventoryAndBilling(await closeInventoryAndBill(items));
-	}
-	return notifyInventory(await saveInventoryCount(items));
-}
-
-/** One drink in the stock list, with its computed Soll/Ist figures. */
-type StockRow = {
-	item: StockStatusWithDetails;
-	p: number;
-	calc: number;
-	actual: number;
-	diff: number;
-	lostValue: number;
-	status: ReturnType<typeof getStockStatus>;
-	isChanged: boolean;
-};
+import { calculateLostValue } from "./utils";
 
 function withId(ids: Set<string>, id: string): Set<string> {
 	return ids.has(id) ? ids : new Set(ids).add(id);
-}
-
-/** Lists the drinks nobody counted and asks before taking their shown "Ist". */
-function UncountedWarning({
-	uncounted,
-	total,
-	accepted,
-	onAcceptedChange,
-}: {
-	uncounted: StockStatusWithDetails[];
-	total: number;
-	accepted: boolean;
-	onAcceptedChange: (accepted: boolean) => void;
-}) {
-	if (uncounted.length === 0) {
-		return null;
-	}
-	return (
-		<div className="rounded-md border border-warning/40 bg-warning-muted p-3 text-sm">
-			<p className="font-medium">
-				{uncounted.length} von {total} Getränken wurden nicht gezählt:
-			</p>
-			<p className="mt-1 max-h-24 overflow-y-auto text-muted-foreground">
-				{uncounted.map((item) => item.drinkName).join(", ")}
-			</p>
-			<div className="mt-3 flex items-start space-x-2">
-				<Checkbox
-					id="accept-uncounted"
-					checked={accepted}
-					onCheckedChange={(checked) => onAcceptedChange(checked === true)}
-				/>
-				<Label
-					htmlFor="accept-uncounted"
-					className="font-normal text-sm leading-snug"
-				>
-					Für nicht gezählte Getränke den angezeigten Ist-Wert übernehmen
-				</Label>
-			</div>
-		</div>
-	);
 }
 
 interface DashboardTabProps {
@@ -191,15 +71,6 @@ export function DashboardTab({
 	const [createInvoice, setCreateInvoice] = useState(false);
 	const [showStartEvent, setShowStartEvent] = useState(false);
 	const [showFinishEvent, setShowFinishEvent] = useState(false);
-	const [eventSel, setEventSel] = useState("");
-	const [freeName, setFreeName] = useState("");
-	const [freeDate, setFreeDate] = useState("");
-	const [doBook, setDoBook] = useState(true);
-	const [etaplanId, setEtaplanId] = useState(
-		() =>
-			etaplans.find((e) => e.status === "Aktiv")?.id ?? etaplans[0]?.id ?? "",
-	);
-	const [kostenpunktId, setKostenpunktId] = useState("");
 	const [isEventPending, startEventTransition] = useTransition();
 
 	useEffect(() => {
@@ -328,63 +199,6 @@ export function DashboardTab({
 		});
 	};
 
-	const handleStartEvent = () => {
-		let info: {
-			eventId?: string | null;
-			eventName: string;
-			eventDate?: Date | null;
-		};
-		if (eventSel === "__free__") {
-			if (!freeName.trim()) {
-				toast.error("Name der Veranstaltung fehlt");
-				return;
-			}
-			info = {
-				eventName: freeName.trim(),
-				eventDate: freeDate ? new Date(freeDate) : null,
-			};
-		} else {
-			const ev = events.find((e) => e.id === eventSel);
-			if (!ev) {
-				toast.error("Bitte Veranstaltung wählen");
-				return;
-			}
-			info = { eventId: ev.id, eventName: ev.title, eventDate: ev.date };
-		}
-		startEventTransition(async () => {
-			const res = await saveInventoryCount(buildItems(), { startEvent: info });
-			if (res.success) {
-				toast.success(
-					"Veranstaltungs-Inventur gestartet — Anfangsbestand gespeichert",
-				);
-				setCountedIds(new Set());
-				setShowStartEvent(false);
-				router.refresh();
-			} else {
-				toast.error(res.error ?? "Fehler beim Starten");
-			}
-		});
-	};
-
-	const handleFinishEvent = () => {
-		startEventTransition(async () => {
-			const res = await finishEventInventory(buildItems(), {
-				kostenpunktId: doBook ? kostenpunktId || null : null,
-			});
-			if (res.success) {
-				const r = res.report;
-				toast.success(
-					`Veranstaltung abgeschlossen — ${r.totalQty} Fl., ${formatEUR(r.totalValue)} Verbrauch${r.booked ? " · in CC-Kasse gebucht" : ""}`,
-				);
-				setCountedIds(new Set());
-				setShowFinishEvent(false);
-				router.refresh();
-			} else {
-				toast.error(res.error);
-			}
-		});
-	};
-
 	const handleCancelEvent = () => {
 		startEventTransition(async () => {
 			const res = await cancelEventInventory();
@@ -395,34 +209,6 @@ export function DashboardTab({
 				toast.error(res.error ?? "Fehler");
 			}
 		});
-	};
-
-	const consumptionPreview = stockItems
-		.map((item) => {
-			const p = purchases[item.drinkId] || 0;
-			const calc = item.lastInventoryStock + p - item.soldSince;
-			const actual = countedStock[item.drinkId] ?? calc;
-			const consumed = Math.max(0, calc - actual);
-			return {
-				name: item.drinkName,
-				consumed,
-				value: consumed * item.currentPrice,
-			};
-		})
-		.filter((x) => x.consumed > 0);
-	const previewQty = consumptionPreview.reduce((s, x) => s + x.consumed, 0);
-	const previewValue = consumptionPreview.reduce((s, x) => s + x.value, 0);
-	const kpOptions =
-		etaplans.find((e) => e.id === etaplanId)?.kostenpunkte ?? [];
-
-	const diffClass = (diff: number) => {
-		if (diff < 0) {
-			return "text-destructive font-semibold";
-		}
-		if (diff > 0) {
-			return "text-success font-semibold";
-		}
-		return "text-muted-foreground";
 	};
 
 	const totalSoldUnits = stockItems.reduce((s, i) => s + i.soldSince, 0);
@@ -442,148 +228,6 @@ export function DashboardTab({
 	}, 0);
 
 	const hasChanges = changedItems.size > 0;
-	const busy = isSaving || isQuickSaving;
-	const stockRows: StockRow[] = stockItems.map((item) => {
-		const p = purchases[item.drinkId] || 0;
-		const calc = item.lastInventoryStock + p - item.soldSince;
-		const actual = countedStock[item.drinkId] ?? calc;
-		return {
-			item,
-			p,
-			calc,
-			actual,
-			diff: actual - calc,
-			lostValue: calculateLostValue({ ...item, calculatedStock: calc }, actual),
-			status: getStockStatus({ calculatedStock: calc }, actual),
-			isChanged: changedItems.has(item.drinkId),
-		};
-	});
-
-	const stockColumns: DataListColumn<StockRow>[] = [
-		{
-			id: "drink",
-			header: "Getränk",
-			cell: ({ row: { original: r } }) => (
-				<>
-					{r.item.drinkName}
-					{r.isChanged && <span className="ml-2 text-info text-xs">●</span>}
-				</>
-			),
-			meta: { mobile: "title", className: "font-medium" },
-		},
-		{
-			id: "lastInventory",
-			header: "Letzte Inventur",
-			cell: ({ row }) => row.original.item.lastInventoryStock,
-			meta: { mobile: "meta", className: "md:text-right" },
-		},
-		{
-			id: "purchased",
-			header: "Eingekauft (+)",
-			cell: ({ row: { original: r } }) => (
-				<div className="flex items-center gap-1 md:justify-center">
-					{r.p > 0 && <span className="font-bold text-success">+</span>}
-					<Input
-						type="number"
-						aria-label={`Eingekauft – ${r.item.drinkName}`}
-						value={r.p || ""}
-						onChange={(e) =>
-							handlePurchaseInput(
-								r.item.drinkId,
-								e.target.value === "" ? 0 : Number(e.target.value),
-							)
-						}
-						className={`h-8 w-20 ${r.p > 0 ? "border-success font-semibold text-success" : ""}`}
-						min="0"
-						placeholder="0"
-						disabled={busy}
-					/>
-				</div>
-			),
-			meta: {
-				mobile: "meta",
-				label: "Eingekauft",
-				headerClassName: "text-center text-success",
-				cellClassName: "md:text-center",
-			},
-		},
-		{
-			id: "sold",
-			header: "Verkauft (−)",
-			cell: ({ row }) => (
-				<span className="font-semibold text-destructive">
-					−{row.original.item.soldSince}
-				</span>
-			),
-			meta: {
-				mobile: "meta",
-				label: "Verkauft",
-				className: "md:text-right",
-				headerClassName: "text-destructive",
-			},
-		},
-		{
-			id: "calc",
-			header: "Soll",
-			cell: ({ row }) => row.original.calc,
-			meta: { mobile: "meta", className: "md:text-right" },
-		},
-		{
-			id: "actual",
-			header: "Ist",
-			cell: ({ row: { original: r } }) => (
-				<NumericInput
-					min={0}
-					aria-label={`Ist – ${r.item.drinkName}`}
-					value={r.actual}
-					onChange={(value) => handleCountedStockInput(r.item.drinkId, value)}
-					className="h-8 w-20 md:mx-auto"
-					disabled={busy}
-				/>
-			),
-			meta: { mobile: "meta", className: "md:text-center" },
-		},
-		{
-			id: "diff",
-			header: "Differenz",
-			cell: ({ row: { original: r } }) => (
-				<span className={diffClass(r.diff)}>
-					{r.diff > 0 ? `+${r.diff}` : r.diff}
-				</span>
-			),
-			meta: { mobile: "meta", className: "md:text-right" },
-		},
-		{
-			id: "price",
-			header: "Preis",
-			cell: ({ row }) => formatEUR(row.original.item.currentPrice),
-			meta: { mobile: "meta", className: "md:text-right" },
-		},
-		{
-			id: "status",
-			header: "Status",
-			cell: ({ row: { original: r } }) => (
-				<StatusBadge tone={r.status.tone} strong={r.status.strong}>
-					{r.status.label}
-				</StatusBadge>
-			),
-			meta: { mobile: "subtitle", className: "md:text-center" },
-		},
-		{
-			id: "lost",
-			header: "Verlust (€)",
-			cell: ({ row: { original: r } }) =>
-				r.lostValue > 0 ? formatEUR(r.lostValue) : "-",
-			meta: {
-				mobile: "meta",
-				label: "Verlust",
-				className: "md:text-right",
-				headerClassName: "text-destructive",
-				cellClassName: "font-semibold text-destructive",
-			},
-		},
-	];
-
 	return (
 		<>
 			{activeEvent && (
@@ -707,264 +351,46 @@ export function DashboardTab({
 			</div>
 
 			{/* Stock: table from md up, one card per drink below */}
-			<DataList
-				data={stockRows}
-				columns={stockColumns}
-				getRowId={(r) => r.item.drinkId}
-				caption="Aktueller Bestand"
-				metaLayout="grid"
-				className="mt-4 md:rounded-md md:border"
-				rowClassName={(r) =>
-					r.isChanged ? "bg-info-muted max-md:border-info/40" : undefined
-				}
+			<StockTable
+				stockItems={stockItems}
+				purchases={purchases}
+				countedStock={countedStock}
+				changedItems={changedItems}
+				disabled={isSaving || isQuickSaving}
+				onPurchaseInput={handlePurchaseInput}
+				onCountedStockInput={handleCountedStockInput}
 			/>
 
-			{/* Inventory Confirmation Dialog */}
-			<Dialog open={showInventoryDialog} onOpenChange={setShowInventoryDialog}>
-				<DialogContent className="sm:max-w-md">
-					<DialogHeader>
-						<DialogTitle>Vollständige Inventur erstellen</DialogTitle>
-						<DialogDescription>
-							Die Inventur wird mit den aktuellen Bestandszahlen erstellt.
-							{totalSoldUnits > 0 && (
-								<span className="mt-2 block">
-									Es wurden <strong>{totalSoldUnits} Flaschen</strong> seit der
-									letzten Inventur verkauft.
-								</span>
-							)}
-						</DialogDescription>
-					</DialogHeader>
-					<UncountedWarning
-						uncounted={uncountedDrinks}
-						total={stockItems.length}
-						accepted={acceptUncounted}
-						onAcceptedChange={setAcceptUncounted}
-					/>
-					<div className="flex items-center space-x-2 py-4">
-						<Checkbox
-							id="create-invoice"
-							checked={createInvoice}
-							onCheckedChange={(checked) =>
-								setCreateInvoice(checked as boolean)
-							}
-						/>
-						<Label
-							htmlFor="create-invoice"
-							className="font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-						>
-							Auch Rechnung erstellen
-						</Label>
-					</div>
-					<DialogFooter className="flex gap-2">
-						<Button
-							variant="outline"
-							onClick={() => setShowInventoryDialog(false)}
-						>
-							Abbrechen
-						</Button>
-						<Button
-							onClick={() => handleCreateInventory(createInvoice)}
-							disabled={isSaving || blockedByUncounted}
-						>
-							{isSaving ? (
-								"Erstelle..."
-							) : (
-								<>
-									<FileSpreadsheet className="mr-2 h-4 w-4" />
-									Inventur erstellen
-								</>
-							)}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<InventoryCountDialog
+				open={showInventoryDialog}
+				onOpenChange={setShowInventoryDialog}
+				totalSoldUnits={totalSoldUnits}
+				uncounted={uncountedDrinks}
+				total={stockItems.length}
+				acceptUncounted={acceptUncounted}
+				onAcceptUncountedChange={setAcceptUncounted}
+				createInvoice={createInvoice}
+				onCreateInvoiceChange={setCreateInvoice}
+				isSaving={isSaving}
+				blocked={blockedByUncounted}
+				onCreate={handleCreateInventory}
+			/>
 
-			{/* Veranstaltungs-Inventur: Start */}
-			<Dialog open={showStartEvent} onOpenChange={setShowStartEvent}>
-				<DialogContent className="sm:max-w-md">
-					<DialogHeader>
-						<DialogTitle>Veranstaltungs-Inventur starten</DialogTitle>
-						<DialogDescription>
-							Der aktuell erfasste Bestand wird als{" "}
-							<strong>Anfangsbestand</strong> gespeichert. Nach der
-							Veranstaltung zählst du erneut — die Differenz ist der Verbrauch.
-						</DialogDescription>
-					</DialogHeader>
-					<div className="space-y-3 py-2">
-						<div className="grid gap-1.5">
-							<Label>Veranstaltung</Label>
-							<Select value={eventSel} onValueChange={setEventSel}>
-								<SelectTrigger>
-									<SelectValue placeholder="Veranstaltung wählen" />
-								</SelectTrigger>
-								<SelectContent>
-									{events.map((e) => (
-										<SelectItem key={e.id} value={e.id}>
-											{e.title} · {formatDate(e.date)}
-										</SelectItem>
-									))}
-									<SelectItem value="__free__">Andere (Freitext)…</SelectItem>
-								</SelectContent>
-							</Select>
-						</div>
-						{eventSel === "__free__" && (
-							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-								<div className="grid gap-1.5">
-									<Label htmlFor="ev-name">Name</Label>
-									<Input
-										id="ev-name"
-										value={freeName}
-										onChange={(e) => setFreeName(e.target.value)}
-										placeholder="z.B. Sommerfest"
-									/>
-								</div>
-								<div className="grid gap-1.5">
-									<Label htmlFor="ev-date">Datum</Label>
-									<Input
-										id="ev-date"
-										type="date"
-										value={freeDate}
-										onChange={(e) => setFreeDate(e.target.value)}
-									/>
-								</div>
-							</div>
-						)}
-					</div>
-					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setShowStartEvent(false)}
-							disabled={isEventPending}
-						>
-							Abbrechen
-						</Button>
-						<Button
-							onClick={handleStartEvent}
-							disabled={isEventPending || !eventSel}
-						>
-							Anfangsbestand speichern
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
-
-			{/* Veranstaltungs-Inventur: Abschluss */}
-			<Dialog open={showFinishEvent} onOpenChange={setShowFinishEvent}>
-				<DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-					<DialogHeader>
-						<DialogTitle>Veranstaltung abschließen</DialogTitle>
-						<DialogDescription>
-							Der aktuell gezählte Bestand ist der <strong>Endbestand</strong>.
-							Folgender Verbrauch wird verbucht:
-						</DialogDescription>
-					</DialogHeader>
-					<div className="space-y-4 py-2">
-						<div className="rounded-md border">
-							{consumptionPreview.length === 0 ? (
-								<p className="p-3 text-muted-foreground text-sm">
-									Kein Verbrauch erkannt (Endbestand ≥ erwartet).
-								</p>
-							) : (
-								<ul className="max-h-56 divide-y overflow-y-auto text-sm">
-									{consumptionPreview.map((x) => (
-										<li
-											key={x.name}
-											className="flex items-center justify-between px-3 py-1.5"
-										>
-											<span>{x.name}</span>
-											<span className="text-muted-foreground">
-												{x.consumed} Fl. · {formatEUR(x.value)}
-											</span>
-										</li>
-									))}
-								</ul>
-							)}
-							<div className="flex items-center justify-between border-t px-3 py-2 font-semibold">
-								<span>Gesamt</span>
-								<span>
-									{previewQty} Fl. · {formatEUR(previewValue)}
-								</span>
-							</div>
-						</div>
-
-						<div className="flex items-center gap-2">
-							<Checkbox
-								id="ev-book"
-								checked={doBook}
-								onCheckedChange={(c) => setDoBook(c === true)}
-							/>
-							<Label htmlFor="ev-book" className="font-normal">
-								Verbrauch als Ausgabe in die CC-Kasse buchen
-							</Label>
-						</div>
-						{doBook && (
-							<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-								<div className="grid gap-1.5">
-									<Label>Etatplan</Label>
-									<Select
-										value={etaplanId}
-										onValueChange={(v) => {
-											setEtaplanId(v);
-											setKostenpunktId("");
-										}}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Etatplan" />
-										</SelectTrigger>
-										<SelectContent>
-											{etaplans.map((e) => (
-												<SelectItem key={e.id} value={e.id}>
-													{e.name}
-													{e.status === "Abgeschlossen"
-														? " (abgeschlossen)"
-														: ""}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="grid gap-1.5">
-									<Label>Kostenpunkt</Label>
-									<Select
-										value={kostenpunktId}
-										onValueChange={setKostenpunktId}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="Kostenpunkt" />
-										</SelectTrigger>
-										<SelectContent>
-											{kpOptions.map((k) => (
-												<SelectItem key={k.id} value={k.id}>
-													{k.category} · {k.name}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
-								</div>
-							</div>
-						)}
-					</div>
-					<DialogFooter>
-						<Button
-							variant="outline"
-							onClick={() => setShowFinishEvent(false)}
-							disabled={isEventPending}
-						>
-							Abbrechen
-						</Button>
-						<Button
-							onClick={handleFinishEvent}
-							disabled={isEventPending || (doBook && !kostenpunktId)}
-						>
-							{isEventPending
-								? "Speichere..."
-								: doBook
-									? "Abschließen & buchen"
-									: "Abschließen"}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<EventInventoryDialogs
+				events={events}
+				etaplans={etaplans}
+				stockItems={stockItems}
+				purchases={purchases}
+				countedStock={countedStock}
+				buildItems={buildItems}
+				onCounted={() => setCountedIds(new Set())}
+				startOpen={showStartEvent}
+				onStartOpenChange={setShowStartEvent}
+				finishOpen={showFinishEvent}
+				onFinishOpenChange={setShowFinishEvent}
+				isPending={isEventPending}
+				startTransition={startEventTransition}
+			/>
 		</>
 	);
 }

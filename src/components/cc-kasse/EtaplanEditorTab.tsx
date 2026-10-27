@@ -1,21 +1,8 @@
 "use client";
 
-import {
-	CalendarDays,
-	ChevronDown,
-	Download,
-	FileSpreadsheet,
-	MoreHorizontal,
-	MoreVertical,
-	Pencil,
-	PiggyBank,
-	Plus,
-	Receipt,
-	Trash2,
-	Upload,
-} from "lucide-react";
+import { FileSpreadsheet, MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
 	AlertDialog,
@@ -27,18 +14,9 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
-import { Button } from "~/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 import { EmptyState } from "~/components/ui/empty-state";
-import { IconButton } from "~/components/ui/icon-button";
 import { SectionCard } from "~/components/ui/section-card";
-import { formatDate, formatEUR } from "~/lib/format";
+import { formatEUR } from "~/lib/format";
 import {
 	deleteEinnahme,
 	type EinnahmeRow,
@@ -55,6 +33,9 @@ import {
 } from "~/server/actions/cc-kasse/kostenpunkte";
 import { type EditingEinnahme, EinnahmeDialog } from "./EinnahmeDialog";
 import { EtaplanDialog } from "./EtaplanDialog";
+import { EtaplanToolbar } from "./etaplan-editor/EtaplanToolbar";
+import { downloadBase64, fileToBase64 } from "./etaplan-editor/file-transfer";
+import { KostenpunktItem } from "./etaplan-editor/KostenpunktItem";
 import { KostenpunktDialog } from "./KostenpunktDialog";
 import { ReimbursementDialog } from "./ReimbursementDialog";
 
@@ -66,33 +47,6 @@ type Props = {
 	isTreasury: boolean;
 };
 
-function downloadBase64(base64: string, fileName: string, mime: string) {
-	const bytes = atob(base64);
-	const arr = new Uint8Array(bytes.length);
-	for (let i = 0; i < bytes.length; i++) {
-		arr[i] = bytes.charCodeAt(i);
-	}
-	const blob = new Blob([arr], { type: mime });
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = fileName;
-	a.click();
-	URL.revokeObjectURL(url);
-}
-
-function fileToBase64(file: File): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const reader = new FileReader();
-		reader.onload = () => {
-			const result = reader.result as string;
-			resolve(result.split(",")[1] ?? "");
-		};
-		reader.onerror = reject;
-		reader.readAsDataURL(file);
-	});
-}
-
 export function EtaplanEditorTab({
 	etaplan,
 	kostenpunkte,
@@ -102,7 +56,6 @@ export function EtaplanEditorTab({
 }: Props) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
-	const fileInputRef = useRef<HTMLInputElement>(null);
 
 	const [editEtaplanOpen, setEditEtaplanOpen] = useState(false);
 	const [kpDialogOpen, setKpDialogOpen] = useState(false);
@@ -247,87 +200,17 @@ export function EtaplanEditorTab({
 
 	return (
 		<div className="space-y-4">
-			<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-				<div className="flex min-w-0 items-center gap-2">
-					<div className="min-w-0">
-						<h2 className="font-semibold text-base">Kostenpunkte</h2>
-						<p className="text-muted-foreground text-xs tabular-nums">
-							{kostenpunkte.length} Posten · Budget{" "}
-							{formatEUR(kostenpunkte.reduce((s, k) => s + k.budget, 0))}
-						</p>
-					</div>
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								className="ml-auto sm:ml-0"
-								disabled={isPending}
-								aria-label="Etatplan-Aktionen"
-							>
-								<MoreHorizontal />
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end">
-							<DropdownMenuItem onClick={() => setEditEtaplanOpen(true)}>
-								<Pencil /> Etatplan bearbeiten
-							</DropdownMenuItem>
-							<DropdownMenuSeparator />
-							<DropdownMenuItem onClick={onExport}>
-								<Download /> Als Excel exportieren
-							</DropdownMenuItem>
-							<DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
-								<Upload /> Excel importieren
-							</DropdownMenuItem>
-						</DropdownMenuContent>
-					</DropdownMenu>
-					<input
-						ref={fileInputRef}
-						type="file"
-						accept=".xlsx"
-						className="hidden"
-						onChange={onImportFile}
-					/>
-				</div>
-				<div className="grid grid-cols-2 gap-2 sm:flex">
-					{isTreasury && (
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<Button variant="outline" disabled={kostenpunkte.length === 0}>
-									<Receipt /> Buchen
-									<ChevronDown className="opacity-60" />
-								</Button>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="end" className="w-56">
-								<DropdownMenuItem onClick={() => setBookingOpen(true)}>
-									<Receipt />
-									<div>
-										<div>Ausgabe</div>
-										<div className="text-muted-foreground text-xs">
-											Direkt bezahlte Rechnung
-										</div>
-									</div>
-								</DropdownMenuItem>
-								<DropdownMenuItem onClick={openNewEinnahme}>
-									<PiggyBank />
-									<div>
-										<div>Einnahme</div>
-										<div className="text-muted-foreground text-xs">
-											z. B. Bargeld vom Fest
-										</div>
-									</div>
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					)}
-					<Button
-						onClick={openNewKp}
-						className={isTreasury ? undefined : "col-span-2"}
-					>
-						<Plus /> Kostenpunkt
-					</Button>
-				</div>
-			</div>
+			<EtaplanToolbar
+				kostenpunkte={kostenpunkte}
+				isPending={isPending}
+				isTreasury={isTreasury}
+				onEditEtaplan={() => setEditEtaplanOpen(true)}
+				onExport={onExport}
+				onImportFile={onImportFile}
+				onBook={() => setBookingOpen(true)}
+				onNewEinnahme={openNewEinnahme}
+				onNewKp={openNewKp}
+			/>
 
 			{grouped.length === 0 ? (
 				<EmptyState
@@ -359,133 +242,18 @@ export function EtaplanEditorTab({
 							}
 						>
 							<ul className="divide-y">
-								{g.items.map((kp) => {
-									const kpEinnahmen = einnahmenByKp.get(kp.id) ?? [];
-									const erhalten = kpEinnahmen.reduce(
-										(s, e) => s + e.amount,
-										0,
-									);
-									return (
-										<li key={kp.id} className="px-4 py-3">
-											<div className="flex items-start justify-between gap-3">
-												<div className="min-w-0">
-													<div className="font-medium text-sm">{kp.name}</div>
-													{kp.event && (
-														<div className="flex items-center gap-1 text-muted-foreground text-xs">
-															<CalendarDays className="size-3" />
-															<span className="truncate">{kp.event.title}</span>
-														</div>
-													)}
-												</div>
-												<div className="flex shrink-0 items-start gap-1">
-													<div className="text-right">
-														<div className="font-semibold text-sm tabular-nums">
-															{formatEUR(kp.budget)}
-														</div>
-														{kp.income > 0 && (
-															<div className="text-muted-foreground text-xs tabular-nums">
-																+{formatEUR(kp.income)} geplant
-															</div>
-														)}
-														{erhalten > 0 && (
-															<div className="text-success text-xs tabular-nums">
-																+{formatEUR(erhalten)} erhalten
-															</div>
-														)}
-													</div>
-													<DropdownMenu>
-														<DropdownMenuTrigger asChild>
-															<Button
-																variant="ghost"
-																size="icon-sm"
-																className="-mt-1 -mr-2"
-																aria-label={`Aktionen für ${kp.name}`}
-															>
-																<MoreVertical />
-															</Button>
-														</DropdownMenuTrigger>
-														<DropdownMenuContent align="end">
-															<DropdownMenuItem onClick={() => openEditKp(kp)}>
-																<Pencil /> Bearbeiten
-															</DropdownMenuItem>
-															<DropdownMenuItem
-																variant="destructive"
-																onClick={() => setDeleteId(kp.id)}
-															>
-																<Trash2 /> Löschen
-															</DropdownMenuItem>
-														</DropdownMenuContent>
-													</DropdownMenu>
-												</div>
-											</div>
-
-											{kp.positionen.length > 0 && (
-												<ul className="mt-2 space-y-0.5 border-l-2 pl-3">
-													{kp.positionen.map((p) => (
-														<li
-															key={p.id}
-															className="flex justify-between gap-3 text-muted-foreground text-xs"
-														>
-															<span className="min-w-0 truncate">
-																{p.bemerkung ?? "—"}
-															</span>
-															<span className="shrink-0 whitespace-nowrap tabular-nums">
-																{formatEUR(p.ausgaben)}
-																{p.einnahmen > 0 &&
-																	` / +${formatEUR(p.einnahmen)}`}
-															</span>
-														</li>
-													))}
-												</ul>
-											)}
-
-											{kpEinnahmen.length > 0 && (
-												<ul className="mt-2 space-y-0.5 border-success/50 border-l-2 pl-3">
-													{kpEinnahmen.map((e) => (
-														<li
-															key={e.id}
-															className="flex items-center justify-between gap-3 text-xs"
-														>
-															<span className="min-w-0 truncate text-muted-foreground">
-																{formatDate(e.incomeDate)} · {e.description}
-															</span>
-															<span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-success tabular-nums">
-																+{formatEUR(e.amount)}
-																{isTreasury && (
-																	<DropdownMenu>
-																		<DropdownMenuTrigger asChild>
-																			<IconButton
-																				size="icon-sm"
-																				label="Einnahme-Aktionen"
-																			>
-																				<MoreVertical />
-																			</IconButton>
-																		</DropdownMenuTrigger>
-																		<DropdownMenuContent align="end">
-																			<DropdownMenuItem
-																				onClick={() => openEditEinnahme(e)}
-																			>
-																				<Pencil /> Bearbeiten
-																			</DropdownMenuItem>
-																			<DropdownMenuItem
-																				variant="destructive"
-																				onClick={() =>
-																					setDeleteEinnahmeId(e.id)
-																				}
-																			>
-																				<Trash2 /> Löschen
-																			</DropdownMenuItem>
-																		</DropdownMenuContent>
-																	</DropdownMenu>
-																)}
-															</span>
-														</li>
-													))}
-												</ul>
-											)}
-										</li>
-									);
-								})}
+								{g.items.map((kp) => (
+									<KostenpunktItem
+										key={kp.id}
+										kp={kp}
+										kpEinnahmen={einnahmenByKp.get(kp.id) ?? []}
+										isTreasury={isTreasury}
+										onEdit={openEditKp}
+										onDelete={setDeleteId}
+										onEditEinnahme={openEditEinnahme}
+										onDeleteEinnahme={setDeleteEinnahmeId}
+									/>
+								))}
 							</ul>
 						</SectionCard>
 					);

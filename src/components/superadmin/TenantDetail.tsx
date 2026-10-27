@@ -18,15 +18,14 @@ import {
 } from "~/lib/features";
 import { formatDate } from "~/lib/format";
 import {
-	type AuthConfigPatch,
-	addTenantDomainAction,
-	removeTenantDomainAction,
 	type SuperadminTenantDetail,
 	setTenantFeatureAction,
 	setTenantStatusAction,
-	updateTenantAuthConfigAction,
 	updateTenantDisplayNameAction,
 } from "~/server/actions/superadmin/tenants";
+import { AuthConfigSection } from "./TenantAuthConfigSection";
+import { DomainsSection } from "./TenantDomainsSection";
+import type { SectionProps } from "./tenant-section";
 
 export function TenantDetail({ data }: { data: SuperadminTenantDetail }) {
 	const router = useRouter();
@@ -103,13 +102,6 @@ export function TenantDetail({ data }: { data: SuperadminTenantDetail }) {
 		</div>
 	);
 }
-
-type SectionProps = {
-	tenantId: string;
-	disabled: boolean;
-	startTransition: React.TransitionStartFunction;
-	onDone: () => void;
-};
 
 function DisplayNameSection({
 	tenantId,
@@ -250,244 +242,6 @@ function FeaturesSection({
 					</li>
 				))}
 			</ul>
-		</section>
-	);
-}
-
-function DomainsSection({
-	tenantId,
-	domains,
-	disabled,
-	startTransition,
-	onDone,
-}: SectionProps & {
-	domains: SuperadminTenantDetail["domains"];
-}) {
-	const [hostname, setHostname] = useState("");
-	const [isPrimary, setIsPrimary] = useState(false);
-
-	const add = () => {
-		startTransition(async () => {
-			const r = await addTenantDomainAction(tenantId, hostname, {
-				isPrimary,
-			});
-			if (r.success) {
-				toast.success(`Added ${hostname}`);
-				setHostname("");
-				setIsPrimary(false);
-				onDone();
-			} else {
-				toast.error(r.error ?? "Failed to add domain");
-			}
-		});
-	};
-
-	const remove = (id: string, host: string) => {
-		startTransition(async () => {
-			const r = await removeTenantDomainAction(tenantId, id);
-			if (r.success) {
-				toast.success(`Removed ${host}`);
-				onDone();
-			} else {
-				toast.error(r.error ?? "Failed to remove domain");
-			}
-		});
-	};
-
-	return (
-		<section className="rounded-md border bg-card p-6">
-			<h2 className="mb-4 font-medium">Domains</h2>
-			<ul className="mb-4 divide-y rounded border">
-				{domains.length === 0 && (
-					<li className="px-4 py-3 text-muted-foreground text-sm">
-						No domains yet. Add at least one.
-					</li>
-				)}
-				{domains.map((d) => (
-					<li
-						key={d.id}
-						className="flex items-center justify-between px-4 py-3"
-					>
-						<div className="flex items-center gap-2 font-mono text-sm">
-							{d.hostname}
-							{d.isPrimary && <Badge variant="default">primary</Badge>}
-							{!d.isCustom && <Badge variant="secondary">dev</Badge>}
-						</div>
-						<ConfirmAction
-							title={`Remove domain ${d.hostname}?`}
-							confirmLabel="Remove"
-							cancelLabel="Cancel"
-							onConfirm={() => remove(d.id, d.hostname)}
-						>
-							<Button size="sm" variant="ghost" disabled={disabled}>
-								Remove
-							</Button>
-						</ConfirmAction>
-					</li>
-				))}
-			</ul>
-			<div className="flex max-w-lg flex-col gap-2 sm:flex-row sm:items-end">
-				<div className="flex-1 space-y-1">
-					<Label htmlFor="new-host">Hostname</Label>
-					<Input
-						id="new-host"
-						value={hostname}
-						onChange={(e) => setHostname(e.target.value.toLowerCase())}
-						placeholder="hassia.de"
-						disabled={disabled}
-					/>
-				</div>
-				<label className="flex items-center gap-2 text-sm">
-					<input
-						type="checkbox"
-						checked={isPrimary}
-						onChange={(e) => setIsPrimary(e.target.checked)}
-						disabled={disabled}
-					/>
-					Primary
-				</label>
-				<Button onClick={add} disabled={disabled || !hostname}>
-					Add
-				</Button>
-			</div>
-		</section>
-	);
-}
-
-function AuthConfigSection({
-	tenantId,
-	slug,
-	initial,
-	disabled,
-	startTransition,
-	onDone,
-}: SectionProps & {
-	slug: string;
-	initial: SuperadminTenantDetail["authConfig"];
-}) {
-	const [microsoftEnabled, setMicrosoftEnabled] = useState(
-		initial?.microsoftEnabled ?? false,
-	);
-	const [clientId, setClientId] = useState(initial?.azureClientId ?? "");
-	const [clientSecret, setClientSecret] = useState("");
-	const [tenantIdAzure, setTenantIdAzure] = useState(
-		initial?.azureTenantId ?? "",
-	);
-	const [mailSender, setMailSender] = useState(initial?.mailSenderEmail ?? "");
-
-	const submit = () => {
-		const patch: AuthConfigPatch = {
-			microsoftEnabled,
-			azureClientId: clientId.trim() || null,
-			azureTenantId: tenantIdAzure.trim() || null,
-			mailSenderEmail: mailSender.trim() || null,
-		};
-		// Only send the secret if user typed a new one (avoid overwriting with "")
-		if (clientSecret.trim() !== "") {
-			patch.azureClientSecret = clientSecret.trim();
-		}
-		startTransition(async () => {
-			const r = await updateTenantAuthConfigAction(tenantId, patch);
-			if (r.success) {
-				toast.success("Auth config updated", {
-					description:
-						"Restart the dev/prod server for the change to take effect.",
-				});
-				setClientSecret("");
-				onDone();
-			} else {
-				toast.error(r.error ?? "Failed to update auth config");
-			}
-		});
-	};
-
-	return (
-		<section className="rounded-md border bg-card p-6">
-			<h2 className="mb-1 font-medium">Microsoft (Azure AD) sign-in</h2>
-			<p className="mb-4 text-muted-foreground text-xs">
-				Provider id: <code>microsoft-{slug}</code>. Register this redirect URI
-				in the Azure app:{" "}
-				<code>
-					https://&lt;tenant-host&gt;/api/auth/oauth2/callback/microsoft-{slug}
-				</code>
-			</p>
-
-			<div className="max-w-lg space-y-3">
-				<label className="flex items-center gap-2 text-sm">
-					<input
-						type="checkbox"
-						checked={microsoftEnabled}
-						onChange={(e) => setMicrosoftEnabled(e.target.checked)}
-						disabled={disabled}
-					/>
-					Enable Microsoft sign-in
-				</label>
-
-				<div className="space-y-1">
-					<Label htmlFor="client-id">Azure client ID</Label>
-					<Input
-						id="client-id"
-						value={clientId}
-						onChange={(e) => setClientId(e.target.value)}
-						disabled={disabled}
-					/>
-				</div>
-
-				<div className="space-y-1">
-					<Label htmlFor="client-secret">
-						Azure client secret{" "}
-						{initial?.hasAzureSecret && (
-							<span className="text-muted-foreground text-xs">
-								(stored — leave blank to keep)
-							</span>
-						)}
-					</Label>
-					<Input
-						id="client-secret"
-						type="password"
-						value={clientSecret}
-						onChange={(e) => setClientSecret(e.target.value)}
-						placeholder={initial?.hasAzureSecret ? "••••••••" : ""}
-						disabled={disabled}
-					/>
-				</div>
-
-				<div className="space-y-1">
-					<Label htmlFor="tenant-azure">Azure tenant ID</Label>
-					<Input
-						id="tenant-azure"
-						value={tenantIdAzure}
-						onChange={(e) => setTenantIdAzure(e.target.value)}
-						disabled={disabled}
-					/>
-				</div>
-
-				<div className="space-y-1">
-					<Label htmlFor="mail-sender">Mail sender (Microsoft Graph)</Label>
-					<Input
-						id="mail-sender"
-						type="email"
-						value={mailSender}
-						onChange={(e) => setMailSender(e.target.value)}
-						placeholder="noreply@corps-domain.de"
-						disabled={disabled}
-					/>
-					<p className="text-muted-foreground text-xs">
-						Mailbox the app sends as via Graph <code>sendMail</code>. Requires
-						the <code>Mail.Send</code> APPLICATION permission (admin-consented)
-						on the Azure app above. Empty → legacy Gmail transport.
-					</p>
-				</div>
-
-				<Button onClick={submit} disabled={disabled}>
-					Save auth config
-				</Button>
-
-				<div className="rounded-md bg-warning-muted p-3 text-warning-muted-foreground text-xs">
-					Auth provider configs are loaded at server start. Restart the app
-					after changing these for them to take effect.
-				</div>
-			</div>
 		</section>
 	);
 }

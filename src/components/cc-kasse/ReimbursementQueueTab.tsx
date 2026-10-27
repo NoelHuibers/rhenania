@@ -16,22 +16,13 @@ import { Button } from "~/components/ui/button";
 import { ChipGroup } from "~/components/ui/chip-group";
 import { DataList, type DataListColumn } from "~/components/ui/data-list";
 import {
-	Dialog,
-	DialogContent,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-} from "~/components/ui/dialog";
-import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { EmptyState } from "~/components/ui/empty-state";
-import { Label } from "~/components/ui/label";
 import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
-import { Textarea } from "~/components/ui/textarea";
 import { formatDate, formatEUR } from "~/lib/format";
 import { formatIban } from "~/lib/iban";
 import {
@@ -47,6 +38,7 @@ import {
 	ReimbursementDialog,
 	toEditing,
 } from "./ReimbursementDialog";
+import { RejectReimbursementDialog } from "./RejectReimbursementDialog";
 
 type Filter =
 	| "offen"
@@ -358,42 +350,14 @@ export function ReimbursementQueueTab({
 				</div>
 			)}
 
-			<Dialog
+			<RejectReimbursementDialog
 				open={rejectId !== null}
-				onOpenChange={(o) => {
-					if (!o) {
-						setRejectId(null);
-					}
-				}}
-			>
-				<DialogContent className="sm:max-w-[420px]">
-					<DialogHeader>
-						<DialogTitle>Antrag ablehnen</DialogTitle>
-					</DialogHeader>
-					<div className="grid gap-2 py-2">
-						<Label htmlFor="reject-reason">Begründung</Label>
-						<Textarea
-							id="reject-reason"
-							value={rejectReason}
-							onChange={(e) => setRejectReason(e.target.value)}
-							placeholder="Warum wird der Antrag abgelehnt?"
-							rows={3}
-						/>
-					</div>
-					<DialogFooter>
-						<Button variant="outline" onClick={() => setRejectId(null)}>
-							Abbrechen
-						</Button>
-						<Button
-							variant="destructive"
-							disabled={isPending || !rejectReason.trim()}
-							onClick={confirmReject}
-						>
-							Ablehnen
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+				reason={rejectReason}
+				onReasonChange={setRejectReason}
+				onClose={() => setRejectId(null)}
+				onConfirm={confirmReject}
+				isPending={isPending}
+			/>
 
 			<ReimbursementDialog
 				open={editing !== null}

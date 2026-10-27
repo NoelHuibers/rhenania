@@ -1,20 +1,6 @@
 "use client";
 
-import {
-	BellRing,
-	Check,
-	Clock3,
-	FileText,
-	Mail,
-	MoreHorizontal,
-	MoreVertical,
-	Plus,
-	RefreshCw,
-	Search,
-	Trash2,
-	Undo2,
-	Users,
-} from "lucide-react";
+import { Plus, Search, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -28,19 +14,10 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "~/components/ui/alert-dialog";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { ChipGroup } from "~/components/ui/chip-group";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
 import { EmptyState } from "~/components/ui/empty-state";
 import { Input } from "~/components/ui/input";
-import { Progress } from "~/components/ui/progress";
 import {
 	Select,
 	SelectContent,
@@ -49,7 +26,6 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { downloadBase64, PDF_MIME } from "~/lib/file-download";
-import { formatDate, formatEUR } from "~/lib/format";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
 import {
 	type BeitragRun,
@@ -57,61 +33,15 @@ import {
 	type ChargesForRun,
 	deleteBeitragRun,
 	downloadChargePdf,
-	markChargeDeferred,
-	markChargePaid,
-	markChargeUnpaid,
-	regenerateCharges,
 	sendBeitragEmails,
 	sendMahnungen,
 } from "~/server/actions/members/semesterbeitrag";
 import { BeitragRunDialog } from "./BeitragRunDialog";
+import { ChargeRow } from "./beitraege/ChargeRow";
+import { RunSummaryCard } from "./beitraege/RunSummaryCard";
 
 type KpOption = { id: string; name: string; category: string };
 type ChargeFilter = "offen" | "Bezahlt" | "Gestundet" | "alle";
-
-function chargeBadge(c: ChargeListItem) {
-	if (c.status === "Bezahlt") {
-		return (
-			<Badge
-				variant="outline"
-				className="border-success/40 bg-success-muted font-medium text-success-muted-foreground"
-			>
-				Bezahlt
-			</Badge>
-		);
-	}
-	if (c.status === "Gestundet") {
-		return (
-			<Badge
-				variant="outline"
-				className="border-warning/40 bg-warning-muted font-medium text-warning-muted-foreground"
-			>
-				Gestundet
-			</Badge>
-		);
-	}
-	if (c.status === "Gemahnt") {
-		return (
-			<Badge
-				variant="outline"
-				className="border-danger/40 bg-danger-muted font-medium text-danger-muted-foreground"
-			>
-				Gemahnt
-			</Badge>
-		);
-	}
-	if (c.ueberfaellig) {
-		return (
-			<Badge
-				variant="outline"
-				className="border-warning/40 bg-warning-muted font-medium text-warning-muted-foreground"
-			>
-				Überfällig
-			</Badge>
-		);
-	}
-	return <Badge variant="secondary">Offen</Badge>;
-}
 
 export function BeitraegeTab({
 	runs,
@@ -133,11 +63,6 @@ export function BeitraegeTab({
 
 	const run = selected?.run ?? null;
 	const charges = selected?.charges ?? [];
-	const paid = charges.filter((c) => c.status === "Bezahlt").length;
-	const totalPaid = charges
-		.filter((c) => c.status === "Bezahlt")
-		.reduce((s, c) => s + c.total, 0);
-	const totalExpected = charges.reduce((s, c) => s + c.total, 0);
 
 	const [filter, setFilter] = useState<ChargeFilter>("offen");
 	const [query, setQuery] = useState("");
@@ -281,74 +206,15 @@ export function BeitraegeTab({
 
 			{run && (
 				<>
-					<div className="rounded-2xl border bg-card p-4 shadow-xs sm:p-5">
-						<div className="flex items-start justify-between gap-3">
-							<div>
-								<p className="text-muted-foreground text-sm">Eingenommen</p>
-								<p className="font-bold text-2xl tabular-nums tracking-tight sm:text-3xl">
-									{formatEUR(totalPaid)}
-								</p>
-								<p className="text-muted-foreground text-xs tabular-nums">
-									von {formatEUR(totalExpected)} · fällig{" "}
-									{formatDate(run.dueDate)}
-								</p>
-							</div>
-							<div className="text-right">
-								<p className="font-semibold text-lg tabular-nums">
-									{paid}/{charges.length}
-								</p>
-								<p className="text-muted-foreground text-xs">bezahlt</p>
-							</div>
-						</div>
-						<Progress
-							className="mt-4 h-2.5 [&>[data-slot=progress-indicator]]:bg-success"
-							value={charges.length ? (paid / charges.length) * 100 : 0}
-						/>
-						<div className="mt-4 flex flex-wrap gap-2">
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={sendEmails}
-								disabled={isPending || charges.length === 0}
-							>
-								<Mail /> E-Mails senden
-							</Button>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={sendMahn}
-								disabled={isPending || charges.length === 0}
-							>
-								<BellRing /> Mahnen
-							</Button>
-							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button
-										variant="ghost"
-										size="icon-sm"
-										disabled={isPending}
-										aria-label="Weitere Aktionen"
-									>
-										<MoreHorizontal />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end">
-									<DropdownMenuItem
-										onClick={() => runAction(() => regenerateCharges(run.id))}
-									>
-										<RefreshCw /> Mitglieder aktualisieren
-									</DropdownMenuItem>
-									<DropdownMenuSeparator />
-									<DropdownMenuItem
-										variant="destructive"
-										onClick={() => setDeleteOpen(true)}
-									>
-										<Trash2 /> Lauf löschen
-									</DropdownMenuItem>
-								</DropdownMenuContent>
-							</DropdownMenu>
-						</div>
-					</div>
+					<RunSummaryCard
+						run={run}
+						charges={charges}
+						isPending={isPending}
+						sendEmails={sendEmails}
+						sendMahn={sendMahn}
+						runAction={runAction}
+						onDelete={() => setDeleteOpen(true)}
+					/>
 
 					{charges.length === 0 ? (
 						<EmptyState
@@ -396,80 +262,13 @@ export function BeitraegeTab({
 							) : (
 								<ul className="divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
 									{visible.map((c) => (
-										<li
+										<ChargeRow
 											key={c.id}
-											className="flex items-center justify-between gap-3 px-4 py-3"
-										>
-											<div className="min-w-0">
-												<div className="flex items-center gap-2">
-													<span className="truncate font-medium text-sm">
-														{c.memberName}
-													</span>
-													{chargeBadge(c)}
-												</div>
-												<div className="text-muted-foreground text-xs tabular-nums">
-													{formatEUR(c.total)}
-													{c.mahnungAmount > 0 &&
-														` (inkl. ${formatEUR(c.mahnungAmount)} Mahngebühr)`}
-													{!c.hasEmail && " · Brief nötig"}
-													{c.emailSentAt && " · Email gesendet"}
-												</div>
-											</div>
-											<div className="flex shrink-0 items-center gap-1">
-												{c.status !== "Bezahlt" && (
-													<Button
-														variant="outline"
-														size="sm"
-														disabled={isPending}
-														onClick={() =>
-															runAction(() => markChargePaid(c.id))
-														}
-													>
-														<Check />
-														<span className="hidden sm:inline">Bezahlt</span>
-													</Button>
-												)}
-												<DropdownMenu>
-													<DropdownMenuTrigger asChild>
-														<Button
-															variant="ghost"
-															size="icon-sm"
-															disabled={isPending}
-															aria-label={`Aktionen für ${c.memberName}`}
-														>
-															<MoreVertical />
-														</Button>
-													</DropdownMenuTrigger>
-													<DropdownMenuContent align="end">
-														{c.status !== "Bezahlt" &&
-															c.status !== "Gestundet" && (
-																<DropdownMenuItem
-																	onClick={() =>
-																		runAction(() => markChargeDeferred(c.id))
-																	}
-																>
-																	<Clock3 /> Stunden
-																</DropdownMenuItem>
-															)}
-														{(c.status === "Bezahlt" ||
-															c.status === "Gestundet") && (
-															<DropdownMenuItem
-																onClick={() =>
-																	runAction(() => markChargeUnpaid(c.id))
-																}
-															>
-																<Undo2 /> Zurücksetzen
-															</DropdownMenuItem>
-														)}
-														<DropdownMenuItem
-															onClick={() => dlPdf(c.id, c.mahnungAmount > 0)}
-														>
-															<FileText /> PDF herunterladen
-														</DropdownMenuItem>
-													</DropdownMenuContent>
-												</DropdownMenu>
-											</div>
-										</li>
+											c={c}
+											isPending={isPending}
+											runAction={runAction}
+											dlPdf={dlPdf}
+										/>
 									))}
 								</ul>
 							)}

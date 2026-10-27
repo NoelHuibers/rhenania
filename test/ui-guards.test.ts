@@ -55,15 +55,18 @@ describe("status colours come from theme tokens (#76)", () => {
 	// info / danger (see src/components/ui/status-badge.tsx).
 	const ALLOWED: Record<string, number> = {
 		"src/components/members/member-constants.ts": 48,
-		"src/components/admin/semesterprogramm/RecurringEventsManager.tsx": 22,
-		"src/components/admin/semesterprogramm/EventsManager.tsx": 20,
+		"src/components/admin/semesterprogramm/recurring-event-constants.ts": 14,
+		"src/components/admin/semesterprogramm/RecurringEventCard.tsx": 5,
+		"src/components/admin/semesterprogramm/RecurringEventForm.tsx": 3,
+		"src/components/admin/semesterprogramm/event-constants.ts": 14,
+		"src/components/admin/semesterprogramm/EventRow.tsx": 6,
 		"src/components/profile/achievement-ui.tsx": 16,
 		"src/components/eloranking/leaderboard-client.tsx": 8,
 		"src/components/semesterprogramm/WeekPreview.tsx": 7,
-		"src/components/orders/Orderspage.tsx": 3,
+		"src/components/orders/TransactionList.tsx": 3,
 		"src/components/bilder/DraggableImageGrid.tsx": 2,
 		"src/components/bilder/OptimizedImagePreview.tsx": 1,
-		"src/components/getraenkewart/KasseTab.tsx": 1,
+		"src/components/getraenkewart/kasse/SummarySection.tsx": 1,
 		"src/app/(protected)/semesterprogramm/page.tsx": 14,
 	};
 	// The public marketing pages have their own per-tenant design.
@@ -595,5 +598,33 @@ describe("one responsive list instead of a table plus cards (#89)", () => {
 			.filter(({ arrays }) => arrays.length > 0)
 			.map(({ f, arrays }) => `${key(f)}: ${arrays.join(", ")}`);
 		expect(twice).toEqual([]);
+	});
+});
+
+describe("focused component files (#89)", () => {
+	const COMPONENTS = sourceFiles(path.join("src", "components"));
+	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
+	const key = (f: string) => f.split(path.sep).join("/");
+	const lineCount = (f: string) => read(f).trimEnd().split("\n").length;
+
+	const MAX_LINES = 400;
+	// Only for files we do not own. Split everything else.
+	const LONG_FILES: Record<string, string> = {
+		"src/components/ui/sidebar.tsx":
+			"vendored shadcn/ui primitive, kept close to upstream for updates",
+	};
+
+	test(`no component file is over ${MAX_LINES} lines`, () => {
+		const long = COMPONENTS.filter((f) => !(key(f) in LONG_FILES))
+			.filter((f) => lineCount(f) > MAX_LINES)
+			.map((f) => `${key(f)}: ${lineCount(f)} lines`);
+		expect(long).toEqual([]);
+	});
+
+	test("the long-file allowlist has no stale entries", () => {
+		const stale = Object.keys(LONG_FILES).filter(
+			(f) => !COMPONENTS.some((c) => key(c) === f) || lineCount(f) <= MAX_LINES,
+		);
+		expect(stale).toEqual([]);
 	});
 });
