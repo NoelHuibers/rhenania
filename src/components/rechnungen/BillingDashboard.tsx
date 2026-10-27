@@ -10,7 +10,7 @@ import {
 	useBillingDashboard,
 } from "./use-billing-dashboard";
 
-export type { BillingEntry, DrinkItem } from "./billing-types";
+export type { BillingEntry } from "./billing-types";
 export type { BillingDashboardInitial } from "./use-billing-dashboard";
 
 /** The Getränke bills of all members. Data comes from the server (#24). */
