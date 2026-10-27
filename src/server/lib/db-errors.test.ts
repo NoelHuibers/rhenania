@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
-import { drinks } from "~/server/db/schema";
+import { drinks, venues } from "~/server/db/schema";
 import { createOrderRow } from "../../../test/factories/inventory";
 import {
 	createDrink,
@@ -8,7 +8,7 @@ import {
 	setupTestDatabases,
 	tenantDb,
 } from "../../../test/harness";
-import { isForeignKeyViolation } from "./db-errors";
+import { isForeignKeyViolation, isUniqueViolation } from "./db-errors";
 
 setupTestDatabases();
 
@@ -55,5 +55,51 @@ describe("isForeignKeyViolation", () => {
 		["undefined", undefined],
 	])("rejects %s", (_label, error) => {
 		expect(isForeignKeyViolation(error)).toBe(false);
+	});
+});
+
+describe("isUniqueViolation", () => {
+	test("recognises the error Drizzle throws for a duplicate value", async () => {
+		await createTenant();
+		await tenantDb()
+			.insert(venues)
+			.values({ shortName: "adH", fullAddress: "a" });
+
+		const error = await tenantDb()
+			.insert(venues)
+			.values({ shortName: "adH", fullAddress: "b" })
+			.then(
+				() => null,
+				(e: unknown) => e,
+			);
+
+		expect(error).not.toBeNull();
+		expect(isUniqueViolation(error)).toBe(true);
+		expect(isForeignKeyViolation(error)).toBe(false);
+	});
+
+	test.each([
+		["extended code", { code: "SQLITE_CONSTRAINT_UNIQUE" }],
+		["raw code", { code: "SQLITE_CONSTRAINT", rawCode: 2067 }],
+		[
+			"message of a remote error",
+			{
+				message: "SQLITE_CONSTRAINT: UNIQUE constraint failed: venue.shortName",
+			},
+		],
+		["nested cause", new Error("Failed query", { cause: { rawCode: 2067 } })],
+	])("matches by %s", (_label, error) => {
+		expect(isUniqueViolation(error)).toBe(true);
+	});
+
+	test.each([
+		[
+			"other constraint",
+			{ code: "SQLITE_CONSTRAINT_FOREIGNKEY", rawCode: 787 },
+		],
+		["plain error", new Error("network down")],
+		["null", null],
+	])("rejects %s", (_label, error) => {
+		expect(isUniqueViolation(error)).toBe(false);
 	});
 });

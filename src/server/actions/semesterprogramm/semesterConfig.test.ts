@@ -1,6 +1,8 @@
-import { describe, expect, test } from "vitest";
+import { sql } from "drizzle-orm";
+import { describe, expect, test, vi } from "vitest";
 
 import { semesterConfig } from "~/server/db/schema";
+import { log } from "~/server/lib/log";
 import {
 	createTenant,
 	createUser,
@@ -64,7 +66,7 @@ describe("venues", () => {
 			}),
 		);
 
-		expect(await deleteVenue(haus?.id ?? "")).toEqual({ success: true });
+		expect(await deleteVenue(haus?.id ?? "")).toEqual({ ok: true });
 		expect((await getVenues()).map((v) => v.shortName)).toEqual(["Ratskeller"]);
 	});
 
@@ -76,13 +78,54 @@ describe("venues", () => {
 			(v) => v.shortName === "Ratskeller",
 		);
 
-		expect(await createVenue("adH", "Woanders 2")).toEqual({
-			success: false,
+		const taken = {
+			ok: false,
 			error: "Kurzname bereits vergeben",
-		});
+			code: "SHORT_NAME_TAKEN",
+		};
+		expect(await createVenue("adH", "Woanders 2")).toEqual(taken);
 		expect(
 			await updateVenue(ratskeller?.id ?? "", "adH", "Marktplatz 1"),
-		).toMatchObject({ success: false });
+		).toEqual(taken);
 		expect(await getVenues()).toHaveLength(2);
+	});
+
+	test("other database errors are logged, not blamed on the short name", async () => {
+		await asAdmin();
+		const logError = vi.spyOn(log, "error").mockResolvedValue(undefined);
+		await createVenue("adH", "Hauptstr. 1");
+		const [venue] = await getVenues();
+		for (const event of ["INSERT", "UPDATE"]) {
+			await tenantDb().run(
+				sql.raw(
+					`CREATE TRIGGER fail_${event} BEFORE ${event} ON venue BEGIN SELECT RAISE(ABORT, 'disk I/O error'); END`,
+				),
+			);
+		}
+		const failed = {
+			ok: false,
+			error: "Fehler beim Speichern",
+			code: "INTERNAL",
+		};
+
+		expect(await createVenue("Ratskeller", "Marktplatz 1")).toEqual(failed);
+		expect(await updateVenue(venue?.id ?? "", "Haus", "Hauptstr. 1")).toEqual(
+			failed,
+		);
+		expect(logError).toHaveBeenCalledTimes(2);
+		expect((await getVenues()).map((v) => v.shortName)).toEqual(["adH"]);
+		logError.mockRestore();
+	});
+
+	test("only Admins change venues", async () => {
+		await asAdmin();
+		signInAs(await createUser());
+
+		expect(await createVenue("adH", "Hauptstr. 1")).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
+		expect(await getVenues()).toEqual([]);
 	});
 });

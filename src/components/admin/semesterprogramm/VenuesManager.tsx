@@ -3,6 +3,7 @@
 import { MapPin, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -107,8 +108,8 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 		setError(null);
 		const result = await createVenue(shortName, fullAddress);
 		setLoading(false);
-		if (!result.success) {
-			return setError(result.error ?? "Fehler");
+		if (!result.ok) {
+			return setError(result.error);
 		}
 		setShowCreate(false);
 		router.refresh();
@@ -122,8 +123,8 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 		setError(null);
 		const result = await updateVenue(editingId, shortName, fullAddress);
 		setLoading(false);
-		if (!result.success) {
-			return setError(result.error ?? "Fehler");
+		if (!result.ok) {
+			return setError(result.error);
 		}
 		setEditingId(null);
 		router.refresh();
@@ -133,8 +134,12 @@ export function VenuesManager({ initialVenues }: { initialVenues: Venue[] }) {
 		if (!deleteId) {
 			return;
 		}
-		await deleteVenue(deleteId);
+		const result = await deleteVenue(deleteId);
 		setDeleteId(null);
+		if (!result.ok) {
+			toast.error(result.error);
+			return;
+		}
 		router.refresh();
 	}
 
