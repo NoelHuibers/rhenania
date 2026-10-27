@@ -34,7 +34,6 @@ import {
 	createNewBilling,
 	getAllBillPeriods,
 	getBillsForPeriod,
-	getLatestBillPeriod,
 	updateBillStatus,
 } from "./billings";
 import { generateBillPeriodCSV } from "./createCSV";
@@ -288,7 +287,7 @@ describe("createNewBilling", () => {
 		]);
 		expect(periods[0]?.closedAt).toBeNull();
 		expect(periods[1]?.closedAt).toEqual(new Date(WEEK_44));
-		expect((await getLatestBillPeriod())?.billNumber).toBe("KW-44-26");
+		expect((await getAllBillPeriods())[0]?.billNumber).toBe("KW-44-26");
 	});
 
 	test("carries unpaid bills over with a 10% fee above 5 € and marks them Übertragen", async () => {

@@ -1,18 +1,38 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { AccountSecurity } from "~/components/profile/AccountSecurity";
-import { Achievements } from "~/components/profile/Achievements";
-import { BillingOverview } from "~/components/profile/BillingOverview";
-import { FuchsenBillingOverview } from "~/components/profile/FuchsenBillingOverview";
+import { AchievementsSkeleton } from "~/components/profile/Achievements";
+import { BillingOverviewSkeleton } from "~/components/profile/BillingOverview";
+import { FuchsenBillingOverviewSkeleton } from "~/components/profile/FuchsenBillingOverview";
 import { GamesEloContainerDetailed } from "~/components/profile/GamesEloContainer";
 import { MemberAddressCard } from "~/components/profile/MemberAddressCard";
 import { OpenBillSection } from "~/components/profile/OpenBillSection";
 import { PaymentInfo } from "~/components/profile/PaymentInfo";
-import { Preferences } from "~/components/profile/Preferences";
-import { ProfileIdentity } from "~/components/profile/ProfileCard";
-import { RecentOrders } from "~/components/profile/RecentOrders";
+import { ProfileIdentitySkeleton } from "~/components/profile/ProfileCard";
+import {
+	AccountSecuritySection,
+	AchievementsSection,
+	BillingOverviewSection,
+	FuchsenBillingSection,
+	IdentitySection,
+	MemberAddressSection,
+	PaymentInfoSection,
+	PreferencesSection,
+	RecentOrdersSection,
+	SectionSkeleton,
+} from "~/components/profile/ProfileSections";
+import { RecentOrdersSkeleton } from "~/components/profile/RecentOrders";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
+import { auth } from "~/server/auth";
 
-export default function ProfilePage() {
+// Every card loads its data on the server inside its own Suspense boundary
+// (#24): the cards load in parallel and stream in as they finish.
+export default async function ProfilePage() {
+	const session = await auth();
+	if (!session?.user?.id) {
+		redirect("/auth/signin");
+	}
+	const userId = session.user.id;
+
 	return (
 		<>
 			<SiteHeader title="Nutzerprofil" />
@@ -25,18 +45,38 @@ export default function ProfilePage() {
 					</Suspense>
 					<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 						<div className="space-y-6 lg:col-span-1">
-							<ProfileIdentity />
-							<AccountSecurity />
-							<Preferences />
-							<PaymentInfo />
-							<MemberAddressCard />
+							<Suspense fallback={<ProfileIdentitySkeleton />}>
+								<IdentitySection />
+							</Suspense>
+							<Suspense fallback={<SectionSkeleton />}>
+								<AccountSecuritySection />
+							</Suspense>
+							<Suspense fallback={<SectionSkeleton />}>
+								<PreferencesSection userId={userId} />
+							</Suspense>
+							<Suspense fallback={<PaymentInfo />}>
+								<PaymentInfoSection />
+							</Suspense>
+							<Suspense fallback={<MemberAddressCard />}>
+								<MemberAddressSection />
+							</Suspense>
 						</div>
 						<div className="space-y-6 lg:col-span-2">
-							<BillingOverview />
-							<FuchsenBillingOverview />
-							<RecentOrders />
-							<GamesEloContainerDetailed />
-							<Achievements />
+							<Suspense fallback={<BillingOverviewSkeleton />}>
+								<BillingOverviewSection />
+							</Suspense>
+							<Suspense fallback={<FuchsenBillingOverviewSkeleton />}>
+								<FuchsenBillingSection />
+							</Suspense>
+							<Suspense fallback={<RecentOrdersSkeleton />}>
+								<RecentOrdersSection />
+							</Suspense>
+							<Suspense fallback={<SectionSkeleton />}>
+								<GamesEloContainerDetailed />
+							</Suspense>
+							<Suspense fallback={<AchievementsSkeleton />}>
+								<AchievementsSection />
+							</Suspense>
 						</div>
 					</div>
 				</div>

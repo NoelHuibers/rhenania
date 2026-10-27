@@ -2,46 +2,42 @@
 "use client";
 
 import { BellOff, Eye, Gamepad, Mail, ShieldOff } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import {
-	getChallengeNotificationPreferenceAction,
-	getEloPreferenceAction,
-	getEmailNotificationPreferenceAction,
-	getPublicProfilePreferenceAction,
 	setChallengeNotificationPreferenceAction,
 	setEloPreferenceAction,
 	setEmailNotificationPreferenceAction,
 	setPublicProfilePreferenceAction,
 } from "~/server/actions/profile/preferences";
+import type { ProfilePreferences } from "~/server/lib/preferences";
 
-export function Preferences() {
-	const [eloEnabled, setEloEnabled] = useState<boolean>(true);
-	const [challengeNotifsEnabled, setChallengeNotifsEnabled] =
-		useState<boolean>(true);
-	const [emailEnabled, setEmailEnabled] = useState<boolean>(true);
-	const [publicProfileEnabled, setPublicProfileEnabled] =
-		useState<boolean>(true);
+const ALL_ON: ProfilePreferences = {
+	elo: true,
+	challengeNotifications: true,
+	email: true,
+	publicProfile: true,
+};
+
+/** The member's switches. `initial` comes from the server (#24); all on while it streams in. */
+export function Preferences({
+	initial = ALL_ON,
+}: {
+	initial?: ProfilePreferences;
+}) {
+	const [eloEnabled, setEloEnabled] = useState<boolean>(initial.elo);
+	const [challengeNotifsEnabled, setChallengeNotifsEnabled] = useState<boolean>(
+		initial.challengeNotifications,
+	);
+	const [emailEnabled, setEmailEnabled] = useState<boolean>(initial.email);
+	const [publicProfileEnabled, setPublicProfileEnabled] = useState<boolean>(
+		initial.publicProfile,
+	);
 	const [isPending, startTransition] = useTransition();
-
-	useEffect(() => {
-		(async () => {
-			const [elo, challengeNotifs, email, publicProfile] = await Promise.all([
-				getEloPreferenceAction(),
-				getChallengeNotificationPreferenceAction(),
-				getEmailNotificationPreferenceAction(),
-				getPublicProfilePreferenceAction(),
-			]);
-			setEloEnabled(elo?.enabled ?? true);
-			setChallengeNotifsEnabled(challengeNotifs?.enabled ?? true);
-			setEmailEnabled(email?.enabled ?? true);
-			setPublicProfileEnabled(publicProfile?.enabled ?? true);
-		})();
-	}, []);
 
 	return (
 		<Card>

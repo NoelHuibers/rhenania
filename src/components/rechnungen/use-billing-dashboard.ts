@@ -1,222 +1,137 @@
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { getUserRoles } from "~/server/actions/admin/userRoles";
 import {
-	getAllBillPeriods,
 	getBillsForPeriod,
-	getLatestBillPeriod,
 	updateBillStatus,
 } from "~/server/actions/billings/billings";
-import { getCurrentOrders } from "~/server/actions/currentOrders";
-import { useSession } from "~/server/auth/client";
 import type { BillingEntry, BillPeriod } from "./billing-types";
 
-/** State, tab-driven loading and status updates for the BillingDashboard. */
-export function useBillingDashboard() {
-	const { data: session, isPending } = useSession();
-	const [activeTab, setActiveTab] = useState("current-orders");
+/** What the server loads for /rechnungen before the page is sent (#24). */
+export type BillingDashboardInitial = {
+	currentOrders: BillingEntry[];
+	/** Newest first. */
+	periods: BillPeriod[];
+	/** The viewer's roles in this Corps. */
+	roles: string[];
+};
 
-	const [userRoles, setUserRoles] = useState<string[]>([]);
+/** One bill period's bills, loaded the first time it is shown. */
+type PeriodBills = {
+	entries: BillingEntry[];
+	isLoading: boolean;
+	error: string | null;
+};
 
-	// State for current orders
-	const [currentOrders, setCurrentOrders] = useState<BillingEntry[]>([]);
-	const [isLoadingOrders, setIsLoadingOrders] = useState(true);
-	const [ordersError, setOrdersError] = useState<string | null>(null);
+const NOT_LOADED: PeriodBills = { entries: [], isLoading: true, error: null };
 
-	// State for current billing
-	const [currentBilling, setCurrentBilling] = useState<BillingEntry[]>([]);
-	const [isLoadingBilling, setIsLoadingBilling] = useState(false);
-	const [billingError, setBillingError] = useState<string | null>(null);
-	const [currentBillPeriod, setCurrentBillPeriod] = useState<BillPeriod | null>(
-		null,
-	);
+/**
+ * State and interaction for the BillingDashboard. The open orders and the
+ * list of periods come from the server; a period's bills load when its tab
+ * is opened or, for older periods, when it is expanded (#24).
+ */
+export function useBillingDashboard(initial: BillingDashboardInitial) {
+	const { currentOrders, periods, roles } = initial;
+	const [activeTab, setActiveTabState] = useState("current-orders");
+	const [bills, setBills] = useState<Map<string, PeriodBills>>(new Map());
+	const [expanded, setExpanded] = useState<Set<string>>(new Set());
+	// Periods already requested, so a quick double click loads once.
+	const requested = useRef(new Set<string>());
 
-	// State for previous billing
-	const [previousBilling, setPreviousBilling] = useState<BillingEntry[]>([]);
-	const [isLoadingPreviousBilling, setIsLoadingPreviousBilling] =
-		useState(false);
-	const [previousBillingError, setPreviousBillingError] = useState<
-		string | null
-	>(null);
-	const [previousBillPeriod, setPreviousBillPeriod] =
-		useState<BillPeriod | null>(null);
+	const currentBillPeriod = periods[0] ?? null;
+	const previousBillPeriod = periods[1] ?? null;
+	const olderPeriods = periods.slice(2);
 
-	// State for all bill periods
-	const [allBillPeriods, setAllBillPeriods] = useState<BillPeriod[]>([]);
-	const [billPeriodsData, setBillPeriodsData] = useState<
-		Map<string, BillingEntry[]>
-	>(new Map());
+	const hasRequiredRole = () => roles.includes("Getränkewart");
 
-	const hasRequiredRole = () => {
-		return userRoles.includes("Getränkewart");
-	};
-
-	const isAuthenticated = !isPending && !!session?.user?.id;
-
-	useEffect(() => {
-		const fetchUserRoles = async () => {
-			if (!session?.user?.id) {
-				setUserRoles([]);
-				return;
-			}
-
-			try {
-				const roles = await getUserRoles(session.user.id);
-
-				if (!Array.isArray(roles)) {
-					throw new Error("Invalid roles response");
-				}
-
-				setUserRoles(
-					roles.map((role) => {
-						if (typeof role?.name !== "string") {
-							throw new Error("Invalid role structure");
-						}
-						return role.name;
-					}),
-				);
-			} catch (err) {
-				console.error("Error fetching user roles:", err);
-				setUserRoles([]);
-				toast.error("Fehler beim Laden der Benutzerrollen");
-			}
-		};
-
-		fetchUserRoles();
-	}, [session?.user?.id]);
-
-	useEffect(() => {
-		const fetchCurrentOrders = async () => {
-			if (!isAuthenticated) {
-				return;
-			}
-
-			try {
-				setIsLoadingOrders(true);
-				setOrdersError(null);
-				const orders = await getCurrentOrders();
-				setCurrentOrders(orders);
-			} catch (err) {
-				setOrdersError("Fehler beim Laden der aktuellen Bestellungen");
-				console.error("Fehler beim Abrufen der aktuellen Bestellungen:", err);
-			} finally {
-				setIsLoadingOrders(false);
-			}
-		};
-
-		fetchCurrentOrders();
-	}, [isAuthenticated]);
-
-	useEffect(() => {
-		const fetchAllBillPeriods = async () => {
-			if (!isAuthenticated) {
-				return;
-			}
-
-			try {
-				const periods = await getAllBillPeriods();
-				const sortedPeriods = periods.sort(
-					(a: BillPeriod, b: BillPeriod) =>
-						new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-				);
-				setAllBillPeriods(sortedPeriods);
-			} catch (err) {
-				console.error("Error fetching bill periods:", err);
-			}
-		};
-
-		fetchAllBillPeriods();
-	}, [isAuthenticated]);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: billPeriodsData intentionally excluded to avoid infinite loop
-	useEffect(() => {
-		if (!isAuthenticated) {
+	const loadPeriod = (periodId: string, errorMessage: string) => {
+		if (requested.current.has(periodId)) {
 			return;
 		}
+		requested.current.add(periodId);
+		setBills((prev) => new Map(prev).set(periodId, NOT_LOADED));
+		getBillsForPeriod(periodId)
+			.then((entries) =>
+				setBills((prev) =>
+					new Map(prev).set(periodId, {
+						entries,
+						isLoading: false,
+						error: null,
+					}),
+				),
+			)
+			.catch((err) => {
+				console.error(`Error fetching bills for period ${periodId}:`, err);
+				// Let the next open try again.
+				requested.current.delete(periodId);
+				setBills((prev) =>
+					new Map(prev).set(periodId, {
+						entries: [],
+						isLoading: false,
+						error: errorMessage,
+					}),
+				);
+			});
+	};
 
-		if (activeTab === "current-billing") {
-			const fetchCurrentBilling = async () => {
-				try {
-					setIsLoadingBilling(true);
-					setBillingError(null);
+	const setActiveTab = (tab: string) => {
+		setActiveTabState(tab);
+		if (tab === "current-billing" && currentBillPeriod) {
+			loadPeriod(
+				currentBillPeriod.id,
+				"Fehler beim Laden der aktuellen Abrechnungen",
+			);
+		} else if (tab === "previous-billing" && previousBillPeriod) {
+			loadPeriod(
+				previousBillPeriod.id,
+				"Fehler beim Laden der letzten Abrechnungen",
+			);
+		}
+	};
 
-					const latestPeriod = await getLatestBillPeriod();
-					if (latestPeriod) {
-						setCurrentBillPeriod(latestPeriod);
-						const bills = await getBillsForPeriod(latestPeriod.id);
-						setCurrentBilling(bills);
-					} else {
-						setCurrentBilling([]);
-						setCurrentBillPeriod(null);
-					}
-				} catch (err) {
-					setBillingError("Fehler beim Laden der aktuellen Abrechnungen");
-					console.error("Fehler beim Abrufen der aktuellen Abrechnungen:", err);
-				} finally {
-					setIsLoadingBilling(false);
-				}
-			};
+	const setPeriodExpanded = (periodId: string, open: boolean) => {
+		setExpanded((prev) => {
+			const next = new Set(prev);
+			if (open) {
+				next.add(periodId);
+			} else {
+				next.delete(periodId);
+			}
+			return next;
+		});
+		if (open) {
+			loadPeriod(periodId, "Fehler beim Laden der Abrechnungen");
+		}
+	};
 
-			fetchCurrentBilling();
-		} else if (activeTab === "previous-billing") {
-			const fetchPreviousBilling = async () => {
-				try {
-					setIsLoadingPreviousBilling(true);
-					setPreviousBillingError(null);
+	/** A period's bills; empty and not loading when there is no such period. */
+	const billsFor = (period: BillPeriod | null): PeriodBills =>
+		period
+			? (bills.get(period.id) ?? NOT_LOADED)
+			: { entries: [], isLoading: false, error: null };
 
-					// Get the second most recent period (previous billing)
-					if (allBillPeriods.length > 1) {
-						const previousPeriod = allBillPeriods[1];
-						if (!previousPeriod) {
-							return;
-						}
-						setPreviousBillPeriod(previousPeriod);
-						const bills = await getBillsForPeriod(previousPeriod.id);
-						setPreviousBilling(bills);
-					} else {
-						setPreviousBilling([]);
-						setPreviousBillPeriod(null);
-					}
-				} catch (err) {
-					setPreviousBillingError("Fehler beim Laden der letzten Abrechnungen");
-					console.error("Fehler beim Abrufen der letzten Abrechnungen:", err);
-				} finally {
-					setIsLoadingPreviousBilling(false);
-				}
-			};
-
-			fetchPreviousBilling();
-		} else if (activeTab === "older-bills") {
-			// Load data for older periods (skip the first two periods)
-			const olderPeriods = allBillPeriods.slice(2);
-
-			for (const period of olderPeriods) {
-				if (!billPeriodsData.has(period.id)) {
-					const fetchPeriodData = async () => {
-						try {
-							const bills = await getBillsForPeriod(period.id);
-							setBillPeriodsData((prev) => new Map(prev.set(period.id, bills)));
-						} catch (err) {
-							console.error(
-								`Error fetching data for period ${period.id}:`,
-								err,
-							);
-						}
-					};
-					fetchPeriodData();
+	const setEntryStatus = (
+		entryId: string,
+		patch: Pick<BillingEntry, "status"> & Partial<BillingEntry>,
+	) =>
+		setBills((prev) => {
+			const next = new Map(prev);
+			for (const [periodId, period] of prev) {
+				if (period.entries.some((entry) => entry.id === entryId)) {
+					next.set(periodId, {
+						...period,
+						entries: period.entries.map((entry) =>
+							entry.id === entryId ? { ...entry, ...patch } : entry,
+						),
+					});
 				}
 			}
-		}
-	}, [activeTab, allBillPeriods, isAuthenticated]);
+			return next;
+		});
 
 	const handleStatusChange = async (
 		entryId: string,
 		newStatus: BillingEntry["status"],
 	) => {
-		if (!isAuthenticated) {
-			toast.error("Sie müssen angemeldet sein");
-			return;
-		}
 		if (!hasRequiredRole()) {
 			toast.error("Sie haben keine Berechtigung, den Status zu ändern");
 			return;
@@ -234,54 +149,29 @@ export function useBillingDashboard() {
 			return;
 		}
 
-		const originalEntry = currentBilling.find((entry) => entry.id === entryId);
-		const originalStatus = originalEntry?.status;
+		const originalStatus = [...bills.values()]
+			.flatMap((period) => period.entries)
+			.find((entry) => entry.id === entryId)?.status;
 
 		try {
-			setCurrentBilling((prev) =>
-				prev.map((entry) =>
-					entry.id === entryId ? { ...entry, status: newStatus } : entry,
-				),
-			);
+			setEntryStatus(entryId, { status: newStatus });
 
 			const result = await updateBillStatus(entryId, newStatus);
 
 			if (result?.success) {
 				toast.success("Status erfolgreich aktualisiert");
-
-				if (newStatus === "Bezahlt") {
-					setCurrentBilling((prev) =>
-						prev.map((entry) =>
-							entry.id === entryId
-								? { ...entry, status: newStatus, paidAt: new Date() }
-								: entry,
-						),
-					);
-				} else if (newStatus === "Unbezahlt" || newStatus === "Gestundet") {
-					setCurrentBilling((prev) =>
-						prev.map((entry) =>
-							entry.id === entryId
-								? { ...entry, status: newStatus, paidAt: null }
-								: entry,
-						),
-					);
-				}
+				setEntryStatus(entryId, {
+					status: newStatus,
+					paidAt: newStatus === "Bezahlt" ? new Date() : null,
+				});
 			} else {
-				setCurrentBilling((prev) =>
-					prev.map((entry) =>
-						entry.id === entryId ? { ...entry, status: originalStatus } : entry,
-					),
-				);
+				setEntryStatus(entryId, { status: originalStatus });
 				console.error(`Failed to update status for ${entryId}`);
 				toast.error(result.error ?? "Fehler beim Aktualisieren des Status");
 			}
 		} catch (error) {
 			// Revert the optimistic update on error
-			setCurrentBilling((prev) =>
-				prev.map((entry) =>
-					entry.id === entryId ? { ...entry, status: originalStatus } : entry,
-				),
-			);
+			setEntryStatus(entryId, { status: originalStatus });
 			console.error("Error updating status:", error);
 			toast.error("Fehler beim Aktualisieren des Status");
 		}
@@ -291,18 +181,15 @@ export function useBillingDashboard() {
 		activeTab,
 		setActiveTab,
 		currentOrders,
-		isLoadingOrders,
-		ordersError,
-		currentBilling,
-		isLoadingBilling,
-		billingError,
 		currentBillPeriod,
-		previousBilling,
-		isLoadingPreviousBilling,
-		previousBillingError,
+		currentBilling: billsFor(currentBillPeriod),
 		previousBillPeriod,
-		allBillPeriods,
-		billPeriodsData,
+		previousBilling: billsFor(previousBillPeriod),
+		allBillPeriods: periods,
+		olderPeriods,
+		isExpanded: (periodId: string) => expanded.has(periodId),
+		setPeriodExpanded,
+		olderBilling: (period: BillPeriod) => billsFor(period),
 		hasRequiredRole,
 		handleStatusChange,
 	};

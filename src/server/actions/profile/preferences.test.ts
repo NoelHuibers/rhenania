@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { userPreferences } from "~/server/db/schema";
 import {
 	getHiddenEventTypesForUser,
+	getProfilePreferencesForUser,
 	isEloEnabledForUser,
 	isPublicProfileEnabledForUser,
 } from "~/server/lib/preferences";
@@ -14,11 +15,7 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import {
-	getChallengeNotificationPreferenceAction,
-	getEloPreferenceAction,
-	getEmailNotificationPreferenceAction,
 	getHiddenEventTypes,
-	getPublicProfilePreferenceAction,
 	getUserPreference,
 	setChallengeNotificationPreferenceAction,
 	setEloPreferenceAction,
@@ -92,25 +89,24 @@ describe("generic preferences", () => {
 
 describe("boolean switches", () => {
 	const switches = [
-		[getEloPreferenceAction, setEloPreferenceAction],
-		[getPublicProfilePreferenceAction, setPublicProfilePreferenceAction],
-		[
-			getChallengeNotificationPreferenceAction,
-			setChallengeNotificationPreferenceAction,
-		],
-		[
-			getEmailNotificationPreferenceAction,
-			setEmailNotificationPreferenceAction,
-		],
+		["elo", setEloPreferenceAction],
+		["publicProfile", setPublicProfilePreferenceAction],
+		["challengeNotifications", setChallengeNotificationPreferenceAction],
+		["email", setEmailNotificationPreferenceAction],
 	] as const;
 
 	test("default to on and can be switched off", async () => {
-		await signedInMember();
+		const member = await signedInMember();
+		expect(await getProfilePreferencesForUser(member.id)).toEqual({
+			elo: true,
+			publicProfile: true,
+			challengeNotifications: true,
+			email: true,
+		});
 
-		for (const [get, set] of switches) {
-			expect(await get()).toEqual({ enabled: true });
+		for (const [key, set] of switches) {
 			expect(await set({ enabled: false })).toEqual({ success: true });
-			expect(await get()).toEqual({ enabled: false });
+			expect((await getProfilePreferencesForUser(member.id))[key]).toBe(false);
 		}
 	});
 

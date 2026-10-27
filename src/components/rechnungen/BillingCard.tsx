@@ -1,7 +1,8 @@
-import { Download } from "lucide-react";
+import { ChevronDown, Download } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
+import { cn } from "~/lib/utils";
 import { saveBillPeriodCSV } from "~/server/actions/billings/saveBillCSV";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -12,6 +13,9 @@ interface BillingCardProps {
 	children: React.ReactNode;
 	headerDate?: string;
 	billPeriodId?: string;
+	/** With `onExpandedChange`: the content shows only while expanded. */
+	expanded?: boolean;
+	onExpandedChange?: (expanded: boolean) => void;
 }
 
 export const BillingCard = ({
@@ -20,8 +24,13 @@ export const BillingCard = ({
 	children,
 	headerDate,
 	billPeriodId,
+	expanded,
+	onExpandedChange,
 }: BillingCardProps) => {
 	const [isDownloading, setIsDownloading] = useState(false);
+	const contentId = useId();
+	const collapsible = onExpandedChange !== undefined;
+	const showContent = !collapsible || expanded;
 
 	const handleDownload = async () => {
 		setIsDownloading(true);
@@ -94,10 +103,32 @@ export const BillingCard = ({
 						{headerDate && (
 							<div className="text-muted-foreground text-sm">{headerDate}</div>
 						)}
+						{collapsible && (
+							<Button
+								variant="ghost"
+								size="sm"
+								className="gap-1"
+								aria-expanded={!!expanded}
+								aria-controls={contentId}
+								onClick={() => onExpandedChange(!expanded)}
+							>
+								<ChevronDown
+									className={cn(
+										"h-4 w-4 transition-transform",
+										expanded && "rotate-180",
+									)}
+								/>
+								{expanded ? "Ausblenden" : "Anzeigen"}
+							</Button>
+						)}
 					</div>
 				</div>
 			</CardHeader>
-			<CardContent className="pt-0">{children}</CardContent>
+			{showContent && (
+				<CardContent id={contentId} className="pt-0">
+					{children}
+				</CardContent>
+			)}
 		</Card>
 	);
 };

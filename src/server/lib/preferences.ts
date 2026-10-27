@@ -5,8 +5,13 @@
 // browser reads its own preferences through the actions in
 // src/server/actions/profile/preferences.ts.
 
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "~/server/db";
-import { readEloEnabled } from "~/server/lib/elo-preference";
+import { userPreferences } from "~/server/db/schema";
+import {
+	ELO_PREFERENCE_KEY,
+	readEloEnabled,
+} from "~/server/lib/elo-preference";
 
 const PUBLIC_PROFILE_KEY = "privacy.publicProfileEnabled";
 const HIDDEN_EVENT_TYPES_KEY = "semesterprogramm.hiddenTypes";
@@ -62,6 +67,56 @@ export function isPublicProfileEnabledForUser(
 	userId: string,
 ): Promise<boolean> {
 	return readFlag(userId, PUBLIC_PROFILE_KEY);
+}
+
+/** The on/off switches of the profile page. */
+export type ProfilePreferences = {
+	elo: boolean;
+	challengeNotifications: boolean;
+	email: boolean;
+	publicProfile: boolean;
+};
+
+const PROFILE_FLAG_KEYS = {
+	elo: ELO_PREFERENCE_KEY,
+	challengeNotifications: "gamification.challengeNotificationsEnabled",
+	email: "notifications.emailEnabled",
+	publicProfile: PUBLIC_PROFILE_KEY,
+} as const satisfies Record<keyof ProfilePreferences, string>;
+
+function parseFlag(raw: string | undefined): boolean {
+	if (raw === undefined) {
+		return true;
+	}
+	try {
+		return JSON.parse(raw) !== false;
+	} catch {
+		return true;
+	}
+}
+
+/** The profile page's switches in one query; each defaults to on (#24). */
+export async function getProfilePreferencesForUser(
+	userId: string,
+): Promise<ProfilePreferences> {
+	const rows = await db
+		.select({ key: userPreferences.key, value: userPreferences.value })
+		.from(userPreferences)
+		.where(
+			and(
+				eq(userPreferences.userId, userId),
+				inArray(userPreferences.key, Object.values(PROFILE_FLAG_KEYS)),
+			),
+		);
+	const raw = new Map(rows.map((r) => [r.key, r.value]));
+	return {
+		elo: parseFlag(raw.get(PROFILE_FLAG_KEYS.elo)),
+		challengeNotifications: parseFlag(
+			raw.get(PROFILE_FLAG_KEYS.challengeNotifications),
+		),
+		email: parseFlag(raw.get(PROFILE_FLAG_KEYS.email)),
+		publicProfile: parseFlag(raw.get(PROFILE_FLAG_KEYS.publicProfile)),
+	};
 }
 
 /** Event types the user hid from their Semesterprogramm and calendar feed. */

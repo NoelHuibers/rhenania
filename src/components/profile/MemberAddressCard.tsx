@@ -1,7 +1,7 @@
 "use client";
 
 import { Contact } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { MemberStatusBadge } from "~/components/members/MemberStatusBadge";
 import {
@@ -16,7 +16,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import { cn } from "~/lib/utils";
-import { getMyMember, updateMyMember } from "~/server/actions/members/myMember";
+import { updateMyMember } from "~/server/actions/members/myMember";
 import type { Member } from "~/server/db/schema";
 
 const emptyForm = {
@@ -75,45 +75,45 @@ function TF({
 	);
 }
 
-export function MemberAddressCard() {
-	const [member, setMember] = useState<Member | null>(null);
-	const [loaded, setLoaded] = useState(false);
-	const [f, setF] = useState<Form>(emptyForm);
-	const [isPending, startTransition] = useTransition();
+function formOf(m: Member | null | undefined): Form {
+	if (!m) {
+		return emptyForm;
+	}
+	return {
+		firstName: m.firstName ?? "",
+		lastName: m.lastName ?? "",
+		title: m.title ?? "",
+		email: m.email ?? "",
+		email2: m.email2 ?? "",
+		email3: m.email3 ?? "",
+		mobile: m.mobile ?? "",
+		phonePrivate: m.phonePrivate ?? "",
+		phonePrivate2: m.phonePrivate2 ?? "",
+		phoneWork: m.phoneWork ?? "",
+		phoneWork2: m.phoneWork2 ?? "",
+		company: m.company ?? "",
+		birthday: m.birthday ?? "",
+		street: m.street ?? "",
+		houseNumber: m.houseNumber ?? "",
+		addressLine2: m.addressLine2 ?? "",
+		postalCode: m.postalCode ?? "",
+		city: m.city ?? "",
+		country: m.country ?? "Deutschland",
+		forwarding: m.forwarding,
+		lettersOptOut: m.lettersOptOut,
+		notes: m.notes ?? "",
+	};
+}
 
-	useEffect(() => {
-		(async () => {
-			const m = await getMyMember();
-			if (m) {
-				setMember(m);
-				setF({
-					firstName: m.firstName ?? "",
-					lastName: m.lastName ?? "",
-					title: m.title ?? "",
-					email: m.email ?? "",
-					email2: m.email2 ?? "",
-					email3: m.email3 ?? "",
-					mobile: m.mobile ?? "",
-					phonePrivate: m.phonePrivate ?? "",
-					phonePrivate2: m.phonePrivate2 ?? "",
-					phoneWork: m.phoneWork ?? "",
-					phoneWork2: m.phoneWork2 ?? "",
-					company: m.company ?? "",
-					birthday: m.birthday ?? "",
-					street: m.street ?? "",
-					houseNumber: m.houseNumber ?? "",
-					addressLine2: m.addressLine2 ?? "",
-					postalCode: m.postalCode ?? "",
-					city: m.city ?? "",
-					country: m.country ?? "Deutschland",
-					forwarding: m.forwarding,
-					lettersOptOut: m.lettersOptOut,
-					notes: m.notes ?? "",
-				});
-			}
-			setLoaded(true);
-		})();
-	}, []);
+/**
+ * The member's own address-list entry. `initial` comes from the server
+ * (#24); `undefined` renders the disabled form while it streams in.
+ */
+export function MemberAddressCard({ initial }: { initial?: Member | null }) {
+	const member = initial ?? null;
+	const loaded = initial !== undefined;
+	const [f, setF] = useState<Form>(() => formOf(initial));
+	const [isPending, startTransition] = useTransition();
 
 	const disabled = !loaded || !member || isPending;
 	const set = (k: keyof Form, v: string | boolean) =>

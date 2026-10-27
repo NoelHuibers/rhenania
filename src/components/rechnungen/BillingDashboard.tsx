@@ -5,176 +5,167 @@ import { TabContent } from "~/components/rechnungen/TabContent";
 import { EmptyState } from "~/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { formatDate, formatEUR } from "~/lib/format";
-import { SiteHeader } from "../trinken/SiteHeader";
-import { useBillingDashboard } from "./use-billing-dashboard";
+import {
+	type BillingDashboardInitial,
+	useBillingDashboard,
+} from "./use-billing-dashboard";
 
 export type { BillingEntry } from "./billing-types";
+export type { BillingDashboardInitial } from "./use-billing-dashboard";
 
-export function BillingDashboard() {
+/** The Getränke bills of all members. Data comes from the server (#24). */
+export function BillingDashboard({
+	initial,
+}: {
+	initial: BillingDashboardInitial;
+}) {
 	const {
 		activeTab,
 		setActiveTab,
 		currentOrders,
-		isLoadingOrders,
-		ordersError,
-		currentBilling,
-		isLoadingBilling,
-		billingError,
 		currentBillPeriod,
-		previousBilling,
-		isLoadingPreviousBilling,
-		previousBillingError,
+		currentBilling,
 		previousBillPeriod,
+		previousBilling,
 		allBillPeriods,
-		billPeriodsData,
+		olderPeriods,
+		isExpanded,
+		setPeriodExpanded,
+		olderBilling,
 		hasRequiredRole,
 		handleStatusChange,
-	} = useBillingDashboard();
-
-	const olderPeriods = allBillPeriods.slice(2);
+	} = useBillingDashboard(initial);
 
 	return (
-		<>
-			<SiteHeader title="Getränkerechnungen" />
-			<div className="container mx-auto space-y-2 p-4">
-				{/* Tabs */}
-				<Tabs
-					value={activeTab}
-					onValueChange={setActiveTab}
-					className="space-y-4"
-				>
-					<TabsList>
-						<TabsTrigger value="current-orders">
-							Aktuelle Bestellungen
+		<div className="container mx-auto space-y-2 p-4">
+			{/* Tabs */}
+			<Tabs
+				value={activeTab}
+				onValueChange={setActiveTab}
+				className="space-y-4"
+			>
+				<TabsList>
+					<TabsTrigger value="current-orders">
+						Aktuelle Bestellungen
+					</TabsTrigger>
+					<TabsTrigger value="current-billing">Aktuelle Abrechnung</TabsTrigger>
+					{allBillPeriods.length > 1 && (
+						<TabsTrigger value="previous-billing">
+							Letzte Abrechnung
 						</TabsTrigger>
-						<TabsTrigger value="current-billing">
-							Aktuelle Abrechnung
-						</TabsTrigger>
-						{allBillPeriods.length > 1 && (
-							<TabsTrigger value="previous-billing">
-								Letzte Abrechnung
-							</TabsTrigger>
+					)}
+					{olderPeriods.length > 0 && (
+						<TabsTrigger value="older-bills">Ältere Rechnungen</TabsTrigger>
+					)}
+				</TabsList>
+
+				<TabsContent value="current-orders" className="space-y-4">
+					<TabContent
+						entries={currentOrders}
+						isLoading={false}
+						error={null}
+						cardTitle="Aktuelle Bestellungen"
+						cardDescription="Laufende Bestellungen, die noch nicht abgerechnet wurden"
+						emptyMessage="Keine aktuellen Bestellungen gefunden"
+					/>
+				</TabsContent>
+
+				<TabsContent value="current-billing" className="space-y-4">
+					<TabContent
+						entries={currentBilling.entries}
+						isLoading={currentBilling.isLoading}
+						error={currentBilling.error}
+						cardTitle="Aktuelle Abrechnungsperiode"
+						cardDescription={
+							currentBillPeriod
+								? `Rechnung ${
+										currentBillPeriod.billNumber
+									} - Gesamtbetrag: ${formatEUR(currentBillPeriod.totalAmount)}`
+								: "Zusammenfassung der aktuellen Abrechnungsperiode"
+						}
+						headerDate={
+							currentBillPeriod?.createdAt
+								? formatDate(currentBillPeriod.createdAt)
+								: undefined
+						}
+						showStatus={true}
+						emptyMessage="Keine aktuellen Abrechnungen gefunden"
+						onStatusChange={hasRequiredRole() ? handleStatusChange : undefined}
+						canEditStatus={false}
+						billPeriodId={currentBillPeriod?.id}
+					/>
+				</TabsContent>
+
+				<TabsContent value="previous-billing" className="space-y-4">
+					<TabContent
+						entries={previousBilling.entries}
+						isLoading={previousBilling.isLoading}
+						error={previousBilling.error}
+						cardTitle="Letzte Abrechnungsperiode"
+						cardDescription={
+							previousBillPeriod
+								? `Rechnung ${
+										previousBillPeriod.billNumber
+									} - Gesamtbetrag: ${formatEUR(
+										previousBillPeriod.totalAmount,
+									)}`
+								: "Zusammenfassung der letzten Abrechnungsperiode"
+						}
+						headerDate={
+							previousBillPeriod?.createdAt
+								? formatDate(previousBillPeriod.createdAt)
+								: undefined
+						}
+						showStatus={true}
+						emptyMessage="Keine vorherigen Abrechnungen gefunden"
+						onStatusChange={hasRequiredRole() ? handleStatusChange : undefined}
+						canEditStatus={false}
+						billPeriodId={previousBillPeriod?.id}
+					/>
+				</TabsContent>
+
+				<TabsContent value="older-bills" className="space-y-4">
+					<div className="space-y-6">
+						{/* Collapsed until opened: each period loads its bills then. */}
+						{olderPeriods.map((period) => {
+							const periodBills = olderBilling(period);
+							return (
+								<TabContent
+									key={period.id}
+									entries={periodBills.entries}
+									isLoading={periodBills.isLoading}
+									error={periodBills.error}
+									cardTitle={`Rechnung ${period.billNumber}`}
+									cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatEUR(
+										period.totalAmount,
+									)}`}
+									headerDate={formatDate(period.createdAt)}
+									showStatus={true}
+									emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
+									onStatusChange={
+										hasRequiredRole() ? handleStatusChange : undefined
+									}
+									canEditStatus={false}
+									billPeriodId={period.id}
+									expanded={isExpanded(period.id)}
+									onExpandedChange={(open) =>
+										setPeriodExpanded(period.id, open)
+									}
+								/>
+							);
+						})}
+						{olderPeriods.length === 0 && (
+							<EmptyState
+								icon={<History />}
+								title="Keine älteren Rechnungen vorhanden"
+							>
+								Ältere Abrechnungen erscheinen hier, sobald mehr als zwei
+								Abrechnungen erstellt wurden.
+							</EmptyState>
 						)}
-						{olderPeriods.length > 0 && (
-							<TabsTrigger value="older-bills">Ältere Rechnungen</TabsTrigger>
-						)}
-					</TabsList>
-
-					<TabsContent value="current-orders" className="space-y-4">
-						<TabContent
-							entries={currentOrders}
-							isLoading={isLoadingOrders}
-							error={ordersError}
-							cardTitle="Aktuelle Bestellungen"
-							cardDescription="Laufende Bestellungen, die noch nicht abgerechnet wurden"
-							emptyMessage="Keine aktuellen Bestellungen gefunden"
-						/>
-					</TabsContent>
-
-					<TabsContent value="current-billing" className="space-y-4">
-						<TabContent
-							entries={currentBilling}
-							isLoading={isLoadingBilling}
-							error={billingError}
-							cardTitle="Aktuelle Abrechnungsperiode"
-							cardDescription={
-								currentBillPeriod
-									? `Rechnung ${
-											currentBillPeriod.billNumber
-										} - Gesamtbetrag: ${formatEUR(
-											currentBillPeriod.totalAmount,
-										)}`
-									: "Zusammenfassung der aktuellen Abrechnungsperiode"
-							}
-							headerDate={
-								currentBillPeriod?.createdAt
-									? formatDate(currentBillPeriod.createdAt)
-									: undefined
-							}
-							showStatus={true}
-							emptyMessage="Keine aktuellen Abrechnungen gefunden"
-							onStatusChange={
-								hasRequiredRole() ? handleStatusChange : undefined
-							}
-							canEditStatus={false}
-							billPeriodId={
-								allBillPeriods[0]?.id ? allBillPeriods[0].id : undefined
-							}
-						/>
-					</TabsContent>
-
-					<TabsContent value="previous-billing" className="space-y-4">
-						<TabContent
-							entries={previousBilling}
-							isLoading={isLoadingPreviousBilling}
-							error={previousBillingError}
-							cardTitle="Letzte Abrechnungsperiode"
-							cardDescription={
-								previousBillPeriod
-									? `Rechnung ${
-											previousBillPeriod.billNumber
-										} - Gesamtbetrag: ${formatEUR(
-											previousBillPeriod.totalAmount,
-										)}`
-									: "Zusammenfassung der letzten Abrechnungsperiode"
-							}
-							headerDate={
-								previousBillPeriod?.createdAt
-									? formatDate(previousBillPeriod.createdAt)
-									: undefined
-							}
-							showStatus={true}
-							emptyMessage="Keine vorherigen Abrechnungen gefunden"
-							onStatusChange={
-								hasRequiredRole() ? handleStatusChange : undefined
-							}
-							canEditStatus={false}
-							billPeriodId={
-								allBillPeriods[1]?.id ? allBillPeriods[1].id : undefined
-							}
-						/>
-					</TabsContent>
-
-					<TabsContent value="older-bills" className="space-y-4">
-						<div className="space-y-6">
-							{olderPeriods.map((period) => {
-								const periodEntries = billPeriodsData.get(period.id) || [];
-								const isLoadingPeriod = !billPeriodsData.has(period.id);
-
-								return (
-									<TabContent
-										key={period.id}
-										entries={periodEntries}
-										isLoading={isLoadingPeriod}
-										error={null}
-										cardTitle={`Rechnung ${period.billNumber}`}
-										cardDescription={`Abrechnungsbericht - Gesamtbetrag: ${formatEUR(
-											period.totalAmount,
-										)}`}
-										headerDate={formatDate(period.createdAt)}
-										showStatus={true}
-										emptyMessage="Keine Abrechnungen in dieser Periode gefunden"
-										onStatusChange={
-											hasRequiredRole() ? handleStatusChange : undefined
-										}
-										canEditStatus={false}
-										billPeriodId={period.id}
-									/>
-								);
-							})}
-							{olderPeriods.length === 0 && (
-								<EmptyState
-									icon={<History />}
-									title="Keine älteren Rechnungen vorhanden"
-								>
-									Ältere Abrechnungen erscheinen hier, sobald mehr als zwei
-									Abrechnungen erstellt wurden.
-								</EmptyState>
-							)}
-						</div>
-					</TabsContent>
-				</Tabs>
-			</div>
-		</>
+					</div>
+				</TabsContent>
+			</Tabs>
+		</div>
 	);
 }
