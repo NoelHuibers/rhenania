@@ -1,13 +1,13 @@
 "use server";
 
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, exists, gt, inArray, ne, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { z } from "zod";
 import { isValidMarkupPercent, MAX_MARKUP_PERCENT } from "~/lib/pricing";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
 	bankEntries,
-	billItems,
 	bills,
 	externalBills,
 	getraenkeBillingConfig,
@@ -24,8 +24,7 @@ import {
 	getGetraenkekasseAccount,
 	resolveGetraenkeBillSender,
 } from "~/server/lib/getraenkekasse-payment";
-import { groupBy } from "~/server/lib/group-by";
-import { updateBillStatus } from "../billings/billings";
+import { log } from "~/server/lib/log";
 import { generateUserBillPDF } from "../billings/createUserPDF";
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
@@ -269,40 +268,43 @@ export async function setPfandWert(value: number) {
 
 // ─── Open entity bills (for PDF download) ────────────────────────────────────
 
-// All group bills (paid ones are listed too), with their items: one round trip.
+/** Paid group bills the Kasse still lists, newest first (#25). */
+const RECENT_PAID_GROUP_BILLS = 20;
+
+// Every open (Unbezahlt or Gestundet) group bill plus the newest paid ones,
+// in one query. Group bills are never carried, so there is no "Übertragen".
+// Older paid ones stay in their period under Rechnungen. The card shows no
+// items, so none are loaded.
 export async function getOpenEntityBills() {
 	await requireRole(ROLES.getraenke);
 	const isGroupBill = sql`${bills.userId} LIKE 'event-%'`;
-	const [groupBills, items] = await db.batch([
-		db
-			.select({
-				id: bills.id,
-				userName: bills.userName,
-				total: bills.total,
-				status: bills.status,
-				createdAt: bills.createdAt,
-			})
-			.from(bills)
-			.where(isGroupBill)
-			// Bills of one run share createdAt: newest inserted first, the
-			// same order whichever index SQLite picks.
-			.orderBy(desc(bills.createdAt), desc(sql`${bills}.rowid`)),
-		db
-			.select({ item: billItems })
-			.from(billItems)
-			.innerJoin(bills, eq(billItems.billId, bills.id))
-			.where(isGroupBill)
-			.orderBy(sql`${billItems}.rowid`),
-	]);
-
-	const itemsByBill = groupBy(
-		items.map((r) => r.item),
-		(item) => item.billId,
-	);
-	return groupBills.map((bill) => ({
-		...bill,
-		items: itemsByBill.get(bill.id) ?? [],
-	}));
+	// Bills of one run share createdAt: newest inserted first, the same
+	// order whichever index SQLite picks.
+	const newestFirst = [desc(bills.createdAt), desc(sql`${bills}.rowid`)];
+	const recentPaid = db
+		.select({ id: bills.id })
+		.from(bills)
+		// Unary + keeps SQLite off bill_status_idx, which would walk every
+		// paid member bill; the group bills come from bill_user_nocase_idx.
+		.where(and(isGroupBill, sql`+${bills.status} = 'Bezahlt'`))
+		.orderBy(...newestFirst)
+		.limit(RECENT_PAID_GROUP_BILLS);
+	return db
+		.select({
+			id: bills.id,
+			userName: bills.userName,
+			total: bills.total,
+			status: bills.status,
+			createdAt: bills.createdAt,
+		})
+		.from(bills)
+		.where(
+			and(
+				isGroupBill,
+				or(ne(bills.status, "Bezahlt"), inArray(bills.id, recentPaid)),
+			),
+		)
+		.orderBy(...newestFirst);
 }
 
 // ─── Open member bills ────────────────────────────────────────────────────────
@@ -589,23 +591,55 @@ export async function markAllMemberBillsPaid(): Promise<
 	}
 
 	// Same set the Kasse lists as open: unpaid and deferred member bills.
-	// Group bills are settled separately and stay untouched.
-	const open = await getOpenMemberBills();
-	let count = 0;
-	for (const bill of open) {
-		// Reuse the single-bill path so carried-over predecessor bills are
-		// settled exactly as when the Getränkewart marks one bill paid.
-		const res = await updateBillStatus(bill.id, "Bezahlt");
-		if (res.success) {
-			count++;
-		}
-	}
-
-	if (count < open.length) {
+	// Group bills are settled separately and stay untouched. Settles what
+	// paying each of them on its own settles (updateBillStatus): the bill and
+	// the member's carried bills created before it, all with the same paidAt,
+	// which links them for an undo (see carried-bills). One atomic batch, so
+	// either every bill is paid or none (#23).
+	const isOpenMemberBill = and(
+		inArray(bills.status, ["Unbezahlt", "Gestundet"]),
+		sql`${bills.userId} NOT LIKE 'event-%'`,
+	);
+	const later = alias(bills, "later");
+	const now = new Date();
+	const paid = { status: "Bezahlt" as const, paidAt: now, updatedAt: now };
+	try {
+		const [, settled] = await db.batch([
+			// Carried bills first, while the bills they were carried into are
+			// still open.
+			db
+				.update(bills)
+				.set(paid)
+				.where(
+					and(
+						eq(bills.status, "Übertragen"),
+						exists(
+							db
+								.select({ one: sql`1` })
+								.from(later)
+								.where(
+									and(
+										eq(later.userId, bills.userId),
+										inArray(later.status, ["Unbezahlt", "Gestundet"]),
+										sql`${later.userId} NOT LIKE 'event-%'`,
+										gt(later.createdAt, bills.createdAt),
+									),
+								),
+						),
+					),
+				),
+			db
+				.update(bills)
+				.set(paid)
+				.where(isOpenMemberBill)
+				.returning({ id: bills.id }),
+		]);
+		return { success: true, count: settled.length };
+	} catch (error) {
+		await log.error("Error marking all member bills paid", { err: error });
 		return {
 			success: false,
-			error: `${count} von ${open.length} Rechnungen als bezahlt markiert.`,
+			error: "Fehler beim Markieren als bezahlt. Es wurde nichts geändert.",
 		};
 	}
-	return { success: true, count };
 }

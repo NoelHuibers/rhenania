@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -18,6 +18,7 @@ import {
 	TEST_BILLING_PROFILE,
 } from "../../../../test/factories/billing";
 import {
+	countQueries,
 	createDrink,
 	createTenant,
 	createUser,
@@ -27,6 +28,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
+import { updateBillStatus } from "../billings/billings";
 import {
 	addBankEntry,
 	addExternalBill,
@@ -332,10 +334,10 @@ describe("open bills", () => {
 		]);
 	});
 
-	test("entity list returns group bills with their items", async () => {
+	test("entity list returns the group bills, without their items", async () => {
 		await signInWart();
 		const period = await createBillPeriodRow();
-		await createBillRow({
+		const bill = await createBillRow({
 			periodId: period.id,
 			user: eventUser("CC"),
 			drinksTotal: 3,
@@ -348,12 +350,64 @@ describe("open bills", () => {
 
 		const entityBills = await getOpenEntityBills();
 
-		expect(entityBills).toHaveLength(1);
-		expect(entityBills[0]).toMatchObject({
-			userName: "CC",
-			total: 3,
-			items: [{ drinkName: "Pils", amount: 2, totalPricePerDrink: 3 }],
+		// The Kasse card shows no items; the PDF download reads its own.
+		expect(entityBills).toEqual([
+			{
+				id: bill.id,
+				userName: "CC",
+				total: 3,
+				status: "Unbezahlt",
+				createdAt: bill.createdAt,
+			},
+		]);
+	});
+
+	// Paid group bills pile up with every run; the card lists the open ones
+	// and only the newest paid ones (#25).
+	test("entity list keeps every open group bill but only the newest paid ones", async () => {
+		const RECENT_PAID_GROUP_BILLS = 20;
+		await signInWart();
+		const period = await createBillPeriodRow();
+		const day = (n: number) => new Date(Date.UTC(2025, 0, 1 + n, 12));
+		// Open ones older than every paid one still show.
+		await createBillRow({
+			periodId: period.id,
+			user: eventUser("Offen alt"),
+			createdAt: day(0),
 		});
+		await createBillRow({
+			periodId: period.id,
+			user: eventUser("Gestundet alt"),
+			status: "Gestundet",
+			createdAt: day(1),
+		});
+		for (let n = 1; n <= RECENT_PAID_GROUP_BILLS + 5; n++) {
+			await createBillRow({
+				periodId: period.id,
+				user: eventUser(`Bezahlt ${n}`),
+				status: "Bezahlt",
+				paidAt: day(10 + n),
+				createdAt: day(10 + n),
+			});
+		}
+		await createBillRow({
+			periodId: period.id,
+			user: eventUser("Offen neu"),
+			createdAt: day(100),
+		});
+
+		const names = (await getOpenEntityBills()).map((b) => b.userName);
+
+		const newestPaid = Array.from(
+			{ length: RECENT_PAID_GROUP_BILLS },
+			(_, i) => `Bezahlt ${RECENT_PAID_GROUP_BILLS + 5 - i}`,
+		);
+		expect(names).toEqual([
+			"Offen neu",
+			...newestPaid,
+			"Gestundet alt",
+			"Offen alt",
+		]);
 	});
 
 	// A billing run creates its group bills in the same second; found via
@@ -677,6 +731,176 @@ describe("markAllMemberBillsPaid", () => {
 
 		expect(await markAllMemberBillsPaid()).toEqual({ success: true, count: 0 });
 	});
+
+	// Settles exactly what paying each open bill on its own settles (#23).
+	test("settles only the carried bills older than an open bill, and undo reopens them", async () => {
+		await signInWart({ features: ["billing.markAllPaid"] });
+		const period = await createBillPeriodRow();
+		const at = (day: number) => new Date(Date.UTC(2026, 9, day, 12));
+		const cara = { id: "u-cara", name: "Cara" };
+		const dirk = { id: "u-dirk", name: "Dirk" };
+		const emil = { id: "u-emil", name: "Emil" };
+		const paidBefore = at(5);
+		// Cara: carried, open (Gestundet), carried, open: both carried bills
+		// are older than her newest open bill.
+		for (const [day, status] of [
+			[1, "Übertragen"],
+			[3, "Gestundet"],
+			[5, "Übertragen"],
+			[7, "Unbezahlt"],
+		] as const) {
+			await createBillRow({
+				periodId: period.id,
+				user: cara,
+				status,
+				drinksTotal: day,
+				createdAt: at(day),
+			});
+		}
+		// Dirk: a carried bill newer than his open one stays carried.
+		await createBillRow({
+			periodId: period.id,
+			user: dirk,
+			drinksTotal: 2,
+			createdAt: at(2),
+		});
+		await createBillRow({
+			periodId: period.id,
+			user: dirk,
+			status: "Übertragen",
+			drinksTotal: 4,
+			createdAt: at(4),
+		});
+		// Emil: nothing open, so his carried bill stays carried and his paid
+		// one keeps its payment time.
+		await createBillRow({
+			periodId: period.id,
+			user: emil,
+			status: "Übertragen",
+			drinksTotal: 1,
+			createdAt: at(1),
+		});
+		await createBillRow({
+			periodId: period.id,
+			user: emil,
+			status: "Bezahlt",
+			paidAt: paidBefore,
+			drinksTotal: 6,
+			createdAt: at(6),
+		});
+		// A group bill's userId never matches a member's.
+		await createBillRow({
+			periodId: period.id,
+			user: eventUser("Cara"),
+			drinksTotal: 9,
+			createdAt: at(8),
+		});
+
+		expect(await markAllMemberBillsPaid()).toEqual({ success: true, count: 3 });
+
+		const state = async (userId: string) =>
+			(await billsOf(userId)).map((b) => [b.drinksTotal, b.status, b.paidAt]);
+		expect(await state(cara.id)).toEqual([
+			[1, "Bezahlt", NOW],
+			[3, "Bezahlt", NOW],
+			[5, "Bezahlt", NOW],
+			[7, "Bezahlt", NOW],
+		]);
+		expect(await state(dirk.id)).toEqual([
+			[2, "Bezahlt", NOW],
+			[4, "Übertragen", null],
+		]);
+		expect(await state(emil.id)).toEqual([
+			[1, "Übertragen", null],
+			[6, "Bezahlt", paidBefore],
+		]);
+		expect(await state(eventUser("Cara").id)).toEqual([[9, "Unbezahlt", null]]);
+
+		// Undoing Dirk's payment reopens his bill and nothing else.
+		const [dirkOpen] = await billsOf(dirk.id);
+		expect(await updateBillStatus(dirkOpen?.id ?? "", "Unbezahlt")).toEqual({
+			success: true,
+		});
+		expect(await state(dirk.id)).toEqual([
+			[2, "Unbezahlt", null],
+			[4, "Übertragen", null],
+		]);
+	});
+
+	test("is all or nothing: a failing bill leaves every bill open", async () => {
+		await signInWart({ features: ["billing.markAllPaid"] });
+		const period = await createBillPeriodRow();
+		for (const name of ["Anna", "Ben", "Cem"]) {
+			await createBillRow({
+				periodId: period.id,
+				user: { id: `u-${name}`, name },
+				drinksTotal: 5,
+			});
+		}
+		// The write for Ben's bill fails, after Anna's was written.
+		await tenantDb().run(
+			sql`CREATE TRIGGER fail_ben BEFORE UPDATE ON bill WHEN NEW.userId = 'u-Ben' BEGIN SELECT RAISE(ABORT, 'disk full'); END`,
+		);
+
+		const result = await markAllMemberBillsPaid();
+
+		expect(result).toMatchObject({ success: false });
+		expect(
+			(await getOpenMemberBills()).map((b) => [b.userName, b.status]),
+		).toEqual([
+			["Anna", "Unbezahlt"],
+			["Ben", "Unbezahlt"],
+			["Cem", "Unbezahlt"],
+		]);
+	});
+
+	test("takes the same round trips for 2 and 20 open bills, written in one batch", async () => {
+		await signInWart({ features: ["billing.markAllPaid"] });
+		await markAllMemberBillsPaid(); // warm the tenant and feature caches
+		let n = 0;
+		async function addMembers(count: number) {
+			const old = await createBillPeriodRow({ createdAt: at(-30) });
+			const period = await createBillPeriodRow();
+			for (let i = 0; i < count; i++) {
+				n++;
+				const user = { id: `u-${n}`, name: `Mitglied ${n}` };
+				await createBillRow({
+					periodId: old.id,
+					user,
+					status: "Übertragen",
+					drinksTotal: 3,
+					createdAt: at(-30),
+				});
+				await createBillRow({
+					periodId: period.id,
+					user,
+					status: n % 3 === 0 ? "Gestundet" : "Unbezahlt",
+					drinksTotal: 5,
+					oldBillingAmount: 3,
+				});
+			}
+		}
+		const at = (days: number) => new Date(NOW.getTime() + days * 86_400_000);
+
+		await addMembers(2);
+		const small = await countQueries(markAllMemberBillsPaid);
+		await addMembers(20);
+		const large = await countQueries(markAllMemberBillsPaid);
+
+		expect(small.result).toEqual({ success: true, count: 2 });
+		expect(large.result).toEqual({ success: true, count: 20 });
+		// Session (2), the role check and one write batch; the feature flag
+		// comes from the cached tenant (was 14 → 86).
+		expect(small.total).toBe(4);
+		expect(large.total).toBe(small.total);
+		expect(large.writes).toBe(1);
+		expect(large.log.filter((e) => e.kind === "transaction")).toEqual([]);
+		expect(
+			(await tenantDb().select().from(bills)).every(
+				(b) => b.status === "Bezahlt",
+			),
+		).toBe(true);
+	});
 });
 
 describe("signed-out visitors", () => {
@@ -704,17 +928,5 @@ describe("signed-out visitors", () => {
 			);
 			expect(outcome).toEqual({ success: false, error: "Nicht angemeldet" });
 		}
-	});
-});
-
-describe("group bills without items", () => {
-	test("are listed with an empty item list", async () => {
-		await signInWart();
-		const period = await createBillPeriodRow();
-		await createBillRow({ periodId: period.id, user: eventUser("CC") });
-
-		const [bill] = await getOpenEntityBills();
-
-		expect(bill).toMatchObject({ userName: "CC", items: [] });
 	});
 });

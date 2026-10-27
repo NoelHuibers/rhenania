@@ -4,13 +4,19 @@
 // indexes from migration 0013 these queries walk every order, every paid
 // bill or every bill item ever written.
 
+import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 
 import { updateBillStatus } from "~/server/actions/billings/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
-import { getOpenEntityBills } from "~/server/actions/getraenkewart/kasse";
+import { updateFuchsenBillStatus } from "~/server/actions/fuchsenladen/billings";
+import {
+	getOpenEntityBills,
+	markAllMemberBillsPaid,
+} from "~/server/actions/getraenkewart/kasse";
 import { getStockData } from "~/server/actions/inventur/inventur";
 import { getMyOrdersPage } from "~/server/actions/orders";
+import { fuchsenBills } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { getRecentDrinkIds } from "~/server/lib/recent-drinks";
 import {
@@ -20,6 +26,7 @@ import {
 	eventUser,
 	setUpGetraenkeBilling,
 } from "../../../test/factories/billing";
+import { createFuchsenBillPeriod } from "../../../test/factories/fuchsenladen";
 import { createInventory, daysAgo } from "../../../test/factories/inventory";
 import {
 	countQueries,
@@ -76,6 +83,19 @@ function expectIndex(plans: Plan[], index: string) {
 			plan.filter((step) => FULL_SCAN.test(step)),
 			sql,
 		).toEqual([]);
+	}
+}
+
+/** Each Fuchsen bill lookup reads only the member's own bills. */
+function expectMemberRange(plans: Plan[]) {
+	for (const { sql, plan } of plans) {
+		const steps = plan.join("\n");
+		expect(steps, sql).toMatch(
+			/SEARCH fuchsen_bill USING INDEX fuchsen_bill_user_idx \(userId=\?\)/,
+		);
+		expect(steps, sql).not.toMatch(
+			/fuchsen_bill_status_idx|SCAN fuchsen_(bill|order)\b/,
+		);
 	}
 }
 
@@ -185,7 +205,72 @@ describe("hot query plans use the composite indexes (#25)", () => {
 		expectIndex([...pay, ...undo], "bill_user_status_idx");
 	});
 
-	test("group bills and their items are found without reading every bill item", async () => {
+	// fuchsen_bill has no (userId, status) index. A plain status = ? made
+	// SQLite walk fuchsen_bill_status_idx, every paid or carried bill of
+	// every member, instead of the member's own bills.
+	test("paying and un-paying a Fuchsen bill only reads that member's bills", async () => {
+		await createTenant();
+		const member = await createUser();
+		const old = await createFuchsenBillPeriod({
+			createdAt: daysAgo(14),
+			bills: [{ user: member, itemsTotal: 2 }],
+		});
+		await requireTenant()
+			.db.update(fuchsenBills)
+			.set({ status: "Übertragen" })
+			.where(eq(fuchsenBills.id, old.bills[0]?.id ?? ""));
+		const { bills } = await createFuchsenBillPeriod({
+			bills: [{ user: member, itemsTotal: 2, oldBillingAmount: 2 }],
+		});
+		const bill = bills[0]?.id ?? "";
+		signInAs(await createUser({ roles: ["Fuchs"] }));
+
+		const byMember = /"fuchsen_bill"\."userId" = \?/;
+		const pay = await plansOf(byMember, () =>
+			updateFuchsenBillStatus(bill, "Bezahlt"),
+		);
+		expectMemberRange(pay);
+		const undo = await plansOf(byMember, () =>
+			updateFuchsenBillStatus(bill, "Unbezahlt"),
+		);
+		expectMemberRange(undo);
+		// Pay settles the carried bill and its orders; undo checks for a later
+		// bill paid together with this one, then reopens what it settled.
+		expect(pay).toHaveLength(2);
+		expect(undo).toHaveLength(3);
+	});
+
+	test("\"Alle haben gezahlt\" looks up each carried bill's successor in that member's bills", async () => {
+		await createTenant({ features: ["billing.markAllPaid"] });
+		const member = await createUser();
+		const old = await createBillPeriodRow({ createdAt: daysAgo(60) });
+		const current = await createBillPeriodRow();
+		await createBillRow({
+			periodId: old.id,
+			user: member,
+			status: "Übertragen",
+			createdAt: daysAgo(60),
+		});
+		await createBillRow({ periodId: current.id, user: member });
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
+
+		const [carried, open] = await plansOf(
+			/^update "bill"/,
+			markAllMemberBillsPaid,
+		);
+		// Only the carried bills, each checked against its member's own open
+		// bills; then only the open bills.
+		expect(carried?.plan).toEqual([
+			"SEARCH bill USING INDEX bill_status_idx (status=?)",
+			"CORRELATED SCALAR SUBQUERY 1",
+			"SEARCH later USING COVERING INDEX bill_user_status_idx (userId=? AND status=? AND createdAt>?)",
+		]);
+		expect(open?.plan).toEqual([
+			"SEARCH bill USING INDEX bill_status_idx (status=?)",
+		]);
+	});
+
+	test("group bills are found by index, without walking every paid bill", async () => {
 		await createTenant();
 		const period = await createBillPeriodRow();
 		await createBillRow({ periodId: period.id, user: await createUser() });
@@ -197,10 +282,12 @@ describe("hot query plans use the composite indexes (#25)", () => {
 		signInAs(await createUser({ roles: ["Getränkewart"] }));
 
 		const plans = await plansOf(/LIKE 'event-%'/, getOpenEntityBills);
-		expect(plans).toHaveLength(2);
+		expect(plans).toHaveLength(1);
 		expectIndex(plans, "bill_user_nocase_idx");
-		for (const { plan } of plans) {
-			expect(plan.join("\n")).not.toMatch(/SCAN bill_item/);
-		}
+		// The newest paid group bills, too, come from the group bill range,
+		// not from every paid bill.
+		const steps = plans[0]?.plan.join("\n") ?? "";
+		expect(steps.match(/USING INDEX bill_user_nocase_idx/g)).toHaveLength(2);
+		expect(steps).not.toMatch(/bill_status_idx|bill_item/);
 	});
 });
