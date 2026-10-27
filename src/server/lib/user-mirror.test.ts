@@ -16,6 +16,7 @@ import {
 } from "../../../test/harness";
 import { testState } from "../../../test/state";
 import {
+	MIRROR_RETRY_DELAYS_MS,
 	type MirroredUser,
 	mirrorUserToAllMemberTenants,
 	mirrorUserToTenant,
@@ -107,7 +108,7 @@ describe("mirrorUserToAllMemberTenants", () => {
 			mirrorUserToAllMemberTenants(
 				identity({ id: user.id, email: user.email, name: "Neu" }),
 			),
-		).resolves.toBeUndefined();
+		).resolves.toEqual({ failedTenantIds: [unreachable.id] });
 
 		expect((await mirrorOf(user.id, a.id))?.name).toBe("Neu");
 		expect(error).toHaveBeenCalledWith(
@@ -118,9 +119,9 @@ describe("mirrorUserToAllMemberTenants", () => {
 
 	test("does nothing for users without memberships", async () => {
 		await createTenant();
-		await expect(
-			mirrorUserToAllMemberTenants(identity()),
-		).resolves.toBeUndefined();
+		await expect(mirrorUserToAllMemberTenants(identity())).resolves.toEqual({
+			failedTenantIds: [],
+		});
 		expect(await tenantDb().select().from(users)).toHaveLength(0);
 	});
 });
@@ -172,5 +173,58 @@ describe("updateUserIdentity", () => {
 	test("returns null for an unknown identity", async () => {
 		await createTenant();
 		expect(await updateUserIdentity(randomUUID(), { name: "x" })).toBeNull();
+	});
+});
+
+describe("mirror writes are reliable (#35)", () => {
+	test("an e-mail swap between two users does not wedge the mirror", async () => {
+		const tenant = await createTenant();
+		const a = identity({ email: "a@example.test" });
+		const b = identity({ email: "b@example.test" });
+		await mirrorUserToTenant(a, tenant.id);
+		await mirrorUserToTenant(b, tenant.id);
+
+		await mirrorUserToTenant({ ...a, email: "b@example.test" }, tenant.id);
+		await mirrorUserToTenant({ ...b, email: "a@example.test" }, tenant.id);
+
+		expect((await mirrorOf(a.id))?.email).toBe("b@example.test");
+		expect((await mirrorOf(b.id))?.email).toBe("a@example.test");
+	});
+
+	test("a transient write failure is retried", async () => {
+		const tenant = await createTenant();
+		const user = identity();
+		const tdb = tenantDb(tenant.id);
+		const original = tdb.batch.bind(tdb);
+		const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+		const flaky = vi
+			.spyOn(tdb, "batch")
+			.mockRejectedValueOnce(new Error("fetch failed"))
+			.mockImplementation(original);
+
+		await mirrorUserToTenant(user, tenant.id);
+
+		expect(flaky).toHaveBeenCalledTimes(2);
+		expect(warn).toHaveBeenCalled();
+		expect(await mirrorOf(user.id)).toEqual(user);
+	});
+
+	test("gives up after the last retry, logs and rethrows", async () => {
+		const tenant = await createTenant();
+		const user = identity();
+		const down = new Error("fetch failed");
+		const batch = vi
+			.spyOn(tenantDb(tenant.id), "batch")
+			.mockRejectedValue(down);
+		vi.spyOn(console, "warn").mockImplementation(() => {});
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await expect(mirrorUserToTenant(user, tenant.id)).rejects.toBe(down);
+
+		expect(batch).toHaveBeenCalledTimes(MIRROR_RETRY_DELAYS_MS.length + 1);
+		expect(error).toHaveBeenCalledWith(
+			`Failed to mirror user ${user.id} to tenant ${tenant.id}:`,
+			down,
+		);
 	});
 });

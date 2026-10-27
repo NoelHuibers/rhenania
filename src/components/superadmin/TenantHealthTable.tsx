@@ -1,7 +1,10 @@
 import { Badge } from "~/components/ui/badge";
 import { EXPECTED_HEADS, tenantsHealth } from "~/server/lib/health";
 
-/** Per-tenant DB health and schema drift (same data as /api/health/tenants). */
+/**
+ * Per-tenant DB health, schema drift and user mirror drift (same data as
+ * /api/health/tenants).
+ */
 export async function TenantHealthTable() {
 	const results = await tenantsHealth();
 	return (
@@ -17,6 +20,7 @@ export async function TenantHealthTable() {
 							<th className="px-4 py-3 font-medium">Tenant</th>
 							<th className="px-4 py-3 font-medium">Database</th>
 							<th className="px-4 py-3 font-medium">Schema</th>
+							<th className="px-4 py-3 font-medium">User mirror</th>
 							<th className="px-4 py-3 font-medium">Latency</th>
 						</tr>
 					</thead>
@@ -33,6 +37,19 @@ export async function TenantHealthTable() {
 									<Badge variant={r.drift ? "destructive" : "secondary"}>
 										{r.drift ? `behind (${r.head ?? "none"})` : "up to date"}
 									</Badge>
+								</td>
+								<td className="px-4 py-3">
+									{r.mirrorDrift === null ? (
+										<span className="text-muted-foreground">–</span>
+									) : (
+										<Badge
+											variant={r.mirrorDrift > 0 ? "destructive" : "secondary"}
+										>
+											{r.mirrorDrift > 0
+												? `${r.mirrorDrift} out of sync`
+												: "in sync"}
+										</Badge>
+									)}
 								</td>
 								<td className="px-4 py-3 text-muted-foreground tabular-nums">
 									{r.latencyMs === null ? "–" : `${r.latencyMs} ms`}
