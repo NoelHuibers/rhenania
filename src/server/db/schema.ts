@@ -623,6 +623,13 @@ export const inventoryItems = createTable(
 			.notNull()
 			.references(() => drinks.id),
 		countedStock: ii.integer().notNull(),
+		/**
+		 * Whether `countedStock` is a real count: set when an inventory is
+		 * closed and when an "Ist" is quick-saved. A running inventory's
+		 * opening rows and purchase-only quick saves are not counted; their
+		 * `countedStock` is only the opening stock (#221).
+		 */
+		isCounted: ii.integer({ mode: "boolean" }).notNull().default(false),
 		previousStock: ii.integer().notNull().default(0),
 		purchasedSince: ii.integer().notNull().default(0),
 		soldSince: ii.integer().notNull().default(0),

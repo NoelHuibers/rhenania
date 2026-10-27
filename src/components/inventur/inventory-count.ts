@@ -1,3 +1,4 @@
+import { expectedStock } from "~/server/domain/inventory/loss";
 import type { StockStatusWithDetails } from "./utils";
 
 type StockItem = Pick<
@@ -12,6 +13,62 @@ export type CountState = {
 	/** Drinks whose "Ist" the user actually entered. */
 	countedIds: ReadonlySet<string>;
 };
+
+type LoadedItem = StockItem &
+	Pick<
+		StockStatusWithDetails,
+		"lastInventoryStock" | "soldSince" | "countedStock"
+	>;
+
+/**
+ * The expected stock with the purchases as entered: what an uncounted
+ * drink's "Ist" is pre-filled with, so purchases alone never show a loss.
+ */
+export function expectedWithPurchases(
+	item: Pick<StockStatusWithDetails, "lastInventoryStock" | "soldSince">,
+	purchase: number,
+): number {
+	return expectedStock({
+		previousStock: item.lastInventoryStock,
+		purchasedSince: purchase,
+		soldSince: item.soldSince,
+	});
+}
+
+/**
+ * The dashboard's state as loaded: the saved purchases, each drink's saved
+ * count or else its expected stock as the "Ist", and the drinks counted in
+ * an earlier quick save (#221).
+ */
+export function initialCountState(stockItems: readonly LoadedItem[]) {
+	const countedStock: Record<string, number> = {};
+	const purchases: Record<string, number> = {};
+	const countedIds = new Set<string>();
+	for (const item of stockItems) {
+		countedStock[item.drinkId] = item.countedStock ?? item.calculatedStock;
+		if (item.countedStock !== undefined) {
+			countedIds.add(item.drinkId);
+		}
+		if (item.purchasedSince > 0) {
+			purchases[item.drinkId] = item.purchasedSince;
+		}
+	}
+	return { countedStock, purchases, countedIds };
+}
+
+/**
+ * Whether a drink differs from what is saved: its purchases, or the "Ist"
+ * of a counted drink. An uncounted drink's pre-filled "Ist" is no change.
+ */
+export function hasUnsavedChange(
+	item: Pick<LoadedItem, "purchasedSince" | "countedStock">,
+	entered: { purchase: number; count: number | undefined; counted: boolean },
+): boolean {
+	return (
+		entered.purchase !== (item.purchasedSince || 0) ||
+		(entered.counted && entered.count !== item.countedStock)
+	);
+}
 
 /** The rows sent for a full or event inventory: every drink, as shown. */
 export function buildInventoryCount(
