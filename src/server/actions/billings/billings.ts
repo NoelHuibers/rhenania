@@ -20,23 +20,6 @@ export async function createNewBilling() {
 	return runGetraenkeBilling({ inventoryLoss: 0 });
 }
 
-// Get the latest bill period
-export async function getLatestBillPeriod() {
-	await requireMember();
-	try {
-		const [latestPeriod] = await db
-			.select()
-			.from(billPeriods)
-			.orderBy(desc(billPeriods.createdAt))
-			.limit(1);
-
-		return latestPeriod || null;
-	} catch (error) {
-		await log.error("Error getting latest bill period", { err: error });
-		return null;
-	}
-}
-
 // Get all bill periods (for displaying tabs)
 export async function getAllBillPeriods() {
 	await requireMember();

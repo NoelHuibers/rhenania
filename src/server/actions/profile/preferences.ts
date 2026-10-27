@@ -93,12 +93,6 @@ export async function setUserPreference(
 
 const ELO_KEY = ELO_PREFERENCE_KEY;
 
-export async function getEloPreferenceAction() {
-	// Default: true (participate)
-	const enabled = await getUserPreference<boolean>(ELO_KEY, true, "boolean");
-	return { enabled };
-}
-
 export async function setEloPreferenceAction(opts: { enabled: boolean }) {
 	const res = await setUserPreference(ELO_KEY, opts.enabled, "boolean");
 	return res;
@@ -107,16 +101,6 @@ export async function setEloPreferenceAction(opts: { enabled: boolean }) {
 // --- Public profile sugar ---
 
 const PUBLIC_PROFILE_KEY = "privacy.publicProfileEnabled";
-
-export async function getPublicProfilePreferenceAction() {
-	// Default: true (profile visible to other members)
-	const enabled = await getUserPreference<boolean>(
-		PUBLIC_PROFILE_KEY,
-		true,
-		"boolean",
-	);
-	return { enabled };
-}
 
 export async function setPublicProfilePreferenceAction(opts: {
 	enabled: boolean;
@@ -146,16 +130,6 @@ export async function setChallengeNotificationPreferenceAction(opts: {
 // --- Email notification sugar ---
 
 const EMAIL_NOTIFICATION_KEY = "notifications.emailEnabled";
-
-export async function getEmailNotificationPreferenceAction() {
-	// Default: true (receive email notifications)
-	const enabled = await getUserPreference<boolean>(
-		EMAIL_NOTIFICATION_KEY,
-		true,
-		"boolean",
-	);
-	return { enabled };
-}
 
 export async function setEmailNotificationPreferenceAction(opts: {
 	enabled: boolean;

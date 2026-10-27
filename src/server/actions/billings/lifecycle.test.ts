@@ -57,7 +57,6 @@ import {
 	createNewBilling,
 	getAllBillPeriods,
 	getBillsForPeriod,
-	getLatestBillPeriod,
 	updateBillStatus,
 } from "./billings";
 import { generateBillPeriodCSV } from "./createCSV";
@@ -1202,14 +1201,14 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 		const member = await createUser();
 		await bestellen(member, await createDrink());
 
-		expect(await getLatestBillPeriod()).toBeNull();
+		expect(await getAllBillPeriods()).toEqual([]);
 		expect(await updateBillStatus("gibt-es-nicht", "Bezahlt")).toEqual({
 			success: false,
 			error: "Rechnung nicht gefunden",
 		});
 
 		await abrechnenMitPeriode(woche(0));
-		expect((await getLatestBillPeriod())?.billNumber).toBe("KW-41-26");
+		expect((await getAllBillPeriods())[0]?.billNumber).toBe("KW-41-26");
 		expect((await neuesteRechnung(member.id)).status).toBe("Unbezahlt");
 	});
 
@@ -1223,7 +1222,7 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 			"PRAGMA foreign_keys = OFF; DROP TABLE bill_csv; DROP TABLE bill_pdf; DROP TABLE bill_item; DROP TABLE bill; DROP TABLE bill_period; DROP TABLE `order`;",
 		);
 
-		expect(await getLatestBillPeriod()).toBeNull();
+		expect(await getAllBillPeriods()).toEqual([]);
 		expect(await getAllBillPeriods()).toEqual([]);
 		expect(await getBillsForPeriod(run.billPeriod.id)).toEqual([]);
 		expect(await updateBillStatus("egal", "Bezahlt")).toEqual({
