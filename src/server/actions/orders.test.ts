@@ -4,6 +4,7 @@ import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracki
 import { orders } from "~/server/db/schema";
 import { createOrderRow, daysAgo } from "../../../test/factories/inventory";
 import {
+	countQueries,
 	createDrink,
 	createTenant,
 	createUser,
@@ -14,7 +15,7 @@ import {
 	tenantDb,
 } from "../../../test/harness";
 import { testState } from "../../../test/state";
-import { createOrder, getUserOrders } from "./orders";
+import { createOrder, getMyOrdersPage } from "./orders";
 
 // Achievements run after the response; they have their own tests.
 vi.mock("~/server/actions/achievements/tracking", () => ({
@@ -163,8 +164,8 @@ describe("createOrder", () => {
 	});
 });
 
-describe("getUserOrders", () => {
-	test("returns only the caller's own orders, oldest first", async () => {
+describe("getMyOrdersPage (#24)", () => {
+	test("returns only the caller's own orders, newest first", async () => {
 		await createTenant();
 		const member = await createUser({ name: "Max" });
 		const other = await createUser({ name: "Moritz" });
@@ -197,21 +198,89 @@ describe("getUserOrders", () => {
 		});
 		signInAs(member);
 
-		const result = await getUserOrders();
+		const result = await getMyOrdersPage();
 
-		expect(result.map((o) => [o.userId, o.amount])).toEqual([
-			[member.id, 1],
-			[member.id, 4],
-			[member.id, 2],
-		]);
+		expect(result.total).toBe(3);
+		expect(result.orders.map((o) => o.amount)).toEqual([2, 4, 1]);
+	});
+
+	test("loads one page at a time, with the total across pages", async () => {
+		await createTenant();
+		const member = await createUser();
+		const drink = await createDrink({ name: "Pils" });
+		for (let i = 1; i <= 12; i++) {
+			await createOrderRow({
+				drink,
+				user: member,
+				amount: i,
+				createdAt: daysAgo(20 - i),
+			});
+		}
+		signInAs(member);
+
+		const first = await getMyOrdersPage();
+		expect(first).toMatchObject({ total: 12, page: 1, pageSize: 5 });
+		expect(first.orders.map((o) => o.amount)).toEqual([12, 11, 10, 9, 8]);
+
+		const last = await getMyOrdersPage({ page: 3 });
+		expect(last.total).toBe(12);
+		expect(last.orders.map((o) => o.amount)).toEqual([2, 1]);
+
+		const { log } = await countQueries(() => getMyOrdersPage({ page: 2 }));
+		const pageSql = log
+			.flatMap((e) => e.sql)
+			.find((s) => /from "order"/.test(s) && /limit/i.test(s));
+		expect(pageSql).toMatch(/limit \? offset \?/i);
+	});
+
+	test("filters by billing state and by an instant range", async () => {
+		await createTenant();
+		const member = await createUser();
+		const drink = await createDrink({ name: "Pils" });
+		await createOrderRow({
+			drink,
+			user: member,
+			amount: 1,
+			inBill: true,
+			createdAt: daysAgo(10),
+		});
+		await createOrderRow({
+			drink,
+			user: member,
+			amount: 2,
+			createdAt: daysAgo(5),
+		});
+		await createOrderRow({
+			drink,
+			user: member,
+			amount: 3,
+			createdAt: daysAgo(1),
+		});
+		signInAs(member);
+
+		const open = await getMyOrdersPage({ outOfBillOnly: true });
+		expect(open.total).toBe(2);
+		expect(open.orders.map((o) => o.amount)).toEqual([3, 2]);
+
+		const range = await getMyOrdersPage({
+			from: daysAgo(11).toISOString(),
+			to: daysAgo(4).toISOString(),
+		});
+		expect(range.orders.map((o) => o.amount)).toEqual([2, 1]);
+		expect(range.orders[1]?.inBill).toBe(true);
+	});
+
+	test("rejects malformed queries", async () => {
+		await createTenant();
+		signInAs(await createUser());
+
+		await expect(getMyOrdersPage({ page: 0 })).rejects.toThrow();
+		await expect(getMyOrdersPage({ from: "yesterday" })).rejects.toThrow();
 	});
 
 	test("throws for anonymous callers", async () => {
 		await createTenant();
-		vi.spyOn(console, "error").mockImplementation(() => {});
 
-		await expect(getUserOrders()).rejects.toThrow(
-			"User must be authenticated to view orders",
-		);
+		await expect(getMyOrdersPage()).rejects.toThrow("Nicht angemeldet");
 	});
 });

@@ -15,7 +15,7 @@ import {
 	disconnectProviderAction,
 	getConnectedAccountsAction,
 } from "~/server/actions/profile/auth";
-import { authClient, useSession } from "~/server/auth/client";
+import { authClient } from "~/server/auth/client";
 
 interface ConnectedAccount {
 	provider: string;
@@ -24,8 +24,37 @@ interface ConnectedAccount {
 	canDisconnect: boolean;
 }
 
-export function AccountSecurity() {
-	const { data: session } = useSession();
+type ConnectedAccountsResult = Awaited<
+	ReturnType<typeof getConnectedAccountsAction>
+>;
+
+function toConnectedAccounts(
+	result: ConnectedAccountsResult | null,
+): ConnectedAccount[] {
+	if (!result?.success || !result.data) {
+		return [];
+	}
+	return [
+		{
+			provider: "Microsoft",
+			connected: result.data.accounts.some(
+				(acc: { provider: string }) => acc.provider === "microsoft",
+			),
+			icon: "🔷",
+			canDisconnect: result.data.hasPassword || result.data.accounts.length > 1,
+		},
+	];
+}
+
+/**
+ * Password and linked sign-in providers. `initial` is the connected-accounts
+ * result loaded on the server (#24); null if that failed.
+ */
+export function AccountSecurity({
+	initial,
+}: {
+	initial: ConnectedAccountsResult | null;
+}) {
 	const [isPending, startTransition] = useTransition();
 
 	const [currentPassword, setCurrentPassword] = useState("");
@@ -33,46 +62,19 @@ export function AccountSecurity() {
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [connectedAccounts, setConnectedAccounts] = useState<
 		ConnectedAccount[]
-	>([]);
-	const [hasLocalPassword, setHasLocalPassword] = useState(false);
+	>(() => toConnectedAccounts(initial));
+	const [hasLocalPassword, setHasLocalPassword] = useState(
+		initial?.success ? (initial.data?.hasPassword ?? false) : false,
+	);
 
-	// Verbundene Konten beim Mount prüfen
+	// Loading failed on the server: say so once, as the mount fetch did.
 	useEffect(() => {
-		const fetchConnectedAccounts = async () => {
-			if (!session?.user?.id) {
-				return;
-			}
-
-			try {
-				const result = await getConnectedAccountsAction();
-
-				if (result.success && result.data) {
-					const accounts: ConnectedAccount[] = [
-						{
-							provider: "Microsoft",
-							connected: result.data.accounts.some(
-								(acc: { provider: string }) => acc.provider === "microsoft",
-							),
-							icon: "🔷",
-							canDisconnect:
-								result.data.hasPassword || result.data.accounts.length > 1,
-						},
-					];
-
-					setConnectedAccounts(accounts);
-					setHasLocalPassword(result.data.hasPassword);
-				} else {
-					toast.error(
-						result.error || "Verbundene Konten konnten nicht geladen werden",
-					);
-				}
-			} catch (_error) {
-				toast.error("Verbundene Konten konnten nicht geladen werden");
-			}
-		};
-
-		fetchConnectedAccounts();
-	}, [session]);
+		if (!initial?.success) {
+			toast.error(
+				initial?.error || "Verbundene Konten konnten nicht geladen werden",
+			);
+		}
+	}, [initial]);
 
 	const handleProviderToggle = (providerName: string) => {
 		const account = connectedAccounts.find(

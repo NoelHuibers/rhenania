@@ -1,7 +1,7 @@
 "use client";
 
 import { Download, Eye, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -17,42 +17,41 @@ import { Separator } from "~/components/ui/separator";
 import { paymentReference } from "~/lib/bill-payment";
 import { formatDate, formatEUR } from "~/lib/format";
 import { downloadUserBillPDF } from "~/server/actions/profile/downloadUserBill";
-import {
-	type BillData,
-	type BillItem,
-	type BillPayment,
-	getUserBillingData,
-} from "~/server/actions/profile/getUserBill";
+import type { getUserBillingData } from "~/server/actions/profile/getUserBill";
 import { PAYMENT_DATA_MISSING, PayBillDrawer } from "./PayBillDrawer";
 
-export function BillingOverview() {
-	const [billData, setBillData] = useState<BillData | null>(null);
-	const [billItems, setBillItems] = useState<BillItem[]>([]);
-	const [payment, setPayment] = useState<BillPayment | null>(null);
-	const [loading, setLoading] = useState(true);
+type UserBillingData = Awaited<ReturnType<typeof getUserBillingData>>;
+
+/** Placeholder while the bill streams in. */
+export function BillingOverviewSkeleton() {
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="text-lg md:text-xl">Billing Overview</CardTitle>
+			</CardHeader>
+			<CardContent className="flex items-center justify-center py-8">
+				<div className="flex items-center gap-2">
+					<Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
+					<span className="text-sm md:text-base">Loading billing data...</span>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+/** The member's latest Getränke bill, loaded on the server (#24). */
+export function BillingOverview({
+	data,
+	error = null,
+}: {
+	data: UserBillingData | null;
+	/** Set when the server could not load the bill. */
+	error?: string | null;
+}) {
+	const billData = data?.billData ?? null;
+	const billItems = data?.billItems ?? [];
+	const payment = data?.payment ?? null;
 	const [downloadingPDF, setDownloadingPDF] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	useEffect(() => {
-		async function fetchBillingData() {
-			try {
-				setLoading(true);
-				const data = await getUserBillingData();
-				setBillData(data.billData);
-				setBillItems(data.billItems);
-				setPayment(data.payment);
-			} catch (err) {
-				setError(
-					err instanceof Error ? err.message : "Failed to load billing data",
-				);
-				console.error("Error fetching billing data:", err);
-			} finally {
-				setLoading(false);
-			}
-		}
-
-		fetchBillingData();
-	}, []);
 
 	const handleDownloadPDF = async () => {
 		if (!billData?.billId) {
@@ -99,24 +98,6 @@ export function BillingOverview() {
 				return "secondary" as const;
 		}
 	};
-
-	if (loading) {
-		return (
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-lg md:text-xl">Billing Overview</CardTitle>
-				</CardHeader>
-				<CardContent className="flex items-center justify-center py-8">
-					<div className="flex items-center gap-2">
-						<Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
-						<span className="text-sm md:text-base">
-							Loading billing data...
-						</span>
-					</div>
-				</CardContent>
-			</Card>
-		);
-	}
 
 	if (error) {
 		return (

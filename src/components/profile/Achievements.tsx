@@ -1,24 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { ChipGroup } from "~/components/ui/chip-group";
-import {
-	getUserAchievements,
-	type UserAchievementData,
-} from "~/server/actions/profile/achievements";
+import type { UserAchievementData } from "~/server/actions/profile/achievements";
 import { AchievementCard, CATEGORIES } from "./achievement-ui";
 
-export function Achievements() {
-	const [data, setData] = useState<UserAchievementData[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [activeCategory, setActiveCategory] = useState<string>("all");
+/** Placeholder while the achievements stream in. */
+export function AchievementsSkeleton() {
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Achievements</CardTitle>
+			</CardHeader>
+			<CardContent>
+				<div className="animate-pulse space-y-3">
+					{[...Array(4)].map((_, i) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
+						<div key={i} className="h-16 rounded-lg bg-muted" />
+					))}
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
 
-	useEffect(() => {
-		getUserAchievements()
-			.then(setData)
-			.finally(() => setLoading(false));
-	}, []);
+/** The member's achievements, loaded on the server (#24). */
+export function Achievements({ data }: { data: UserAchievementData[] }) {
+	const [activeCategory, setActiveCategory] = useState<string>("all");
 
 	const filtered =
 		activeCategory === "all"
@@ -33,24 +42,6 @@ export function Achievements() {
 		.filter((a) => a.unlocked)
 		.reduce((sum, a) => sum + a.points, 0);
 	const totalUnlocked = data.filter((a) => a.unlocked).length;
-
-	if (loading) {
-		return (
-			<Card>
-				<CardHeader>
-					<CardTitle>Achievements</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<div className="animate-pulse space-y-3">
-						{[...Array(4)].map((_, i) => (
-							// biome-ignore lint/suspicious/noArrayIndexKey: static skeleton
-							<div key={i} className="h-16 rounded-lg bg-muted" />
-						))}
-					</div>
-				</CardContent>
-			</Card>
-		);
-	}
 
 	return (
 		<Card>

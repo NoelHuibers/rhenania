@@ -1,18 +1,21 @@
 // orders.ts
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { z } from "zod";
 import {
 	isBookingAccount,
 	isValidOrderAmount,
 	MAX_ORDER_AMOUNT,
 } from "~/lib/drink-order";
+import { MY_ORDERS_PAGE_SIZE } from "~/lib/my-orders";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { auth } from "~/server/auth";
 import { drinks, orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { requireMember } from "~/server/lib/authz";
 import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
 import { log } from "~/server/lib/log";
 import { requireTenantId } from "~/server/lib/tenant-context";
@@ -186,24 +189,69 @@ export async function createOrder(
 	}
 }
 
-export async function getUserOrders() {
-	try {
-		const db = await getCurrentTenantDb();
-		const session = await auth();
+const ordersPageSchema = z.object({
+	page: z.number().int().min(1).max(100_000).default(1),
+	outOfBillOnly: z.boolean().default(false),
+	/** Instants (ISO), so the browser decides where its day starts and ends. */
+	from: z.iso.datetime().nullish(),
+	to: z.iso.datetime().nullish(),
+});
 
-		if (!session?.user?.id) {
-			throw new Error("User must be authenticated to view orders");
-		}
+export type MyOrdersQuery = z.input<typeof ordersPageSchema>;
 
-		const userOrders = await db
-			.select()
+export type MyOrder = {
+	id: string;
+	createdAt: Date;
+	drinkName: string;
+	amount: number;
+	total: number;
+	inBill: boolean;
+};
+
+export type MyOrdersPage = {
+	orders: MyOrder[];
+	/** Orders matching the filters, across all pages. */
+	total: number;
+	page: number;
+	pageSize: number;
+};
+
+/**
+ * One page of the caller's own orders, newest first, for the profile (#24).
+ * The page and the matching count travel in one round trip; the list is
+ * never loaded whole.
+ */
+export async function getMyOrdersPage(
+	query: MyOrdersQuery = {},
+): Promise<MyOrdersPage> {
+	const member = await requireMember();
+	const { page, outOfBillOnly, from, to } = ordersPageSchema.parse(query);
+	const pageSize = MY_ORDERS_PAGE_SIZE;
+	const db = await getCurrentTenantDb();
+
+	const where = and(
+		eq(orders.userId, member.id),
+		outOfBillOnly ? eq(orders.inBill, false) : undefined,
+		from ? gte(orders.createdAt, new Date(from)) : undefined,
+		to ? lte(orders.createdAt, new Date(to)) : undefined,
+	);
+	const [rows, [counted]] = await db.batch([
+		db
+			.select({
+				id: orders.id,
+				createdAt: orders.createdAt,
+				drinkName: orders.drinkName,
+				amount: orders.amount,
+				total: orders.total,
+				inBill: orders.inBill,
+			})
 			.from(orders)
-			.where(eq(orders.userId, session.user.id))
-			.orderBy(orders.createdAt);
+			.where(where)
+			.orderBy(desc(orders.createdAt), desc(sql`${orders}.rowid`))
+			.limit(pageSize)
+			.offset((page - 1) * pageSize),
+		db.select({ total: count() }).from(orders).where(where),
+	]);
 
-		return userOrders;
-	} catch (error) {
-		await log.error("Error fetching user orders", { err: error });
-		throw error;
-	}
+	return { orders: rows, total: counted?.total ?? 0, page, pageSize };
 }

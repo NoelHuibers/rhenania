@@ -1,33 +1,28 @@
 "use client";
 
 import { Landmark } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import {
-	getMyPaymentInfo,
+	type MyPaymentInfo,
 	setMyPaymentInfo,
 } from "~/server/actions/cc-kasse/paymentInfo";
 
-export function PaymentInfo() {
-	const [accountHolder, setAccountHolder] = useState("");
-	const [iban, setIban] = useState("");
-	const [loaded, setLoaded] = useState(false);
+/**
+ * The member's own account details. `initial` comes from the server (#24);
+ * `undefined` renders the disabled form while it streams in.
+ */
+export function PaymentInfo({ initial }: { initial?: MyPaymentInfo | null }) {
+	const loaded = initial !== undefined;
+	const [accountHolder, setAccountHolder] = useState(
+		initial?.accountHolder ?? "",
+	);
+	const [iban, setIban] = useState(initial?.iban ?? "");
 	const [isPending, startTransition] = useTransition();
-
-	useEffect(() => {
-		(async () => {
-			const info = await getMyPaymentInfo();
-			if (info) {
-				setAccountHolder(info.accountHolder);
-				setIban(info.iban);
-			}
-			setLoaded(true);
-		})();
-	}, []);
 
 	const save = () => {
 		startTransition(async () => {

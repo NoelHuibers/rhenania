@@ -10,7 +10,7 @@ import { updateBillStatus } from "~/server/actions/billings/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 import { getOpenEntityBills } from "~/server/actions/getraenkewart/kasse";
 import { getStockData } from "~/server/actions/inventur/inventur";
-import { getUserOrders } from "~/server/actions/orders";
+import { getMyOrdersPage } from "~/server/actions/orders";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { getRecentDrinkIds } from "~/server/lib/recent-drinks";
 import {
@@ -122,9 +122,28 @@ describe("hot query plans use the composite indexes (#25)", () => {
 		signInAs(member);
 		await createOrderRow({ user: member });
 
-		const profile = await plansOf(/from "order"/, getUserOrders);
+		// The profile's order page (#24): newest first, straight off the index,
+		// and the matching count from the same index range.
+		const profile = await plansOf(/from "order"/, () => getMyOrdersPage());
+		expect(profile).toHaveLength(2);
 		expectIndex(profile, "order_user_created_idx");
-		expect(profile[0]?.plan.join("\n")).not.toMatch(/TEMP B-TREE FOR ORDER BY/);
+		for (const { plan } of profile) {
+			expect(plan.join("\n")).not.toMatch(/TEMP B-TREE/);
+		}
+		const filtered = await plansOf(/from "order"/, () =>
+			getMyOrdersPage({
+				outOfBillOnly: true,
+				from: daysAgo(30).toISOString(),
+				to: new Date().toISOString(),
+			}),
+		);
+		// "Nur nicht abgerechnet" may use the partial index of unbilled orders.
+		for (const { plan } of filtered) {
+			expect(plan.join("\n")).toMatch(
+				/USING (COVERING )?INDEX order_(unbilled_)?user_\w+ \(userId=\? AND createdAt>\? AND createdAt<\?\)/,
+			);
+			expect(plan.join("\n")).not.toMatch(/TEMP B-TREE/);
+		}
 
 		const recent = await plansOf(/from "order"/, () =>
 			getRecentDrinkIds(member.id),

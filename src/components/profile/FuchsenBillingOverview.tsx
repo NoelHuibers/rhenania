@@ -2,7 +2,6 @@
 
 import { Loader2, ReceiptEuro } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
@@ -16,60 +15,38 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { formatDate, formatEUR } from "~/lib/format";
-import type { FuchsenOrder } from "~/server/actions/fuchsenladen/orders";
-import {
-	getMyFuchsenOrders,
+import type {
+	FuchsenOrder,
 	getMyFuchsenSummary,
 } from "~/server/actions/fuchsenladen/orders";
 
-export function FuchsenBillingOverview() {
-	const [orders, setOrders] = useState<FuchsenOrder[]>([]);
-	const [summary, setSummary] = useState({
-		openTotal: 0,
-		paidTotal: 0,
-		openCount: 0,
-	});
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+/** Placeholder while the Fuchsenladen orders stream in. */
+export function FuchsenBillingOverviewSkeleton() {
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle className="text-lg md:text-xl">
+					Fuchsenladen-Rechnungen
+				</CardTitle>
+			</CardHeader>
+			<CardContent className="flex items-center justify-center py-8">
+				<Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
+			</CardContent>
+		</Card>
+	);
+}
 
-	useEffect(() => {
-		const load = async () => {
-			try {
-				setLoading(true);
-				const [ordersData, summaryData] = await Promise.all([
-					getMyFuchsenOrders(),
-					getMyFuchsenSummary(),
-				]);
-				setOrders(ordersData);
-				setSummary(summaryData);
-			} catch (err) {
-				setError(
-					err instanceof Error
-						? err.message
-						: "Fehler beim Laden der Fuchsen-Rechnungen",
-				);
-			} finally {
-				setLoading(false);
-			}
-		};
-		load();
-	}, []);
-
-	if (loading) {
-		return (
-			<Card>
-				<CardHeader>
-					<CardTitle className="text-lg md:text-xl">
-						Fuchsenladen-Rechnungen
-					</CardTitle>
-				</CardHeader>
-				<CardContent className="flex items-center justify-center py-8">
-					<Loader2 className="h-4 w-4 animate-spin md:h-5 md:w-5" />
-				</CardContent>
-			</Card>
-		);
-	}
-
+/** The member's Fuchsenladen orders, loaded on the server (#24). */
+export function FuchsenBillingOverview({
+	orders,
+	summary,
+	error = null,
+}: {
+	orders: FuchsenOrder[];
+	summary: Awaited<ReturnType<typeof getMyFuchsenSummary>>;
+	/** Set when the server could not load the orders. */
+	error?: string | null;
+}) {
 	if (error) {
 		return (
 			<Card>

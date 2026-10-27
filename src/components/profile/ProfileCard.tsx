@@ -2,7 +2,7 @@
 
 import { Edit, RefreshCw, FolderSyncIcon as Sync, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
@@ -36,30 +36,34 @@ interface User {
 	roles: string[];
 }
 
-export function ProfileIdentity() {
-	const [user, setUser] = useState<User | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [newName, setNewName] = useState("");
+/** Placeholder while the profile streams in. */
+export function ProfileIdentitySkeleton() {
+	return (
+		<Card>
+			<CardContent className="space-y-6">
+				<div className="flex flex-col items-center space-y-4">
+					<div className="h-24 w-24 animate-pulse rounded-full bg-muted" />
+					<div className="space-y-2">
+						<div className="h-6 w-32 animate-pulse rounded bg-muted" />
+						<div className="h-4 w-48 animate-pulse rounded bg-muted" />
+					</div>
+					<div className="flex gap-2">
+						<div className="h-6 w-16 animate-pulse rounded bg-muted" />
+						<div className="h-6 w-20 animate-pulse rounded bg-muted" />
+					</div>
+				</div>
+			</CardContent>
+		</Card>
+	);
+}
+
+/** Name, avatar and roles. `initial` comes from the server (#24); null if it failed. */
+export function ProfileIdentity({ initial }: { initial: User | null }) {
+	const [user, setUser] = useState<User | null>(initial);
+	const [newName, setNewName] = useState(initial?.name ?? "");
 	const [nameDialogOpen, setNameDialogOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
 	const router = useRouter();
-
-	// Fetch user data on component mount
-	useEffect(() => {
-		const fetchUserData = async () => {
-			try {
-				const userData = await getUserProfile();
-				setUser(userData);
-				setNewName(userData.name || "");
-				setLoading(false);
-			} catch (_error) {
-				toast.error("Failed to load profile data");
-				setLoading(false);
-			}
-		};
-
-		fetchUserData();
-	}, []);
 
 	const handleNameEdit = () => {
 		if (!newName.trim()) {
@@ -167,26 +171,6 @@ export function ProfileIdentity() {
 			.join("")
 			.toUpperCase();
 	};
-
-	if (loading) {
-		return (
-			<Card>
-				<CardContent className="space-y-6">
-					<div className="flex flex-col items-center space-y-4">
-						<div className="h-24 w-24 animate-pulse rounded-full bg-muted" />
-						<div className="space-y-2">
-							<div className="h-6 w-32 animate-pulse rounded bg-muted" />
-							<div className="h-4 w-48 animate-pulse rounded bg-muted" />
-						</div>
-						<div className="flex gap-2">
-							<div className="h-6 w-16 animate-pulse rounded bg-muted" />
-							<div className="h-6 w-20 animate-pulse rounded bg-muted" />
-						</div>
-					</div>
-				</CardContent>
-			</Card>
-		);
-	}
 
 	if (!user) {
 		return (
