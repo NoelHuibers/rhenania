@@ -74,6 +74,14 @@ describe("proxy gates", () => {
 		expect(res.headers.get("location")).toBeNull();
 	});
 
+	test("browsers deliver CSP reports without a session (#91)", async () => {
+		const tenant = await createTenant();
+		const res = await middleware(
+			request(`${tenant.slug}.test.localhost`, "/api/csp-report"),
+		);
+		expect(res.headers.get("location")).toBeNull();
+	});
+
 	test("protected pages send anonymous visitors to sign-in", async () => {
 		const tenant = await createTenant();
 		const res = await middleware(

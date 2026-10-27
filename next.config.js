@@ -5,11 +5,15 @@
 import "./src/env.js";
 
 // Security headers for every response. The CSP starts in report-only mode
-// (it can't break anything); switch to "Content-Security-Policy" once the
-// browser console / report endpoint shows no violations.
+// (it can't break anything); browsers send violations to /api/csp-report,
+// which logs them as "csp violation". Switch to "Content-Security-Policy"
+// once those logs stay empty.
+const isDev = process.env.NODE_ENV === "development";
+const CSP_REPORT_PATH = "/api/csp-report";
 const contentSecurityPolicy = [
 	"default-src 'self'",
-	"script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+	// React needs eval in development only (error stacks); production doesn't.
+	`script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
 	"style-src 'self' 'unsafe-inline'",
 	"img-src 'self' data: blob: https://*.public.blob.vercel-storage.com",
 	"font-src 'self' data:",
@@ -18,6 +22,10 @@ const contentSecurityPolicy = [
 	"base-uri 'self'",
 	"form-action 'self' https://login.microsoftonline.com",
 	"object-src 'none'",
+	// `report-to` (Reporting API) wins where supported, `report-uri` covers
+	// Firefox.
+	`report-uri ${CSP_REPORT_PATH}`,
+	"report-to csp",
 ].join("; ");
 
 const securityHeaders = [
@@ -35,6 +43,7 @@ const securityHeaders = [
 	{ key: "X-Frame-Options", value: "DENY" },
 	{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
 	{ key: "Content-Security-Policy-Report-Only", value: contentSecurityPolicy },
+	{ key: "Reporting-Endpoints", value: `csp="${CSP_REPORT_PATH}"` },
 ];
 
 /** @type {import("next").NextConfig} */
