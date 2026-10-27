@@ -1,0 +1,37 @@
+name: Challenge sweep
+
+# Expires overdue challenges and books unconfirmed results in every Corps by
+# calling /api/cron/challenges. Runs from GitHub Actions instead of Vercel Cron
+# so it works on every Vercel plan (Hobby allows only daily cron jobs and a
+# shorter schedule fails the deploy). Needs the repository secret CRON_SECRET
+# (same value as the CRON_SECRET env var on Vercel) and optionally the variable
+# HEALTH_URL; does nothing until they're configured. GitHub runs scheduled
+# workflows best effort, so a run can start a few minutes late; the sweep is
+# idempotent and pages show overdue challenges as expired in the meantime.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: challenge-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      BASE_URL: ${{ vars.HEALTH_URL || 'https://rhenania-stuttgart.de' }}
+    steps:
+      - name: Sweep challenges
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::notice::CRON_SECRET is not configured; skipping."
+            exit 0
+          fi
+          curl -fsS --max-time 60 -H "Authorization: Bearer $CRON_SECRET" "$BASE_URL/api/cron/challenges" | jq .

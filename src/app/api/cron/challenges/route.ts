@@ -1,4 +1,4 @@
-// GET /api/cron/challenges — scheduled challenge sweep (see vercel.json).
+// GET /api/cron/challenges — scheduled challenge sweep (called by .github/workflows/challenge-sweep.yml).
 // Expires challenges past their reply/play window and auto-settles results
 // nobody confirmed in time, in every active Corps plus the cross-Corps
 // table. Page reads never do this; they only show overdue rows as expired.
