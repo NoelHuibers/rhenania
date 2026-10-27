@@ -52,7 +52,7 @@ export function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 		setPendingId(id);
 		startTransition(async () => {
 			const res = await updateBillStatus(id, status);
-			if (res.success) {
+			if (res.ok) {
 				toast.success(
 					status === "Bezahlt"
 						? `${name} als bezahlt markiert`
@@ -62,7 +62,7 @@ export function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 				);
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Status konnte nicht geändert werden");
+				toast.error(res.error);
 			}
 			setPendingId(null);
 		});

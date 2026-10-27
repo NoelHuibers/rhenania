@@ -36,17 +36,17 @@ export const BillingCard = ({
 		setIsDownloading(true);
 		try {
 			if (!billPeriodId) {
-				toast.error("No bill period ID available");
+				toast.error("Keine Abrechnung ausgewählt");
 				return;
 			}
 
 			const result = await saveBillPeriodCSV(billPeriodId);
 
-			if (result.success && result.downloadUrl) {
+			if (result.ok) {
 				// Create download link with proper attributes
 				const link = document.createElement("a");
-				link.href = result.downloadUrl;
-				link.download = result.fileName || `bill_${billPeriodId}.csv`;
+				link.href = result.data.downloadUrl;
+				link.download = result.data.fileName;
 
 				// Set attributes for better browser handling
 				link.setAttribute("target", "_blank");
@@ -64,16 +64,16 @@ export const BillingCard = ({
 				}, 100);
 
 				toast.success(
-					result.wasExisting
+					result.data.wasExisting
 						? "CSV downloaded (existing file)"
 						: "CSV generated and downloaded",
 				);
 			} else {
-				toast.error(result.error || "Failed to download CSV");
+				toast.error(result.error);
 			}
 		} catch (error) {
 			console.error("Download error:", error);
-			toast.error("Error downloading CSV");
+			toast.error("Fehler beim Herunterladen der CSV");
 		} finally {
 			setIsDownloading(false);
 		}

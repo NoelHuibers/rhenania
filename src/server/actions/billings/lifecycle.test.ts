@@ -138,21 +138,23 @@ async function bestellen(
 	expect(result.success).toBe(true);
 }
 
-/** "Neue Rechnung" in the Kasse at `date`. */
+/** "Neue Rechnung" in the Kasse at `date`; must not fail. */
 async function abrechnen(date: Date) {
 	vi.setSystemTime(date);
-	return createNewBilling();
+	const result = await createNewBilling();
+	if (!result.ok) {
+		throw new Error(`Billing failed: ${result.error}`);
+	}
+	return result.data;
 }
 
 /** "Neue Rechnung" that must create a period. */
 async function abrechnenMitPeriode(date: Date) {
 	const result = await abrechnen(date);
-	if (!("billPeriod" in result) || !result.billPeriod) {
+	if (!("billPeriod" in result)) {
 		throw new Error(`Billing created no period: ${result.message}`);
 	}
-	return result as typeof result & {
-		billPeriod: { id: string; billNumber: string };
-	};
+	return result;
 }
 
 async function neuesteRechnung(userId: string): Promise<Bill> {
@@ -165,7 +167,7 @@ async function neuesteRechnung(userId: string): Promise<Bill> {
 
 /** Marks a bill paid through the Kasse and books the payment. */
 async function bezahlen(bill: Bill) {
-	expect(await updateBillStatus(bill.id, "Bezahlt")).toEqual({ success: true });
+	expect(await updateBillStatus(bill.id, "Bezahlt")).toEqual({ ok: true });
 	kassenbuch.set(
 		bill.userId,
 		(kassenbuch.get(bill.userId) ?? 0) + toCents(bill.total),
@@ -174,9 +176,7 @@ async function bezahlen(bill: Bill) {
 
 /** Undoes a payment booked with `bezahlen`. */
 async function zahlungZuruecknehmen(bill: Bill) {
-	expect(await updateBillStatus(bill.id, "Unbezahlt")).toEqual({
-		success: true,
-	});
+	expect(await updateBillStatus(bill.id, "Unbezahlt")).toEqual({ ok: true });
 	kassenbuch.set(
 		bill.userId,
 		(kassenbuch.get(bill.userId) ?? 0) - toCents(bill.total),
@@ -394,7 +394,7 @@ describe("Erste Abrechnung", () => {
 
 		// The Kasse's CSV download stores exactly that file in Blob.
 		const saved = await saveBillPeriodCSV(run.billPeriod.id);
-		expect(saved).toMatchObject({ success: true, wasExisting: false });
+		expect(saved).toMatchObject({ ok: true, data: { wasExisting: false } });
 		expect(putMock).toHaveBeenCalledExactlyOnceWith(
 			`tenants/${tenant.slug}/bills/Rechnung_07_Okt_2026.csv`,
 			csv.csvContent,
@@ -871,7 +871,8 @@ describe("Bezahlen", () => {
 		const [p1] = await billsOf(member.id);
 
 		expect(await updateBillStatus(p1?.id ?? "", "Gestundet")).toMatchObject({
-			success: false,
+			ok: false,
+			code: "CARRIED_BILL",
 		});
 		await bestellen(member, bier);
 		await abrechnenMitPeriode(woche(2));
@@ -1141,8 +1142,11 @@ describe("Eigenschaft: zufällige Folgen von Bestellungen, Läufen, Stundungen u
 		};
 		const lauf = async () => {
 			const anyOrders = [...model.values()].some((s) => s.pending > 0);
-			const result = await createNewBilling();
-			expect(result.success).toBe(true);
+			const run = await createNewBilling();
+			if (!run.ok) {
+				throw new Error(run.error);
+			}
+			const result = run.data;
 			if (!anyOrders) {
 				seen.emptyRuns++;
 				expect(result.billsCreated).toBe(0);
@@ -1203,8 +1207,9 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 
 		expect(await getAllBillPeriods()).toEqual([]);
 		expect(await updateBillStatus("gibt-es-nicht", "Bezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error: "Rechnung nicht gefunden",
+			code: "NOT_FOUND",
 		});
 
 		await abrechnenMitPeriode(woche(0));
@@ -1226,8 +1231,9 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 		expect(await getAllBillPeriods()).toEqual([]);
 		expect(await getBillsForPeriod(run.billPeriod.id)).toEqual([]);
 		expect(await updateBillStatus("egal", "Bezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error: "Fehler beim Aktualisieren des Status",
+			code: "INTERNAL",
 		});
 	});
 });

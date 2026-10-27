@@ -3,30 +3,29 @@
 
 import { head, put } from "@vercel/blob";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { getZonedParts } from "~/lib/time";
 import { db } from "~/server/db";
 import { billCSVs, billPeriods } from "~/server/db/schema";
-import { requireMember } from "~/server/lib/authz";
+import { ActionError, defineAction } from "~/server/lib/define-action";
 import { log } from "~/server/lib/log";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import { generateBillPeriodCSV } from "./createCSV";
 
-export async function saveBillPeriodCSV(
-	billPeriodId: string,
-	options?: {
-		paypalBaseUrl?: string;
-		delimiter?: string;
+export const saveBillPeriodCSV = defineAction(
+	{
+		schema: z.tuple([
+			z.string(),
+			z
+				.object({
+					paypalBaseUrl: z.string().optional(),
+					delimiter: z.string().optional(),
+				})
+				.optional(),
+		]),
+		errorMessage: "Fehler beim Erstellen der CSV",
 	},
-): Promise<{
-	success: boolean;
-	csvId?: string;
-	downloadUrl?: string;
-	fileName?: string;
-	error?: string;
-	wasExisting?: boolean;
-}> {
-	await requireMember();
-	try {
+	async ([billPeriodId, options]) => {
 		const tenant = await requireCurrentTenant();
 		const delimiter = options?.delimiter || ";";
 
@@ -43,7 +42,6 @@ export async function saveBillPeriodCSV(
 			try {
 				await head(existing.blobUrl);
 				return {
-					success: true,
 					csvId: existing.id,
 					downloadUrl: existing.blobUrl,
 					fileName: existing.fileName,
@@ -65,10 +63,11 @@ export async function saveBillPeriodCSV(
 			delimiter,
 		});
 		if (!result.success || !result.csvContent) {
-			return {
-				success: false,
-				error: result.error || "Failed to generate CSV",
-			};
+			// Unknown period or no bills; the details are logged there.
+			throw new ActionError(
+				"Für diese Abrechnung konnte keine CSV erstellt werden.",
+				"CSV_FAILED",
+			);
 		}
 
 		const csvContent = result.csvContent;
@@ -151,18 +150,10 @@ export async function saveBillPeriodCSV(
 			.returning({ id: billCSVs.id });
 
 		return {
-			success: true,
 			csvId: insertResult?.id,
 			downloadUrl: blob.url,
 			fileName: fileName,
 			wasExisting: false,
 		};
-	} catch (error) {
-		await log.error("Error saving CSV", { err: error });
-		return {
-			success: false,
-			error:
-				error instanceof Error ? error.message : "Unknown error saving CSV",
-		};
-	}
-}
+	},
+);

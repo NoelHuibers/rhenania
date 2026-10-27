@@ -158,7 +158,7 @@ export function useBillingDashboard(initial: BillingDashboardInitial) {
 
 			const result = await updateBillStatus(entryId, newStatus);
 
-			if (result?.success) {
+			if (result.ok) {
 				toast.success("Status erfolgreich aktualisiert");
 				setEntryStatus(entryId, {
 					status: newStatus,
@@ -167,7 +167,7 @@ export function useBillingDashboard(initial: BillingDashboardInitial) {
 			} else {
 				setEntryStatus(entryId, { status: originalStatus });
 				console.error(`Failed to update status for ${entryId}`);
-				toast.error(result.error ?? "Fehler beim Aktualisieren des Status");
+				toast.error(result.error);
 			}
 		} catch (error) {
 			// Revert the optimistic update on error

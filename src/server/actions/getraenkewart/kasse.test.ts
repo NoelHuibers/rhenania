@@ -819,7 +819,7 @@ describe("markAllMemberBillsPaid", () => {
 		// Undoing Dirk's payment reopens his bill and nothing else.
 		const [dirkOpen] = await billsOf(dirk.id);
 		expect(await updateBillStatus(dirkOpen?.id ?? "", "Unbezahlt")).toEqual({
-			success: true,
+			ok: true,
 		});
 		expect(await state(dirk.id)).toEqual([
 			[2, "Unbezahlt", null],

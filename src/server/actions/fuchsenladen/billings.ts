@@ -14,6 +14,7 @@ import {
 	sql,
 } from "drizzle-orm";
 import type { BatchItem } from "drizzle-orm/batch";
+import { z } from "zod";
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
 import { csvRow } from "~/lib/csv";
 import {
@@ -45,6 +46,7 @@ import {
 	memberBillStatus,
 	paidAlongWith,
 } from "~/server/lib/carried-bills";
+import { ActionError, defineAction } from "~/server/lib/define-action";
 import { groupBy } from "~/server/lib/group-by";
 import { log } from "~/server/lib/log";
 
@@ -67,18 +69,6 @@ export interface FuchsenBillingEntry {
 		unitPrice: number;
 		subtotal: number;
 	}[];
-}
-
-async function requireFuchsenwart() {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { ok: false as const, error: "Authentifizierung erforderlich" };
-	}
-	// The session's roles are this Corps' roles of an active member.
-	if (!ROLES.fuchsen.some((role) => session.user.roles.includes(role))) {
-		return { ok: false as const, error: "Keine Berechtigung" };
-	}
-	return { ok: true as const, userId: session.user.id };
 }
 
 type FuchsenOrderRow = typeof fuchsenOrders.$inferSelect;
@@ -161,13 +151,12 @@ function billItemRows(
  * with debt but no new orders get a carry-only bill), and the carried bills
  * are closed out as "Übertragen" so the debt is listed and counted once.
  */
-export async function createNewFuchsenBilling() {
-	const authCheck = await requireFuchsenwart();
-	if (!authCheck.ok) {
-		return { success: false, message: authCheck.error, billsCreated: 0 };
-	}
-
-	try {
+export const createNewFuchsenBilling = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		errorMessage: "Fehler beim Erstellen der Rechnungen",
+	},
+	async ({ user }) => {
 		// One read for everything the run computes from (#23).
 		const now = new Date();
 		const base = billNumberBase(now);
@@ -205,7 +194,6 @@ export async function createNewFuchsenBilling() {
 
 		if (unbilledOrders.length === 0) {
 			return {
-				success: true,
 				message: "Keine offenen Bestellungen zum Abrechnen gefunden",
 				billsCreated: 0,
 				totalAmount: 0,
@@ -287,7 +275,7 @@ export async function createNewFuchsenBilling() {
 					id: billPeriodId,
 					billNumber,
 					totalAmount: totalBillingAmount,
-					createdBy: authCheck.userId,
+					createdBy: user.id,
 					createdAt: now,
 					updatedAt: now,
 				}),
@@ -360,29 +348,17 @@ export async function createNewFuchsenBilling() {
 			await log.error("Fuchsen billing conflicted with a concurrent change", {
 				err: error,
 			});
-			return {
-				success: false,
-				message: BILLING_CONFLICT_MESSAGE,
-				billsCreated: 0,
-			};
+			throw new ActionError(BILLING_CONFLICT_MESSAGE, "CONFLICT");
 		}
 
 		return {
-			success: true,
 			message: `Erfolgreich ${billedUsers.size} Rechnung(en) erstellt`,
 			billsCreated: billedUsers.size,
 			totalAmount: totalBillingAmount,
 			billPeriod: { id: billPeriodId, billNumber },
 		};
-	} catch (error) {
-		await log.error("Error creating fuchsen billing", { err: error });
-		return {
-			success: false,
-			message: "Fehler beim Erstellen der Rechnungen",
-			billsCreated: 0,
-		};
-	}
-}
+	},
+);
 
 export async function getAllFuchsenBillPeriods() {
 	await requireRole(ROLES.fuchsen);
@@ -514,33 +490,34 @@ export async function getUnbilledFuchsenOrdersGrouped(): Promise<
 	}
 }
 
-export async function updateFuchsenBillStatus(
-	billId: string,
-	newStatus: "Bezahlt" | "Unbezahlt" | "Gestundet",
-) {
-	const authCheck = await requireFuchsenwart();
-	if (!authCheck.ok) {
-		return { success: false, error: authCheck.error };
-	}
-	try {
+export const updateFuchsenBillStatus = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		schema: z.tuple([
+			z.string(),
+			z.enum(["Bezahlt", "Unbezahlt", "Gestundet"]),
+		]),
+		errorMessage: "Fehler beim Aktualisieren des Status",
+	},
+	async ([billId, newStatus]) => {
 		const [bill] = await db
 			.select()
 			.from(fuchsenBills)
 			.where(eq(fuchsenBills.id, billId))
 			.limit(1);
 		if (!bill) {
-			return { success: false, error: "Rechnung nicht gefunden" };
+			throw new ActionError("Rechnung nicht gefunden", "NOT_FOUND");
 		}
 		// A carried bill is settled (and reopened) through the bill it was
 		// rolled into.
 		const refusal = await carriedBillRefusal(fuchsenBills, bill);
 		if (refusal) {
-			return { success: false, error: refusal };
+			throw new ActionError(refusal, "CARRIED_BILL");
 		}
 		// Paying a paid bill again would move its paidAt away from the bills
 		// it settled, and with it the link to them.
 		if (bill.status === newStatus) {
-			return { success: true };
+			return;
 		}
 
 		const now = new Date();
@@ -591,13 +568,8 @@ export async function updateFuchsenBillStatus(
 			);
 		}
 		await db.batch(statements);
-
-		return { success: true };
-	} catch (error) {
-		await log.error("Error updating fuchsen bill status", { err: error });
-		return { success: false, error: "Fehler beim Aktualisieren des Status" };
-	}
-}
+	},
+);
 
 /**
  * Statements that move the member's earlier bills matching `from` (the ones
@@ -696,19 +668,20 @@ export async function getMyFuchsenBills(): Promise<
 }
 
 /** On-demand CSV (semicolon-delimited) for a whole period; no blob storage. */
-export async function getFuchsenBillPeriodCSV(billPeriodId: string) {
-	const authCheck = await requireFuchsenwart();
-	if (!authCheck.ok) {
-		return { success: false, error: authCheck.error };
-	}
-	try {
+export const getFuchsenBillPeriodCSV = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		schema: z.tuple([z.string()]),
+		errorMessage: "Fehler beim Erstellen der CSV",
+	},
+	async ([billPeriodId]) => {
 		const [period] = await db
 			.select()
 			.from(fuchsenBillPeriods)
 			.where(eq(fuchsenBillPeriods.id, billPeriodId))
 			.limit(1);
 		if (!period) {
-			return { success: false, error: "Periode nicht gefunden" };
+			throw new ActionError("Periode nicht gefunden", "NOT_FOUND");
 		}
 
 		const billsData = await db
@@ -736,12 +709,8 @@ export async function getFuchsenBillPeriodCSV(billPeriodId: string) {
 		];
 
 		return {
-			success: true,
 			csvContent: `﻿${lines.join("\r\n")}`,
 			fileName: `Fuchsenrechnung_${period.billNumber}.csv`,
 		};
-	} catch (error) {
-		await log.error("Error generating fuchsen CSV", { err: error });
-		return { success: false, error: "Fehler beim Erstellen der CSV" };
-	}
-}
+	},
+);

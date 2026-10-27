@@ -78,17 +78,19 @@ async function setupKasse(features: Parameters<typeof createTenant>[0] = {}) {
 }
 
 type BillingRun = Extract<
-	Awaited<ReturnType<typeof createNewBilling>>,
+	Awaited<ReturnType<typeof runGetraenkeBilling>>,
 	{ billPeriod: { id: string } }
 >;
 
 /** Runs the Kasse's billing, expected to create a period. */
 async function runBilling(): Promise<BillingRun> {
 	const result = await createNewBilling();
-	if (!("billPeriod" in result) || !result.billPeriod) {
-		throw new Error(`Billing created no period: ${result.message}`);
+	if (!result.ok || !("billPeriod" in result.data)) {
+		throw new Error(
+			`Billing created no period: ${result.ok ? result.data.message : result.error}`,
+		);
 	}
-	return result;
+	return result.data;
 }
 
 /**
@@ -124,8 +126,8 @@ describe("createNewBilling", () => {
 
 		const result = await createNewBilling();
 
-		expect(result).toMatchObject({ success: false, billsCreated: 0 });
-		expect(result.message).toMatch(
+		expect(result).toMatchObject({ ok: false, code: "BILLING_FAILED" });
+		expect(!result.ok && result.error).toMatch(
 			/^Bitte Absender und Konto in der Kasse hinterlegen \(fehlt: Absender, .*Getränkekasse-Konto mit gültiger IBAN\)\.$/,
 		);
 		expect(await tenantDb().select().from(billPeriods)).toHaveLength(0);
@@ -139,7 +141,11 @@ describe("createNewBilling", () => {
 		await createOrderRow({ user: member });
 		signOut();
 
-		await expect(createNewBilling()).rejects.toThrow("Nicht angemeldet");
+		expect(await createNewBilling()).toEqual({
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
+		});
 		expect(await tenantDb().select().from(billPeriods)).toHaveLength(0);
 	});
 
@@ -150,7 +156,7 @@ describe("createNewBilling", () => {
 
 		const result = await createNewBilling();
 
-		expect(result).toMatchObject({ success: true, billsCreated: 0 });
+		expect(result).toMatchObject({ ok: true, data: { billsCreated: 0 } });
 		expect(await tenantDb().select().from(billPeriods)).toHaveLength(0);
 		expect(await tenantDb().select().from(bills)).toHaveLength(0);
 		expect(mail).not.toHaveBeenCalled();
@@ -251,7 +257,10 @@ describe("createNewBilling", () => {
 
 		const result = await createNewBilling();
 
-		expect(result).toMatchObject({ billsCreated: 1, eventBillsCreated: 1 });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { billsCreated: 1, eventBillsCreated: 1 },
+		});
 		const [bill] = await billsOf(member.id);
 		expect(bill?.total).toBeCloseTo(6.6, 10);
 		expect(await itemsOf(bill?.id ?? "")).toMatchObject([
@@ -444,9 +453,8 @@ describe("createNewBilling", () => {
 		const result = await createNewBilling();
 
 		expect(result).toMatchObject({
-			billsCreated: 0,
-			eventBillsCreated: 2,
-			totalAmount: 10.5,
+			ok: true,
+			data: { billsCreated: 0, eventBillsCreated: 2, totalAmount: 10.5 },
 		});
 		// Members who only booked for groups get no personal bill.
 		expect(await billsOf(a.id)).toHaveLength(0);
@@ -1084,7 +1092,7 @@ describe("createNewBilling mails", () => {
 
 		const result = await createNewBilling();
 
-		expect(result).toMatchObject({ success: true, billsCreated: 2 });
+		expect(result).toMatchObject({ ok: true, data: { billsCreated: 2 } });
 		expect(mail).toHaveBeenCalledTimes(2);
 		expect(await tenantDb().select().from(bills)).toHaveLength(2);
 	});
@@ -1117,7 +1125,7 @@ describe("updateBillStatus", () => {
 
 		vi.setSystemTime(new Date("2026-11-05T09:00:00Z"));
 		expect(await updateBillStatus(chain[2]?.id ?? "", "Bezahlt")).toEqual({
-			success: true,
+			ok: true,
 		});
 
 		const after = await billsOf(member.id);
@@ -1198,8 +1206,9 @@ describe("updateBillStatus", () => {
 		for (const bill of chain.slice(0, 2)) {
 			for (const status of ["Unbezahlt", "Gestundet", "Bezahlt"] as const) {
 				expect(await updateBillStatus(bill.id, status)).toEqual({
-					success: false,
+					ok: false,
 					error: PAID_THROUGH,
+					code: "CARRIED_BILL",
 				});
 			}
 		}
@@ -1218,9 +1227,10 @@ describe("updateBillStatus", () => {
 
 		for (const status of ["Bezahlt", "Gestundet", "Unbezahlt"] as const) {
 			expect(await updateBillStatus(chain[0].id, status)).toEqual({
-				success: false,
+				ok: false,
 				error:
 					"Diese Rechnung wurde in eine spätere Rechnung übertragen und wird dort bezahlt",
+				code: "CARRIED_BILL",
 			});
 		}
 		expect((await billsOf(member.id)).map((b) => b.status)).toEqual([
@@ -1238,7 +1248,7 @@ describe("updateBillStatus", () => {
 		vi.setSystemTime(new Date("2026-11-06T09:00:00Z"));
 
 		expect(await updateBillStatus(chain[2].id, "Bezahlt")).toEqual({
-			success: true,
+			ok: true,
 		});
 
 		expect((await billsOf(member.id)).map((b) => b.paidAt)).toEqual([
@@ -1247,8 +1257,9 @@ describe("updateBillStatus", () => {
 			paidAt,
 		]);
 		expect(await updateBillStatus(chain[0].id, "Unbezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error: PAID_THROUGH,
+			code: "CARRIED_BILL",
 		});
 	});
 
@@ -1256,12 +1267,14 @@ describe("updateBillStatus", () => {
 		const { member, chain } = await carriedChain();
 
 		expect(await updateBillStatus(chain[2].id, "Übertragen")).toEqual({
-			success: false,
+			ok: false,
 			error: "Ungültiger Status",
+			code: "INVALID_INPUT",
 		});
 		expect(await updateBillStatus("gibt-es-nicht", "Bezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error: "Rechnung nicht gefunden",
+			code: "NOT_FOUND",
 		});
 		expect((await billsOf(member.id)).at(-1)?.status).toBe("Unbezahlt");
 	});
@@ -1285,9 +1298,7 @@ describe("updateBillStatus", () => {
 		await updateBillStatus(older.id, "Bezahlt");
 		await updateBillStatus(newer.id, "Bezahlt");
 
-		expect(await updateBillStatus(older.id, "Unbezahlt")).toEqual({
-			success: true,
-		});
+		expect(await updateBillStatus(older.id, "Unbezahlt")).toEqual({ ok: true });
 		expect((await billsOf(group.id)).map((b) => b.status)).toEqual([
 			"Unbezahlt",
 			"Bezahlt",
@@ -1327,7 +1338,7 @@ describe("updateBillStatus", () => {
 		await updateBillStatus(chain[2].id, "Bezahlt");
 
 		expect(await updateBillStatus(chain[2].id, "Unbezahlt")).toEqual({
-			success: true,
+			ok: true,
 		});
 
 		expect(
