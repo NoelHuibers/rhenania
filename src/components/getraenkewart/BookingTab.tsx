@@ -12,6 +12,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Label } from "~/components/ui/label";
+import { TableSkeleton } from "~/components/ui/page-skeleton";
 import {
 	Select,
 	SelectContent,
@@ -111,7 +112,12 @@ export function BookingTab() {
 
 	if (loading) {
 		return (
-			<div className="py-12 text-center text-muted-foreground">Laden...</div>
+			<TableSkeleton
+				rows={3}
+				columns={2}
+				label="Buchung wird geladen…"
+				className="max-w-lg"
+			/>
 		);
 	}
 

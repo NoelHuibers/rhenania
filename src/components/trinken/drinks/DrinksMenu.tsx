@@ -1,7 +1,10 @@
 "use client";
 
+import { Coffee } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import { EmptyState } from "~/components/ui/empty-state";
+import { ErrorState } from "~/components/ui/error-state";
+import { CardGridSkeleton } from "~/components/ui/page-skeleton";
 import { unitPriceFor } from "~/lib/pricing";
 import {
 	getAllDrinksForMenu,
@@ -12,8 +15,6 @@ import {
 import { SiteHeader } from "../SiteHeader";
 import { type BillingOption, BillingSelector } from "./Billingselector";
 import { DrinksSection } from "./DrinksSection";
-import { EmptyState } from "./EmptyState";
-import { LoadingState } from "./Loadingstate";
 import { MenuFooter } from "./MenuFooter";
 import { OrderDrawer } from "./OrderDrawer";
 
@@ -21,6 +22,7 @@ export function DrinksMenu() {
 	const [drinks, setDrinks] = useState<MenuItem[]>([]);
 	const [markupPercent, setMarkupPercent] = useState(0);
 	const [isLoading, setIsLoading] = useState(true);
+	const [loadFailed, setLoadFailed] = useState(false);
 	const [selectedDrink, setSelectedDrink] = useState<MenuItem | null>(null);
 	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 	const [selectedBilling, setSelectedBilling] = useState<BillingOption>(null);
@@ -34,6 +36,7 @@ export function DrinksMenu() {
 	const loadDrinks = async () => {
 		try {
 			setIsLoading(true);
+			setLoadFailed(false);
 			const [fetchedDrinks, markup] = await Promise.all([
 				getAllDrinksForMenu(),
 				getDrinkMarkupPercent(),
@@ -42,7 +45,7 @@ export function DrinksMenu() {
 			setMarkupPercent(markup);
 		} catch (error) {
 			console.error("Error loading drinks:", error);
-			toast.error("Fehler beim Laden der Getränkekarte");
+			setLoadFailed(true);
 		} finally {
 			setIsLoading(false);
 		}
@@ -75,7 +78,29 @@ export function DrinksMenu() {
 	);
 
 	if (isLoading) {
-		return <LoadingState />;
+		return (
+			<>
+				<SiteHeader title="Getränkekarte" />
+				<div className="container mx-auto p-4">
+					<CardGridSkeleton label="Getränkekarte wird geladen…" />
+				</div>
+			</>
+		);
+	}
+
+	if (loadFailed) {
+		return (
+			<>
+				<SiteHeader title="Getränkekarte" />
+				<ErrorState
+					title="Getränkekarte nicht geladen"
+					onRetry={() => void loadDrinks()}
+				>
+					Die Getränkekarte konnte nicht geladen werden. Prüfe deine Verbindung
+					und versuche es noch einmal.
+				</ErrorState>
+			</>
+		);
 	}
 
 	return (
@@ -88,7 +113,10 @@ export function DrinksMenu() {
 				/>
 
 				{drinks.length === 0 ? (
-					<EmptyState />
+					<EmptyState icon={<Coffee />} title="Keine Getränke verfügbar">
+						Die Getränkekarte ist noch leer. Bitte wende dich an den
+						Getränkewart oder Admin.
+					</EmptyState>
 				) : (
 					<div className="space-y-8">
 						{availableDrinks.length > 0 && (

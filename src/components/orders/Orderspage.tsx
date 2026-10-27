@@ -1,13 +1,24 @@
 "use client";
 
-import { Filter, Pause, Play, RefreshCw, Search } from "lucide-react";
+import {
+	Filter,
+	Pause,
+	Play,
+	ReceiptText,
+	RefreshCw,
+	Search,
+	SearchX,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { EmptyState } from "~/components/ui/empty-state";
+import { ErrorState } from "~/components/ui/error-state";
 import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
+import { TableSkeleton } from "~/components/ui/page-skeleton";
 import {
 	Sheet,
 	SheetContent,
@@ -45,29 +56,17 @@ interface Transaction {
 	createdAt: Date;
 }
 
-// Component: Loading State
-const LoadingState = () => (
-	<div className="min-h-screen bg-background p-4 sm:p-6">
-		<div className="mx-auto max-w-7xl">
-			<div className="flex items-center justify-center py-12">
-				<div className="text-center">
-					<RefreshCw className="mx-auto mb-4 h-8 w-8 animate-spin text-muted-foreground" />
-					<p className="text-muted-foreground">
-						Transaktionen werden geladen...
-					</p>
-				</div>
-			</div>
-		</div>
-	</div>
-);
-
 // Component: Empty State
-const EmptyState = ({ hasFilters }: { hasFilters: boolean }) => (
-	<div className="py-8 text-center text-muted-foreground">
+const TransactionsEmpty = ({ hasFilters }: { hasFilters: boolean }) => (
+	<EmptyState
+		variant="plain"
+		icon={hasFilters ? <SearchX /> : <ReceiptText />}
+		title="Keine Transaktionen gefunden"
+	>
 		{hasFilters
-			? "Keine Transaktionen gefunden, die Ihren Filtern entsprechen."
-			: "Keine Transaktionen gefunden."}
-	</div>
+			? "Keine Transaktion passt zu den Filtern. Ändere die Suche oder setze die Filter zurück."
+			: "Sobald jemand ein Getränk bestellt, erscheint es hier."}
+	</EmptyState>
 );
 
 // Component: Header Controls
@@ -415,8 +414,8 @@ const MobileTransactionList = ({
 			</div>
 		) : (
 			<Card>
-				<CardContent className="py-8">
-					<EmptyState hasFilters={hasFilters} />
+				<CardContent className="p-0">
+					<TransactionsEmpty hasFilters={hasFilters} />
 				</CardContent>
 			</Card>
 		)}
@@ -508,7 +507,7 @@ const DesktopTransactionTable = ({
 					</TableBody>
 				</Table>
 				{transactions.length === 0 && !loading && (
-					<EmptyState hasFilters={hasFilters} />
+					<TransactionsEmpty hasFilters={hasFilters} />
 				)}
 			</div>
 		</CardContent>
@@ -519,6 +518,7 @@ const DesktopTransactionTable = ({
 export function OrdersTracker() {
 	const [transactions, setTransactions] = useState<Transaction[]>([]);
 	const [loading, setLoading] = useState(true);
+	const [loadFailed, setLoadFailed] = useState(false);
 	const [isLiveTracking, setIsLiveTracking] = useState(false);
 	const [searchTerm, setSearchTerm] = useState("");
 	const [billStatusFilter, setBillStatusFilter] = useState<string>("all");
@@ -553,6 +553,7 @@ export function OrdersTracker() {
 					getTransactionCount(filters),
 				]);
 
+				setLoadFailed(!transactionResult.success);
 				if (transactionResult.success) {
 					setTransactions(transactionResult.data);
 					setTotalCount(
@@ -567,6 +568,7 @@ export function OrdersTracker() {
 				}
 			} catch (error) {
 				console.error("Error fetching transactions:", error);
+				setLoadFailed(true);
 				toast.error(
 					"Ein unerwarteter Fehler ist beim Abrufen der Transaktionen aufgetreten",
 				);
@@ -612,7 +614,30 @@ export function OrdersTracker() {
 		!!searchTerm || billStatusFilter !== "all" || purposeFilter !== "all";
 
 	if (loading) {
-		return <LoadingState />;
+		return (
+			<div className="p-4 sm:p-6">
+				<div className="mx-auto max-w-7xl">
+					<TableSkeleton
+						rows={8}
+						columns={6}
+						label="Transaktionen werden geladen…"
+					/>
+				</div>
+			</div>
+		);
+	}
+
+	// Nothing to show and the last fetch failed: say so instead of claiming
+	// there are no transactions.
+	if (loadFailed && transactions.length === 0) {
+		return (
+			<ErrorState
+				title="Transaktionen nicht geladen"
+				onRetry={() => void fetchTransactions(true)}
+			>
+				Die Transaktionen konnten nicht geladen werden. Versuche es noch einmal.
+			</ErrorState>
+		);
 	}
 
 	return (

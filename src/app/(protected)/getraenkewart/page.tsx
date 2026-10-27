@@ -5,6 +5,7 @@ import { KasseTab } from "~/components/getraenkewart/KasseTab";
 import { DashboardTab } from "~/components/inventur/DashboardTab";
 import { HistoryTab } from "~/components/inventur/HistoryTab";
 import { GetraenkePage } from "~/components/trinken/getraenkewart/GetraenkePage";
+import { TableSkeleton } from "~/components/ui/page-skeleton";
 import {
 	getBankEntries,
 	getExternalBills,
@@ -86,7 +87,7 @@ async function KasseTabData() {
 }
 
 function Loading() {
-	return <div className="p-6">Laden...</div>;
+	return <TableSkeleton rows={6} label="Tab wird geladen…" />;
 }
 
 export default function Page() {

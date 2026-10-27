@@ -35,6 +35,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { EmptyState } from "~/components/ui/empty-state";
 import { IconButton } from "~/components/ui/icon-button";
 import { formatDate, formatEUR } from "~/lib/format";
 import {
@@ -53,7 +54,6 @@ import {
 } from "~/server/actions/cc-kasse/kostenpunkte";
 import { type EditingEinnahme, EinnahmeDialog } from "./EinnahmeDialog";
 import { EtaplanDialog } from "./EtaplanDialog";
-import { EmptyState } from "./KasseUi";
 import { KostenpunktDialog } from "./KostenpunktDialog";
 import { ReimbursementDialog } from "./ReimbursementDialog";
 

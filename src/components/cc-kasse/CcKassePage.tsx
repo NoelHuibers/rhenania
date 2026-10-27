@@ -23,6 +23,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { EmptyState } from "~/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
 import type { EinnahmeRow } from "~/server/actions/cc-kasse/einnahmen";
@@ -40,7 +41,6 @@ import type {
 import { BeitraegeTab } from "./BeitraegeTab";
 import { EtaplanDialog } from "./EtaplanDialog";
 import { EtaplanEditorTab } from "./EtaplanEditorTab";
-import { EmptyState } from "./KasseUi";
 import { OverviewTab } from "./OverviewTab";
 import { ReimbursementQueueTab } from "./ReimbursementQueueTab";
 

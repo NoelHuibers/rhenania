@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Coffee, Plus } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { useTenantSlug } from "~/components/TenantProvider";
@@ -8,6 +8,8 @@ import { AddDrinkDialog } from "~/components/trinken/getraenkewart/AddDrinkDialo
 import { DrinksTableDesktop } from "~/components/trinken/getraenkewart/DesktopCard";
 import { DrinksCardsMobile } from "~/components/trinken/getraenkewart/MobileCard";
 import { Button } from "~/components/ui/button";
+import { EmptyState } from "~/components/ui/empty-state";
+import { TableSkeleton } from "~/components/ui/page-skeleton";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
 import { parseDecimalInput } from "~/lib/decimal";
 import {
@@ -243,15 +245,7 @@ export function GetraenkePage() {
 	};
 
 	if (isLoading) {
-		return (
-			<div
-				className="flex items-center justify-center py-8"
-				role="status"
-				aria-live="polite"
-			>
-				<div className="text-muted-foreground">Getränke werden geladen…</div>
-			</div>
-		);
+		return <TableSkeleton rows={6} label="Getränke werden geladen…" />;
 	}
 
 	return (
@@ -308,21 +302,27 @@ export function GetraenkePage() {
 				role="region"
 				aria-label="Getränke Liste mobil"
 			>
-				<DrinksCardsMobile
-					drinks={drinks}
-					editingId={editingId}
-					editingData={editingData}
-					setEditingData={setEditingData}
-					startEditing={startEditing}
-					cancelEditing={cancelEditing}
-					saveEdit={saveEdit}
-					onDelete={handleDeleteDrink}
-					onToggleAvailability={handleToggleAvailability}
-					onImageUpdate={handleImageUpdate}
-					isPending={isPending}
-					uploadingImage={uploadingImage}
-					uploadProgress={uploadProgress}
-				/>
+				{drinks.length === 0 ? (
+					<EmptyState icon={<Coffee />} title="Noch keine Getränke hinzugefügt">
+						Tippen Sie auf „Getränk hinzufügen“, um zu beginnen.
+					</EmptyState>
+				) : (
+					<DrinksCardsMobile
+						drinks={drinks}
+						editingId={editingId}
+						editingData={editingData}
+						setEditingData={setEditingData}
+						startEditing={startEditing}
+						cancelEditing={cancelEditing}
+						saveEdit={saveEdit}
+						onDelete={handleDeleteDrink}
+						onToggleAvailability={handleToggleAvailability}
+						onImageUpdate={handleImageUpdate}
+						isPending={isPending}
+						uploadingImage={uploadingImage}
+						uploadProgress={uploadProgress}
+					/>
+				)}
 			</div>
 		</div>
 	);

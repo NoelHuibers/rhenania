@@ -37,6 +37,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { EmptyState } from "~/components/ui/empty-state";
 import { Input } from "~/components/ui/input";
 import { Progress } from "~/components/ui/progress";
 import {
@@ -63,7 +64,7 @@ import {
 	sendMahnungen,
 } from "~/server/actions/members/semesterbeitrag";
 import { BeitragRunDialog } from "./BeitragRunDialog";
-import { EmptyState, FilterChips } from "./KasseUi";
+import { FilterChips } from "./KasseUi";
 
 type KpOption = { id: string; name: string; category: string };
 type ChargeFilter = "offen" | "Bezahlt" | "Gestundet" | "alle";

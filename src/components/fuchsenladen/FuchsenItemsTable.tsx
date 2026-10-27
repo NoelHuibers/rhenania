@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, Edit2, Loader2, Trash2, Upload, X } from "lucide-react";
+import { Check, Edit2, Loader2, Store, Trash2, Upload, X } from "lucide-react";
 import Image from "next/image";
 import { useTransition } from "react";
 import { Button } from "~/components/ui/button";
+import { EmptyState } from "~/components/ui/empty-state";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
 import {
@@ -86,10 +87,14 @@ export function FuchsenItemsTable({
 			<TableBody>
 				{items.length === 0 ? (
 					<TableRow>
-						<TableCell colSpan={6} className="py-10 text-center">
-							<p className="text-muted-foreground">
-								Noch keine Artikel im Fuchsenladen
-							</p>
+						<TableCell colSpan={6} className="p-0">
+							<EmptyState
+								variant="plain"
+								icon={<Store />}
+								title="Noch keine Artikel im Fuchsenladen"
+							>
+								Lege den ersten Artikel mit „Artikel hinzufügen“ an.
+							</EmptyState>
 						</TableCell>
 					</TableRow>
 				) : (

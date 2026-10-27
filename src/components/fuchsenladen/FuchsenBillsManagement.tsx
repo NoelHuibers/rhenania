@@ -1,10 +1,17 @@
 "use client";
 
-import { CheckCircle, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
+import {
+	CheckCircle,
+	ChevronDown,
+	ChevronRight,
+	ShoppingBag,
+} from "lucide-react";
 import { Fragment, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { EmptyState } from "~/components/ui/empty-state";
+import { TableSkeleton } from "~/components/ui/page-skeleton";
 import {
 	Table,
 	TableBody,
@@ -102,20 +109,17 @@ export function FuchsenBillsManagement() {
 	};
 
 	if (isLoading) {
-		return (
-			<div className="flex items-center justify-center py-8">
-				<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-			</div>
-		);
+		return <TableSkeleton columns={5} />;
 	}
 
 	if (bills.length === 0) {
 		return (
-			<div className="flex items-center justify-center py-12">
-				<p className="text-muted-foreground">
-					Noch keine Bestellungen vorhanden
-				</p>
-			</div>
+			<EmptyState
+				icon={<ShoppingBag />}
+				title="Noch keine Bestellungen vorhanden"
+			>
+				Bestellungen aus dem Fuchsenladen erscheinen hier.
+			</EmptyState>
 		);
 	}
 
