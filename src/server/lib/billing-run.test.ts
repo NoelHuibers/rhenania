@@ -197,7 +197,8 @@ test("5 and 200 members: the same round trips and one write batch (#23)", async 
 	expect(inserts("bill")).toBe(3);
 	expect(inserts("bill_item")).toBe(3);
 	expect(await tenantDb().$count(orders, eq(orders.inBill, false))).toBe(0);
-});
+	// Seeds 200 members with orders: well over the 5 s default on CI runners.
+}, 30_000);
 
 async function memberWithOpenBill() {
 	await createTenant();

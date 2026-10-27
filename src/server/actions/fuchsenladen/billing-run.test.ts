@@ -119,7 +119,8 @@ describe("Fuchsenladen billing run (#23)", () => {
 		expect(
 			await tenantDb().$count(fuchsenOrders, isNull(fuchsenOrders.billId)),
 		).toBe(0);
-	});
+		// Seeds 200 members with orders: well over the 5 s default on CI runners.
+	}, 30_000);
 
 	test("an order paid meanwhile: nothing is written, the next run bills the rest", async () => {
 		await setup();
