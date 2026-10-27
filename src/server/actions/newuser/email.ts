@@ -114,7 +114,7 @@ export async function sendVerificationEmail(
 			text: template.text,
 			html: template.html,
 		});
-		log.info("mail sent", { kind: "verification" });
+		await log.info("mail sent", { kind: "verification" });
 	} catch (error) {
 		console.error("Error sending verification email:", error);
 		throw new Error("Failed to send verification email");
@@ -209,7 +209,7 @@ ${tenantLabel}
 		};
 
 		await sendTenantMail(mailOptions);
-		log.info("mail sent", { kind: "bill" });
+		await log.info("mail sent", { kind: "bill" });
 	} catch (error) {
 		console.error(`Error sending bill notification to ${email}:`, error);
 		throw new Error(`Failed to send bill notification email to ${email}`);
@@ -297,7 +297,7 @@ ${tenantLabel}
 				},
 			],
 		});
-		log.info("mail sent", { kind: "bill-treasurer" });
+		await log.info("mail sent", { kind: "bill-treasurer" });
 	} catch (error) {
 		console.error(
 			`Error sending treasurer bill email to ${treasurerEmail}:`,
@@ -354,7 +354,7 @@ Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignoriere
 		};
 
 		await sendTenantMail(mailOptions);
-		log.info("mail sent", { kind: "password-reset" });
+		await log.info("mail sent", { kind: "password-reset" });
 	} catch (error) {
 		console.error("Error sending password reset email:", error);
 		throw new Error("Failed to send password reset email");
@@ -449,7 +449,7 @@ export async function sendBeitragEmail(
 				},
 			],
 		});
-		log.info("mail sent", { kind: "beitrag" });
+		await log.info("mail sent", { kind: "beitrag" });
 	} catch (error) {
 		console.error(`Error sending Beitrag email to ${email}:`, error);
 		throw new Error(`Failed to send Beitrag email to ${email}`);
@@ -494,7 +494,7 @@ export async function sendMahnungEmail(
 				},
 			],
 		});
-		log.info("mail sent", { kind: "mahnung" });
+		await log.info("mail sent", { kind: "mahnung" });
 	} catch (error) {
 		console.error(`Error sending Mahnung email to ${email}:`, error);
 		throw new Error(`Failed to send Mahnung email to ${email}`);

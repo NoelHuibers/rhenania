@@ -67,7 +67,7 @@ async function deleteExpiredExports(prefix: string, now: Date) {
 		}
 		return expired.length;
 	} catch (error) {
-		log.warn("tenant export: cleanup failed", {
+		await log.warn("tenant export: cleanup failed", {
 			error: error instanceof Error ? error.message : String(error),
 		});
 		return 0;
@@ -117,7 +117,7 @@ export async function exportTenantData(): Promise<TenantExportResult> {
 		});
 		const result = await summary;
 
-		log.info("tenant export", {
+		await log.info("tenant export", {
 			tenant: tenant.slug,
 			userId,
 			tables: result.tables.length,
@@ -136,7 +136,7 @@ export async function exportTenantData(): Promise<TenantExportResult> {
 			missingFiles: result.missingFiles.length,
 		};
 	} catch (error) {
-		log.error("tenant export failed", {
+		await log.error("tenant export failed", {
 			tenant: tenant.slug,
 			error: error instanceof Error ? error.message : String(error),
 		});

@@ -98,7 +98,7 @@ async function fetchUserPhoto(accessToken: string): Promise<string | null> {
 
 		return `data:${mimeType};base64,${base64String}`;
 	} catch (error) {
-		log.info("microsoft photo not synced", { reason: String(error) });
+		await log.info("microsoft photo not synced", { reason: String(error) });
 		return null;
 	}
 }

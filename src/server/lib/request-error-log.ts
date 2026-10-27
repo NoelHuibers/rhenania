@@ -2,13 +2,14 @@
 //
 // Called by `onRequestError` in src/instrumentation.ts for every error Next
 // catches while rendering, in a route handler, a server action or the proxy.
-// The line carries the tenant slug, the route and Next's digest (the same
-// code the member sees on the error screen); Next prints the full stack
-// next to it. See src/lib/error-reporting.ts for the tracker hook.
+// The line carries the tenant slug, the request id, the route and Next's
+// digest (the same code the member sees on the error screen); Next prints
+// the full stack next to it. See src/lib/error-reporting.ts for the tracker hook.
 
 import type { Instrumentation } from "next";
 
 import { reportError, stripQuery } from "~/lib/error-reporting";
+import { requestIdFrom } from "~/server/lib/log-context";
 import {
 	getTenantById,
 	resolveTenantByHost,
@@ -67,6 +68,7 @@ export async function logRequestError(
 	reportError("request error", error, {
 		source: "request",
 		tenant: await tenantSlugForRequest(info),
+		requestId: requestIdFrom({ get: (name) => header(info, name) }),
 		route: context.routePath,
 		path: stripQuery(info.path),
 		method: info.method,

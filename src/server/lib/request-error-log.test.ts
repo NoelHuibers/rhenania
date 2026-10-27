@@ -50,7 +50,11 @@ describe("onRequestError", () => {
 			{
 				path: "/rechnungen?token=secret",
 				method: "GET",
-				headers: { host: "other.example", "x-tenant-id": tenant.id },
+				headers: {
+					host: "other.example",
+					"x-tenant-id": tenant.id,
+					"x-vercel-id": "fra1::iad1::abc-1",
+				},
 			},
 			context,
 		);
@@ -61,6 +65,7 @@ describe("onRequestError", () => {
 			msg: "request error",
 			source: "request",
 			tenant: "hassia",
+			requestId: "fra1::iad1::abc-1",
 			route: "/(protected)/rechnungen",
 			path: "/rechnungen",
 			method: "GET",

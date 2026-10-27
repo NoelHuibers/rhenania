@@ -141,7 +141,7 @@ export async function POST(request: Request) {
 				};
 			},
 			onUploadCompleted: async ({ blob }) => {
-				log.info("upload completed", { path: blob.pathname });
+				await log.info("upload completed", { path: blob.pathname });
 			},
 		});
 
