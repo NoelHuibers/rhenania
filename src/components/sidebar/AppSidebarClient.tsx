@@ -1,48 +1,18 @@
 "use client";
 
-import {
-	Beer,
-	BookUser,
-	BottleWine,
-	CalendarDays,
-	Camera,
-	Candy,
-	ChevronDown,
-	HandCoins,
-	House,
-	Landmark,
-	LogOut,
-	PiggyBank,
-	ReceiptEuro,
-	ReceiptText,
-	Settings,
-	ShoppingBag,
-	Swords,
-	Trophy,
-	Truck,
-	User as UserIcon,
-} from "lucide-react";
+import { ChevronDown, House } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useChallengeBadge } from "~/components/eloranking/ChallengeBadgeProvider";
-import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "~/components/ui/collapsible";
 import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "~/components/ui/dropdown-menu";
-import {
 	Sidebar,
 	SidebarContent,
-	SidebarFooter,
 	SidebarGroup,
 	SidebarGroupContent,
 	SidebarGroupLabel,
@@ -52,139 +22,9 @@ import {
 	SidebarMenuItem,
 	useSidebar,
 } from "~/components/ui/sidebar";
-import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import { signOut } from "~/server/auth/client";
-
-type Role = "Admin" | "Getränkewart" | string;
-
-type NavItem = {
-	title: string;
-	href: string;
-	icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-	roles: Role[];
-};
-
-type NavGroup = {
-	label: string;
-	items: NavItem[];
-};
-
-const navGroups: NavGroup[] = [
-	{
-		label: "Getränke",
-		items: [
-			{ title: "Trinken", href: "/trinken", icon: BottleWine, roles: [] },
-			{
-				title: "Rechnungen",
-				href: "/rechnungen",
-				icon: ReceiptEuro,
-				roles: [],
-			},
-			{
-				title: "Bestellungen",
-				href: "/bestellungen",
-				icon: ReceiptText,
-				roles: [],
-			},
-			{
-				title: "Getränkewart",
-				href: "/getraenkewart",
-				icon: Truck,
-				roles: ["Getränkewart", "Admin"],
-			},
-		],
-	},
-	{
-		label: "Fuchsenladen",
-		items: [
-			{
-				title: "Laden",
-				href: "/fuchsenladen",
-				icon: Candy,
-				roles: [],
-			},
-			{
-				title: "Rechnungen",
-				href: "/fuchsenrechnungen",
-				icon: ReceiptEuro,
-				roles: [],
-			},
-			{
-				title: "Bestellungen",
-				href: "/fuchsenbestellungen",
-				icon: ReceiptText,
-				roles: [],
-			},
-			{
-				title: "Fuchsenwart",
-				href: "/fuchsenwart",
-				icon: ShoppingBag,
-				roles: ["Fuchs", "Admin"],
-			},
-		],
-	},
-	{
-		label: "Allgemein",
-		items: [
-			{
-				title: "Semesterprogramm",
-				href: "/semesterprogramm",
-				icon: CalendarDays,
-				roles: [],
-			},
-			{
-				title: "Kostenerstattung",
-				href: "/kostenerstattung",
-				icon: HandCoins,
-				roles: [],
-			},
-			{ title: "Literboard", href: "/leaderboard", icon: Trophy, roles: [] },
-			{ title: "Eloranking", href: "/eloranking", icon: Beer, roles: [] },
-			{
-				title: "Herausforderungen",
-				href: "/challenges",
-				icon: Swords,
-				roles: [],
-			},
-		],
-	},
-	{
-		label: "Verwaltung",
-		items: [
-			{
-				title: "Bilder",
-				href: "/bilder",
-				icon: Camera,
-				roles: ["Admin", "Fotowart"],
-			},
-			{
-				title: "Veranstaltungen",
-				href: "/admin/semesterprogramm",
-				icon: CalendarDays,
-				roles: ["Admin"],
-			},
-			{
-				title: "Konten",
-				href: "/konten",
-				icon: Landmark,
-				roles: ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"],
-			},
-			{
-				title: "CC-Kasse",
-				href: "/cc-kasse",
-				icon: PiggyBank,
-				roles: ["CC-Kasse", "Senior", "Admin"],
-			},
-			{
-				title: "Adressliste",
-				href: "/adressliste",
-				icon: BookUser,
-				roles: ADRESSLISTE_ROLES,
-			},
-			{ title: "Admin", href: "/admin", icon: Settings, roles: ["Admin"] },
-		],
-	},
-];
+import { navGroups, type Role } from "./nav-config";
+import { SidebarUserMenu } from "./SidebarUserMenu";
 
 export type AppSidebarClientProps = {
 	className?: string;
@@ -198,18 +38,6 @@ export type AppSidebarClientProps = {
 };
 
 const COLLAPSED_GROUPS_KEY = "sidebar-collapsed-groups";
-
-function initials(name?: string | null) {
-	if (!name) {
-		return "U";
-	}
-	return name
-		.split(" ")
-		.filter(Boolean)
-		.map((n) => n[0]?.toUpperCase())
-		.slice(0, 2)
-		.join("");
-}
 
 export function AppSidebarClient({
 	className,
@@ -357,56 +185,11 @@ export function AppSidebarClient({
 				))}
 			</SidebarContent>
 
-			<SidebarFooter>
-				<SidebarMenu>
-					<SidebarMenuItem>
-						<DropdownMenu>
-							<DropdownMenuTrigger asChild>
-								<SidebarMenuButton
-									size="lg"
-									className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-								>
-									<Avatar className="h-8 w-8 rounded-lg">
-										<AvatarImage
-											src={userData?.image || "/placeholder.svg"}
-											alt={userData?.name || "User"}
-										/>
-										<AvatarFallback className="rounded-lg">
-											{initials(userData?.name)}
-										</AvatarFallback>
-									</Avatar>
-									<div className="grid flex-1 text-left text-sm leading-tight">
-										<span className="truncate font-semibold">
-											{userData?.name || "Unknown User"}
-										</span>
-										<span className="truncate text-xs">
-											{userData?.email || ""}
-										</span>
-									</div>
-								</SidebarMenuButton>
-							</DropdownMenuTrigger>
-							<DropdownMenuContent
-								className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-								side="bottom"
-								align="end"
-								sideOffset={4}
-							>
-								<DropdownMenuItem asChild>
-									<Link href="/profile" onClick={closeMobile}>
-										<UserIcon className="mr-2 h-4 w-4" />
-										Profil
-									</Link>
-								</DropdownMenuItem>
-								<DropdownMenuSeparator />
-								<DropdownMenuItem onClick={handleSignOut}>
-									<LogOut className="mr-2 h-4 w-4" />
-									Abmelden
-								</DropdownMenuItem>
-							</DropdownMenuContent>
-						</DropdownMenu>
-					</SidebarMenuItem>
-				</SidebarMenu>
-			</SidebarFooter>
+			<SidebarUserMenu
+				userData={userData}
+				closeMobile={closeMobile}
+				handleSignOut={handleSignOut}
+			/>
 		</Sidebar>
 	);
 }

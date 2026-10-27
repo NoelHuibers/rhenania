@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarClock, Pencil, Plus, Power, Trash2, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
@@ -16,130 +16,29 @@ import {
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { IconButton } from "~/components/ui/icon-button";
-import { Input } from "~/components/ui/input";
-import { Label } from "~/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "~/components/ui/select";
 import {
 	Sheet,
 	SheetContent,
 	SheetHeader,
 	SheetTitle,
 } from "~/components/ui/sheet";
-import { Switch } from "~/components/ui/switch";
-import { Textarea } from "~/components/ui/textarea";
 import { useIsMobile } from "~/hooks/use-mobile";
-import {
-	formatEventShortDate,
-	utcToDateInput,
-	wallClockToUTC,
-} from "~/lib/time";
+import { utcToDateInput, wallClockToUTC } from "~/lib/time";
 import {
 	createRecurringEvent,
 	deleteRecurringEvent,
 	generateInstances,
-	type RecurrenceType,
 	toggleRecurringEventActive,
 	updateRecurringEvent,
 } from "~/server/actions/events/recurring";
 import type { Venue } from "~/server/actions/venues";
-import { LocationCombobox } from "./LocationCombobox";
-
-// Per-tenant configurable; valid values come from the `event_type` table.
-type EventType = string;
-
-type RecurringEvent = {
-	id: string;
-	title: string;
-	description: string | null;
-	location: string | null;
-	type: EventType;
-	recurrenceType: RecurrenceType;
-	dayOfWeek: number | null;
-	time: string;
-	isPublic: boolean;
-	meetingUrl: string | null;
-	startDate: Date | null;
-	endDate: Date | null;
-	isActive: boolean;
-};
-
-type FormState = {
-	title: string;
-	description: string;
-	location: string;
-	type: EventType;
-	recurrenceType: RecurrenceType;
-	dayOfWeek: string;
-	time: string;
-	isPublic: boolean;
-	meetingUrl: string;
-	startDate: string;
-	endDate: string;
-};
-
-const emptyForm: FormState = {
-	title: "",
-	description: "",
-	location: "adH Rhenania",
-	type: "Intern",
-	recurrenceType: "biweekly",
-	dayOfWeek: "1",
-	time: "20:00",
-	isPublic: true,
-	meetingUrl: "",
-	startDate: "",
-	endDate: "",
-};
-
-const DAY_NAMES = [
-	"Sonntag",
-	"Montag",
-	"Dienstag",
-	"Mittwoch",
-	"Donnerstag",
-	"Freitag",
-	"Samstag",
-];
-const EVENT_TYPES: EventType[] = [
-	"Intern",
-	"AHV",
-	"oCC",
-	"SC",
-	"Jour Fix",
-	"Stammtisch",
-	"Sonstige",
-];
-
-const TYPE_COLORS: Record<EventType, string> = {
-	Intern: "bg-blue-100 text-blue-800",
-	AHV: "bg-amber-100 text-amber-800",
-	oCC: "bg-green-100 text-green-800",
-	SC: "bg-purple-100 text-purple-800",
-	"Jour Fix": "bg-cyan-100 text-cyan-800",
-	Stammtisch: "bg-orange-100 text-orange-800",
-	Sonstige: "bg-gray-100 text-gray-800",
-};
-
-function recurrenceSummary(r: RecurringEvent): string {
-	switch (r.recurrenceType) {
-		case "occ_semester":
-			return "AnCC → nummerierte oCCs (Mo) → AbCC";
-		case "biweekly": {
-			const day = DAY_NAMES[r.dayOfWeek ?? 1] ?? "Montag";
-			return `Alle 2 Wochen ${day}s, ${r.time} Uhr`;
-		}
-		case "monthly_1st_wednesday":
-			return `Jeden 1. Mittwoch, ${r.time} Uhr`;
-		case "monthly_1st_3rd_wednesday":
-			return `Jeden 1. und 3. Mittwoch, ${r.time} Uhr`;
-	}
-}
+import { RecurringEventCard } from "./RecurringEventCard";
+import { RecurringEventForm } from "./RecurringEventForm";
+import {
+	emptyForm,
+	type FormState,
+	type RecurringEvent,
+} from "./recurring-event-constants";
 
 export function RecurringEventsManager({
 	initialRecurringEvents,
@@ -280,266 +179,16 @@ export function RecurringEventsManager({
 		router.refresh();
 	}
 
-	const isOCC = form.recurrenceType === "occ_semester";
-	const isBiweekly = form.recurrenceType === "biweekly";
-	const isMonthly =
-		form.recurrenceType === "monthly_1st_wednesday" ||
-		form.recurrenceType === "monthly_1st_3rd_wednesday";
-
-	const formContent = (twoCol = false) => (
-		<form onSubmit={handleSubmit} className="space-y-4">
-			<div className={`grid gap-4 ${twoCol ? "sm:grid-cols-2" : ""}`}>
-				<div className="space-y-2">
-					<Label htmlFor="r-title">Titel *</Label>
-					<Input
-						id="r-title"
-						value={form.title}
-						onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-						placeholder={isOCC ? "oCC" : "z.B. Jour Fix"}
-					/>
-				</div>
-				<div className="space-y-2">
-					<Label htmlFor="r-location">Ort</Label>
-					<LocationCombobox
-						value={form.location}
-						onChange={(v) => setForm((f) => ({ ...f, location: v }))}
-						venues={venues}
-					/>
-				</div>
-				<div className="space-y-2">
-					<Label htmlFor="r-type">Typ</Label>
-					<Select
-						value={form.type}
-						onValueChange={(v) =>
-							setForm((f) => ({ ...f, type: v as EventType }))
-						}
-					>
-						<SelectTrigger id="r-type">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{EVENT_TYPES.map((t) => (
-								<SelectItem key={t} value={t}>
-									{t}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-				</div>
-				<div className="flex items-center gap-3 pt-6">
-					<Switch
-						id="r-isPublic"
-						checked={form.isPublic}
-						onCheckedChange={(v) => setForm((f) => ({ ...f, isPublic: v }))}
-					/>
-					<Label htmlFor="r-isPublic">Auf Startseite anzeigen</Label>
-				</div>
-				<div className="space-y-2">
-					<Label htmlFor="r-recurrence">Wiederholung</Label>
-					<Select
-						value={form.recurrenceType}
-						onValueChange={(v) =>
-							setForm((f) => ({
-								...f,
-								recurrenceType: v as RecurrenceType,
-							}))
-						}
-					>
-						<SelectTrigger id="r-recurrence">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="occ_semester">
-								oCC Semester (AnCC → AbCC)
-							</SelectItem>
-							<SelectItem value="biweekly">Alle 2 Wochen</SelectItem>
-							<SelectItem value="monthly_1st_wednesday">
-								Jeden 1. Mittwoch
-							</SelectItem>
-							<SelectItem value="monthly_1st_3rd_wednesday">
-								Jeden 1. und 3. Mittwoch
-							</SelectItem>
-						</SelectContent>
-					</Select>
-				</div>
-				{isOCC && (
-					<>
-						<div className="space-y-2">
-							<Label htmlFor="r-start">
-								AnCC Datum *{" "}
-								<span className="text-muted-foreground text-xs">
-									(Sonntag 18:00)
-								</span>
-							</Label>
-							<Input
-								id="r-start"
-								type="date"
-								value={form.startDate}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, startDate: e.target.value }))
-								}
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="r-end">
-								AbCC Datum *{" "}
-								<span className="text-muted-foreground text-xs">
-									(Sonntag 18:00)
-								</span>
-							</Label>
-							<Input
-								id="r-end"
-								type="date"
-								value={form.endDate}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, endDate: e.target.value }))
-								}
-							/>
-						</div>
-						<div
-							className={`${twoCol ? "col-span-2" : ""} rounded-md border border-green-200 bg-green-50 p-3 text-green-800 text-sm`}
-						>
-							System generiert: <strong>AnCC</strong> (So 18:00) →{" "}
-							<strong>2. oCC, 3. oCC …</strong> (Mo 20:00) →{" "}
-							<strong>AbCC</strong> (So 18:00)
-						</div>
-					</>
-				)}
-				{isBiweekly && (
-					<>
-						<div className="space-y-2">
-							<Label htmlFor="r-time">Uhrzeit</Label>
-							<Input
-								id="r-time"
-								type="time"
-								value={form.time}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, time: e.target.value }))
-								}
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="r-dow">Wochentag</Label>
-							<Select
-								value={form.dayOfWeek}
-								onValueChange={(v) => setForm((f) => ({ ...f, dayOfWeek: v }))}
-							>
-								<SelectTrigger id="r-dow">
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent>
-									{DAY_NAMES.map((name, i) => (
-										<SelectItem key={name} value={String(i)}>
-											{name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="r-start-bw">
-								Semester Beginn *{" "}
-								<span className="text-muted-foreground text-xs">
-									erster Termin
-								</span>
-							</Label>
-							<Input
-								id="r-start-bw"
-								type="date"
-								value={form.startDate}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, startDate: e.target.value }))
-								}
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="r-end-bw">Semester Ende</Label>
-							<Input
-								id="r-end-bw"
-								type="date"
-								value={form.endDate}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, endDate: e.target.value }))
-								}
-							/>
-						</div>
-					</>
-				)}
-				{isMonthly && (
-					<>
-						<div className="space-y-2">
-							<Label htmlFor="r-time-m">Uhrzeit</Label>
-							<Input
-								id="r-time-m"
-								type="time"
-								value={form.time}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, time: e.target.value }))
-								}
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="r-start-m">Semester Beginn</Label>
-							<Input
-								id="r-start-m"
-								type="date"
-								value={form.startDate}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, startDate: e.target.value }))
-								}
-							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="r-end-m">Semester Ende</Label>
-							<Input
-								id="r-end-m"
-								type="date"
-								value={form.endDate}
-								onChange={(e) =>
-									setForm((f) => ({ ...f, endDate: e.target.value }))
-								}
-							/>
-						</div>
-					</>
-				)}
-			</div>
-			<div className="space-y-2">
-				<Label htmlFor="r-meeting">Online-Meeting Link (optional)</Label>
-				<Input
-					id="r-meeting"
-					type="url"
-					value={form.meetingUrl}
-					onChange={(e) =>
-						setForm((f) => ({ ...f, meetingUrl: e.target.value }))
-					}
-					placeholder="https://teams.microsoft.com/..."
-				/>
-				<p className="text-muted-foreground text-xs">
-					Wird auf alle generierten Termine übertragen.
-				</p>
-			</div>
-			<div className="space-y-2">
-				<Label htmlFor="r-description">Beschreibung</Label>
-				<Textarea
-					id="r-description"
-					value={form.description}
-					onChange={(e) =>
-						setForm((f) => ({ ...f, description: e.target.value }))
-					}
-					rows={2}
-				/>
-			</div>
-			{error && <p className="text-destructive text-sm">{error}</p>}
-			<div className="flex gap-2">
-				<Button type="submit" disabled={loading}>
-					{loading ? "Speichern..." : editingId ? "Speichern" : "Erstellen"}
-				</Button>
-				<Button type="button" variant="outline" onClick={closeForm}>
-					Abbrechen
-				</Button>
-			</div>
-		</form>
-	);
+	const formProps = {
+		form,
+		setForm,
+		onSubmit: handleSubmit,
+		onClose: closeForm,
+		isEditing: !!editingId,
+		loading,
+		error,
+		venues,
+	};
 
 	const formCard = (
 		<Card className="border-primary/30">
@@ -551,7 +200,9 @@ export function RecurringEventsManager({
 					<X className="h-4 w-4" />
 				</IconButton>
 			</CardHeader>
-			<CardContent>{formContent(true)}</CardContent>
+			<CardContent>
+				<RecurringEventForm {...formProps} twoCol />
+			</CardContent>
 		</Card>
 	);
 
@@ -575,7 +226,9 @@ export function RecurringEventsManager({
 								{editingId ? "Vorlage bearbeiten" : "Neue Vorlage"}
 							</SheetTitle>
 						</SheetHeader>
-						<div className="px-4 pb-4">{formContent()}</div>
+						<div className="px-4 pb-4">
+							<RecurringEventForm {...formProps} />
+						</div>
 					</SheetContent>
 				</Sheet>
 			)}
@@ -629,90 +282,15 @@ export function RecurringEventsManager({
 
 				{initialRecurringEvents.map((r) => (
 					<div key={r.id} className="space-y-2">
-						<Card className={r.isActive ? "" : "opacity-50"}>
-							<CardContent className="space-y-3 p-4">
-								<div className="flex items-start justify-between gap-3">
-									<div className="space-y-1">
-										<div className="flex flex-wrap items-center gap-2">
-											<span className="font-medium">{r.title}</span>
-											<span
-												className={`rounded-full px-2 py-0.5 font-medium text-xs ${TYPE_COLORS[r.type]}`}
-											>
-												{r.type}
-											</span>
-											{!r.isActive && (
-												<span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 text-xs">
-													Inaktiv
-												</span>
-											)}
-											{!r.isPublic && (
-												<span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500 text-xs">
-													Intern
-												</span>
-											)}
-										</div>
-										<p className="flex items-center gap-1.5 text-muted-foreground text-sm">
-											<CalendarClock className="h-3.5 w-3.5 shrink-0" />
-											{recurrenceSummary(r)}
-											{r.location && ` · ${r.location}`}
-										</p>
-										{(r.startDate || r.endDate) && (
-											<p className="text-muted-foreground text-xs">
-												{r.startDate && formatEventShortDate(r.startDate)}
-												{r.startDate && r.endDate && " – "}
-												{r.endDate && formatEventShortDate(r.endDate)}
-											</p>
-										)}
-									</div>
-									<div className="flex shrink-0 gap-1">
-										<IconButton
-											label={
-												r.isActive ? "Serie deaktivieren" : "Serie aktivieren"
-											}
-											onClick={() => handleToggleActive(r.id)}
-										>
-											<Power className="h-4 w-4" />
-										</IconButton>
-										<IconButton
-											label="Serie bearbeiten"
-											onClick={() => openEdit(r)}
-										>
-											<Pencil className="h-4 w-4" />
-										</IconButton>
-										<IconButton
-											label="Serie löschen"
-											onClick={() => setDeleteId(r.id)}
-											className="text-destructive hover:text-destructive"
-										>
-											<Trash2 className="h-4 w-4" />
-										</IconButton>
-									</div>
-								</div>
-
-								{r.isActive && (
-									<div className="flex items-center gap-2 border-t pt-2">
-										<Button
-											size="sm"
-											variant="outline"
-											className="h-7 text-xs"
-											disabled={generating === r.id}
-											onClick={() => handleGenerate(r.id)}
-										>
-											{generating === r.id
-												? "Generiere..."
-												: "Termine generieren"}
-										</Button>
-										{generateResult[r.id] && (
-											<span
-												className={`text-xs ${generateResult[r.id]?.startsWith("Fehler") ? "text-destructive" : "text-green-600"}`}
-											>
-												{generateResult[r.id]}
-											</span>
-										)}
-									</div>
-								)}
-							</CardContent>
-						</Card>
+						<RecurringEventCard
+							event={r}
+							generating={generating === r.id}
+							generateResult={generateResult[r.id]}
+							onToggleActive={handleToggleActive}
+							onEdit={openEdit}
+							onDelete={setDeleteId}
+							onGenerate={handleGenerate}
+						/>
 						{!isMobile && editingId === r.id && formCard}
 					</div>
 				))}

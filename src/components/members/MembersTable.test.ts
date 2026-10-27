@@ -54,7 +54,7 @@ function render(canEdit = true) {
 	);
 }
 
-/** Desktop table only (the phone cards repeat names and links). */
+/** The members table (rows render once: a table from md up, cards below). */
 function table(html: string): string {
 	return html.slice(html.indexOf("<table"), html.indexOf("</table>"));
 }
