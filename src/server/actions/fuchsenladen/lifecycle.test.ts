@@ -19,7 +19,6 @@ import {
 } from "../../../../test/harness";
 import {
 	createNewFuchsenBilling,
-	getFuchsenBillingStatistics,
 	getFuchsenBillPeriodCSV,
 	getFuchsenBillsForPeriod,
 	getMyFuchsenBills,
@@ -169,7 +168,6 @@ describe("Fuchsenladen über drei Perioden", () => {
 			(await neuesteRechnung(bursch)).id,
 			"Gestundet",
 		);
-		expect((await getFuchsenBillingStatistics())?.pendingBillsAmount).toBe(10);
 		await expectKassenbuchStimmt(members);
 
 		// P2: Fux orders nothing (carry-only bill), Bursch orders again.
@@ -218,9 +216,6 @@ describe("Fuchsenladen über drei Perioden", () => {
 			"Unbezahlt",
 		]);
 		// Carried amounts are counted once: in the newest bills only.
-		expect((await getFuchsenBillingStatistics())?.pendingBillsAmount).toBe(
-			26.5,
-		);
 		const csv = await getFuchsenBillPeriodCSV(p3.billPeriod.id);
 		expect(csv.csvContent?.slice(1).split("\r\n")).toEqual([
 			"Name;Status;Artikel;Alter Saldo;Gesamt",
@@ -263,7 +258,6 @@ describe("Fuchsenladen über drei Perioden", () => {
 			["Bezahlt", 10],
 		]);
 		signInAs(fuchsenwart);
-		expect((await getFuchsenBillingStatistics())?.pendingBillsAmount).toBe(14);
 		await expectKassenbuchStimmt(members);
 
 		// Un-paying it reopens exactly what it settled.
@@ -274,9 +268,6 @@ describe("Fuchsenladen über drei Perioden", () => {
 				["Übertragen", null],
 				["Unbezahlt", null],
 			],
-		);
-		expect((await getFuchsenBillingStatistics())?.pendingBillsAmount).toBe(
-			26.5,
 		);
 		await expectKassenbuchStimmt(members);
 

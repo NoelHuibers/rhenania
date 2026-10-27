@@ -33,13 +33,6 @@ export type InventoryWithItems = {
 	}>;
 };
 
-export function calculateLostStock(
-	item: { calculatedStock: number },
-	actualStock: number,
-): number {
-	return item.calculatedStock - actualStock;
-}
-
 export function calculateLostValue(
 	item: { calculatedStock: number; currentPrice: number },
 	actualStock: number,

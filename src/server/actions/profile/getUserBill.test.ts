@@ -12,11 +12,7 @@ import {
 	signInAs,
 } from "../../../../test/harness";
 import { requireTenant } from "../../../../test/state";
-import {
-	getAllUserBills,
-	getBillById,
-	getUserBillingData,
-} from "./getUserBill";
+import { getUserBillingData } from "./getUserBill";
 
 setupTestDatabases();
 
@@ -122,7 +118,6 @@ describe("getUserBillingData", () => {
 		await createBill({ userId: other.id });
 
 		expect((await getUserBillingData()).billData).toBeNull();
-		expect(await getAllUserBills()).toEqual([]);
 	});
 
 	test("a tenant without a Getränkekasse konto shows no payment target (#9)", async () => {
@@ -149,22 +144,16 @@ describe("getUserBillingData", () => {
 		);
 	});
 
-	test("every bill view shows the Berlin date of the last update (#15)", async () => {
+	test("lastUpdated uses the Berlin date of the last update (#15)", async () => {
 		const { user } = await member();
 		// 00:15 on 26 Oct in Berlin (CET) is still 25 Oct in UTC.
-		const { bill } = await createBill({
+		await createBill({
 			userId: user.id,
 			createdAt: new Date("2026-10-20T10:00:00Z"),
 			updatedAt: new Date("2026-10-25T23:15:00Z"),
 		});
 
 		expect((await getUserBillingData()).billData?.lastUpdated).toBe(
-			"2026-10-26",
-		);
-		expect((await getAllUserBills())[0]?.billData.lastUpdated).toBe(
-			"2026-10-26",
-		);
-		expect((await getBillById(bill.id)).billData?.lastUpdated).toBe(
 			"2026-10-26",
 		);
 	});
@@ -174,86 +163,10 @@ describe("getUserBillingData", () => {
 		await expect(getUserBillingData()).rejects.toThrow(
 			"User must be authenticated to view billing data",
 		);
-		await expect(getAllUserBills()).rejects.toThrow(
-			"User must be authenticated",
-		);
-		await expect(getBillById("x")).rejects.toThrow(
-			"User must be authenticated",
-		);
 	});
 });
 
-describe("getAllUserBills", () => {
-	test("lists all of the member's bills, newest first, without payment data", async () => {
-		const { user } = await member();
-		await createBill({
-			userId: user.id,
-			billNumber: "KW-40-26",
-			status: "Bezahlt",
-			createdAt: new Date("2026-10-01T10:00:00Z"),
-		});
-		await createBill({
-			userId: user.id,
-			billNumber: "KW-43-26",
-			fees: 1,
-			createdAt: new Date("2026-10-22T10:00:00Z"),
-			items: [{ drinkName: "Pils", amount: 2, price: 1.5 }],
-		});
-
-		const bills = await getAllUserBills();
-
-		expect(bills.map((b) => b.billData.billNumber)).toEqual([
-			"KW-43-26",
-			"KW-40-26",
-		]);
-		expect(bills[0]?.billItems).toEqual([
-			{ item: "Pils", quantity: 2, price: 1.5, total: 3 },
-			{ item: "Service Fee", quantity: 1, price: 1, total: 1 },
-		]);
-		expect(bills[1]).toMatchObject({
-			billData: { status: "Bezahlt", lastUpdated: "2026-10-01" },
-			billItems: [],
-		});
-	});
-});
-
-describe("getBillById", () => {
-	test("returns the member's own bill", async () => {
-		const { user } = await member();
-		const { bill } = await createBill({
-			userId: user.id,
-			billNumber: "KW-43-26",
-			updatedAt: new Date("2026-10-25T10:00:00Z"),
-			items: [{ drinkName: "Pils", amount: 1, price: 1.5 }],
-		});
-
-		const result = await getBillById(bill.id);
-
-		expect(result.billData).toMatchObject({
-			billId: bill.id,
-			billNumber: "KW-43-26",
-			lastUpdated: "2026-10-25",
-		});
-		expect(result.billItems).toEqual([
-			{ item: "Pils", quantity: 1, price: 1.5, total: 1.5 },
-		]);
-	});
-
-	test("returns nothing for bills of other members or unknown ids", async () => {
-		await member();
-		const other = await createUser();
-		const { bill } = await createBill({ userId: other.id });
-
-		expect(await getBillById(bill.id)).toEqual({
-			billData: null,
-			billItems: [],
-		});
-		expect(await getBillById("unknown")).toEqual({
-			billData: null,
-			billItems: [],
-		});
-	});
-
+describe("errors", () => {
 	test("reports database failures with a generic error", async () => {
 		const { user } = await member();
 		await createBill({ userId: user.id });

@@ -10,7 +10,7 @@ import {
 	users as controlUsers,
 	tenantMemberships,
 } from "~/server/db/control-schema";
-import { userRoles, verificationTokens } from "~/server/db/schema";
+import { verificationTokens } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 import { ROLES, requireRole } from "~/server/lib/authz";
 import { requireTenantId } from "~/server/lib/tenant-context";
@@ -33,39 +33,6 @@ async function checkAdminPermission() {
 	}
 
 	return session.user.id;
-}
-
-export async function toggleUserRole(userId: string, roleId: string) {
-	await requireRole(ROLES.admin);
-	await checkAdminPermission();
-	const tenantId = await requireTenantId();
-	const tdb = await getTenantDb(tenantId);
-
-	try {
-		const existingRole = await tdb
-			.select()
-			.from(userRoles)
-			.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
-			.limit(1);
-
-		if (existingRole.length > 0) {
-			await tdb
-				.delete(userRoles)
-				.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
-		} else {
-			await tdb.insert(userRoles).values({
-				userId,
-				roleId,
-				assignedAt: new Date(),
-			});
-		}
-
-		revalidatePath("/admin");
-		return { success: true };
-	} catch (error) {
-		console.error("Error toggling user role:", error);
-		throw new Error("Fehler beim Ändern der Rolle");
-	}
 }
 
 interface CreateUserData {
@@ -218,59 +185,6 @@ export async function createUser(
 		return {
 			success: false,
 			error: "Fehler beim Erstellen des Benutzers.",
-		};
-	}
-}
-
-export async function resendVerificationEmail(email: string) {
-	await requireRole(ROLES.admin);
-	await checkAdminPermission();
-	const tenantId = await requireTenantId();
-	const tdb = await getTenantDb(tenantId);
-	const lowerEmail = email.toLowerCase();
-
-	try {
-		const user = await controlDb
-			.select()
-			.from(controlUsers)
-			.where(eq(controlUsers.email, lowerEmail))
-			.limit(1);
-
-		if (user.length === 0) {
-			return {
-				success: false,
-				error: "Benutzer nicht gefunden.",
-			};
-		}
-
-		if (user[0]?.emailVerified) {
-			return {
-				success: false,
-				error: "E-Mail-Adresse ist bereits verifiziert.",
-			};
-		}
-
-		await tdb
-			.delete(verificationTokens)
-			.where(eq(verificationTokens.identifier, lowerEmail));
-
-		const token = crypto.randomBytes(32).toString("hex");
-		const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-		await tdb.insert(verificationTokens).values({
-			identifier: lowerEmail,
-			token,
-			expires,
-		});
-
-		await sendVerificationEmail(email, token);
-
-		return { success: true };
-	} catch (error) {
-		console.error("Error resending verification email:", error);
-		return {
-			success: false,
-			error: "Fehler beim Senden der Verifizierungs-E-Mail.",
 		};
 	}
 }

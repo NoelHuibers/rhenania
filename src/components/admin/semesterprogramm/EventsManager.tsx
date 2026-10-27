@@ -28,8 +28,6 @@ import { EventRow } from "./EventRow";
 import { type Event, emptyForm, type FormState } from "./event-constants";
 import { RsvpResponsesDialog } from "./RsvpResponsesDialog";
 
-export { TYPE_COLORS } from "./event-constants";
-
 export function EventsManager({
 	initialEvents,
 	venues,

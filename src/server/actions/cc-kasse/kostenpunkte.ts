@@ -236,23 +236,6 @@ export type KostenpunktWithPositions = Awaited<
 	ReturnType<typeof listKostenpunkteForEtaplan>
 >[number];
 
-export async function listCategories(etaplanId: string) {
-	await requireMember();
-	try {
-		return await db
-			.selectDistinct({
-				category: kostenpunkte.category,
-				categoryOrder: kostenpunkte.categoryOrder,
-			})
-			.from(kostenpunkte)
-			.where(eq(kostenpunkte.etaplanId, etaplanId))
-			.orderBy(asc(kostenpunkte.categoryOrder));
-	} catch (error) {
-		console.error("Error listing categories:", error);
-		return [];
-	}
-}
-
 export type LinkableEvent = { id: string; title: string; date: Date };
 
 export async function linkableEvents(): Promise<LinkableEvent[]> {

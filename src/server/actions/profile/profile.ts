@@ -186,42 +186,6 @@ export async function updateUserName(formData: FormData) {
 	}
 }
 
-// Update user avatar
-export async function updateUserAvatar(formData: FormData) {
-	const session = await auth();
-
-	if (!session?.user?.id) {
-		redirect("/auth/signin");
-	}
-
-	const imageUrl = formData.get("imageUrl") as string;
-
-	if (!imageUrl || imageUrl.trim().length === 0) {
-		throw new Error("Image URL is required");
-	}
-
-	// Only https image URLs (no javascript:, data:, http:).
-	let parsed: URL;
-	try {
-		parsed = new URL(imageUrl);
-	} catch {
-		throw new Error("Invalid image URL");
-	}
-	if (parsed.protocol !== "https:") {
-		throw new Error("Invalid image URL");
-	}
-
-	try {
-		await updateIdentityOrThrow(session.user.id, { image: imageUrl.trim() });
-
-		revalidatePath("/profile");
-		return { success: true, message: "Profile picture updated successfully" };
-	} catch (error) {
-		console.error("Error updating user avatar:", error);
-		throw new Error("Failed to update profile picture");
-	}
-}
-
 // Sync profile from Microsoft Graph API
 export async function syncFromMicrosoft() {
 	const session = await auth();
@@ -292,70 +256,6 @@ export async function syncFromMicrosoft() {
 	}
 }
 
-// Extended sync function with more profile data
-export async function syncFromMicrosoftExtended() {
-	const session = await auth();
-
-	if (!session?.user?.id) {
-		redirect("/auth/signin");
-	}
-
-	const token = await getGraphAccessToken(session.user.id);
-
-	if (!token) {
-		throw new Error(
-			"Microsoft access token not available. Please sign in with Microsoft to sync profile.",
-		);
-	}
-
-	try {
-		const graphUser = await fetchUserProfile(token);
-		const photoUrl = await fetchUserPhoto(token);
-
-		// Update user profile with available data
-		const updateData: Partial<{
-			name: string | null;
-			image: string | null;
-		}> = {};
-
-		if (graphUser.displayName) {
-			updateData.name = graphUser.displayName;
-		}
-
-		if (photoUrl) {
-			updateData.image = photoUrl;
-		}
-
-		if (Object.keys(updateData).length > 0) {
-			await updateIdentityOrThrow(session.user.id, updateData);
-		}
-
-		revalidatePath("/profile");
-
-		return {
-			success: true,
-			message: "Extended profile sync completed successfully",
-			syncedData: {
-				name: graphUser.displayName,
-				email: graphUser.mail || graphUser.userPrincipalName,
-				jobTitle: graphUser.jobTitle,
-				department: graphUser.department,
-				officeLocation: graphUser.officeLocation,
-				mobilePhone: graphUser.mobilePhone,
-				businessPhones: graphUser.businessPhones,
-				hasPhoto: !!photoUrl,
-			},
-		};
-	} catch (error) {
-		console.error("Error in extended Microsoft sync:", error);
-		throw new Error(
-			`Failed to perform extended sync: ${
-				error instanceof Error ? error.message : "Unknown error"
-			}`,
-		);
-	}
-}
-
 // Refresh profile data (re-fetch from database)
 export async function refreshProfile() {
 	const session = await auth();
@@ -371,62 +271,5 @@ export async function refreshProfile() {
 	} catch (error) {
 		console.error("Error refreshing profile:", error);
 		throw new Error("Failed to refresh profile");
-	}
-}
-
-// Get all available roles (for admin functionality)
-export async function getAllRoles() {
-	const session = await auth();
-
-	if (!session?.user?.roles?.includes("Admin")) {
-		throw new Error("Unauthorized: Admin access required");
-	}
-
-	try {
-		const allRoles = await db
-			.select({
-				id: roles.id,
-				name: roles.name,
-				description: roles.description,
-			})
-			.from(roles)
-			.orderBy(roles.name);
-
-		return allRoles;
-	} catch (error) {
-		console.error("Error fetching roles:", error);
-		throw new Error("Failed to fetch roles");
-	}
-}
-
-// Update user roles (admin only)
-export async function updateUserRoles(userId: string, roleIds: string[]) {
-	const session = await auth();
-
-	if (!session?.user?.roles?.includes("Admin")) {
-		throw new Error("Unauthorized: Admin access required");
-	}
-
-	try {
-		// Remove existing roles
-		await db.delete(userRoles).where(eq(userRoles.userId, userId));
-
-		// Add new roles
-		if (roleIds.length > 0) {
-			await db.insert(userRoles).values(
-				roleIds.map((roleId) => ({
-					userId,
-					roleId,
-					assignedBy: session.user.id,
-				})),
-			);
-		}
-
-		revalidatePath("/profile");
-		revalidatePath("/admin");
-		return { success: true, message: "User roles updated successfully" };
-	} catch (error) {
-		console.error("Error updating user roles:", error);
-		throw new Error("Failed to update user roles");
 	}
 }

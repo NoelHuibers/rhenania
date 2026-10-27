@@ -1,8 +1,8 @@
 "use server";
 
-import { and, desc, eq, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { db } from "~/server/db";
-import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
+import { billItems, billPeriods, bills } from "~/server/db/schema";
 import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { carriedBillRefusal, paidAlongWith } from "~/server/lib/carried-bills";
@@ -117,33 +117,6 @@ export async function getBillsForPeriod(billPeriodId: string) {
 	}
 }
 
-// Close/finalize a billing period
-export async function closeBillPeriod(billPeriodId: string) {
-	await requireRole(ROLES.getraenke);
-	try {
-		const now = new Date();
-
-		await db
-			.update(billPeriods)
-			.set({
-				closedAt: now,
-				updatedAt: now,
-			})
-			.where(eq(billPeriods.id, billPeriodId));
-
-		return {
-			success: true,
-			message: "Abrechnungsperiode erfolgreich abgeschlossen",
-		};
-	} catch (error) {
-		await log.error("Error closing bill period", { err: error });
-		return {
-			success: false,
-			message: "Fehler beim Abschließen der Abrechnungsperiode",
-		};
-	}
-}
-
 /**
  * Sets a bill's status from the Kasse. "Übertragen" is set by billing runs
  * only. Carried bills and bills paid through the later bill they were
@@ -225,102 +198,5 @@ export async function updateBillStatus(
 	} catch (error) {
 		await log.error("Error updating bill status", { err: error });
 		return { success: false, error: "Fehler beim Aktualisieren des Status" };
-	}
-}
-
-// Get billing statistics (updated to include detailed event breakdown)
-export async function getBillingStatistics() {
-	await requireRole(ROLES.getraenke);
-	try {
-		const [unbilledCount] = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(orders)
-			.where(
-				and(
-					eq(orders.inBill, false),
-					isNull(orders.bookingFor), // Only count personal orders
-				),
-			);
-
-		const [unbilledTotal] = await db
-			.select({ total: sql<number>`coalesce(sum(${orders.total}), 0)` })
-			.from(orders)
-			.where(
-				and(
-					eq(orders.inBill, false),
-					isNull(orders.bookingFor), // Only sum personal orders
-				),
-			);
-
-		// Get detailed event orders grouped by event name
-		const eventOrdersGrouped = await db
-			.select({
-				eventName: orders.bookingFor,
-				count: sql<number>`count(*)`,
-				totalAmount: sql<number>`sum(${orders.total})`,
-				bookedBy: sql<string>`GROUP_CONCAT(DISTINCT ${orders.userName})`,
-			})
-			.from(orders)
-			.where(
-				and(eq(orders.inBill, false), sql`${orders.bookingFor} IS NOT NULL`),
-			)
-			.groupBy(orders.bookingFor);
-
-		// Calculate totals for all event orders
-		const eventOrdersTotals = eventOrdersGrouped.reduce(
-			(acc, event) => ({
-				count: acc.count + Number(event.count),
-				totalAmount: acc.totalAmount + Number(event.totalAmount),
-			}),
-			{ count: 0, totalAmount: 0 },
-		);
-
-		const [totalPeriods] = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(billPeriods);
-
-		const [pendingBillsTotal] = await db
-			.select({ total: sql<number>`coalesce(sum(${bills.total}), 0)` })
-			.from(bills)
-			.where(eq(bills.status, "Unbezahlt"));
-
-		return {
-			unbilledOrders: {
-				count: unbilledCount?.count ?? 0,
-				totalAmount: unbilledTotal?.total ?? 0,
-			},
-			eventOrders: {
-				count: eventOrdersTotals.count,
-				totalAmount: eventOrdersTotals.totalAmount,
-				events: eventOrdersGrouped.map((event) => ({
-					name: event.eventName || "Unknown Event",
-					orderCount: Number(event.count),
-					totalAmount: Number(event.totalAmount),
-					bookedBy: event.bookedBy?.split(",") || [],
-				})),
-			},
-			totalBillPeriods: totalPeriods?.count ?? 0,
-			pendingBillsAmount: pendingBillsTotal?.total ?? 0,
-		};
-	} catch (error) {
-		await log.error("Error getting billing statistics", { err: error });
-		return null;
-	}
-}
-
-// Get event orders (orders with bookingFor set) - useful for tracking
-export async function getEventOrders() {
-	await requireRole(ROLES.getraenke);
-	try {
-		const eventOrders = await db
-			.select()
-			.from(orders)
-			.where(sql`${orders.bookingFor} IS NOT NULL`)
-			.orderBy(desc(orders.createdAt));
-
-		return eventOrders;
-	} catch (error) {
-		await log.error("Error getting event orders", { err: error });
-		return [];
 	}
 }

@@ -20,13 +20,10 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import {
-	closeFuchsenBillPeriod,
 	createNewFuchsenBilling,
 	getAllFuchsenBillPeriods,
-	getFuchsenBillingStatistics,
 	getFuchsenBillPeriodCSV,
 	getFuchsenBillsForPeriod,
-	getLatestFuchsenBillPeriod,
 	getMyFuchsenBills,
 	getUnbilledFuchsenOrdersGrouped,
 	updateFuchsenBillStatus,
@@ -187,7 +184,7 @@ describe("createNewFuchsenBilling", () => {
 			.from(fuchsenBillPeriods)
 			.where(eq(fuchsenBillPeriods.id, last.id));
 		expect(closed?.closedAt).toEqual(RUN_1);
-		const latest = await getLatestFuchsenBillPeriod();
+		const [latest] = await getAllFuchsenBillPeriods();
 		expect(latest?.totalAmount).toBe(13);
 		const bills = await getFuchsenBillsForPeriod(latest?.id ?? "");
 		expect(
@@ -210,22 +207,6 @@ describe("createNewFuchsenBilling", () => {
 
 		expect(result).toMatchObject({ success: false, billsCreated: 0 });
 		expect(await tenantDb().select().from(fuchsenBills)).toHaveLength(0);
-	});
-
-	// The carried-over bill is closed out as "Übertragen", so its amount is
-	// counted once: as oldBillingAmount on the new bill.
-	test("counts carried-over debt only once in the pending total (#12)", async () => {
-		await setup();
-		const member = await createUser();
-		const item = await createFuchsenItem({ price: 5 });
-		await createFuchsenOrder({ user: member, item });
-		await runAt(RUN_1);
-		await createFuchsenOrder({ user: member, item });
-		await runAt(RUN_2);
-
-		const stats = await getFuchsenBillingStatistics();
-
-		expect(stats?.pendingBillsAmount).toBe(10);
 	});
 
 	// Debt from every earlier period is carried, also for a member who
@@ -368,9 +349,6 @@ describe("carry-over across periods (#12, #143)", () => {
 			["Übertragen", 5, 10, 15],
 			["Unbezahlt", 2.5, 15, 17.5],
 		]);
-		expect((await getFuchsenBillingStatistics())?.pendingBillsAmount).toBe(
-			17.5,
-		);
 		expect(await openAmounts(member)).toEqual({ bills: 1750, orders: 1750 });
 
 		// Carried bills can't be paid on their own: they live on in P3.
@@ -398,7 +376,6 @@ describe("carry-over across periods (#12, #143)", () => {
 		expect((await ordersOf(member)).every((o) => o.status === "Bezahlt")).toBe(
 			true,
 		);
-		expect((await getFuchsenBillingStatistics())?.pendingBillsAmount).toBe(0);
 
 		// A later run starts from a clean slate.
 		await createFuchsenOrder({ user: member, item, amount: 1 });
@@ -453,7 +430,7 @@ describe("carry-over across periods (#12, #143)", () => {
 		const result = await runAt(RUN_2);
 
 		expect(result).toMatchObject({ billsCreated: 3, totalAmount: 16 });
-		const latest = await getLatestFuchsenBillPeriod();
+		const [latest] = await getAllFuchsenBillPeriods();
 		expect(latest?.totalAmount).toBe(16);
 		const bills = await getFuchsenBillsForPeriod(latest?.id ?? "");
 		expect(
@@ -529,7 +506,7 @@ describe("carry-over across periods (#12, #143)", () => {
 		}
 	});
 
-	test("leaves orders paid before billing out of the preview and the statistics", async () => {
+	test("leaves orders paid before billing out of the preview", async () => {
 		await setup();
 		const member = await createUser({ name: "Paid" });
 		const item = await createFuchsenItem({ price: 3 });
@@ -539,10 +516,6 @@ describe("carry-over across periods (#12, #143)", () => {
 		expect(await getUnbilledFuchsenOrdersGrouped()).toEqual([
 			expect.objectContaining({ name: "Paid", totalDue: 6 }),
 		]);
-		expect((await getFuchsenBillingStatistics())?.unbilledOrders).toEqual({
-			count: 1,
-			totalAmount: 6,
-		});
 
 		await createNewFuchsenBilling();
 
@@ -668,16 +641,6 @@ describe("updateFuchsenBillStatus", () => {
 	});
 });
 
-describe("closeFuchsenBillPeriod", () => {
-	test("sets closedAt on the period", async () => {
-		await setup();
-		const { period } = await createFuchsenBillPeriod();
-
-		expect((await closeFuchsenBillPeriod(period.id)).success).toBe(true);
-		expect((await getLatestFuchsenBillPeriod())?.closedAt).toEqual(RUN_1);
-	});
-});
-
 describe("read models", () => {
 	test("groups unbilled orders per member and item, sorted by name", async () => {
 		await setup();
@@ -704,25 +667,6 @@ describe("read models", () => {
 			},
 			expect.objectContaining({ id: zora.id, totalDue: 1 }),
 		]);
-	});
-
-	test("statistics summarise unbilled orders, periods and unpaid bills", async () => {
-		await setup();
-		const member = await createUser();
-		await createFuchsenBillPeriod({
-			bills: [
-				{ user: member, itemsTotal: 4 },
-				{ user: fuchsenwart, itemsTotal: 2, status: "Bezahlt" },
-			],
-		});
-		const item = await createFuchsenItem({ price: 1.5 });
-		await createFuchsenOrder({ user: member, item, amount: 2 });
-
-		expect(await getFuchsenBillingStatistics()).toEqual({
-			unbilledOrders: { count: 1, totalAmount: 3 },
-			totalBillPeriods: 1,
-			pendingBillsAmount: 4,
-		});
 	});
 
 	test("members see only their own bills, newest first, with line items", async () => {

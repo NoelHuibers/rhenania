@@ -24,7 +24,6 @@ import {
 	deleteKostenpunkt,
 	getBookableKostenpunkte,
 	linkableEvents,
-	listCategories,
 	listKostenpunkteForEtaplan,
 	updateKostenpunkt,
 } from "./kostenpunkte";
@@ -279,10 +278,6 @@ describe("read models", () => {
 		const b1 = list[1];
 		expect(b1?.positionen.map((p) => p.bemerkung)).toEqual(["erst", "dann"]);
 		expect(b1?.event).toMatchObject({ id: event?.id, title: "Stiftungsfest" });
-		expect(await listCategories(plan.id)).toEqual([
-			{ category: "A", categoryOrder: 0 },
-			{ category: "B", categoryOrder: 1 },
-		]);
 	});
 
 	test("only Kostenpunkte of active plans are bookable", async () => {

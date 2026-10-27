@@ -1,7 +1,7 @@
 // currentOrders.ts
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { addMoney } from "~/lib/money";
 import { orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
@@ -137,77 +137,5 @@ export async function getCurrentOrders(): Promise<BillingEntry[]> {
 	} catch (error) {
 		await log.error("Error fetching current orders", { err: error });
 		throw new Error("Failed to fetch current orders");
-	}
-}
-
-// Additional function to get event orders separately if needed
-export async function getCurrentEventOrders(): Promise<
-	{
-		eventName: string;
-		bookedBy: string;
-		items: DrinkItem[];
-		totalAmount: number;
-	}[]
-> {
-	await requireMember();
-	try {
-		const db = await getCurrentTenantDb();
-		// Fetch all orders where inBill is false AND bookingFor is NOT null (event orders)
-		const eventOrders = await db
-			.select()
-			.from(orders)
-			.where(
-				and(eq(orders.inBill, false), sql`${orders.bookingFor} IS NOT NULL`),
-			)
-			.orderBy(...inOrderPlaced);
-
-		// Group by bookingFor (event name)
-		const groupedEvents = eventOrders.reduce(
-			(acc, order) => {
-				const eventName = order.bookingFor || "Unknown Event";
-
-				if (!acc[eventName]) {
-					acc[eventName] = {
-						eventName,
-						bookedBy: order.userName, // Track who booked it
-						items: [],
-						totalAmount: 0,
-					};
-				}
-
-				// Check if this drink already exists in the event's items
-				const existingItem = acc[eventName].items.find(
-					(item: { name: string; unitPrice: number }) =>
-						item.name === order.drinkName &&
-						item.unitPrice === order.pricePerUnit,
-				);
-
-				if (existingItem) {
-					existingItem.quantity += order.amount;
-					existingItem.subtotal = addMoney(existingItem.subtotal, order.total);
-				} else {
-					acc[eventName].items.push({
-						id: order.id,
-						name: order.drinkName,
-						quantity: order.amount,
-						unitPrice: order.pricePerUnit,
-						subtotal: order.total,
-					});
-				}
-
-				acc[eventName].totalAmount = addMoney(
-					acc[eventName].totalAmount,
-					order.total,
-				);
-				return acc;
-			},
-			// biome-ignore lint/suspicious/noExplicitAny: complex reducer accumulator shape
-			{} as Record<string, any>,
-		);
-
-		return Object.values(groupedEvents);
-	} catch (error) {
-		await log.error("Error fetching event orders", { err: error });
-		throw new Error("Failed to fetch event orders");
 	}
 }

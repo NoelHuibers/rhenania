@@ -21,16 +21,6 @@ interface SaveHomepageImageData {
 	mimeType?: string;
 }
 
-interface HomepageImageResponse {
-	id: string;
-	section: HomepageSection;
-	imageUrl: string;
-	imageName: string;
-	displayOrder: number;
-	isActive: boolean;
-	createdAt: Date;
-}
-
 // Save a new homepage image
 export async function saveHomepageImage(data: SaveHomepageImageData) {
 	await requireRole(ROLES.fotos);
@@ -99,37 +89,6 @@ export async function saveHomepageImage(data: SaveHomepageImageData) {
 				error instanceof Error
 					? error.message
 					: "Fehler beim Speichern des Bildes",
-		};
-	}
-}
-
-// Get all active images for a section
-export async function getActiveHomepageImages(section?: HomepageSection) {
-	const db = await getCurrentTenantDb();
-	try {
-		const whereConditions = section
-			? and(
-					eq(homepageImages.isActive, true),
-					eq(homepageImages.section, section),
-				)
-			: eq(homepageImages.isActive, true);
-
-		const images = await db
-			.select()
-			.from(homepageImages)
-			.where(whereConditions)
-			.orderBy(homepageImages.displayOrder);
-
-		return {
-			success: true,
-			data: images as HomepageImageResponse[],
-		};
-	} catch (error) {
-		console.error("Error fetching homepage images:", error);
-		return {
-			success: false,
-			error: "Fehler beim Laden der Bilder",
-			data: [],
 		};
 	}
 }

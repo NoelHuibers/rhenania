@@ -107,21 +107,6 @@ export async function getAllEvents() {
 	}
 }
 
-export async function getEventById(id: string) {
-	await requireMember();
-	try {
-		const result = await db
-			.select()
-			.from(events)
-			.where(eq(events.id, id))
-			.limit(1);
-		return result[0] ?? null;
-	} catch (error) {
-		console.error("Error fetching event:", error);
-		return null;
-	}
-}
-
 export async function createEvent(input: EventInput) {
 	await requireRole(ROLES.events);
 	try {

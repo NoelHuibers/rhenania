@@ -1,11 +1,8 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
-import { games } from "~/server/db/schema";
 import {
 	createPlayers,
 	freezeClock,
-	getUserStatsRow,
 	insertGame,
 	MINUTE,
 	setEloEnabled,
@@ -16,17 +13,8 @@ import {
 	createUser,
 	setupTestDatabases,
 	signInAs,
-	switchTenant,
-	tenantDb,
 } from "../../../../test/harness";
-import {
-	createGame,
-	getLeaderboard,
-	getRecentGames,
-	getUserEloHistory,
-	getUserGames,
-	getUserStats,
-} from "./game";
+import { getLeaderboard, getRecentGames } from "./game";
 import { getAllUsersExcept } from "./getUsers";
 
 // Achievements run fire-and-forget after the response; they have their own tests.
@@ -36,114 +24,6 @@ vi.mock("~/server/actions/achievements/tracking", () => ({
 
 setupTestDatabases();
 afterEach(() => vi.useRealTimers());
-
-describe("createGame", () => {
-	test("refuses an opponent who is not a member of this Corps", async () => {
-		const home = await createTenant();
-		const other = await createTenant();
-		const outsider = await createUser({ name: "Fremd", tenantId: other.id });
-		switchTenant(home);
-		const [me] = await createPlayers(1);
-		signInAs(me as NonNullable<typeof me>);
-
-		const result = await createGame({ player2Id: outsider.id, won: true });
-
-		expect(result).toMatchObject({ success: false });
-		expect(await tenantDb().select().from(games)).toHaveLength(0);
-	});
-
-	test("records a win with ELO before/after on both sides", async () => {
-		await createTenant();
-		const [me, rival] = await createPlayers(2);
-		signInAs(me);
-
-		const result = await createGame({ player2Id: rival.id, won: true });
-
-		expect(result).toMatchObject({ success: true, eloChange: 16 });
-		const [game] = await tenantDb().select().from(games);
-		expect(game).toMatchObject({
-			id: result.gameId,
-			player1Id: me.id,
-			player2Id: rival.id,
-			winnerId: me.id,
-			player1EloBefore: 1200,
-			player1EloAfter: 1216,
-			player2EloBefore: 1200,
-			player2EloAfter: 1184,
-		});
-		expect(await getUserStatsRow(me.id)).toMatchObject({
-			currentElo: 1216,
-			wins: 1,
-		});
-		expect(await getUserStatsRow(rival.id)).toMatchObject({
-			currentElo: 1184,
-			losses: 1,
-		});
-	});
-
-	test("a reported loss credits the opponent, from current ratings", async () => {
-		await createTenant();
-		const [me, rival] = await createPlayers(2);
-		await setUserStats(me.id, { currentElo: 1400 });
-		signInAs(me);
-
-		const result = await createGame({ player2Id: rival.id, won: false });
-
-		expect(result).toMatchObject({ success: true, eloChange: 24 });
-		const [game] = await tenantDb().select().from(games);
-		expect(game).toMatchObject({
-			winnerId: rival.id,
-			player1EloBefore: 1400,
-			player1EloAfter: 1376,
-			player2EloBefore: 1200,
-			player2EloAfter: 1224,
-		});
-	});
-
-	test("fires game achievements for both players after the response", async () => {
-		const tenant = await createTenant();
-		const [me, rival] = await createPlayers(2);
-		signInAs(me);
-
-		await createGame({ player2Id: rival.id, won: true });
-
-		const scope = { tenantId: tenant.id };
-		const calls = vi.mocked(checkAndUnlockAchievements).mock.calls;
-		expect(calls).toEqual(
-			expect.arrayContaining([
-				[me.id, "game_played", undefined, scope],
-				[rival.id, "game_played", undefined, scope],
-				[me.id, "game_won", undefined, scope],
-				[rival.id, "game_lost", undefined, scope],
-			]),
-		);
-	});
-
-	test("rejects self-play and opted-out players without writing", async () => {
-		await createTenant();
-		const [me, rival] = await createPlayers(2);
-		signInAs(me);
-
-		expect(await createGame({ player2Id: me.id, won: true })).toMatchObject({
-			success: false,
-		});
-
-		await setEloEnabled(rival.id, false);
-		expect(await createGame({ player2Id: rival.id, won: true })).toMatchObject({
-			success: false,
-			error: expect.stringMatching(/opted out/),
-		});
-
-		await setEloEnabled(rival.id, true);
-		await setEloEnabled(me.id, false);
-		expect((await createGame({ player2Id: rival.id, won: true })).success).toBe(
-			false,
-		);
-
-		expect(await tenantDb().select().from(games)).toHaveLength(0);
-		expect(await getUserStatsRow(me.id)).toBeUndefined();
-	});
-});
 
 describe("getLeaderboard", () => {
 	test("ranks this Corps' active players by unified ELO", async () => {
@@ -249,72 +129,6 @@ describe("game history", () => {
 		const recent = await getRecentGames();
 
 		expect(recent.map((g) => g.player2Id)).toEqual([bert.id]);
-	});
-
-	test("a player's games, history and stats", async () => {
-		freezeClock("2026-10-20T18:00:00Z");
-		await createTenant();
-		const [anna, bert, carl] = await createPlayers(3);
-		await insertGame({
-			player1Id: anna.id,
-			player2Id: bert.id,
-			winnerId: anna.id,
-			player1EloAfter: 1216,
-			player2EloAfter: 1184,
-		});
-		freezeClock("2026-10-21T18:00:00Z");
-		await insertGame({
-			player1Id: carl.id,
-			player2Id: anna.id,
-			winnerId: carl.id,
-			player1EloBefore: 1200,
-			player1EloAfter: 1217,
-			player2EloBefore: 1216,
-			player2EloAfter: 1199,
-		});
-		await insertGame({
-			player1Id: bert.id,
-			player2Id: carl.id,
-			winnerId: bert.id,
-		});
-		await setUserStats(anna.id, {
-			currentElo: 1199,
-			peakElo: 1216,
-			totalGames: 2,
-			wins: 1,
-			losses: 1,
-		});
-		signInAs(anna);
-
-		const mine = await getUserGames(anna.id);
-		expect(mine).toHaveLength(2);
-		expect(mine[0]).toMatchObject({ player1Id: carl.id, eloChange: 17 });
-
-		expect(await getUserEloHistory(anna.id)).toEqual([
-			{
-				gameId: mine[1]?.id,
-				eloAfter: 1216,
-				playedAt: new Date("2026-10-20T18:00:00Z"),
-				won: true,
-				opponent: bert.name,
-			},
-			{
-				gameId: mine[0]?.id,
-				eloAfter: 1199,
-				playedAt: new Date("2026-10-21T18:00:00Z"),
-				won: false,
-				opponent: carl.name,
-			},
-		]);
-
-		expect(await getUserStats(anna.id)).toMatchObject({
-			userId: anna.id,
-			userName: anna.name,
-			currentElo: 1199,
-			peakElo: 1216,
-			totalGames: 2,
-			winRate: 50,
-		});
 	});
 });
 

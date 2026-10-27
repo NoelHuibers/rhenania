@@ -37,7 +37,6 @@ const updateItemSchema = z.object({
 	pictureUrl: z.string().url().optional(),
 });
 
-export type AddFuchsenItemInput = z.infer<typeof addItemSchema>;
 export type UpdateFuchsenItemInput = z.infer<typeof updateItemSchema>;
 export type FuchsenItem = typeof fuchsenItems.$inferSelect;
 

@@ -25,7 +25,6 @@ import {
 	deleteMember,
 	listMemberStatusOptions,
 	listMembers,
-	setAddressNeedsUpdate,
 	updateMember,
 	updateMemberFields,
 } from "./members";
@@ -309,19 +308,7 @@ describe("updateMemberFields", () => {
 	});
 });
 
-describe("setAddressNeedsUpdate / deleteMember", () => {
-	test("flags an outdated address", async () => {
-		const editor = await signInEditor();
-		const m = await seedMember();
-
-		await setAddressNeedsUpdate(m.id, true);
-
-		expect(await memberRow(m.id)).toMatchObject({
-			addressNeedsUpdate: true,
-			updatedBy: editor.id,
-		});
-	});
-
+describe("deleteMember", () => {
 	test("deleting removes open charges with the member", async () => {
 		await signInEditor();
 		const kp = await createKostenpunkt((await createEtaplan()).id);

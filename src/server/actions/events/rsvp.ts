@@ -172,29 +172,6 @@ export async function removeRsvp(eventId: string): Promise<SetRsvpResult> {
 	}
 }
 
-export async function getUserRsvp(eventId: string) {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return null;
-	}
-
-	const [row] = await db
-		.select({
-			status: eventRsvps.status,
-			note: eventRsvps.note,
-		})
-		.from(eventRsvps)
-		.where(
-			and(
-				eq(eventRsvps.eventId, eventId),
-				eq(eventRsvps.userId, session.user.id),
-			),
-		)
-		.limit(1);
-
-	return row ?? null;
-}
-
 export async function getUserRsvpsForEvents(eventIds: string[]) {
 	if (eventIds.length === 0) {
 		return new Map<string, RsvpStatus>();

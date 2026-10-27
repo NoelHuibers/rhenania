@@ -12,18 +12,6 @@ export const MEMBER_STATUS_OPTIONS = [
 	{ value: "AHEB", label: "AHEB" },
 ];
 
-export function formatMemberAddress(m: {
-	street?: string | null;
-	houseNumber?: string | null;
-	addressLine2?: string | null;
-	postalCode?: string | null;
-	city?: string | null;
-}): string {
-	const line1 = [m.street, m.houseNumber].filter(Boolean).join(" ");
-	const line3 = [m.postalCode, m.city].filter(Boolean).join(" ");
-	return [line1, m.addressLine2, line3].filter(Boolean).join(", ");
-}
-
 export function memberInitials(
 	firstName?: string | null,
 	lastName?: string | null,

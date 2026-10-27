@@ -11,7 +11,6 @@ import {
 import {
 	getTransactionCount,
 	getTransactions,
-	getUniquePurposes,
 	type TransactionFilters,
 } from "./tracking";
 
@@ -141,19 +140,5 @@ describe("getTransactions / getTransactionCount", () => {
 			expect((await getTransactionCount({ search })).count).toBe(0);
 		}
 		expect((await getTransactionCount({ search: "Club-" })).count).toBe(2);
-	});
-});
-
-describe("getUniquePurposes", () => {
-	test("lists each group-booking purpose once, sorted", async () => {
-		await seedOrders();
-		const pils = await createDrink();
-		await createOrderRow({ drink: pils, bookingFor: "CC" });
-		await createOrderRow({ drink: pils, bookingFor: "AKN" });
-
-		expect(await getUniquePurposes()).toEqual({
-			success: true,
-			data: ["AHV", "AKN", "CC"],
-		});
 	});
 });

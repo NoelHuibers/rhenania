@@ -36,6 +36,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec biome ci .
+      # Unused files, exports and dependencies; config and the second
+      # (--production) pass for server actions are explained in knip.config.ts.
+      - name: Dead code (knip)
+        run: pnpm knip
       - name: No unexplained biome-ignore
         run: |
           if grep -rnE 'biome-ignore[^:]*:[^:]*$' src scripts test e2e | grep -vE 'biome-ignore[^:]*: .*[a-zA-Z]{3,}'; then

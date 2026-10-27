@@ -381,21 +381,6 @@ export async function createNewFuchsenBilling() {
 	}
 }
 
-export async function getLatestFuchsenBillPeriod() {
-	await requireRole(ROLES.fuchsen);
-	try {
-		const [latest] = await db
-			.select()
-			.from(fuchsenBillPeriods)
-			.orderBy(desc(fuchsenBillPeriods.createdAt))
-			.limit(1);
-		return latest ?? null;
-	} catch (error) {
-		await log.error("Error getting latest fuchsen bill period", { err: error });
-		return null;
-	}
-}
-
 export async function getAllFuchsenBillPeriods() {
 	await requireRole(ROLES.fuchsen);
 	try {
@@ -526,24 +511,6 @@ export async function getUnbilledFuchsenOrdersGrouped(): Promise<
 	}
 }
 
-export async function closeFuchsenBillPeriod(billPeriodId: string) {
-	const authCheck = await requireFuchsenwart();
-	if (!authCheck.ok) {
-		return { success: false, message: authCheck.error };
-	}
-	try {
-		const now = new Date();
-		await db
-			.update(fuchsenBillPeriods)
-			.set({ closedAt: now, updatedAt: now })
-			.where(eq(fuchsenBillPeriods.id, billPeriodId));
-		return { success: true, message: "Abrechnungsperiode abgeschlossen" };
-	} catch (error) {
-		await log.error("Error closing fuchsen bill period", { err: error });
-		return { success: false, message: "Fehler beim Abschließen" };
-	}
-}
-
 export async function updateFuchsenBillStatus(
 	billId: string,
 	newStatus: "Bezahlt" | "Unbezahlt" | "Gestundet",
@@ -670,40 +637,6 @@ async function setCarriedBills(
 			updatedAt: change.now,
 		})
 		.where(inArray(fuchsenOrders.billId, ids));
-}
-
-export async function getFuchsenBillingStatistics() {
-	await requireRole(ROLES.fuchsen);
-	try {
-		const [unbilled] = await db
-			.select({
-				count: sql<number>`count(*)`,
-				total: sql<number>`coalesce(sum(${fuchsenOrders.total}), 0)`,
-			})
-			.from(fuchsenOrders)
-			.where(isBillable());
-
-		const [periods] = await db
-			.select({ count: sql<number>`count(*)` })
-			.from(fuchsenBillPeriods);
-
-		const [pending] = await db
-			.select({ total: sql<number>`coalesce(sum(${fuchsenBills.total}), 0)` })
-			.from(fuchsenBills)
-			.where(eq(fuchsenBills.status, "Unbezahlt"));
-
-		return {
-			unbilledOrders: {
-				count: unbilled?.count ?? 0,
-				totalAmount: unbilled?.total ?? 0,
-			},
-			totalBillPeriods: periods?.count ?? 0,
-			pendingBillsAmount: pending?.total ?? 0,
-		};
-	} catch (error) {
-		await log.error("Error getting fuchsen billing statistics", { err: error });
-		return null;
-	}
 }
 
 /** The current user's own fuchsen bills (newest first), with line items. */

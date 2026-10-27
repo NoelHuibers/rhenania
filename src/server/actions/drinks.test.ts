@@ -18,7 +18,6 @@ import {
 import {
 	addDrink,
 	deleteDrink,
-	deleteDrinkImage,
 	getDrinks,
 	toggleDrinkAvailability,
 	updateDrink,
@@ -186,41 +185,6 @@ describe("updateDrink", () => {
 
 		expect(result.success).toBe(true);
 		expect((await drinkRow(drink.id))?.picture).toBe(NEW_PICTURE);
-	});
-});
-
-describe("deleteDrinkImage", () => {
-	test("deletes the blob and clears the picture", async () => {
-		const drink = await createDrinkWithPicture();
-
-		expect(await deleteDrinkImage(drink.id)).toEqual({
-			success: true,
-			message: "Bild erfolgreich gelöscht",
-		});
-		expect(del).toHaveBeenCalledExactlyOnceWith(OLD_PICTURE);
-		expect((await drinkRow(drink.id))?.picture).toBeNull();
-	});
-
-	test("keeps the picture reference when the blob delete fails", async () => {
-		const drink = await createDrinkWithPicture();
-		vi.mocked(del).mockRejectedValueOnce(new Error("blob store down"));
-
-		expect(await deleteDrinkImage(drink.id)).toEqual({
-			success: false,
-			error: "Fehler beim Löschen des Bildes",
-		});
-		expect((await drinkRow(drink.id))?.picture).toBe(OLD_PICTURE);
-	});
-
-	test("is a no-op for drinks without a picture and fails for unknown drinks", async () => {
-		const drink = await createDrink();
-
-		expect((await deleteDrinkImage(drink.id)).success).toBe(true);
-		expect(del).not.toHaveBeenCalled();
-		expect(await deleteDrinkImage("deleted-drink")).toEqual({
-			success: false,
-			error: "Getränk nicht gefunden",
-		});
 	});
 });
 

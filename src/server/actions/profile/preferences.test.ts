@@ -14,7 +14,6 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import {
-	getAllPreferences,
 	getChallengeNotificationPreferenceAction,
 	getEloPreferenceAction,
 	getEmailNotificationPreferenceAction,
@@ -66,7 +65,6 @@ describe("generic preferences", () => {
 			success: false,
 			error: "Not authenticated",
 		});
-		expect(await getAllPreferences()).toEqual({});
 	});
 
 	test("corrupt stored values fall back instead of throwing", async () => {
@@ -81,7 +79,6 @@ describe("generic preferences", () => {
 		expect(await getUserPreference("broken", "fallback", "json")).toBe(
 			"fallback",
 		);
-		expect(await getAllPreferences()).toEqual({ broken: null });
 	});
 
 	test("preferences are per member", async () => {
@@ -115,12 +112,6 @@ describe("boolean switches", () => {
 			expect(await set({ enabled: false })).toEqual({ success: true });
 			expect(await get()).toEqual({ enabled: false });
 		}
-		expect(await getAllPreferences()).toEqual({
-			"gamification.eloEnabled": false,
-			"privacy.publicProfileEnabled": false,
-			"gamification.challengeNotificationsEnabled": false,
-			"notifications.emailEnabled": false,
-		});
 	});
 
 	test("Elo and public profile can be read for another member", async () => {

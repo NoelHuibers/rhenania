@@ -153,21 +153,6 @@ export async function getMyFuchsenSummary() {
 	}
 }
 
-export async function getAllFuchsenOrders() {
-	await requireRole(ROLES.fuchsen);
-	try {
-		const db = await getCurrentTenantDb();
-		const orders = await db
-			.select()
-			.from(fuchsenOrders)
-			.orderBy(desc(fuchsenOrders.createdAt));
-		return orders;
-	} catch (error) {
-		await log.error("Error fetching all fuchsen orders", { err: error });
-		return [];
-	}
-}
-
 // Aggregated bills per user (Fuchsenwart view): one row per user with totals.
 export interface FuchsenUserBill {
 	userId: string;
@@ -339,25 +324,5 @@ export async function markAllUserFuchsenOrdersPaid(userId: string) {
 	} catch (error) {
 		await log.error("Error marking all orders paid", { err: error });
 		return { success: false, error: "Fehler beim Markieren als bezahlt" };
-	}
-}
-
-export async function deleteFuchsenOrder(orderId: string) {
-	try {
-		const authCheck = await requireFuchsenwart();
-		if (!authCheck.ok) {
-			return { success: false, error: authCheck.error };
-		}
-
-		const db = await getCurrentTenantDb();
-		await db.delete(fuchsenOrders).where(eq(fuchsenOrders.id, orderId));
-
-		revalidatePath("/fuchsenwart");
-		revalidatePath("/profile");
-
-		return { success: true };
-	} catch (error) {
-		await log.error("Error deleting fuchsen order", { err: error });
-		return { success: false, error: "Fehler beim Löschen der Bestellung" };
 	}
 }

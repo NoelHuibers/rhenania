@@ -13,7 +13,6 @@ import {
 } from "../../../../test/harness";
 import {
 	deleteHomepageImage,
-	getActiveHomepageImages,
 	getAllHomepageImages,
 	saveHomepageImage,
 	toggleImageActive,
@@ -95,19 +94,6 @@ describe("saveHomepageImage", () => {
 });
 
 describe("reading images", () => {
-	test("getActiveHomepageImages filters by section and active state", async () => {
-		await asFotowart();
-		await createHomepageImage({ section: "aktive", displayOrder: 2 });
-		await createHomepageImage({ section: "aktive", displayOrder: 1 });
-		await createHomepageImage({ section: "aktive", isActive: false });
-		await createHomepageImage({ section: "footer" });
-
-		const aktive = await getActiveHomepageImages("aktive");
-		expect(aktive.success).toBe(true);
-		expect(aktive.data.map((i) => i.displayOrder)).toEqual([1, 2]);
-		expect((await getActiveHomepageImages()).data).toHaveLength(3);
-	});
-
 	test("getAllHomepageImages groups everything by section for the admin view", async () => {
 		await asFotowart();
 		await createHomepageImage({ section: "header", isActive: false });
