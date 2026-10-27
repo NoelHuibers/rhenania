@@ -16,6 +16,11 @@ description: How to drive this app end-to-end locally for verification (login, t
 - `http://localhost:3000` → Rhenania (lokal), `http://hassia.localhost:3000`
   → Hassia (lokal, markup + billing flags on). Page titles end in "(lokal)",
   which is a quick check that you are NOT on production data.
+- Port 3000 only for sign-in: `BETTER_AUTH_URL` and the trusted origin of
+  the `localhost` tenant domain are fixed to `http://localhost:3000`. On
+  another port (`PORT=3458 pnpm dev:local`, e.g. next to an agent's server)
+  the browser sign-in fails with "Invalid origin"; sign in via the API with
+  `-H "Origin: http://localhost:3000"` and reuse the cookie instead.
 - Outgoing mail is written to `.data/mail/*.json` instead of being sent
   (password resets, invites, bills).
 - Blob uploads (avatars, drink pictures, bill PDFs) have no token locally and
