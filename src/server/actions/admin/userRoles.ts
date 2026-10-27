@@ -1,7 +1,7 @@
 // ~/server/actions/userRoles.ts
 "use server";
 
-import { and, eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "~/server/db";
 import { roles, userRoles } from "~/server/db/schema";
 import { ROLES, requireSelfOrRole } from "~/server/lib/authz";
@@ -32,29 +32,6 @@ export async function getUserRoles(userId: string): Promise<UserRole[]> {
 	} catch (error) {
 		console.error("Error fetching user roles:", error);
 		throw new Error("Failed to fetch user roles");
-	}
-}
-
-/**
- * Check if a user has a specific role
- */
-export async function hasRole(
-	userId: string,
-	roleName: string,
-): Promise<boolean> {
-	await requireSelfOrRole(userId, ROLES.admin);
-	try {
-		const result = await db
-			.select({ count: sql`1` })
-			.from(userRoles)
-			.innerJoin(roles, eq(userRoles.roleId, roles.id))
-			.where(and(eq(userRoles.userId, userId), eq(roles.name, roleName)))
-			.limit(1);
-
-		return result.length > 0;
-	} catch (error) {
-		console.error("Error checking user role:", error);
-		return false;
 	}
 }
 

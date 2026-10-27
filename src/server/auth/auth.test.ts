@@ -101,7 +101,9 @@ describe("auth() (real)", () => {
 		testState.tenantId = null;
 		testState.headers = { host: "unknown.example" };
 		expect(await auth()).toBeNull();
-		expect(await getIdentity()).not.toBeNull();
+		// Sessions are read through the tenant's own Better Auth instance
+		// (#27), so an unknown host has no identity either.
+		expect(await getIdentity()).toBeNull();
 
 		await setTenantStatus(tenant.id, "suspended");
 		testState.headers = {};
