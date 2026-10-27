@@ -5,6 +5,7 @@ import { tenantFeatures, tenants } from "~/server/db/control-schema";
 import { addDomain, setAuthConfig } from "../../../test/factories/platform";
 import {
 	controlDb,
+	countQueries,
 	createTenant,
 	setupTestDatabases,
 } from "../../../test/harness";
@@ -234,5 +235,52 @@ describe("commitTenantConfigChange", () => {
 			.select({ v: tenants.configVersion })
 			.from(tenants);
 		expect(row?.v).toBe(0);
+	});
+});
+
+describe("domains and Microsoft login (#27)", () => {
+	test("load with the tenant row in one query, primary domain first", async () => {
+		const tenant = await createTenant({ slug: "hassia" });
+		await addDomain(tenant.id, "a.hassia.example");
+		await setAuthConfig(tenant.id, {
+			microsoftEnabled: true,
+			azureClientId: "client",
+			azureClientSecret: "secret",
+			azureTenantId: "azure",
+		});
+
+		const { result, control } = await countQueries(() =>
+			getTenantConfig(tenant.id),
+		);
+
+		// Version fingerprint, tenant row (with auth config and domains), flags.
+		expect(control).toBe(3);
+		expect(result?.hostnames).toEqual([
+			"hassia.test.localhost",
+			"a.hassia.example",
+		]);
+		expect(result?.microsoftLogin).toEqual({
+			clientId: "client",
+			clientSecret: "secret",
+			azureTenantId: "azure",
+		});
+	});
+
+	test("Microsoft login is null when disabled or incomplete", async () => {
+		const disabled = await createTenant();
+		await setAuthConfig(disabled.id, {
+			microsoftEnabled: false,
+			azureClientId: "client",
+			azureClientSecret: "secret",
+			azureTenantId: "azure",
+		});
+		const incomplete = await createTenant();
+		await setAuthConfig(incomplete.id, {
+			microsoftEnabled: true,
+			azureClientId: "client",
+		});
+
+		expect((await getTenantConfig(disabled.id))?.microsoftLogin).toBeNull();
+		expect((await getTenantConfig(incomplete.id))?.microsoftLogin).toBeNull();
 	});
 });

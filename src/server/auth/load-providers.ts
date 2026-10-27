@@ -1,19 +1,14 @@
-// load-providers.ts — load per-tenant OAuth configs from the control DB
-// at app startup. Used to register the genericOAuth plugin in `auth/index.ts`.
+// load-providers.ts — the Better Auth settings of one tenant: its hosts, its
+// trusted origins and its Microsoft provider.
 //
-// Adding a new tenant or changing a tenant's Azure config requires an app
-// restart for the change to take effect — acceptable trade-off for the small
-// number of Corps and infrequent rotations.
+// Derived per request from the cached tenant config (`tenant-config.ts`), so
+// a new Corps, a new domain or a rotated Azure secret takes effect as soon as
+// the config cache sees the change (within TENANT_CONFIG_REVALIDATE_MS on
+// other instances), without a redeploy. `auth/index.ts` builds one Better
+// Auth instance per tenant from these settings.
 
-import { eq } from "drizzle-orm";
-
-import { controlDb } from "~/server/db/control";
-import {
-	tenantAuthConfig,
-	tenantDomains,
-	tenants,
-} from "~/server/db/control-schema";
 import { isLocalHost } from "~/server/lib/local-host";
+import type { TenantConfig } from "~/server/lib/tenant-config";
 
 export type TenantOAuthProvider = {
 	providerId: string;
@@ -27,10 +22,17 @@ export type TenantOAuthProvider = {
 	scopes: string[];
 };
 
-export type LoadedProviders = {
-	providers: TenantOAuthProvider[];
-	trustedOrigins: string[];
+export type TenantAuthSettings = {
+	tenantId: string;
+	tenantSlug: string;
+	/** Hosts Better Auth derives its base URL from (no port). */
 	allowedHosts: string[];
+	/** Origins allowed for CSRF checks and callback URLs. */
+	trustedOrigins: string[];
+	/** Base URL when a call carries no host: the primary domain. */
+	fallbackOrigin: string | null;
+	/** The tenant's Microsoft login, or null when not fully configured. */
+	provider: TenantOAuthProvider | null;
 };
 
 const DEFAULT_SCOPES = [
@@ -52,103 +54,39 @@ function originForHostname(hostname: string): string {
 	return `https://${hostname}`;
 }
 
-export async function loadTenantOAuthProviders(): Promise<LoadedProviders> {
-	const rows = await controlDb
-		.select({
-			tenantId: tenants.id,
-			slug: tenants.slug,
-			status: tenants.status,
-			microsoftEnabled: tenantAuthConfig.microsoftEnabled,
-			azureClientId: tenantAuthConfig.azureClientId,
-			azureClientSecret: tenantAuthConfig.azureClientSecret,
-			azureTenantId: tenantAuthConfig.azureTenantId,
-			hostname: tenantDomains.hostname,
-			isPrimary: tenantDomains.isPrimary,
-		})
-		.from(tenants)
-		.leftJoin(tenantAuthConfig, eq(tenantAuthConfig.tenantId, tenants.id))
-		.leftJoin(tenantDomains, eq(tenantDomains.tenantId, tenants.id));
-
-	// Group by tenant; pick a primary domain per tenant for redirect URI.
-	type TenantBundle = {
-		slug: string;
-		status: string;
-		microsoftEnabled: boolean;
-		azureClientId: string | null;
-		azureClientSecret: string | null;
-		azureTenantId: string | null;
-		hostnames: { hostname: string; isPrimary: boolean }[];
-	};
-	const byTenant = new Map<string, TenantBundle>();
-
-	for (const r of rows) {
-		const existing = byTenant.get(r.tenantId);
-		if (existing) {
-			if (r.hostname) {
-				existing.hostnames.push({
-					hostname: r.hostname,
-					isPrimary: r.isPrimary ?? false,
-				});
-			}
-			continue;
-		}
-		byTenant.set(r.tenantId, {
-			slug: r.slug,
-			status: r.status,
-			microsoftEnabled: Boolean(r.microsoftEnabled),
-			azureClientId: r.azureClientId,
-			azureClientSecret: r.azureClientSecret,
-			azureTenantId: r.azureTenantId,
-			hostnames: r.hostname
-				? [{ hostname: r.hostname, isPrimary: r.isPrimary ?? false }]
-				: [],
-		});
+/** The Microsoft provider a tenant's config registers, if any. */
+export function microsoftProviderFor(
+	config: Pick<TenantConfig, "slug" | "microsoftLogin">,
+): TenantOAuthProvider | null {
+	const login = config.microsoftLogin;
+	if (!login) {
+		return null;
 	}
-
-	const providers: TenantOAuthProvider[] = [];
-	const trustedOrigins = new Set<string>();
-	const allowedHosts = new Set<string>();
-
-	for (const t of byTenant.values()) {
-		if (t.status === "suspended") {
-			continue;
-		}
-
-		for (const h of t.hostnames) {
-			trustedOrigins.add(originForHostname(h.hostname));
-			allowedHosts.add(h.hostname);
-		}
-
-		if (
-			!t.microsoftEnabled ||
-			!t.azureClientId ||
-			!t.azureClientSecret ||
-			!t.azureTenantId
-		) {
-			continue;
-		}
-
-		// No static redirectURI — Better Auth's dynamic baseURL config (set in
-		// `auth/index.ts` via `baseURL: { allowedHosts }`) derives the redirect
-		// from the request host per call, so the same provider works from
-		// rhenania-stuttgart.de, www.rhenania-stuttgart.de, and localhost.
-		const providerId = microsoftProviderIdForSlug(t.slug);
-		providers.push({
-			providerId,
-			tenantSlug: t.slug,
-			clientId: t.azureClientId,
-			clientSecret: t.azureClientSecret,
-			azureTenantId: t.azureTenantId,
-			authorizationUrl: `https://login.microsoftonline.com/${t.azureTenantId}/oauth2/v2.0/authorize`,
-			tokenUrl: `https://login.microsoftonline.com/${t.azureTenantId}/oauth2/v2.0/token`,
-			userInfoUrl: "https://graph.microsoft.com/oidc/userinfo",
-			scopes: DEFAULT_SCOPES,
-		});
-	}
-
+	// No static redirectURI: Better Auth's dynamic baseURL derives it from
+	// the request host, so the provider works on every domain of the tenant.
 	return {
-		providers,
-		trustedOrigins: Array.from(trustedOrigins),
-		allowedHosts: Array.from(allowedHosts),
+		providerId: microsoftProviderIdForSlug(config.slug),
+		tenantSlug: config.slug,
+		clientId: login.clientId,
+		clientSecret: login.clientSecret,
+		azureTenantId: login.azureTenantId,
+		authorizationUrl: `https://login.microsoftonline.com/${login.azureTenantId}/oauth2/v2.0/authorize`,
+		tokenUrl: `https://login.microsoftonline.com/${login.azureTenantId}/oauth2/v2.0/token`,
+		userInfoUrl: "https://graph.microsoft.com/oidc/userinfo",
+		scopes: DEFAULT_SCOPES,
+	};
+}
+
+export function tenantAuthSettings(
+	config: Pick<TenantConfig, "id" | "slug" | "hostnames" | "microsoftLogin">,
+): TenantAuthSettings {
+	const primary = config.hostnames[0];
+	return {
+		tenantId: config.id,
+		tenantSlug: config.slug,
+		allowedHosts: [...config.hostnames],
+		trustedOrigins: config.hostnames.map(originForHostname),
+		fallbackOrigin: primary ? originForHostname(primary) : null,
+		provider: microsoftProviderFor(config),
 	};
 }

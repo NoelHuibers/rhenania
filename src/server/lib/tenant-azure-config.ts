@@ -1,12 +1,12 @@
-// tenant-azure-config.ts — fetch the resolved tenant's Azure OAuth config.
+// tenant-azure-config.ts — the resolved tenant's Azure OAuth config.
 //
 // Used by Microsoft Graph token refresh to look up which Azure clientId /
-// clientSecret / tenantId to use for the current request's tenant.
+// clientSecret / tenantId to use for the current request's tenant. Read
+// through the tenant-config cache, like the Better Auth instance that
+// registered the provider, so both see a rotated secret at the same time.
 
-import { eq } from "drizzle-orm";
 import { microsoftProviderIdForSlug } from "~/server/auth/load-providers";
-import { controlDb } from "~/server/db/control";
-import { tenantAuthConfig, tenants } from "~/server/db/control-schema";
+import { getTenantConfig } from "~/server/lib/tenant-config";
 import { requireTenantId } from "~/server/lib/tenant-context";
 
 export type ResolvedTenantAzureConfig = {
@@ -20,36 +20,18 @@ export type ResolvedTenantAzureConfig = {
 
 export async function getCurrentTenantAzureConfig(): Promise<ResolvedTenantAzureConfig | null> {
 	const tenantId = await requireTenantId();
-
-	const [row] = await controlDb
-		.select({
-			tenantId: tenants.id,
-			slug: tenants.slug,
-			microsoftEnabled: tenantAuthConfig.microsoftEnabled,
-			azureClientId: tenantAuthConfig.azureClientId,
-			azureClientSecret: tenantAuthConfig.azureClientSecret,
-			azureTenantId: tenantAuthConfig.azureTenantId,
-		})
-		.from(tenants)
-		.leftJoin(tenantAuthConfig, eq(tenantAuthConfig.tenantId, tenants.id))
-		.where(eq(tenants.id, tenantId))
-		.limit(1);
-
-	if (
-		!row?.microsoftEnabled ||
-		!row.azureClientId ||
-		!row.azureClientSecret ||
-		!row.azureTenantId
-	) {
+	const config = await getTenantConfig(tenantId);
+	const login = config?.microsoftLogin;
+	if (!config || !login) {
 		return null;
 	}
 
 	return {
-		tenantId: row.tenantId,
-		tenantSlug: row.slug,
-		microsoftProviderId: microsoftProviderIdForSlug(row.slug),
-		azureClientId: row.azureClientId,
-		azureClientSecret: row.azureClientSecret,
-		azureTenantId: row.azureTenantId,
+		tenantId: config.id,
+		tenantSlug: config.slug,
+		microsoftProviderId: microsoftProviderIdForSlug(config.slug),
+		azureClientId: login.clientId,
+		azureClientSecret: login.clientSecret,
+		azureTenantId: login.azureTenantId,
 	};
 }

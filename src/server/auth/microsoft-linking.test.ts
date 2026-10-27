@@ -36,8 +36,8 @@ function jwt(claims: Record<string, unknown>): string {
 	return `${part({ alg: "none" })}.${part(claims)}.`;
 }
 
-// Fixed slugs and Entra tenants: the auth module loads its providers once per
-// test file, and every test recreates the same two Corps.
+// Fixed slugs and Entra tenants, so provider ids and hosts are predictable;
+// every test recreates the same two Corps.
 const A = { slug: "corps-a", azure: "azure-a" };
 const B = { slug: "corps-b", azure: "azure-b" };
 const host = (slug: string) => `${slug}.test.localhost`;
@@ -204,7 +204,9 @@ describe("getMicrosoftUserInfo", () => {
 
 // ─── The real flow ──────────────────────────────────────────────────────────
 
-const authModule = () => import("./index");
+/** The real `/api/auth/[...all]` route: picks the host's Better Auth instance. */
+const authRoute = async (request: Request) =>
+	(await import("~/app/api/auth/[...all]/route")).POST(request);
 
 function cookieHeader(res: Response): string {
 	return res.headers
@@ -214,9 +216,8 @@ function cookieHeader(res: Response): string {
 }
 
 async function startSignIn(slug: string, providerId: string) {
-	const { betterAuthInstance } = await authModule();
 	const origin = `http://${host(slug)}:3000`;
-	return betterAuthInstance.handler(
+	return authRoute(
 		new Request(`${origin}/api/auth/sign-in/oauth2`, {
 			method: "POST",
 			headers: {
@@ -239,7 +240,6 @@ async function microsoftLogin(
 	providerId: string,
 	claims: Record<string, unknown>,
 ) {
-	const { betterAuthInstance } = await authModule();
 	const start = await startSignIn(slug, providerId);
 	expect(start.status).toBe(200);
 	const { url } = (await start.json()) as { url: string };
@@ -254,7 +254,7 @@ async function microsoftLogin(
 		}),
 	);
 	const origin = `http://${host(slug)}:3000`;
-	return betterAuthInstance.handler(
+	return authRoute(
 		new Request(
 			`${origin}/api/auth/oauth2/callback/${providerId}?code=code&state=${state}`,
 			{ headers: { cookie: cookieHeader(start), host: `${host(slug)}:3000` } },
@@ -336,8 +336,7 @@ describe("Microsoft login across Corps (real Better Auth)", () => {
 		const start = await startSignIn(A.slug, `microsoft-${B.slug}`);
 		expect(start.status).toBe(403);
 
-		const { betterAuthInstance } = await authModule();
-		const callback = await betterAuthInstance.handler(
+		const callback = await authRoute(
 			new Request(
 				`http://${host(A.slug)}:3000/api/auth/oauth2/callback/microsoft-${B.slug}?code=c&state=s`,
 				{ headers: { host: `${host(A.slug)}:3000` } },
@@ -351,8 +350,7 @@ describe("Microsoft login across Corps (real Better Auth)", () => {
 
 	test("explicit linking is held to the same host check", async () => {
 		await twoCorps();
-		const { betterAuthInstance } = await authModule();
-		const res = await betterAuthInstance.handler(
+		const res = await authRoute(
 			new Request(`http://${host(A.slug)}:3000/api/auth/oauth2/link`, {
 				method: "POST",
 				headers: {

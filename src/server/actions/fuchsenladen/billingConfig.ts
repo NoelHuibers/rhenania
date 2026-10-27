@@ -7,7 +7,6 @@ import { db } from "~/server/db";
 import { fuchsenBillingConfig } from "~/server/db/schema";
 import { requireMember } from "~/server/lib/authz";
 import { log } from "~/server/lib/log";
-import { hasRole } from "../admin/userRoles";
 
 export type FuchsenBillingConfig = typeof fuchsenBillingConfig.$inferSelect;
 
@@ -68,11 +67,9 @@ export async function updateFuchsenBillingConfig(
 	if (!session?.user?.id) {
 		return { success: false, error: "Authentifizierung erforderlich" };
 	}
-	const [isFuchs, isAdmin] = await Promise.all([
-		hasRole(session.user.id, "Fuchs"),
-		hasRole(session.user.id, "Admin"),
-	]);
-	if (!isFuchs && !isAdmin) {
+	if (
+		!session.user.roles.some((role) => role === "Fuchs" || role === "Admin")
+	) {
 		return { success: false, error: "Keine Berechtigung" };
 	}
 

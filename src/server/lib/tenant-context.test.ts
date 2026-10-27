@@ -16,6 +16,7 @@ import { requireControl, testState } from "../../../test/state";
 import {
 	clearTenantCache,
 	clearTenantHostCache,
+	forgetMembership,
 	getCurrentRequestOrigin,
 	getCurrentTenant,
 	getTenantById,
@@ -229,6 +230,45 @@ describe("hasActiveMembership", () => {
 		vi.setSystemTime(new Date("2026-10-26T12:00:30Z"));
 		expect(await hasActiveMembership(user.id, tenant.id)).toBe(true);
 		vi.setSystemTime(new Date("2026-10-26T12:01:01Z"));
+		expect(await hasActiveMembership(user.id, tenant.id)).toBe(false);
+	});
+
+	test("forgetMembership drops one pair, one user or everything", async () => {
+		const a = await createTenant();
+		const b = await createTenant();
+		const ann = await createUser({ tenantId: a.id });
+		const bob = await createUser({ tenantId: a.id });
+		await controlDb()
+			.insert(tenantMemberships)
+			.values({ userId: ann.id, tenantId: b.id, status: "active" });
+		const check = () =>
+			Promise.all([
+				hasActiveMembership(ann.id, a.id),
+				hasActiveMembership(ann.id, b.id),
+				hasActiveMembership(bob.id, a.id),
+			]);
+		expect(await check()).toEqual([true, true, true]);
+		await controlDb().update(tenantMemberships).set({ status: "suspended" });
+
+		forgetMembership(ann.id, a.id);
+		expect(await check()).toEqual([false, true, true]);
+		forgetMembership(ann.id);
+		expect(await check()).toEqual([false, false, true]);
+		forgetMembership();
+		expect(await check()).toEqual([false, false, false]);
+	});
+
+	test("a lookup racing a forget does not cache the old answer", async () => {
+		const tenant = await createTenant();
+		const user = await createUser();
+		const pending = hasActiveMembership(user.id, tenant.id);
+		forgetMembership(user.id, tenant.id);
+		expect(await pending).toBe(true);
+
+		await controlDb()
+			.update(tenantMemberships)
+			.set({ status: "suspended" })
+			.where(eq(tenantMemberships.userId, user.id));
 		expect(await hasActiveMembership(user.id, tenant.id)).toBe(false);
 	});
 });

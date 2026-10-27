@@ -7,7 +7,7 @@ import {
 	signInAs,
 } from "../../../../test/harness";
 import { requireTenant } from "../../../../test/state";
-import { getUserRoles, hasAnyRole, hasRole } from "./userRoles";
+import { getUserRoles, hasAnyRole } from "./userRoles";
 
 setupTestDatabases();
 
@@ -19,7 +19,7 @@ async function asAdmin() {
 }
 
 describe("role queries", () => {
-	test("getUserRoles and hasRole/hasAnyRole read the tenant's assignments", async () => {
+	test("getUserRoles and hasAnyRole read the tenant's assignments", async () => {
 		await asAdmin();
 		const member = await createUser({ roles: ["Senior", "Hausbewohner"] });
 
@@ -27,8 +27,6 @@ describe("role queries", () => {
 			"Hausbewohner",
 			"Senior",
 		]);
-		expect(await hasRole(member.id, "Senior")).toBe(true);
-		expect(await hasRole(member.id, "Admin")).toBe(false);
 		expect(await hasAnyRole(member.id, ["Admin", "Senior"])).toBe(true);
 		expect(await hasAnyRole(member.id, ["Admin", "Fuchs"])).toBe(false);
 		expect(await hasAnyRole(member.id, [])).toBe(false);
@@ -40,7 +38,6 @@ describe("role queries", () => {
 		vi.spyOn(console, "error").mockImplementation(() => {});
 		await requireTenant().client.execute("DROP TABLE user_role");
 
-		await expect(hasRole(member.id, "Senior")).rejects.toThrow();
 		await expect(hasAnyRole(member.id, ["Senior"])).rejects.toThrow();
 		await expect(getUserRoles(member.id)).rejects.toThrow();
 	});

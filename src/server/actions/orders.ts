@@ -20,7 +20,6 @@ import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
 import { log } from "~/server/lib/log";
 import { requireTenantId } from "~/server/lib/tenant-context";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
-import { hasRole } from "./admin/userRoles";
 import { getUserName } from "./getUserName";
 
 export interface CreateOrderRequest {
@@ -59,10 +58,8 @@ export async function createOrder(
 		const adminId = session.user.id;
 		const adminName = await getUserName();
 
-		const [isFaxe, isAdmin] = await Promise.all([
-			hasRole(adminId, "Faxe"),
-			hasRole(adminId, "Admin"),
-		]);
+		const isFaxe = session.user.roles.includes("Faxe");
+		const isAdmin = session.user.roles.includes("Admin");
 
 		if (isFaxe) {
 			orderData.bookingFor = "AHV";

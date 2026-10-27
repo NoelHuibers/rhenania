@@ -51,7 +51,7 @@ export function AuthConfigSection({
 			if (r.success) {
 				toast.success("Auth config updated", {
 					description:
-						"Restart the dev/prod server for the change to take effect.",
+						"Takes effect on every server within a few seconds, no restart needed.",
 				});
 				setClientSecret("");
 				onDone();
@@ -143,9 +143,9 @@ export function AuthConfigSection({
 					Save auth config
 				</Button>
 
-				<div className="rounded-md bg-warning-muted p-3 text-warning-muted-foreground text-xs">
-					Auth provider configs are loaded at server start. Restart the app
-					after changing these for them to take effect.
+				<div className="rounded-md bg-muted p-3 text-muted-foreground text-xs">
+					Changes apply to sign-in on every server within a few seconds; no
+					restart or redeploy needed.
 				</div>
 			</div>
 		</section>

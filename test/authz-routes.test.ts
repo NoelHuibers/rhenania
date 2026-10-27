@@ -34,9 +34,14 @@ type Access =
 	| "superadmin";
 
 const ROUTES: Record<string, Record<string, Access>> = {
+	// One handler per method, delegating to the host's own Better Auth
+	// instance; hosts without a Corps get a 404.
 	"src/app/api/auth/[...all]/route.ts": {
+		DELETE: { library: "Better Auth: sign-in, sessions, password reset" },
 		GET: { library: "Better Auth: sign-in, sessions, password reset" },
+		PATCH: { library: "Better Auth: sign-in, sessions, password reset" },
 		POST: { library: "Better Auth: sign-in, sessions, password reset" },
+		PUT: { library: "Better Auth: sign-in, sessions, password reset" },
 	},
 	"src/app/api/calendar/route.ts": {
 		GET: { public: "public events of the Corps as iCal" },
@@ -57,6 +62,15 @@ const METHODS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"]);
 
 /** Names a top-level statement exports (incl. `export const { GET } = …`). */
 function exportedNames(st: import("typescript").Statement): string[] {
+	// `export { handler as GET, handler as POST }`
+	if (
+		ts.isExportDeclaration(st) &&
+		!st.isTypeOnly &&
+		st.exportClause &&
+		ts.isNamedExports(st.exportClause)
+	) {
+		return st.exportClause.elements.map((el) => el.name.text);
+	}
 	const exported =
 		ts.canHaveModifiers(st) &&
 		(ts.getModifiers(st) ?? []).some(

@@ -13,7 +13,7 @@ import {
 import { verificationTokens } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 import { ROLES, requireRole } from "~/server/lib/authz";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import { forgetMembership, requireTenantId } from "~/server/lib/tenant-context";
 import { mirrorUserToTenant } from "~/server/lib/user-mirror";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
 import { sendVerificationEmail } from "./email";
@@ -128,6 +128,7 @@ export async function createUser(
 			tenantId,
 			status: "active",
 		});
+		forgetMembership(userRow.id, tenantId);
 
 		// Mirror to tenant DB so existing joins work.
 		await mirrorUserToTenant(

@@ -172,10 +172,12 @@ describe("profile page query budget (#24)", () => {
 });
 
 /**
- * 26 data queries plus 13 auth() calls (the page's and each guarded
- * loader's) at 2 lookups each. The test mock of auth() is not memoized; in
- * production it is memoized per request (React cache), so the session costs
- * 2 lookups per page there. The four preference switches are one query (was
- * four, each behind its own session lookup).
+ * 27 data queries plus 12 auth() calls (the page's and each guarded
+ * loader's) at 2 lookups each (membership, roles). The test mock of auth() is
+ * not memoized; in production it is memoized per request (React cache), so
+ * the session costs 2 lookups per page there. The four preference switches
+ * are one query (was four, each behind its own session lookup). The tenant's
+ * auth config comes with its cached Better Auth instance (#27), not from a
+ * query per request.
  */
-const PROFILE_PAGE_BUDGET = 26 + 2 * 13;
+const PROFILE_PAGE_BUDGET = 27 + 2 * 12;

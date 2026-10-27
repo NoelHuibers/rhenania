@@ -110,7 +110,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	"src/server/actions/admin/userRoles.ts": {
 		// Self or Admin; asked about somebody else here.
 		getUserRoles: { access: ADMIN, args: (c) => [c.other.id] },
-		hasRole: { access: ADMIN, args: (c) => [c.other.id, "Admin"] },
 		hasAnyRole: { access: ADMIN, args: (c) => [c.other.id, ["Admin"]] },
 	},
 	"src/server/actions/bilder/homepageImages.ts": {
