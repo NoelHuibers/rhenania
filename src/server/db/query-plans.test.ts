@@ -109,6 +109,7 @@ describe("hot query plans use the composite indexes (#25)", () => {
 			items: [{ drink, countedStock: 20 }],
 		});
 		await createOrderRow({ user: await createUser(), drink });
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 
 		const plans = await plansOf(/"order"\."createdAt" >= /, getStockData);
 		expectIndex(plans, "order_drink_created_idx");
@@ -149,6 +150,7 @@ describe("hot query plans use the composite indexes (#25)", () => {
 			user: member,
 			drinksTotal: 10,
 		});
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 
 		const byMember = /"bill"\."userId" = \? and "bill"\."(status|createdAt)"/;
 		const pay = await plansOf(byMember, () =>
@@ -173,6 +175,7 @@ describe("hot query plans use the composite indexes (#25)", () => {
 			user: eventUser("Stiftungsfest"),
 			items: [{ drinkName: "Pils", amount: 3, pricePerDrink: 1.5 }],
 		});
+		signInAs(await createUser({ roles: ["Getränkewart"] }));
 
 		const plans = await plansOf(/LIKE 'event-%'/, getOpenEntityBills);
 		expect(plans).toHaveLength(2);
