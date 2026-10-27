@@ -128,17 +128,21 @@ async function readBillingState(now: Date) {
 				.limit(1),
 			// From ALL previous periods, not just the last one: a member
 			// without new orders gets skipped by intermediate billing runs, so
-			// their debt can sit several periods back.
+			// their debt can sit several periods back. Oldest first, with the
+			// member's current name for a carry-only bill.
 			db
 				.select({
 					id: bills.id,
 					userId: bills.userId,
 					userName: bills.userName,
+					memberName: users.name,
 					total: bills.total,
 					status: bills.status,
 				})
 				.from(bills)
-				.where(isOutstanding()),
+				.leftJoin(users, eq(users.id, bills.userId))
+				.where(isOutstanding())
+				.orderBy(bills.createdAt, sql`${bills}.rowid`),
 			db
 				.selectDistinct({ id: users.id, name: users.name })
 				.from(userRoles)

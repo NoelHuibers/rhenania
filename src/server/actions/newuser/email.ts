@@ -3,6 +3,7 @@
 // must not be callable from the browser as server actions.
 import "server-only";
 import { and, eq } from "drizzle-orm";
+import { isCredit } from "~/lib/bill-payment";
 import { escapeHtml } from "~/lib/html";
 import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db";
@@ -121,6 +122,22 @@ export async function sendVerificationEmail(
 	}
 }
 
+const CREDIT_NOTE =
+	"Du musst nichts überweisen. Dein Guthaben wird mit deiner nächsten Rechnung verrechnet.";
+
+/**
+ * How a Getränke bill mail states its total: a credit (negative total) as
+ * "Guthaben" with the positive amount, never as a sum to pay (#220).
+ */
+function billAmount(total: number) {
+	const credit = isCredit(total);
+	return {
+		credit,
+		label: credit ? "Guthaben" : "Gesamtbetrag",
+		formattedTotal: `${(credit ? -total : total).toFixed(2).replace(".", ",")}€`,
+	};
+}
+
 /**
  * The member's bill mail. `paymentDueDays` is the Zahlungsziel from the
  * Getränke billing profile, the one the attached PDF prints.
@@ -135,7 +152,13 @@ export async function sendBillNotificationEmail(
 	paymentDueDays: number,
 ): Promise<void> {
 	try {
-		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
+		const { credit, label, formattedTotal } = billAmount(total);
+		const payText = credit
+			? CREDIT_NOTE
+			: `Bitte überweise den Betrag innerhalb von ${paymentDueDays} Tagen.`;
+		const payHtml = credit
+			? CREDIT_NOTE
+			: `Bitte überweise den Betrag innerhalb von <strong>${paymentDueDays} Tagen</strong>.`;
 		const tenant = await getCurrentTenant();
 		const tenantLabel = tenant?.displayName ?? "Corps";
 
@@ -148,9 +171,9 @@ Hallo ${userName},
 deine Getränkerechnung für die Abrechnungsperiode ${billNumber} wurde erstellt.
 Im Anhang findest du deine Rechnung als PDF.
 
-Gesamtbetrag: ${formattedTotal}
+${label}: ${formattedTotal}
 
-Bitte überweise den Betrag innerhalb von ${paymentDueDays} Tagen.
+${payText}
 
 Mit freundlichen Grüßen,
 ${tenantLabel}
@@ -184,10 +207,10 @@ ${tenantLabel}
                   Im Anhang findest du deine Rechnung als PDF.
                 </p>
                 <div class="total-box">
-                  <p style="margin: 0 0 4px 0; font-size: 13px; color: #6c757d;">Gesamtbetrag</p>
+                  <p style="margin: 0 0 4px 0; font-size: 13px; color: #6c757d;">${label}</p>
                   <div class="amount">${formattedTotal}</div>
                 </div>
-                <p>Bitte überweise den Betrag innerhalb von <strong>${paymentDueDays} Tagen</strong>.</p>
+                <p>${payHtml}</p>
                 <p>Falls du Fragen zu deiner Rechnung hast, wende dich an den Getränkewart.</p>
                 <p>Mit freundlichen Grüßen <br><strong>${escapeHtml(tenantLabel)}</strong></p>
               </div>
@@ -230,7 +253,7 @@ export async function sendTreasurerBillEmail(
 	fileName: string,
 ): Promise<void> {
 	try {
-		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
+		const { label, formattedTotal } = billAmount(total);
 		const tenant = await getCurrentTenant();
 		const tenantLabel = tenant?.displayName ?? "Corps";
 
@@ -244,7 +267,7 @@ die Getränkerechnung von ${billOwnerName} für die Abrechnungsperiode ${billNum
 Die Rechnung liegt als PDF im Anhang.
 
 Rechnung für: ${billOwnerName}
-Gesamtbetrag: ${formattedTotal}
+${label}: ${formattedTotal}
 
 Mit freundlichen Grüßen,
 ${tenantLabel}
@@ -278,7 +301,7 @@ ${tenantLabel}
                   Die Rechnung liegt als PDF im Anhang.
                 </p>
                 <div class="total-box">
-                  <p style="margin: 0 0 4px 0; font-size: 13px; color: #6c757d;">Gesamtbetrag</p>
+                  <p style="margin: 0 0 4px 0; font-size: 13px; color: #6c757d;">${label}</p>
                   <div class="amount">${formattedTotal}</div>
                 </div>
               </div>

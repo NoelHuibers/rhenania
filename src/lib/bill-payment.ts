@@ -10,6 +10,15 @@ export function paymentReference(userName: string, billNumber: string): string {
 	return `${userName} - Rechnung ${billNumber}`;
 }
 
+/**
+ * A bill with a negative total is a credit (Guthaben): the member has
+ * nothing to pay, and the next billing run carries it into their next bill
+ * (#220).
+ */
+export function isCredit(total: number): boolean {
+	return roundToCent(total) < 0;
+}
+
 /** paypal.me link with the amount prefilled (PayPal wants `12.30EUR`). */
 export function paypalAmountUrl(paypalBaseUrl: string, amount: number): string {
 	const value = roundToCent(Number.isFinite(amount) ? amount : 0);

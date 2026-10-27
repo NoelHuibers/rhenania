@@ -176,6 +176,35 @@ describe("generateUserBillPDF", () => {
 		expect(pdfValueAfter(pdf, "Gesamtbetrag:")).toMatch(/^25,00/);
 	});
 
+	test("states a credit as Guthaben, asks for no payment and has no PayPal amount (#220)", async () => {
+		await createTenant();
+		await setUpGetraenkeBilling();
+		const { bill } = await memberBill({
+			drinksTotal: 1.5,
+			oldBillingAmount: -2.5,
+			fees: 0,
+			items: [{ drinkName: "Pils", amount: 1, pricePerDrink: 1.5 }],
+		});
+
+		const pdf = (await generateUserBillPDF(bill.id)).pdfContent as Buffer;
+		const text = pdfText(pdf);
+
+		expect(
+			text.some((t) => t.startsWith("Du hast ein Guthaben von: 1,00")),
+		).toBe(true);
+		expect(text.some((t) => t.startsWith("in Höhe von"))).toBe(false);
+		expect(text.some((t) => t.includes("Bitte überweise"))).toBe(false);
+		expect(text.some((t) => t.includes("paypal"))).toBe(false);
+		expect(text.some((t) => t.startsWith("Du musst nichts überweisen"))).toBe(
+			true,
+		);
+		// The summary still adds up: 1,50 - 2,50 = a credit of 1,00.
+		expect(pdfValueAfter(pdf, "Rechnungsbetrag:")).toMatch(/^1,50/);
+		expect(pdfValueAfter(pdf, "Alte Rechnung:")).toMatch(/^-2,50/);
+		expect(pdfValueAfter(pdf, "Guthaben:")).toMatch(/^1,00/);
+		expect(text).not.toContain("Gesamtbetrag:");
+	});
+
 	test("marks paid and deferred bills", async () => {
 		await createTenant();
 		await setUpGetraenkeBilling();
