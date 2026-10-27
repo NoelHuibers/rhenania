@@ -356,6 +356,36 @@ describe("open bills", () => {
 		});
 	});
 
+	// A billing run creates its group bills in the same second; found via
+	// the userId index they would come back sorted by name instead (#25).
+	test("entity list shows the newest group bills first, a run's last bill on top", async () => {
+		await signInWart();
+		const old = await createBillPeriodRow({ createdAt: new Date(2026, 0, 1) });
+		const run = await createBillPeriodRow();
+		await createBillRow({
+			periodId: old.id,
+			user: eventUser("Alt"),
+			createdAt: new Date(2026, 0, 1),
+		});
+		const sameSecond = new Date();
+		for (const name of ["Zeta", "Alpha", "Mitte"]) {
+			await createBillRow({
+				periodId: run.id,
+				user: eventUser(name),
+				createdAt: sameSecond,
+			});
+		}
+
+		const entityBills = await getOpenEntityBills();
+
+		expect(entityBills.map((b) => b.userName)).toEqual([
+			"Mitte",
+			"Alpha",
+			"Zeta",
+			"Alt",
+		]);
+	});
+
 	test("Getränkewart downloads a group bill PDF as base64", async () => {
 		await signInWart();
 		await setUpGetraenkeBilling();

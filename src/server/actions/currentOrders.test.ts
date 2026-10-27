@@ -96,6 +96,27 @@ describe("getCurrentOrders", () => {
 		]);
 	});
 
+	// Member ids sort the other way round than the orders were placed, so an
+	// index on (userId, createdAt) would return them reversed (#25).
+	test("lists members and items in the order the orders were placed", async () => {
+		const pils = await createDrink({ name: "Pils", price: 1.5 });
+		const cola = await createDrink({ name: "Cola", price: 2 });
+		const zora = { id: "u-zora", name: "Zora" };
+		const anton = { id: "u-anton", name: "Anton" };
+		await createOrderRow({ drink: cola, user: zora, bookingFor: "CC" });
+		await createOrderRow({ drink: pils, user: anton, bookingFor: "CC" });
+		await createOrderRow({ drink: cola, user: zora });
+		await createOrderRow({ drink: pils, user: anton });
+
+		const entries = await getCurrentOrders();
+
+		expect(entries.map((e) => e.id)).toEqual(["u-zora", "u-anton", "event-CC"]);
+		expect(entries[2]?.items.map((i) => i.name)).toEqual(["Cola", "Pils"]);
+		expect(await getCurrentEventOrders()).toEqual([
+			expect.objectContaining({ eventName: "CC", bookedBy: "Zora" }),
+		]);
+	});
+
 	test("is empty when everything has been billed", async () => {
 		const pils = await createDrink();
 		await createOrderRow({ drink: pils, user: max, inBill: true });

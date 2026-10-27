@@ -260,7 +260,9 @@ export async function getOpenEntityBills() {
 			})
 			.from(bills)
 			.where(isGroupBill)
-			.orderBy(desc(bills.createdAt)),
+			// Bills of one run share createdAt: newest inserted first, the
+			// same order whichever index SQLite picks.
+			.orderBy(desc(bills.createdAt), desc(sql`${bills}.rowid`)),
 		db
 			.select({ item: billItems })
 			.from(billItems)

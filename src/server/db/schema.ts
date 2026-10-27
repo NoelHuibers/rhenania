@@ -196,6 +196,19 @@ export const orders = createTable(
 		index("order_user_idx").on(t.userId),
 		index("order_drink_idx").on(t.drinkId),
 		index("order_created_idx").on(t.createdAt),
+		// Sales of a drink since a stock count (Getränkewart stock, Inventur).
+		index("order_drink_created_idx").on(t.drinkId, t.createdAt),
+		// A member's orders by time (profile, achievements, recent drinks).
+		index("order_user_created_idx").on(t.userId, t.createdAt),
+		// Only the orders not billed yet (partial, so they stay small): the
+		// billing run reads them per member, the open-orders views in time
+		// order, neither walks the order history.
+		index("order_unbilled_user_idx")
+			.on(t.userId, t.createdAt)
+			.where(sql`${t.inBill} = 0`),
+		index("order_unbilled_created_idx")
+			.on(t.createdAt)
+			.where(sql`${t.inBill} = 0`),
 		foreignKey({
 			columns: [t.drinkId],
 			foreignColumns: [drinks.id],
@@ -264,6 +277,13 @@ export const bills = createTable(
 		index("bill_user_idx").on(t.userId),
 		index("bill_status_idx").on(t.status),
 		index("bill_created_idx").on(t.createdAt),
+		// A member's bills in one status around a date (paying and un-paying
+		// bills, carried-bill checks); bill_status_idx alone walks every
+		// paid bill.
+		index("bill_user_status_idx").on(t.userId, t.status, t.createdAt),
+		// Lets `userId LIKE 'event-%'` (group bills) use an index: SQLite's
+		// LIKE is case-insensitive, so only a NOCASE index can serve it.
+		index("bill_user_nocase_idx").on(sql`${t.userId} COLLATE NOCASE`),
 		foreignKey({
 			columns: [t.billPeriodId],
 			foreignColumns: [billPeriods.id],
