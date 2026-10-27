@@ -2,7 +2,7 @@
 "use server";
 
 import { del } from "@vercel/blob";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
@@ -343,7 +343,8 @@ export async function getDrinks() {
 		const allDrinks = await db
 			.select()
 			.from(drinks)
-			.orderBy(desc(drinks.createdAt));
+			// rowid breaks ties between drinks created in the same second.
+			.orderBy(desc(drinks.createdAt), sql`${drinks}.rowid`);
 
 		return allDrinks;
 	} catch (error) {
