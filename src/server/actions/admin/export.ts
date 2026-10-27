@@ -3,7 +3,7 @@
 
 import { del, list, put } from "@vercel/blob";
 
-import { auth } from "~/server/auth";
+import { auth, getIdentity } from "~/server/auth";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { log } from "~/server/lib/log";
 import { isSuperAdmin } from "~/server/lib/super-admin";
@@ -80,12 +80,15 @@ async function deleteExpiredExports(prefix: string, now: Date) {
  * returns the download link. Tenant Admins and platform superadmins only.
  */
 export async function exportTenantData(): Promise<TenantExportResult> {
-	const session = await auth();
-	const userId = session?.user?.id;
+	const identity = await getIdentity();
+	const userId = identity?.user.id;
 	if (!userId) {
 		return { success: false, error: "Nicht angemeldet" };
 	}
-	const isAdmin = session.user.roles?.includes("Admin") ?? false;
+	// auth() only returns a session for an active member of this Corps, so a
+	// superadmin from elsewhere is checked on the identity alone.
+	const session = await auth();
+	const isAdmin = session?.user.roles.includes("Admin") ?? false;
 	if (!isAdmin && !(await isSuperAdmin(userId))) {
 		return { success: false, error: "Keine Berechtigung" };
 	}

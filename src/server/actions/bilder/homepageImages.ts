@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { homepageImages } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { ROLES, requireRole } from "~/server/lib/authz";
 
 // Per-tenant configurable; valid values come from the tenant's
 // `homepage_section` table. Kept as `string` for type-level openness.
@@ -32,6 +33,7 @@ interface HomepageImageResponse {
 
 // Save a new homepage image
 export async function saveHomepageImage(data: SaveHomepageImageData) {
+	await requireRole(ROLES.fotos);
 	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
@@ -134,6 +136,7 @@ export async function getActiveHomepageImages(section?: HomepageSection) {
 
 // Get all images (including inactive) for admin panel
 export async function getAllHomepageImages() {
+	await requireRole(ROLES.fotos);
 	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
@@ -173,6 +176,7 @@ export async function getAllHomepageImages() {
 
 // Toggle image active status
 export async function toggleImageActive(imageId: string) {
+	await requireRole(ROLES.fotos);
 	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
@@ -252,6 +256,7 @@ export async function toggleImageActive(imageId: string) {
 
 // Delete image
 export async function deleteHomepageImage(imageId: string) {
+	await requireRole(ROLES.fotos);
 	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();
@@ -298,6 +303,7 @@ export async function deleteHomepageImage(imageId: string) {
 
 // Update display order for multiple images at once
 export async function updateImageOrder(imageIds: string[]) {
+	await requireRole(ROLES.fotos);
 	const db = await getCurrentTenantDb();
 	try {
 		const session = await auth();

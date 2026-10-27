@@ -81,4 +81,15 @@ describe("GET /api/health/tenants", () => {
 		);
 		expect(res.status).toBe(200);
 	});
+
+	test("answers for a superadmin who is not a member of this Corps", async () => {
+		await createTenant();
+		const admin = await createUser({ membership: null });
+		await controlDb().insert(superAdmins).values({ userId: admin.id });
+		signInAs(admin);
+		const res = await tenantsHealthRoute(
+			new Request("http://x/api/health/tenants"),
+		);
+		expect(res.status).toBe(200);
+	});
 });

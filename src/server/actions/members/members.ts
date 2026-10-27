@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
 import { members, semesterbeitragCharges } from "~/server/db/schema";
+import { requireMember } from "~/server/lib/authz";
 import {
 	getTenantMemberStatuses,
 	makeBeitragspflichtigMatcher,
@@ -104,6 +105,7 @@ export async function listMembers() {
 export async function listMemberStatusOptions(): Promise<
 	{ value: string; label: string }[]
 > {
+	await requireMember();
 	const guard = await requireRoles(MEMBER_VIEW_ROLES);
 	if (!guard.ok) {
 		return [];

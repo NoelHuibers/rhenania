@@ -13,6 +13,8 @@ export type TestSessionUser = {
 export const testState: {
 	control: ControlTestDb | null;
 	tenants: Map<string, TenantTestDb>;
+	/** Primary host per tenant; the request host follows the current tenant. */
+	tenantHosts: Map<string, string>;
 	/** Tenant of the simulated request (`x-tenant-id`). */
 	tenantId: string | null;
 	/** Signed-in user of the simulated request. */
@@ -24,6 +26,7 @@ export const testState: {
 } = {
 	control: null,
 	tenants: new Map(),
+	tenantHosts: new Map(),
 	tenantId: null,
 	sessionUser: null,
 	headers: {},

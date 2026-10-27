@@ -76,7 +76,7 @@ describe("createFuchsenOrder", () => {
 		});
 	});
 
-	test("rejects anonymous callers, non-positive amounts and inconsistent totals", async () => {
+	test("rejects anonymous callers and invalid amounts", async () => {
 		await createTenant();
 		const item = await createFuchsenItem({ price: 1 });
 		const order = {
@@ -93,10 +93,51 @@ describe("createFuchsenOrder", () => {
 		expect(
 			(await createOrderAction({ ...order, amount: 0, total: 0 })).success,
 		).toBe(false);
-		expect((await createOrderAction({ ...order, total: 3 })).success).toBe(
-			false,
-		);
+		expect(
+			(await createOrderAction({ ...order, amount: 1.5, total: 1.5 })).success,
+		).toBe(false);
 		expect(await tenantDb().select().from(fuchsenOrders)).toHaveLength(0);
+	});
+
+	test("name and price come from the item, never from the client", async () => {
+		await createTenant();
+		const item = await createFuchsenItem({ name: "Fuchsenband", price: 4.5 });
+		signInAs(await createUser());
+
+		const result = await createOrderAction({
+			itemId: item.id,
+			itemName: "Gratis",
+			amount: 2,
+			pricePerUnit: 0,
+			total: 0,
+		});
+
+		expect(result.success).toBe(true);
+		const [stored] = await tenantDb().select().from(fuchsenOrders);
+		expect(stored).toMatchObject({
+			itemName: "Fuchsenband",
+			pricePerUnit: 4.5,
+			total: 9,
+		});
+	});
+
+	test("unavailable items cannot be ordered", async () => {
+		await createTenant();
+		const item = await createFuchsenItem({
+			price: 1,
+			isCurrentlyAvailable: false,
+		});
+		signInAs(await createUser());
+
+		const result = await createOrderAction({
+			itemId: item.id,
+			itemName: item.name,
+			amount: 1,
+			pricePerUnit: 1,
+			total: 1,
+		});
+
+		expect(result.success).toBe(false);
 	});
 });
 

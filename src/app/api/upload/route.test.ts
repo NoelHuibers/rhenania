@@ -53,9 +53,11 @@ function uploadRequest(pathname: string) {
 	});
 }
 
-async function asMember() {
+async function asMember(roles: string[] = []) {
 	await createTenant({ slug: "hassia" });
-	signInAs(await createUser());
+	const user = await createUser({ roles });
+	signInAs(user);
+	return user;
 }
 
 describe("POST /api/upload", () => {
@@ -95,20 +97,22 @@ describe("POST /api/upload", () => {
 	});
 
 	test("issues size-limited, randomly suffixed tokens per folder", async () => {
-		await asMember();
+		const me = await asMember(["Fotowart", "Getränkewart"]);
 		const optionsFor = async (pathname: string) =>
 			(await (await POST(uploadRequest(pathname))).json()).options;
 
-		expect(await optionsFor("/tenants/hassia/profile/me.png")).toEqual({
-			allowedContentTypes: [
-				"image/jpeg",
-				"image/jpg",
-				"image/png",
-				"image/webp",
-			],
-			maximumSizeInBytes: 5 * 1024 * 1024,
-			addRandomSuffix: true,
-		});
+		expect(await optionsFor(`/tenants/hassia/profile/${me.id}/me.png`)).toEqual(
+			{
+				allowedContentTypes: [
+					"image/jpeg",
+					"image/jpg",
+					"image/png",
+					"image/webp",
+				],
+				maximumSizeInBytes: 5 * 1024 * 1024,
+				addRandomSuffix: true,
+			},
+		);
 		expect(await optionsFor("tenants/hassia/drinks/pils.webp")).toMatchObject({
 			maximumSizeInBytes: 5 * 1024 * 1024,
 			addRandomSuffix: true,
@@ -122,14 +126,31 @@ describe("POST /api/upload", () => {
 		const receipts = await optionsFor("tenants/hassia/receipts/beleg.pdf");
 		expect(receipts.allowedContentTypes).toContain("application/pdf");
 		expect(receipts.maximumSizeInBytes).toBe(10 * 1024 * 1024);
+		const homepage = await optionsFor("tenants/hassia/homepage/header/2.jpg");
+		expect(homepage.allowedContentTypes).not.toContain("image/svg+xml");
+	});
+
+	test("folders are limited to the roles that manage them", async () => {
+		const me = await asMember();
+		const status = async (pathname: string) =>
+			(await POST(uploadRequest(pathname))).status;
+
+		expect(await status(`tenants/hassia/profile/${me.id}/me.png`)).toBe(200);
+		expect(await status("tenants/hassia/receipts/beleg.pdf")).toBe(200);
+		expect(await status("tenants/hassia/homepage/header/1.jpg")).not.toBe(200);
+		expect(await status("tenants/hassia/drinks/pils.webp")).not.toBe(200);
+		// avatars only in the uploader's own folder
+		expect(await status("tenants/hassia/profile/someone-else/me.png")).not.toBe(
+			200,
+		);
 	});
 
 	test("hands the Blob token from the environment to the SDK", async () => {
-		await asMember();
+		const me = await asMember();
 		vi.stubEnv("ACME_READ_WRITE_TOKEN", "vercel_blob_rw_custom");
 		vi.stubEnv("OTHER_READ_WRITE_TOKEN", "not-a-blob-token");
 
-		await POST(uploadRequest("tenants/hassia/profile/me.png"));
+		await POST(uploadRequest(`tenants/hassia/profile/${me.id}/me.png`));
 
 		expect(vi.mocked(handleUpload).mock.lastCall?.[0].token).toBe(
 			"vercel_blob_rw_custom",

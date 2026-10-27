@@ -21,6 +21,10 @@ export const BOOKING_ACCOUNTS = [
 
 export type BookingAccount = (typeof BOOKING_ACCOUNTS)[number];
 
+export function isBookingAccount(value: unknown): value is BookingAccount {
+	return (BOOKING_ACCOUNTS as readonly unknown[]).includes(value);
+}
+
 /** The accounts shown as chips; the rest sit behind "Weitere". */
 export const COMMON_BOOKING_ACCOUNTS: readonly BookingAccount[] = [
 	"CC",
@@ -30,6 +34,16 @@ export const COMMON_BOOKING_ACCOUNTS: readonly BookingAccount[] = [
 
 export const MIN_ORDER_AMOUNT = 1;
 export const MAX_ORDER_AMOUNT = 100;
+
+/** Whole units between MIN_ORDER_AMOUNT and MAX_ORDER_AMOUNT. */
+export function isValidOrderAmount(value: unknown): value is number {
+	return (
+		typeof value === "number" &&
+		Number.isInteger(value) &&
+		value >= MIN_ORDER_AMOUNT &&
+		value <= MAX_ORDER_AMOUNT
+	);
+}
 
 /** Default Kasten size when a drink has none stored. */
 export const DEFAULT_KASTEN = 20;

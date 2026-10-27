@@ -6,7 +6,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { env } from "~/env";
-import { auth } from "~/server/auth";
+import { getIdentity } from "~/server/auth";
 import { EXPECTED_HEADS, tenantsHealth } from "~/server/lib/health";
 import { isSuperAdmin } from "~/server/lib/super-admin";
 
@@ -25,7 +25,8 @@ async function authorised(request: Request) {
 	if (bearerMatches(request.headers.get("authorization"), env.HEALTH_TOKEN)) {
 		return true;
 	}
-	const identity = await auth();
+	// Superadmins need not be members of the Corps whose host they use.
+	const identity = await getIdentity();
 	return identity ? isSuperAdmin(identity.user.id) : false;
 }
 

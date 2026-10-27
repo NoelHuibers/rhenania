@@ -8,7 +8,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { auth } from "~/server/auth";
+import { getIdentity } from "~/server/auth";
 import { controlDb } from "~/server/db/control";
 import { superAdmins } from "~/server/db/control-schema";
 
@@ -22,7 +22,7 @@ export async function isSuperAdmin(userId: string): Promise<boolean> {
 }
 
 export async function requireSuperAdmin(): Promise<{ userId: string }> {
-	const session = await auth();
+	const session = await getIdentity();
 	if (!session?.user?.id) {
 		throw new Error("Not authenticated");
 	}

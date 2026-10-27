@@ -200,10 +200,14 @@ export async function updateUserAvatar(formData: FormData) {
 		throw new Error("Image URL is required");
 	}
 
-	// Basic URL validation
+	// Only https image URLs (no javascript:, data:, http:).
+	let parsed: URL;
 	try {
-		new URL(imageUrl);
+		parsed = new URL(imageUrl);
 	} catch {
+		throw new Error("Invalid image URL");
+	}
+	if (parsed.protocol !== "https:") {
 		throw new Error("Invalid image URL");
 	}
 

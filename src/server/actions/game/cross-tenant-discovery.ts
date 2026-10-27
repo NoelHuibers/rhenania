@@ -13,6 +13,7 @@ import {
 	userStats,
 	users,
 } from "~/server/db/control-schema";
+import { requireMember } from "~/server/lib/authz";
 import { getTenantId } from "~/server/lib/tenant-context";
 
 export type ChallengeableTenant = {
@@ -25,7 +26,6 @@ export type ChallengeableTenant = {
 export type ChallengeableUser = {
 	userId: string;
 	name: string | null;
-	email: string;
 	currentElo: number;
 	totalGames: number;
 };
@@ -33,7 +33,6 @@ export type ChallengeableUser = {
 export type GlobalLeaderboardEntry = {
 	userId: string;
 	name: string | null;
-	email: string;
 	currentElo: number;
 	totalGames: number;
 	wins: number;
@@ -56,6 +55,7 @@ export type GlobalPeakHolder = {
  * One indexed lookup + two small joins. Used by the stats overview.
  */
 export async function getGlobalPeakEloHolder(): Promise<GlobalPeakHolder | null> {
+	await requireMember();
 	const [top] = await controlDb
 		.select()
 		.from(userStats)
@@ -183,7 +183,7 @@ export async function listChallengeableUsers(
 
 	const [userRows, statsRows] = await Promise.all([
 		controlDb
-			.select({ id: users.id, name: users.name, email: users.email })
+			.select({ id: users.id, name: users.name })
 			.from(users)
 			.where(inArray(users.id, memberIds)),
 		controlDb
@@ -201,7 +201,6 @@ export async function listChallengeableUsers(
 		.map((u) => ({
 			userId: u.id,
 			name: u.name,
-			email: u.email,
 			currentElo: statsById.get(u.id)?.currentElo ?? 1200,
 			totalGames: statsById.get(u.id)?.totalGames ?? 0,
 		}))
@@ -217,6 +216,7 @@ export async function getGlobalLeaderboard(
 	limit: number = 50,
 	offset: number = 0,
 ): Promise<GlobalLeaderboardEntry[]> {
+	await requireMember();
 	const stats = await controlDb
 		.select()
 		.from(userStats)
@@ -233,7 +233,7 @@ export async function getGlobalLeaderboard(
 
 	const [userRows, membershipRows] = await Promise.all([
 		controlDb
-			.select({ id: users.id, name: users.name, email: users.email })
+			.select({ id: users.id, name: users.name })
 			.from(users)
 			.where(inArray(users.id, userIds)),
 		controlDb
@@ -273,7 +273,6 @@ export async function getGlobalLeaderboard(
 		return {
 			userId: s.userId,
 			name: u?.name ?? null,
-			email: u?.email ?? "",
 			currentElo: s.currentElo,
 			totalGames: s.totalGames,
 			wins: s.wins,

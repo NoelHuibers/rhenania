@@ -1,4 +1,6 @@
-"use server";
+// Server-only helpers, deliberately NOT "use server": the functions here
+// must not be callable from the browser as server actions.
+import "server-only";
 
 import { and, eq, gte, lt, type SQL, sql } from "drizzle-orm";
 import { formatDateWith } from "~/lib/format";

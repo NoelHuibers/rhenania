@@ -96,6 +96,9 @@ export async function saveUserBillPDF(billId: string): Promise<{
 		const blob = await put(fileName, result.pdfContent, {
 			access: "public",
 			contentType: "application/pdf",
+			// Public blobs are readable by anyone with the URL: never make the
+			// URL guessable from the period, date or member name.
+			addRandomSuffix: true,
 		});
 
 		// Wait for blob to be available

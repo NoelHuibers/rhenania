@@ -16,6 +16,7 @@ import {
 	kostenpunkte,
 	orders,
 } from "~/server/db/schema";
+import { ROLES, requireRole } from "~/server/lib/authz";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { hasFeature } from "~/server/lib/features";
 import {
@@ -96,6 +97,7 @@ async function sumMarkupProfit(from: Date | null, to: Date | null) {
  * none yet). Returns null for tenants without the markup feature.
  */
 export async function getInventoryProfit(): Promise<number | null> {
+	await requireRole(ROLES.getraenke);
 	if (!(await hasFeature("drinks.markup"))) {
 		return null;
 	}
@@ -115,6 +117,7 @@ export async function getInventoryProfit(): Promise<number | null> {
  * was sold since. Two queries in one round trip, however many drinks.
  */
 export async function getStockData(): Promise<StockStatusWithDetails[]> {
+	await requireRole(ROLES.getraenke);
 	// Latest inventory item per drink, ranked by the inventory's start.
 	const ranked = db
 		.select({
@@ -203,6 +206,7 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
  * feature, each period's profit. Constant round trips, however many.
  */
 export async function getInventoryHistory(): Promise<InventoryWithItems[]> {
+	await requireRole(ROLES.getraenke);
 	const markupEnabled = await hasFeature("drinks.markup");
 	const inventoriesData = await db
 		.select()
@@ -293,6 +297,7 @@ export async function saveInventoryCount(
 	items: InventoryCountItem[],
 	opts?: { startEvent?: EventInfo },
 ) {
+	await requireRole(ROLES.getraenke);
 	const result = await countInventory(items, opts);
 	if (!result.success) {
 		return { success: false, error: result.error };
@@ -318,6 +323,14 @@ async function countInventory(
 	const session = await auth();
 	if (!session?.user) {
 		return { success: false, error: "Unauthorized" };
+	}
+	// Negative counts are clamped to 0 below; NaN, Infinity and fractions are
+	// rejected outright.
+	const isWhole = (n: unknown) => typeof n === "number" && Number.isInteger(n);
+	if (
+		items.some((i) => !isWhole(i.countedStock) || !isWhole(i.purchasedSince))
+	) {
+		return { success: false, error: "Bestände müssen ganze Zahlen sein" };
 	}
 
 	let totalInventoryLoss = 0;
@@ -537,6 +550,7 @@ export type CloseInventoryAndBillResult =
 export async function closeInventoryAndBill(
 	items: InventoryCountItem[],
 ): Promise<CloseInventoryAndBillResult> {
+	await requireRole(ROLES.getraenke);
 	// Billing would refuse without the tenant's sender and account; check
 	// first so the inventory is not closed with its loss left unbilled.
 	if ((await auth())?.user) {
@@ -681,6 +695,7 @@ export async function saveQuickAdjustments(
 		purchasedQuantity?: number;
 	}>,
 ) {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user) {
 		return { success: false, error: "Unauthorized" };
@@ -777,6 +792,7 @@ export async function saveQuickAdjustments(
 // ─── Veranstaltungs-Inventur (before/after an event) ──────────────────────────
 
 export async function getActiveEventInventory() {
+	await requireRole(ROLES.getraenke);
 	const [inv] = await db
 		.select({
 			id: inventories.id,
@@ -795,6 +811,7 @@ export type ActiveEventInventory = Awaited<
 >;
 
 export async function listInventurEvents() {
+	await requireRole(ROLES.getraenke);
 	const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
 	return db
 		.select({ id: events.id, title: events.title, date: events.date })
@@ -809,6 +826,7 @@ export type InventurEvent = Awaited<
 >[number];
 
 export async function listEtaplansWithKostenpunkte() {
+	await requireRole(ROLES.getraenke);
 	const [plans, kps] = await Promise.all([
 		db
 			.select({ id: etaplans.id, name: etaplans.name, status: etaplans.status })
@@ -834,6 +852,7 @@ export type EtaplanWithKostenpunkte = Awaited<
 >[number];
 
 export async function cancelEventInventory() {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user) {
 		return { success: false as const, error: "Unauthorized" };
@@ -868,6 +887,7 @@ export async function finishEventInventory(
 	| { success: true; report: EventConsumptionReport }
 	| { success: false; error: string }
 > {
+	await requireRole(ROLES.getraenke);
 	const session = await auth();
 	if (!session?.user) {
 		return { success: false, error: "Unauthorized" };

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "~/server/auth";
 import { controlDb } from "~/server/db/control";
 import { accounts } from "~/server/db/control-schema";
+import { requireMember } from "~/server/lib/authz";
 import { getCurrentTenantAzureConfig } from "~/server/lib/tenant-azure-config";
 
 // Map a UI-facing provider name (e.g. "microsoft") to the per-tenant
@@ -32,6 +33,7 @@ export async function getConnectedAccountsAction(): Promise<
 		hasPassword: boolean;
 	}>
 > {
+	await requireMember();
 	try {
 		const session = await auth();
 
@@ -213,6 +215,7 @@ export async function changePasswordAction({
 export async function connectProviderAction(
 	provider: string,
 ): Promise<ActionResult<{ providerId: string }>> {
+	await requireMember();
 	try {
 		const session = await auth();
 		if (!session?.user?.id) {

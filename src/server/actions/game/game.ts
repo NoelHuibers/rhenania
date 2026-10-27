@@ -7,7 +7,11 @@ import { db } from "~/server/db";
 import { controlDb } from "~/server/db/control";
 import { userStats } from "~/server/db/control-schema";
 import { games, userPreferences, users } from "~/server/db/schema";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import { requireMember } from "~/server/lib/authz";
+import {
+	hasActiveMembership,
+	requireTenantId,
+} from "~/server/lib/tenant-context";
 import { applyEloOutcome, getOrCreateUserStats } from "~/server/lib/user-stats";
 import { auth } from "../../auth";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
@@ -123,6 +127,7 @@ export async function createGame(gameData: GameResult): Promise<{
 	gameId?: string;
 	eloChange?: number;
 }> {
+	await requireMember();
 	const session = await auth();
 	if (!session) {
 		return { success: false, error: "User not authenticated" };
@@ -136,6 +141,17 @@ export async function createGame(gameData: GameResult): Promise<{
 			return {
 				success: false,
 				error: "A player cannot play against themselves",
+			};
+		}
+
+		// The opponent's ELO is global, so a game may only be recorded against
+		// an active member of this Corps.
+		if (
+			!(await hasActiveMembership(gameData.player2Id, await requireTenantId()))
+		) {
+			return {
+				success: false,
+				error: "Der Gegner ist kein Mitglied dieses Corps",
 			};
 		}
 
@@ -222,6 +238,7 @@ export async function createGame(gameData: GameResult): Promise<{
 export async function getUserStats(
 	userId: string,
 ): Promise<UserGameStats | null> {
+	await requireMember();
 	try {
 		const [stats, user] = await Promise.all([
 			getOrCreateUserStats(userId),
@@ -257,6 +274,7 @@ export async function getUserStats(
 export async function getRecentGames(
 	limit: number = 10,
 ): Promise<GameRecord[]> {
+	await requireMember();
 	try {
 		const recentGames = await db
 			.select({
@@ -347,6 +365,7 @@ export async function getUserGames(
 	userId: string,
 	limit: number = 20,
 ): Promise<GameRecord[]> {
+	await requireMember();
 	try {
 		const userGames = await db
 			.select({
@@ -423,6 +442,7 @@ export async function getLeaderboard(
 	limit: number = 10,
 	offset: number = 0,
 ): Promise<UserGameStats[]> {
+	await requireMember();
 	try {
 		// Internal leaderboard: members of the current tenant, ranked by their
 		// unified ELO from the control DB. Two-step query because tenant `users`
@@ -505,6 +525,7 @@ export async function getUserEloHistory(
 		opponent: string;
 	}[]
 > {
+	await requireMember();
 	try {
 		const userGames = await db
 			.select({

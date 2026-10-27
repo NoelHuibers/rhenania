@@ -68,7 +68,8 @@ async function fetchPage(
 		return rows.map((r) => ({
 			userId: r.userId,
 			userName: r.name,
-			userEmail: r.email,
+			// Other Corps' member e-mails are never sent to the browser.
+			userEmail: null,
 			avatar: null,
 			currentElo: r.currentElo,
 			totalGames: r.totalGames,

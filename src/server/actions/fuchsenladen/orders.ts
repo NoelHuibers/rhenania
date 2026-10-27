@@ -2,10 +2,12 @@
 
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { isValidOrderAmount, MAX_ORDER_AMOUNT } from "~/lib/drink-order";
 import { addMoney, roundToCent, sumMoney } from "~/lib/money";
 import { auth } from "~/server/auth";
-import { fuchsenBills, fuchsenOrders } from "~/server/db/schema";
+import { fuchsenBills, fuchsenItems, fuchsenOrders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { ROLES, requireRole } from "~/server/lib/authz";
 import { hasRole } from "../admin/userRoles";
 import { getUserName } from "../getUserName";
 
@@ -39,13 +41,30 @@ export async function createFuchsenOrder(
 			};
 		}
 
-		if (data.amount <= 0) {
-			return { success: false, error: "Bestellmenge muss größer als 0 sein" };
+		if (!isValidOrderAmount(data.amount)) {
+			return {
+				success: false,
+				error: `Bitte eine ganze Anzahl zwischen 1 und ${MAX_ORDER_AMOUNT} wählen`,
+			};
 		}
 
-		if (Math.abs(data.total - data.pricePerUnit * data.amount) > 0.001) {
-			return { success: false, error: "Gesamtpreis-Berechnung ist inkorrekt" };
+		// The server decides name and price from the item; client values are
+		// display-only and never stored.
+		const [item] = await db
+			.select({
+				id: fuchsenItems.id,
+				name: fuchsenItems.name,
+				price: fuchsenItems.price,
+				available: fuchsenItems.isCurrentlyAvailable,
+			})
+			.from(fuchsenItems)
+			.where(eq(fuchsenItems.id, data.itemId))
+			.limit(1);
+		if (!item?.available) {
+			return { success: false, error: "Artikel nicht verfügbar" };
 		}
+		const pricePerUnit = item.price;
+		const total = roundToCent(pricePerUnit * data.amount);
 
 		const userId = session.user.id;
 		const userName = await getUserName();
@@ -62,11 +81,11 @@ export async function createFuchsenOrder(
 			.values({
 				userId,
 				userName,
-				itemId: data.itemId,
-				itemName: data.itemName,
+				itemId: item.id,
+				itemName: item.name,
 				amount: data.amount,
-				pricePerUnit: data.pricePerUnit,
-				total: roundToCent(data.total),
+				pricePerUnit,
+				total,
 			})
 			.returning();
 
@@ -134,6 +153,7 @@ export async function getMyFuchsenSummary() {
 }
 
 export async function getAllFuchsenOrders() {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const db = await getCurrentTenantDb();
 		const orders = await db
@@ -158,6 +178,7 @@ export interface FuchsenUserBill {
 }
 
 export async function getFuchsenBillsByUser(): Promise<FuchsenUserBill[]> {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const db = await getCurrentTenantDb();
 		const orders = await db.select().from(fuchsenOrders);
@@ -192,6 +213,7 @@ export async function getFuchsenBillsByUser(): Promise<FuchsenUserBill[]> {
 }
 
 export async function getFuchsenOrdersForUser(userId: string) {
+	await requireRole(ROLES.fuchsen);
 	try {
 		const db = await getCurrentTenantDb();
 		const orders = await db

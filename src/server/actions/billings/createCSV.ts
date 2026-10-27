@@ -1,5 +1,7 @@
 // createCSV.ts
-"use server";
+// Server-only helpers, deliberately NOT "use server": the functions here
+// must not be callable from the browser as server actions.
+import "server-only";
 
 import { eq, sql } from "drizzle-orm";
 import { csvCell } from "~/lib/csv";

@@ -147,7 +147,7 @@ describe("createNewBilling", () => {
 		await createOrderRow({ user: member });
 		signOut();
 
-		await expect(createNewBilling()).rejects.toThrow(/authenticated/);
+		await expect(createNewBilling()).rejects.toThrow("Nicht angemeldet");
 		expect(await tenantDb().select().from(billPeriods)).toHaveLength(0);
 	});
 

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
 import { drinks } from "~/server/db/schema";
+import { ROLES, requireRole } from "~/server/lib/authz";
 import { isForeignKeyViolation } from "~/server/lib/db-errors";
 
 const addDrinkSchema = z.object({
@@ -70,6 +71,7 @@ export async function addDrink(data: {
 	pictureUrl?: string;
 	isCurrentlyAvailable: boolean;
 }) {
+	await requireRole(ROLES.getraenke);
 	try {
 		// Validate input
 		const validatedInput = addDrinkSchema.parse(data);
@@ -117,6 +119,7 @@ export async function addDrink(data: {
 
 // Simple update function for inline editing
 export async function updateDrink(id: string, input: UpdateDrinkInput) {
+	await requireRole(ROLES.getraenke);
 	try {
 		// Validate input
 		const validatedInput = updateDrinkSchema.parse(input);
@@ -203,6 +206,7 @@ export async function updateDrink(id: string, input: UpdateDrinkInput) {
 
 // Function to delete an image
 export async function deleteDrinkImage(id: string) {
+	await requireRole(ROLES.getraenke);
 	try {
 		const [currentDrink] = await db
 			.select()
@@ -257,6 +261,7 @@ const DRINK_IN_USE_ERROR =
 	"Das Getränk wurde schon bestellt oder gezählt und kann deshalb nicht gelöscht werden. Setze es stattdessen auf „Nicht verfügbar“.";
 
 export async function deleteDrink(id: string) {
+	await requireRole(ROLES.getraenke);
 	try {
 		// Delete the row first: orders and inventory counts reference it, and the
 		// picture must survive when the database refuses the delete.
@@ -292,6 +297,7 @@ export async function deleteDrink(id: string) {
 }
 
 export async function toggleDrinkAvailability(id: string) {
+	await requireRole(ROLES.getraenke);
 	try {
 		const [currentDrink] = await db
 			.select()
@@ -332,6 +338,7 @@ export async function toggleDrinkAvailability(id: string) {
 }
 
 export async function getDrinks() {
+	await requireRole(ROLES.getraenke);
 	try {
 		const allDrinks = await db
 			.select()

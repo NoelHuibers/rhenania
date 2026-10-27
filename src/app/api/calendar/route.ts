@@ -1,4 +1,4 @@
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "~/server/db";
 import { events, venues } from "~/server/db/schema";
@@ -13,7 +13,13 @@ export async function GET() {
 
 	const now = new Date();
 	const [rows, venueRows] = await Promise.all([
-		db.select().from(events).orderBy(asc(events.date)),
+		// Public feed: public events only. Members get everything through
+		// their personal token feed (/api/calendar/[token]).
+		db
+			.select()
+			.from(events)
+			.where(eq(events.isPublic, true))
+			.orderBy(asc(events.date)),
 		db.select().from(venues),
 	]);
 	const venueMap = new Map(venueRows.map((v) => [v.shortName, v.fullAddress]));

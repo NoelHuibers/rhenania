@@ -8,7 +8,10 @@ import { defineConfig } from "vitest/config";
 const unusedDb = `file:${path.join(os.tmpdir(), "rhenania-test-unused.db")}`;
 
 export default defineConfig({
-	resolve: { tsconfigPaths: true },
+	resolve: {
+		tsconfigPaths: true,
+		alias: { "server-only": path.resolve("test/stubs/server-only.ts") },
+	},
 	envDir: false,
 	test: {
 		environment: "node",

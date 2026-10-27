@@ -4,6 +4,7 @@ import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { eventRsvps, events } from "~/server/db/schema";
+import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 
 // Per-tenant configurable; valid values come from the tenant's
 // `event_type` table. Kept as `string` for type-level openness.
@@ -24,6 +25,7 @@ export type EventInput = {
 };
 
 export async function getUpcomingEvents(limit?: number) {
+	await requireMember();
 	try {
 		const now = new Date();
 		const query = db
@@ -81,6 +83,7 @@ export async function getPublicPastEvents(limit?: number) {
 }
 
 export async function getAllEvents() {
+	await requireMember();
 	try {
 		const rows = await db
 			.select({
@@ -105,6 +108,7 @@ export async function getAllEvents() {
 }
 
 export async function getEventById(id: string) {
+	await requireMember();
 	try {
 		const result = await db
 			.select()
@@ -119,6 +123,7 @@ export async function getEventById(id: string) {
 }
 
 export async function createEvent(input: EventInput) {
+	await requireRole(ROLES.events);
 	try {
 		await db.insert(events).values({
 			title: input.title,
@@ -148,6 +153,7 @@ export async function createEvent(input: EventInput) {
 }
 
 export async function updateEvent(id: string, input: Partial<EventInput>) {
+	await requireRole(ROLES.events);
 	try {
 		await db
 			.update(events)
@@ -187,6 +193,7 @@ export async function updateEvent(id: string, input: Partial<EventInput>) {
 }
 
 export async function deleteEvent(id: string) {
+	await requireRole(ROLES.events);
 	try {
 		await db.delete(events).where(eq(events.id, id));
 

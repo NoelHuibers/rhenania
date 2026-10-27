@@ -87,10 +87,9 @@ describe("saveHomepageImage", () => {
 	test("requires a signed-in user", async () => {
 		await createTenant();
 
-		expect(await saveHomepageImage(image("header", 1))).toEqual({
-			success: false,
-			error: "Nicht autorisiert",
-		});
+		await expect(saveHomepageImage(image("header", 1))).rejects.toThrow(
+			"Nicht angemeldet",
+		);
 		expect(await tenantDb().select().from(homepageImages)).toHaveLength(0);
 	});
 });
@@ -222,9 +221,6 @@ describe("updateImageOrder", () => {
 
 	test("requires a signed-in user", async () => {
 		await createTenant();
-		expect(await updateImageOrder([])).toEqual({
-			success: false,
-			error: "Nicht autorisiert",
-		});
+		await expect(updateImageOrder([])).rejects.toThrow("Nicht angemeldet");
 	});
 });

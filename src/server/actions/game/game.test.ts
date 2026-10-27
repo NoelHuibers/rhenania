@@ -16,6 +16,7 @@ import {
 	createUser,
 	setupTestDatabases,
 	signInAs,
+	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
 import {
@@ -37,6 +38,20 @@ setupTestDatabases();
 afterEach(() => vi.useRealTimers());
 
 describe("createGame", () => {
+	test("refuses an opponent who is not a member of this Corps", async () => {
+		const home = await createTenant();
+		const other = await createTenant();
+		const outsider = await createUser({ name: "Fremd", tenantId: other.id });
+		switchTenant(home);
+		const [me] = await createPlayers(1);
+		signInAs(me as NonNullable<typeof me>);
+
+		const result = await createGame({ player2Id: outsider.id, won: true });
+
+		expect(result).toMatchObject({ success: false });
+		expect(await tenantDb().select().from(games)).toHaveLength(0);
+	});
+
 	test("records a win with ELO before/after on both sides", async () => {
 		await createTenant();
 		const [me, rival] = await createPlayers(2);
@@ -165,6 +180,7 @@ describe("getLeaderboard", () => {
 	test("pages with limit and offset", async () => {
 		await createTenant();
 		const players = await createPlayers(4);
+		signInAs(players[0] as (typeof players)[number]);
 		for (const [i, p] of players.entries()) {
 			await setUserStats(p.id, { currentElo: 1300 - i * 10, totalGames: 1 });
 		}
@@ -180,6 +196,7 @@ describe("game history", () => {
 		freezeClock("2026-10-26T19:00:00Z");
 		await createTenant();
 		const [anna, bert] = await createPlayers(2);
+		signInAs(anna as NonNullable<typeof anna>);
 		await insertGame({
 			player1Id: anna.id,
 			player2Id: bert.id,
@@ -216,6 +233,7 @@ describe("game history", () => {
 	test("recent games hide games of players who opted out", async () => {
 		await createTenant();
 		const [anna, bert, carl] = await createPlayers(3);
+		signInAs(anna as NonNullable<typeof anna>);
 		await insertGame({
 			player1Id: anna.id,
 			player2Id: bert.id,

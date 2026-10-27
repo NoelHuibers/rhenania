@@ -43,8 +43,13 @@ function lazy<T extends object>(resolve: () => T): T {
 vi.mock("next/headers", async () => {
 	const { testState } = await import("./state");
 	const buildHeaders = () => {
-		const h = new Headers({ host: "test.localhost", ...testState.headers });
-		if (testState.tenantId) {
+		const host =
+			(testState.tenantId && testState.tenantHosts.get(testState.tenantId)) ||
+			"test.localhost";
+		const h = new Headers({ host, ...testState.headers });
+		// Like the middleware: stamp the tenant unless the request already
+		// carries a (possibly forged) header, which tests can set explicitly.
+		if (testState.tenantId && !h.has("x-tenant-id")) {
 			h.set("x-tenant-id", testState.tenantId);
 		}
 		return h;
@@ -136,13 +141,19 @@ vi.mock("~/server/db/tenants", async () => {
 });
 
 // ─── Session ────────────────────────────────────────────────────────────────
-// Same contract as the real `auth()` in `src/server/auth/index.ts`: roles are
-// only attached for an ACTIVE membership in the current tenant.
+// Same contract as the real `auth()` in `src/server/auth/index.ts`: null
+// unless the user is an ACTIVE member of the current tenant; `getIdentity()`
+// is the tenant-independent identity.
 vi.mock("~/server/auth", async () => {
 	const { and, eq } = await import("drizzle-orm");
 	const { tenantMemberships } = await import("~/server/db/control-schema");
 	const { roles, userRoles } = await import("~/server/db/schema");
 	const { requireControl, requireTenant, testState } = await import("./state");
+
+	async function getIdentity() {
+		const user = testState.sessionUser;
+		return user ? { user } : null;
+	}
 
 	async function auth() {
 		const user = testState.sessionUser;
@@ -162,7 +173,10 @@ vi.mock("~/server/auth", async () => {
 					),
 				)
 				.limit(1);
-			if (membership?.status === "active") {
+			if (membership?.status !== "active") {
+				return null;
+			}
+			{
 				const rows = await requireTenant(tenantId)
 					.db.select({ roleName: roles.name })
 					.from(userRoles)
@@ -185,7 +199,7 @@ vi.mock("~/server/auth", async () => {
 		},
 	};
 
-	return { auth, betterAuthInstance };
+	return { auth, getIdentity, betterAuthInstance };
 });
 
 // ─── Isolation between tests ────────────────────────────────────────────────

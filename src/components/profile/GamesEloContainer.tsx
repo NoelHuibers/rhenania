@@ -1,7 +1,8 @@
 // GamesEloContainerDetailed.tsx
-import { isEloEnabledForUser } from "~/server/actions/profile/preferences";
+
 import { auth } from "~/server/auth";
 import { getEloStatsForUser } from "~/server/lib/elo-stats";
+import { isEloEnabledForUser } from "~/server/lib/preferences";
 import { EloDisabledCard } from "./EloDisabledCard";
 import { GamesElo } from "./GamesElo";
 

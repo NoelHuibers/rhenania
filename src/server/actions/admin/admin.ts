@@ -25,6 +25,7 @@ import {
 	users,
 } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { ROLES, requireRole } from "~/server/lib/authz";
 import { requireTenantId } from "~/server/lib/tenant-context";
 import { seedDefaultRoles } from "~/server/lib/tenant-seed";
 import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
@@ -54,6 +55,7 @@ export type Role = {
  * Get all users with their assigned roles
  */
 export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
+	await requireRole(ROLES.admin);
 	const db = await getCurrentTenantDb();
 	try {
 		const usersWithRoles = await db
@@ -108,6 +110,7 @@ export async function getUsersWithRoles(): Promise<UserWithRoles[]> {
  * Get all roles with user count (Admin always first)
  */
 export async function getRolesWithUserCount(): Promise<Role[]> {
+	await requireRole(ROLES.admin);
 	const db = await getCurrentTenantDb();
 	try {
 		const rolesWithCount = await db
@@ -141,6 +144,7 @@ export async function getRolesWithUserCount(): Promise<Role[]> {
  * Initialize default roles if they don't exist
  */
 export async function initializeRoles(): Promise<void> {
+	await requireRole(ROLES.admin);
 	const db = await getCurrentTenantDb();
 	try {
 		// One statement for the shared default list (also used when a tenant
@@ -159,6 +163,7 @@ export async function assignUserRole(
 	userId: string,
 	roleId: string,
 ): Promise<void> {
+	await requireRole(ROLES.admin);
 	const db = await getCurrentTenantDb();
 	try {
 		// Check if assignment already exists
@@ -190,6 +195,7 @@ export async function removeUserRole(
 	userId: string,
 	roleId: string,
 ): Promise<void> {
+	await requireRole(ROLES.admin);
 	const db = await getCurrentTenantDb();
 	try {
 		await db
@@ -210,6 +216,7 @@ export async function toggleUserRole(
 	userId: string,
 	roleId: string,
 ): Promise<void> {
+	await requireRole(ROLES.admin);
 	const db = await getCurrentTenantDb();
 	try {
 		const existingAssignment = await db
@@ -233,15 +240,66 @@ export async function toggleUserRole(
  * Update a user's name and/or email. Writes the control-DB source of truth,
  * then mirrors to all tenant DBs the user belongs to.
  */
+/**
+ * Tenant admins may only act on users of their own tenant. Identity is
+ * global, so without this an admin of one Corps could edit or delete
+ * accounts that belong to another Corps.
+ */
+async function assertMemberOfCurrentTenant(userId: string): Promise<string> {
+	const tenantId = await requireTenantId();
+	const [membership] = await controlDb
+		.select({ userId: tenantMemberships.userId })
+		.from(tenantMemberships)
+		.where(
+			and(
+				eq(tenantMemberships.userId, userId),
+				eq(tenantMemberships.tenantId, tenantId),
+			),
+		)
+		.limit(1);
+	if (!membership) {
+		throw new Error("Diese Person ist kein Mitglied dieses Corps.");
+	}
+	return tenantId;
+}
+
 export async function updateUser(
 	userId: string,
 	data: { name?: string; email?: string },
 ): Promise<void> {
+	await requireRole(ROLES.admin);
+	await assertMemberOfCurrentTenant(userId);
+
+	const [current] = await controlDb
+		.select({ email: controlUsers.email })
+		.from(controlUsers)
+		.where(eq(controlUsers.id, userId))
+		.limit(1);
+	if (!current) {
+		throw new Error("Benutzer nicht gefunden");
+	}
+	// The email is the login identity across every Corps; a tenant admin
+	// must not be able to redirect it (password reset would follow).
+	if (
+		data.email !== undefined &&
+		data.email.trim().toLowerCase() !== current.email.toLowerCase()
+	) {
+		throw new Error(
+			"Die E-Mail-Adresse kann nur von der Person selbst geändert werden.",
+		);
+	}
+	const name = data.name?.trim();
+	if (name === undefined) {
+		return;
+	}
+	if (name.length === 0 || name.length > 255) {
+		throw new Error("Ungültiger Name");
+	}
+
 	try {
-		const updatedAt = new Date();
 		await controlDb
 			.update(controlUsers)
-			.set({ ...data, updatedAt })
+			.set({ name, updatedAt: new Date() })
 			.where(eq(controlUsers.id, userId));
 
 		const [refreshed] = await controlDb
@@ -276,6 +334,7 @@ export async function bulkSetRoleUsers(
 	roleId: string,
 	userIds: string[],
 ): Promise<void> {
+	await requireRole(ROLES.admin);
 	const db = await getCurrentTenantDb();
 	try {
 		const current = await db
@@ -320,7 +379,8 @@ export async function bulkSetRoleUsers(
  * tenant's admin must not destroy it while other memberships exist.
  */
 export async function deleteUser(userId: string): Promise<void> {
-	const tenantId = await requireTenantId();
+	await requireRole(ROLES.admin);
+	const tenantId = await assertMemberOfCurrentTenant(userId);
 	const db = await getCurrentTenantDb();
 	try {
 		// Nullify nullable FK columns that reference this user

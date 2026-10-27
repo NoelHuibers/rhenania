@@ -2,6 +2,11 @@ import { describe, expect, test } from "vitest";
 
 import { userPreferences } from "~/server/db/schema";
 import {
+	getHiddenEventTypesForUser,
+	isEloEnabledForUser,
+	isPublicProfileEnabledForUser,
+} from "~/server/lib/preferences";
+import {
 	createTenant,
 	createUser,
 	setupTestDatabases,
@@ -14,11 +19,8 @@ import {
 	getEloPreferenceAction,
 	getEmailNotificationPreferenceAction,
 	getHiddenEventTypes,
-	getHiddenEventTypesForUser,
 	getPublicProfilePreferenceAction,
 	getUserPreference,
-	isEloEnabledForUser,
-	isPublicProfileEnabledForUser,
 	setChallengeNotificationPreferenceAction,
 	setEloPreferenceAction,
 	setEmailNotificationPreferenceAction,

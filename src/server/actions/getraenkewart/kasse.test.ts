@@ -422,10 +422,9 @@ describe("open bills", () => {
 		});
 		signInAs(await createUser());
 
-		expect(await downloadEntityBillPDF(bill.id)).toEqual({
-			success: false,
-			error: "Keine Berechtigung",
-		});
+		await expect(downloadEntityBillPDF(bill.id)).rejects.toThrow(
+			"Keine Berechtigung",
+		);
 	});
 });
 
@@ -685,22 +684,26 @@ describe("signed-out visitors", () => {
 		await createTenant({
 			features: ["drinks.markup", "billing.treasurerRecipient"],
 		});
-		const notSignedIn = { success: false, error: "Nicht angemeldet" };
-
-		expect(
-			await addBankEntry({ amount: 1, description: "x", date: NOW }),
-		).toEqual(notSignedIn);
-		expect(await deleteBankEntry("x")).toEqual(notSignedIn);
-		expect(
-			await addExternalBill({ creditor: "x", description: "x", amount: 1 }),
-		).toEqual(notSignedIn);
-		expect(await markExternalBillPaid("x")).toEqual(notSignedIn);
-		expect(await deleteExternalBill("x")).toEqual(notSignedIn);
-		expect(await setPfandWert(1)).toEqual(notSignedIn);
-		expect(await downloadEntityBillPDF("x")).toEqual(notSignedIn);
-		expect(await setMarkupPercent(10)).toEqual(notSignedIn);
-		expect(await setBillRecipient("members", "")).toEqual(notSignedIn);
-		expect(await markAllMemberBillsPaid()).toEqual(notSignedIn);
+		const attempts = [
+			() => addBankEntry({ amount: 1, description: "x", date: NOW }),
+			() => deleteBankEntry("x"),
+			() => addExternalBill({ creditor: "x", description: "x", amount: 1 }),
+			() => markExternalBillPaid("x"),
+			() => deleteExternalBill("x"),
+			() => setPfandWert(1),
+			() => downloadEntityBillPDF("x"),
+			() => setMarkupPercent(10),
+			() => setBillRecipient("members", ""),
+			() => markAllMemberBillsPaid(),
+		];
+		// Denied either by a thrown guard or by the older result-style gate.
+		for (const attempt of attempts) {
+			const outcome = await attempt().then(
+				(result) => result,
+				(error: Error) => ({ success: false, error: error.message }),
+			);
+			expect(outcome).toEqual({ success: false, error: "Nicht angemeldet" });
+		}
 	});
 });
 

@@ -4,6 +4,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { genericOAuth } from "better-auth/plugins/generic-oauth";
 import { and, eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
+import { cache } from "react";
 import { env } from "~/env";
 import { sendPasswordResetEmail } from "~/server/actions/newuser/email";
 import { controlDb } from "~/server/db/control";
@@ -248,57 +249,76 @@ export const betterAuthInstance = betterAuth({
 });
 
 /**
- * Compatibility wrapper so all existing server actions/components can keep
- * calling `const session = await auth()` without any changes.
- *
- * Resolves the session from the control DB (Better Auth) and attaches
- * tenant-scoped roles fetched from the current tenant's DB.
+ * The signed-in identity, independent of the current tenant. Only for
+ * platform-level checks (superadmin) and pages that must work for
+ * non-members (access denied). Everything tenant-scoped uses `auth()`.
  */
-export async function auth() {
+export const getIdentity = cache(async () => {
 	const session = await betterAuthInstance.api.getSession({
 		headers: await headers(),
 	});
-
 	if (!session) {
 		return null;
 	}
-
-	const tenantId = await getTenantId();
-
-	let roleNames: string[] = [];
-	if (tenantId) {
-		// Membership gate: only attach roles if the user is a member of the
-		// current tenant. Non-members get an empty roles list — page-level
-		// checks will reject them.
-		const [membership] = await controlDb
-			.select({ status: tenantMemberships.status })
-			.from(tenantMemberships)
-			.where(
-				and(
-					eq(tenantMemberships.userId, session.user.id),
-					eq(tenantMemberships.tenantId, tenantId),
-				),
-			)
-			.limit(1);
-
-		if (membership && membership.status === "active") {
-			const tdb = await getTenantDb(tenantId);
-			const userRoleRows = await tdb
-				.select({ roleName: roles.name })
-				.from(userRoles)
-				.innerJoin(roles, sql`${userRoles.roleId} = ${roles.id}`)
-				.where(eq(userRoles.userId, session.user.id));
-			roleNames = userRoleRows.map((r) => r.roleName);
-		}
-	}
-
 	return {
 		user: {
 			id: session.user.id,
 			email: session.user.email,
 			name: session.user.name ?? null,
 			image: session.user.image ?? null,
-			roles: roleNames,
 		},
 	};
-}
+});
+
+/**
+ * Session of the current request, scoped to the current tenant.
+ *
+ * Identity is global (one session works on every tenant's domain), so a
+ * session alone must never grant access to a tenant's data. `auth()` returns
+ * null unless the user has an ACTIVE membership in the tenant of the request,
+ * and attaches that tenant's role names. Every server action that checks
+ * `auth()` therefore also checks membership.
+ */
+// Memoized per request (React `cache`): every guarded server action and data
+// loader calls auth(), and a page renders many of them at once. Without it
+// each call repeats the session, membership and role lookups (#20).
+export const auth = cache(async () => {
+	const identity = await getIdentity();
+	if (!identity) {
+		return null;
+	}
+
+	const tenantId = await getTenantId();
+	if (!tenantId) {
+		// No tenant in scope (scripts, build): identity only, no roles.
+		return { user: { ...identity.user, roles: [] as string[] } };
+	}
+
+	const [membership] = await controlDb
+		.select({ status: tenantMemberships.status })
+		.from(tenantMemberships)
+		.where(
+			and(
+				eq(tenantMemberships.userId, identity.user.id),
+				eq(tenantMemberships.tenantId, tenantId),
+			),
+		)
+		.limit(1);
+	if (membership?.status !== "active") {
+		return null;
+	}
+
+	const tdb = await getTenantDb(tenantId);
+	const userRoleRows = await tdb
+		.select({ roleName: roles.name })
+		.from(userRoles)
+		.innerJoin(roles, sql`${userRoles.roleId} = ${roles.id}`)
+		.where(eq(userRoles.userId, identity.user.id));
+
+	return {
+		user: {
+			...identity.user,
+			roles: userRoleRows.map((r) => r.roleName),
+		},
+	};
+});

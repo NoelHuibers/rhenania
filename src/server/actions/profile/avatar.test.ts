@@ -32,11 +32,19 @@ beforeEach(() => {
 });
 
 const BLOB = "https://abc.public.blob.vercel-storage.com/tenants/t/profile";
+/** The caller's own avatar folder; only blobs in here may be deleted. */
+const own = (userId: string) => `${BLOB}/${userId}`;
 
-async function memberWithImage(image: string | null) {
-	await createTenant();
+async function memberWithImage(
+	image: string | null | ((userId: string) => string),
+) {
+	await createTenant({ slug: "t" });
 	const member = await createUser();
-	await tenantDb().update(users).set({ image }).where(eq(users.id, member.id));
+	const value = typeof image === "function" ? image(member.id) : image;
+	await tenantDb()
+		.update(users)
+		.set({ image: value })
+		.where(eq(users.id, member.id));
 	signInAs(member);
 	return member;
 }
@@ -88,19 +96,19 @@ describe("updateUserAvatarWithUpload (pre-check)", () => {
 
 describe("updateUserAvatarUrl", () => {
 	test("stores the uploaded avatar and replaces the previous blob", async () => {
-		const member = await memberWithImage(`${BLOB}/old.png`);
+		const member = await memberWithImage((id) => `${own(id)}/old.png`);
 		const data = new FormData();
-		data.set("imageUrl", `${BLOB}/new.png`);
+		data.set("imageUrl", `${own(member.id)}/new.png`);
 
 		const result = await updateUserAvatarUrl(data);
 
 		expect(result).toEqual({
 			success: true,
 			message: "Profilbild erfolgreich aktualisiert",
-			imageUrl: `${BLOB}/new.png`,
+			imageUrl: `${own(member.id)}/new.png`,
 		});
-		expect(del).toHaveBeenCalledWith(`${BLOB}/old.png`);
-		expect(await imageOf(member.id)).toBe(`${BLOB}/new.png`);
+		expect(del).toHaveBeenCalledWith(`${own(member.id)}/old.png`);
+		expect(await imageOf(member.id)).toBe(`${own(member.id)}/new.png`);
 		expect(checkAndUnlockAchievements).toHaveBeenCalledWith(
 			member.id,
 			"profile_picture_set",
@@ -108,6 +116,32 @@ describe("updateUserAvatarUrl", () => {
 			{ tenantId: testState.tenantId },
 		);
 		expect(revalidatePath).toHaveBeenCalledWith("/profile");
+	});
+
+	test("never deletes a blob outside the caller's own avatar folder", async () => {
+		// e.g. another member's photo or a receipt, set as avatar on purpose
+		await memberWithImage(`${BLOB}/someone-else/photo.png`);
+		const data = new FormData();
+		data.set("imageUrl", "https://img.example/me.png");
+
+		expect((await updateUserAvatarUrl(data)).success).toBe(true);
+		expect(del).not.toHaveBeenCalled();
+
+		await deleteUserAvatar();
+		expect(del).not.toHaveBeenCalled();
+	});
+
+	test("only https image URLs are accepted", async () => {
+		await memberWithImage(null);
+		for (const url of [
+			"javascript:alert(1)",
+			"http://img.example/a.png",
+			"data:image/png;base64,AA",
+		]) {
+			const data = new FormData();
+			data.set("imageUrl", url);
+			expect((await updateUserAvatarUrl(data)).success).toBe(false);
+		}
 	});
 
 	test("does not try to delete external (e.g. Microsoft) images", async () => {
@@ -148,13 +182,13 @@ describe("updateUserAvatarUrl", () => {
 
 describe("deleteUserAvatar", () => {
 	test("removes the blob and clears the image", async () => {
-		const member = await memberWithImage(`${BLOB}/old.png`);
+		const member = await memberWithImage((id) => `${own(id)}/old.png`);
 
 		expect(await deleteUserAvatar()).toEqual({
 			success: true,
 			message: "Profilbild erfolgreich gelöscht",
 		});
-		expect(del).toHaveBeenCalledWith(`${BLOB}/old.png`);
+		expect(del).toHaveBeenCalledWith(`${own(member.id)}/old.png`);
 		expect(await imageOf(member.id)).toBeNull();
 	});
 

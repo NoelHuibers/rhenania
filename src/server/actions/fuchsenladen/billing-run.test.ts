@@ -81,9 +81,9 @@ describe("Fuchsenladen billing run (#23)", () => {
 		// Carry-over bills for the members of the run before included.
 		expect(small.result).toMatchObject({ success: true, billsCreated: 3 });
 		expect(large.result).toMatchObject({ success: true, billsCreated: 23 });
-		// Session, the two role checks, one read batch and one write batch
-		// (was 24 → 118).
-		expect(small.total).toBe(6);
+		// Membership and roles of the session, one read batch and one write
+		// batch (was 24 → 118).
+		expect(small.total).toBe(4);
 		expect(large.total).toBe(small.total);
 		expect(large.writes).toBe(1);
 		expect(large.log.filter((e) => e.kind === "transaction")).toEqual([]);

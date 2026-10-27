@@ -5,6 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { addMoney } from "~/lib/money";
 import { orders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
+import { requireMember } from "~/server/lib/authz";
 
 // Entries and their items follow the order the orders were placed in, and
 // an event's `bookedBy` is whoever booked first. Without an ORDER BY, rows
@@ -27,6 +28,7 @@ interface BillingEntry {
 }
 
 export async function getCurrentOrders(): Promise<BillingEntry[]> {
+	await requireMember();
 	try {
 		const db = await getCurrentTenantDb();
 		// Fetch all orders where inBill is false (both personal and event orders)
@@ -146,6 +148,7 @@ export async function getCurrentEventOrders(): Promise<
 		totalAmount: number;
 	}[]
 > {
+	await requireMember();
 	try {
 		const db = await getCurrentTenantDb();
 		// Fetch all orders where inBill is false AND bookingFor is NOT null (event orders)

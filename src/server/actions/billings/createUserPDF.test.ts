@@ -281,6 +281,7 @@ describe("saveUserBillPDF", () => {
 		expect(putMock).toHaveBeenCalledWith(path, expect.any(Buffer), {
 			access: "public",
 			contentType: "application/pdf",
+			addRandomSuffix: true,
 		});
 		const [row] = await tenantDb().select().from(billPDFs);
 		expect(row).toMatchObject({

@@ -8,8 +8,45 @@ import { after } from "next/server";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import {
+	requireCurrentTenant,
+	requireTenantId,
+} from "~/server/lib/tenant-context";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
+
+/**
+ * Only blobs in the caller's own avatar folder may ever be deleted. Without
+ * this, pointing your avatar at someone else's blob (a receipt, another
+ * member's photo, another Corps' file) and then changing it again would
+ * delete that file.
+ */
+function isOwnAvatarBlob(
+	url: string | null | undefined,
+	slug: string,
+	userId: string,
+): url is string {
+	if (!url) {
+		return false;
+	}
+	try {
+		const u = new URL(url);
+		return (
+			u.protocol === "https:" &&
+			u.hostname.endsWith(".public.blob.vercel-storage.com") &&
+			u.pathname.startsWith(`/tenants/${slug}/profile/${userId}/`)
+		);
+	} catch {
+		return false;
+	}
+}
+
+function isHttpsUrl(url: string) {
+	try {
+		return new URL(url).protocol === "https:";
+	} catch {
+		return false;
+	}
+}
 
 export async function updateUserAvatarWithUpload(formData: FormData) {
 	try {
@@ -92,6 +129,10 @@ export async function updateUserAvatarUrl(formData: FormData) {
 				message: "Keine Bild-URL angegeben",
 			};
 		}
+		if (!isHttpsUrl(imageUrl)) {
+			return { success: false, message: "Nur https-Bild-URLs sind erlaubt" };
+		}
+		const { slug } = await requireCurrentTenant();
 
 		// Get current user to check for existing Vercel Blob image
 		const currentUser = await db
@@ -102,8 +143,11 @@ export async function updateUserAvatarUrl(formData: FormData) {
 
 		const oldImageUrl = currentUser[0]?.image;
 
-		// If old image is from Vercel Blob, delete it
-		if (oldImageUrl?.includes("blob.vercel-storage.com")) {
+		// Delete the previous upload, but only if it is this user's own avatar.
+		if (
+			oldImageUrl !== imageUrl &&
+			isOwnAvatarBlob(oldImageUrl, slug, session.user.id)
+		) {
 			try {
 				await del(oldImageUrl);
 			} catch (error) {
@@ -163,8 +207,9 @@ export async function deleteUserAvatar() {
 			.limit(1);
 
 		const imageUrl = currentUser[0]?.image;
+		const { slug } = await requireCurrentTenant();
 
-		if (imageUrl?.includes("blob.vercel-storage.com")) {
+		if (isOwnAvatarBlob(imageUrl, slug, session.user.id)) {
 			try {
 				await del(imageUrl);
 			} catch (error) {

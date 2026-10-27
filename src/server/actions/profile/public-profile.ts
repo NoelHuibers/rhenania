@@ -21,7 +21,7 @@ import {
 import {
 	isEloEnabledForUser,
 	isPublicProfileEnabledForUser,
-} from "./preferences";
+} from "~/server/lib/preferences";
 
 export type PublicAchievement = {
 	id: string;

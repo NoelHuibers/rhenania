@@ -12,6 +12,7 @@ import {
 	semesterbeitragCharges,
 	semesterbeitragRuns,
 } from "~/server/db/schema";
+import { requireMember } from "~/server/lib/authz";
 import { EDIT_ROLES, requireRoles } from "./_guards";
 
 export type Etaplan = typeof etaplans.$inferSelect;
@@ -134,6 +135,7 @@ export async function setEtaplanStatus(
 	id: string,
 	status: "Aktiv" | "Abgeschlossen",
 ) {
+	await requireMember();
 	return updateEtaplan(id, { status });
 }
 
@@ -226,6 +228,7 @@ export async function deleteEtaplan(id: string) {
 }
 
 export async function listEtaplans(): Promise<Etaplan[]> {
+	await requireMember();
 	try {
 		return await db
 			.select()
@@ -242,6 +245,7 @@ export async function listEtaplans(): Promise<Etaplan[]> {
 }
 
 export async function getEtaplanById(id: string): Promise<Etaplan | null> {
+	await requireMember();
 	try {
 		const row = await db.query.etaplans.findFirst({
 			where: (t, { eq }) => eq(t.id, id),
@@ -254,6 +258,7 @@ export async function getEtaplanById(id: string): Promise<Etaplan | null> {
 }
 
 export async function getActiveEtaplan(): Promise<Etaplan | null> {
+	await requireMember();
 	try {
 		const [row] = await db
 			.select()

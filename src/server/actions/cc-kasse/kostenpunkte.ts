@@ -13,6 +13,7 @@ import {
 	kostenpunkte,
 	kostenpunktPositionen,
 } from "~/server/db/schema";
+import { requireMember } from "~/server/lib/authz";
 import { EDIT_ROLES, requireRoles } from "./_guards";
 
 const positionSchema = z.object({
@@ -209,6 +210,7 @@ export async function deleteKostenpunkt(id: string) {
 }
 
 export async function listKostenpunkteForEtaplan(etaplanId: string) {
+	await requireMember();
 	try {
 		return await db.query.kostenpunkte.findMany({
 			where: (t, { eq }) => eq(t.etaplanId, etaplanId),
@@ -235,6 +237,7 @@ export type KostenpunktWithPositions = Awaited<
 >[number];
 
 export async function listCategories(etaplanId: string) {
+	await requireMember();
 	try {
 		return await db
 			.selectDistinct({
@@ -253,6 +256,7 @@ export async function listCategories(etaplanId: string) {
 export type LinkableEvent = { id: string; title: string; date: Date };
 
 export async function linkableEvents(): Promise<LinkableEvent[]> {
+	await requireMember();
 	try {
 		return await db
 			.select({ id: events.id, title: events.title, date: events.date })
@@ -275,6 +279,7 @@ export type BookableKostenpunkt = {
 export async function getBookableKostenpunkte(): Promise<
 	BookableKostenpunkt[]
 > {
+	await requireMember();
 	try {
 		return await db
 			.select({

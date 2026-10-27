@@ -8,6 +8,7 @@ import { getCurrentTenantDb } from "~/server/db/tenants";
 import { hasFeature } from "~/server/lib/features";
 import {
 	getCurrentTenant,
+	getTenantId,
 	resolveTenantByHost,
 } from "~/server/lib/tenant-context";
 import {
@@ -22,6 +23,7 @@ import {
 	switchTenant,
 	tenantDb,
 } from "./harness";
+import { testState } from "./state";
 
 setupTestDatabases();
 
@@ -69,7 +71,7 @@ describe("test harness", () => {
 		expect(await hasFeature("drinks.markup")).toBe(false);
 	});
 
-	test("auth() attaches roles only for active members of the request tenant", async () => {
+	test("auth() is scoped to active members of the request tenant", async () => {
 		const a = await createTenant();
 		const b = await createTenant();
 		const user = await createUser({ roles: ["Getränkewart"], tenantId: a.id });
@@ -78,17 +80,28 @@ describe("test harness", () => {
 		switchTenant(a);
 		expect((await auth())?.user.roles).toEqual(["Getränkewart"]);
 		switchTenant(b);
-		expect((await auth())?.user.roles).toEqual([]);
+		expect(await auth()).toBeNull();
 	});
 
-	test("suspended memberships get no roles", async () => {
+	test("suspended members get no session in the tenant", async () => {
 		await createTenant();
 		const user = await createUser({
 			roles: ["Admin"],
 			membership: "suspended",
 		});
 		signInAs(user);
-		expect((await auth())?.user.roles).toEqual([]);
+		expect(await auth()).toBeNull();
+	});
+
+	test("a forged x-tenant-id header cannot switch the tenant", async () => {
+		const a = await createTenant();
+		const b = await createTenant();
+		await createDrink({ name: "Nur in B" }, b.id);
+		switchTenant(a);
+		testState.headers["x-tenant-id"] = b.id;
+
+		expect(await getTenantId()).toBe(a.id);
+		expect(await db.select().from(drinks)).toHaveLength(0);
 	});
 
 	test("countQueries counts round trips per database, batches as one", async () => {

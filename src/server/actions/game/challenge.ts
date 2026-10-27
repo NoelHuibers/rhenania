@@ -10,6 +10,7 @@ import { challenges, drinks, games, orders, users } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
 import { log } from "~/server/lib/log";
+import { isEloEnabledForUser } from "~/server/lib/preferences";
 import { requireTenantId } from "~/server/lib/tenant-context";
 import {
 	applyEloOutcome,
@@ -18,7 +19,6 @@ import {
 } from "~/server/lib/user-stats";
 import { auth } from "../../auth";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
-import { isEloEnabledForUser } from "../profile/preferences";
 
 const RESPOND_WINDOW_MS = 30 * 60 * 1000; // 30 min to accept
 const PLAY_WINDOW_MS = 6 * 60 * 60 * 1000; // 6 h to propose result
@@ -808,7 +808,7 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
  * first looks (one indexed read) and only writes when something is due: an
  * UPDATE that matches nothing still takes the write lock on the primary.
  */
-export async function sweepExpiredChallenges(): Promise<void> {
+async function sweepExpiredChallenges(): Promise<void> {
 	const now = new Date();
 	const respondMissed = and(
 		eq(challenges.status, "pending"),

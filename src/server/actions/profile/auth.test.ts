@@ -77,10 +77,9 @@ describe("getConnectedAccountsAction", () => {
 
 	test("anonymous callers are rejected", async () => {
 		await createTenant();
-		expect(await getConnectedAccountsAction()).toEqual({
-			success: false,
-			error: "Unauthorized",
-		});
+		await expect(getConnectedAccountsAction()).rejects.toThrow(
+			"Nicht angemeldet",
+		);
 	});
 });
 
