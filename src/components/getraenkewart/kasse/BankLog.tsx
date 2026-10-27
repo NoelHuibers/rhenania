@@ -68,14 +68,14 @@ export function BankLog({ entries }: { entries: BankEntry[] }) {
 				description: description.trim(),
 				date: new Date(date),
 			});
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Eintrag hinzugefügt");
 				setOpen(false);
 				setAmount("");
 				setDescription("");
 				router.refresh();
 			} else {
-				toast.error("Fehler beim Hinzufügen");
+				toast.error(res.error);
 			}
 		});
 	}
@@ -83,11 +83,11 @@ export function BankLog({ entries }: { entries: BankEntry[] }) {
 	function handleDelete(id: string) {
 		startTransition(async () => {
 			const res = await deleteBankEntry(id);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Eintrag gelöscht");
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Fehler beim Löschen");
+				toast.error(res.error);
 			}
 		});
 	}

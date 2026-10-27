@@ -257,9 +257,7 @@ describe("bank entries, external bills and Pfand", () => {
 			["Alt", 50, wart.id],
 		]);
 
-		expect(await deleteBankEntry(entries[0]?.id ?? "")).toEqual({
-			success: true,
-		});
+		expect(await deleteBankEntry(entries[0]?.id ?? "")).toEqual({ ok: true });
 		expect((await getBankEntries()).map((e) => e.description)).toEqual(["Alt"]);
 	});
 
@@ -453,17 +451,18 @@ describe("open bills", () => {
 		const result = await downloadEntityBillPDF(bill.id);
 
 		expect(result).toMatchObject({
-			success: true,
-			fileName: "Rechnung_KW-43-26_AHV_Stammtisch.pdf",
+			ok: true,
+			data: { fileName: "Rechnung_KW-43-26_AHV_Stammtisch.pdf" },
 		});
 		expect(
-			Buffer.from(result.base64 ?? "", "base64")
+			Buffer.from(result.ok ? result.data.base64 : "", "base64")
 				.subarray(0, 5)
 				.toString(),
 		).toBe("%PDF-");
-		expect(await downloadEntityBillPDF("missing")).toMatchObject({
-			success: false,
-			error: "Bill with ID missing not found",
+		expect(await downloadEntityBillPDF("missing")).toEqual({
+			ok: false,
+			error: "Rechnung nicht gefunden",
+			code: "PDF_FAILED",
 		});
 	});
 
@@ -476,9 +475,11 @@ describe("open bills", () => {
 		});
 		signInAs(await createUser());
 
-		await expect(downloadEntityBillPDF(bill.id)).rejects.toThrow(
-			"Keine Berechtigung",
-		);
+		expect(await downloadEntityBillPDF(bill.id)).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 	});
 });
 
@@ -513,7 +514,7 @@ describe("Absender und Konto (#9)", () => {
 				...input,
 				senderName: "  Erika Kassenwart ",
 			}),
-		).toEqual({ success: true });
+		).toEqual({ ok: true });
 		await createKontoRow({ paypalLink: null });
 
 		const settings = await getGetraenkeBillingSettings();
@@ -536,7 +537,11 @@ describe("Absender und Konto (#9)", () => {
 
 		expect(
 			await updateGetraenkeBillingProfile({ ...input, paymentDueDays: 0 }),
-		).toEqual({ success: false, error: "Zahlungsziel: 1 bis 90 Tage" });
+		).toEqual({
+			ok: false,
+			error: "Zahlungsziel: 1 bis 90 Tage",
+			code: "INVALID_INPUT",
+		});
 	});
 
 	test("is only for the Getränkewart", async () => {
@@ -545,8 +550,9 @@ describe("Absender und Konto (#9)", () => {
 
 		expect(await getGetraenkeBillingSettings()).toBeNull();
 		expect(await updateGetraenkeBillingProfile(input)).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 	});
 });
@@ -583,18 +589,23 @@ describe("feature settings", () => {
 		const wart = await signInWart();
 
 		expect(await setMarkupPercent(10)).toEqual({
-			success: false,
+			ok: false,
 			error: 'Die Funktion „Preisaufschlag" ist nicht freigeschaltet.',
+			code: "FEATURE_DISABLED",
 		});
 
 		await setFeature("drinks.markup", true);
 		for (const invalid of [-1, 501, Number.NaN]) {
-			expect(await setMarkupPercent(invalid)).toMatchObject({ success: false });
+			expect(await setMarkupPercent(invalid)).toEqual({
+				ok: false,
+				error: "Der Aufschlag muss zwischen 0 und 500 % liegen.",
+				code: "INVALID_INPUT",
+			});
 		}
 		expect(await tenantDb().select().from(kasseConfig)).toHaveLength(0);
 
-		expect(await setMarkupPercent(12.5)).toEqual({ success: true });
-		expect(await setMarkupPercent(500)).toEqual({ success: true });
+		expect(await setMarkupPercent(12.5)).toEqual({ ok: true });
+		expect(await setMarkupPercent(500)).toEqual({ ok: true });
 		const [row] = await tenantDb().select().from(kasseConfig);
 		expect(row).toMatchObject({ markupPercent: 500, updatedBy: wart.id });
 	});
@@ -604,37 +615,44 @@ describe("feature settings", () => {
 		signInAs(await createUser());
 
 		expect(await setMarkupPercent(10)).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 
 		signInAs(await createUser({ roles: ["Admin"] }));
-		expect(await setMarkupPercent(10)).toEqual({ success: true });
+		expect(await setMarkupPercent(10)).toEqual({ ok: true });
 	});
 
 	test("setBillRecipient validates mode and address while the feature is on", async () => {
 		await signInWart();
 
-		expect(
-			(await setBillRecipient("treasurer", "kw@example.test")).success,
-		).toBe(false);
+		expect((await setBillRecipient("treasurer", "kw@example.test")).ok).toBe(
+			false,
+		);
 
 		await setFeature("billing.treasurerRecipient", true);
 		expect(await setBillRecipient("treasurer", "  ")).toEqual({
-			success: false,
+			ok: false,
 			error: "Bitte die E-Mail-Adresse des Kassenwarts eintragen.",
+			code: "INVALID_INPUT",
 		});
 		expect(await setBillRecipient("members", "not-an-email")).toEqual({
-			success: false,
+			ok: false,
 			error: "Ungültige E-Mail-Adresse",
+			code: "INVALID_INPUT",
 		});
 		expect(
 			await setBillRecipient("everyone" as "members", "kw@example.test"),
-		).toEqual({ success: false, error: "Ungültiger Empfänger" });
+		).toEqual({
+			ok: false,
+			error: "Ungültiger Empfänger",
+			code: "INVALID_INPUT",
+		});
 		expect(await tenantDb().select().from(kasseConfig)).toHaveLength(0);
 
 		expect(await setBillRecipient("treasurer", " kw@example.test ")).toEqual({
-			success: true,
+			ok: true,
 		});
 		let [row] = await tenantDb().select().from(kasseConfig);
 		expect(row).toMatchObject({
@@ -659,8 +677,9 @@ describe("markAllMemberBillsPaid", () => {
 		await createBillRow({ periodId: period.id, user: { id: "u1", name: "A" } });
 
 		expect(await markAllMemberBillsPaid()).toEqual({
-			success: false,
+			ok: false,
 			error: 'Die Funktion „Alle haben gezahlt" ist nicht freigeschaltet.',
+			code: "FEATURE_DISABLED",
 		});
 		expect((await billsOf("u1"))[0]?.status).toBe("Unbezahlt");
 	});
@@ -672,8 +691,9 @@ describe("markAllMemberBillsPaid", () => {
 		signInAs(await createUser());
 
 		expect(await markAllMemberBillsPaid()).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect((await billsOf("u1"))[0]?.status).toBe("Unbezahlt");
 	});
@@ -710,7 +730,10 @@ describe("markAllMemberBillsPaid", () => {
 			drinksTotal: 30,
 		});
 
-		expect(await markAllMemberBillsPaid()).toEqual({ success: true, count: 2 });
+		expect(await markAllMemberBillsPaid()).toEqual({
+			ok: true,
+			data: { count: 2 },
+		});
 
 		for (const bill of [
 			...(await billsOf(anna.id)),
@@ -729,7 +752,10 @@ describe("markAllMemberBillsPaid", () => {
 	test("reports zero when nothing is open", async () => {
 		await signInWart({ features: ["billing.markAllPaid"] });
 
-		expect(await markAllMemberBillsPaid()).toEqual({ success: true, count: 0 });
+		expect(await markAllMemberBillsPaid()).toEqual({
+			ok: true,
+			data: { count: 0 },
+		});
 	});
 
 	// Settles exactly what paying each open bill on its own settles (#23).
@@ -796,7 +822,10 @@ describe("markAllMemberBillsPaid", () => {
 			createdAt: at(8),
 		});
 
-		expect(await markAllMemberBillsPaid()).toEqual({ success: true, count: 3 });
+		expect(await markAllMemberBillsPaid()).toEqual({
+			ok: true,
+			data: { count: 3 },
+		});
 
 		const state = async (userId: string) =>
 			(await billsOf(userId)).map((b) => [b.drinksTotal, b.status, b.paidAt]);
@@ -844,7 +873,11 @@ describe("markAllMemberBillsPaid", () => {
 
 		const result = await markAllMemberBillsPaid();
 
-		expect(result).toMatchObject({ success: false });
+		expect(result).toEqual({
+			ok: false,
+			error: "Fehler beim Markieren als bezahlt. Es wurde nichts geändert.",
+			code: "INTERNAL",
+		});
 		expect(
 			(await getOpenMemberBills()).map((b) => [b.userName, b.status]),
 		).toEqual([
@@ -887,11 +920,11 @@ describe("markAllMemberBillsPaid", () => {
 		await addMembers(20);
 		const large = await countQueries(markAllMemberBillsPaid);
 
-		expect(small.result).toEqual({ success: true, count: 2 });
-		expect(large.result).toEqual({ success: true, count: 20 });
-		// Session (2), the role check and one write batch; the feature flag
-		// comes from the cached tenant (was 14 → 86).
-		expect(small.total).toBe(4);
+		expect(small.result).toEqual({ ok: true, data: { count: 2 } });
+		expect(large.result).toEqual({ ok: true, data: { count: 20 } });
+		// Session (2) and one write batch; the roles come with the session and
+		// the feature flag from the cached tenant (was 14 → 86, then 4).
+		expect(small.total).toBe(3);
 		expect(large.total).toBe(small.total);
 		expect(large.writes).toBe(1);
 		expect(large.log.filter((e) => e.kind === "transaction")).toEqual([]);
@@ -920,13 +953,12 @@ describe("signed-out visitors", () => {
 			() => setBillRecipient("members", ""),
 			() => markAllMemberBillsPaid(),
 		];
-		// Denied either by a thrown guard or by the older result-style gate.
 		for (const attempt of attempts) {
-			const outcome = await attempt().then(
-				(result) => result,
-				(error: Error) => ({ success: false, error: error.message }),
-			);
-			expect(outcome).toEqual({ success: false, error: "Nicht angemeldet" });
+			expect(await attempt()).toEqual({
+				ok: false,
+				error: "Nicht angemeldet",
+				code: "UNAUTHENTICATED",
+			});
 		}
 	});
 });

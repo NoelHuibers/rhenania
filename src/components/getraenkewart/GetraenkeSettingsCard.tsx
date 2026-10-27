@@ -67,7 +67,7 @@ function MarkupSection({ initial }: { initial: number }) {
 		}
 		startTransition(async () => {
 			const res = await setMarkupPercent(parsed);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Aufschlag gespeichert");
 				router.refresh();
 			} else {
@@ -124,7 +124,7 @@ function RecipientSection({
 	function save() {
 		startTransition(async () => {
 			const res = await setBillRecipient(mode, email);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Rechnungsversand gespeichert");
 				router.refresh();
 			} else {

@@ -71,8 +71,8 @@ export function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 	function markAllPaid() {
 		startTransition(async () => {
 			const res = await markAllMemberBillsPaid();
-			if (res.success) {
-				toast.success(`${res.count} Rechnungen als bezahlt markiert`);
+			if (res.ok) {
+				toast.success(`${res.data.count} Rechnungen als bezahlt markiert`);
 			} else {
 				toast.error(res.error);
 			}

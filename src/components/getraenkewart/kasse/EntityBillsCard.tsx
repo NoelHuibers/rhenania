@@ -59,16 +59,18 @@ export function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 		setDownloading(bill.id);
 		try {
 			const res = await downloadEntityBillPDF(bill.id);
-			if (!res.success || !res.base64) {
-				toast.error(res.error ?? "PDF-Fehler");
+			if (!res.ok) {
+				toast.error(res.error);
 				return;
 			}
-			const bytes = Uint8Array.from(atob(res.base64), (c) => c.charCodeAt(0));
+			const bytes = Uint8Array.from(atob(res.data.base64), (c) =>
+				c.charCodeAt(0),
+			);
 			const blob = new Blob([bytes], { type: "application/pdf" });
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement("a");
 			a.href = url;
-			a.download = res.fileName ?? `Rechnung_${bill.userName}.pdf`;
+			a.download = res.data.fileName;
 			a.click();
 			URL.revokeObjectURL(url);
 		} finally {

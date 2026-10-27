@@ -891,10 +891,10 @@ describe("Alle haben gezahlt, Kassenwart als Empfänger und Aufschlag (wie Hassi
 				"billing.treasurerRecipient",
 			],
 		});
-		expect(await setMarkupPercent(10)).toEqual({ success: true });
+		expect(await setMarkupPercent(10)).toEqual({ ok: true });
 		expect(
 			await setBillRecipient("treasurer", " kassenwart@example.test "),
-		).toEqual({ success: true });
+		).toEqual({ ok: true });
 		const anna = await createUser({ name: "Anna", email: "anna@example.test" });
 		const ben = await createUser({ name: "Ben", email: "ben@example.test" });
 		const pils = await createDrink({ name: "Pils", price: 1.9 });
@@ -955,7 +955,10 @@ describe("Alle haben gezahlt, Kassenwart als Empfänger und Aufschlag (wie Hassi
 			kassenbuch.set(member.id, toCents(newest.total));
 		}
 		vi.setSystemTime(new Date(woche(1).getTime() + 3_600_000));
-		expect(await markAllMemberBillsPaid()).toEqual({ success: true, count: 2 });
+		expect(await markAllMemberBillsPaid()).toEqual({
+			ok: true,
+			data: { count: 2 },
+		});
 
 		for (const member of [anna, ben]) {
 			expect((await billsOf(member.id)).map((b) => b.status)).toEqual([

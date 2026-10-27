@@ -44,12 +44,12 @@ export function SummarySection({
 		}
 		startTransition(async () => {
 			const res = await setPfandWert(parsed);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Pfandwert gespeichert");
 				setEditingPfand(false);
 				router.refresh();
 			} else {
-				toast.error("Fehler beim Speichern");
+				toast.error(res.error);
 			}
 		});
 	}
