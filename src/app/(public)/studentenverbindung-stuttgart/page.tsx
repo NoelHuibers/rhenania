@@ -23,8 +23,8 @@ import {
 	JsonLd,
 } from "~/tenants/rhenania/seo";
 
-const DEFAULT_HERO_IMAGE = "/0.png";
-const FALLBACK_IMAGES = [DEFAULT_HERO_IMAGE, "/1.jpg", "/2.png", "/3.jpg"];
+const DEFAULT_HERO_IMAGE = "/0.webp";
+const FALLBACK_IMAGES = [DEFAULT_HERO_IMAGE, "/1.webp", "/2.webp", "/3.webp"];
 
 const FAQS: readonly FaqItem[] = [
 	{

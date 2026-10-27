@@ -34,15 +34,13 @@ function relativeLabel(d: Date): string | null {
 	return null;
 }
 
-const AKTIVE_FALLBACK = ["/0.png", "/1.jpg", "/2.png", "/3.jpg"];
+const AKTIVE_FALLBACK = ["/0.webp", "/1.webp", "/2.webp", "/3.webp"];
 const HAUS_FALLBACK = [
-	"/Haus0.png",
-	"/Haus1.png",
-	"/Haus2.png",
-	"/Haus3.png",
-	"/Haus4.png",
-	"/Haus5.png",
-	"/Haus6.gif",
+	"/Haus0.webp",
+	"/Haus1.webp",
+	"/Haus2.webp",
+	"/Haus3.webp",
+	"/Haus4.webp",
 ];
 
 export async function RhenaniaLandingPage() {
@@ -63,7 +61,7 @@ export async function RhenaniaLandingPage() {
 	]);
 
 	const heroImageUrl = headerImage?.imageUrl || "/stifi.jpg";
-	const ctaImageUrl = footerImage?.imageUrl || "/background.png";
+	const ctaImageUrl = footerImage?.imageUrl || "/background.webp";
 
 	const aktiveUrls =
 		aktiveImages.length > 0
