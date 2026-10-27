@@ -131,13 +131,42 @@ export async function getCurrentRequestOrigin(): Promise<string> {
 
 // Identity (sessions, users) is global across tenants, so "logged in" alone
 // must never grant access to a tenant's data — membership in the CURRENT
-// tenant is the fence. Cached per (tenant, user) with the same short TTL as
-// host resolution; revocations apply within a minute.
+// tenant is the fence. The proxy and `auth()` both read it through this
+// cache, per (tenant, user) for MEMBERSHIP_CACHE_TTL_MS. Membership writes in
+// the app call `forgetMembership()`, so they apply at once on the instance
+// that made them; other instances (and manual SQL) see a removal or
+// suspension within the TTL.
 const membershipCache = new Map<
 	string,
 	{ active: boolean; expiresAt: number }
 >();
-const MEMBERSHIP_CACHE_TTL_MS = 60_000;
+export const MEMBERSHIP_CACHE_TTL_MS = 60_000;
+/** User ids come from sessions, but keep the map bounded anyway. */
+const MAX_MEMBERSHIP_ENTRIES = 10_000;
+// Bumped by every forget; a lookup that started before it is not stored, so
+// an in-flight read can't put a revoked membership back.
+let membershipGeneration = 0;
+
+/**
+ * Drops this instance's cached membership answers: one (user, tenant) pair,
+ * every tenant of a user, or (without arguments) everything.
+ */
+export function forgetMembership(userId?: string, tenantId?: string): void {
+	membershipGeneration++;
+	if (!userId) {
+		membershipCache.clear();
+		return;
+	}
+	if (tenantId) {
+		membershipCache.delete(`${tenantId}:${userId}`);
+		return;
+	}
+	for (const key of membershipCache.keys()) {
+		if (key.endsWith(`:${userId}`)) {
+			membershipCache.delete(key);
+		}
+	}
+}
 
 export async function hasActiveMembership(
 	userId: string,
@@ -149,6 +178,7 @@ export async function hasActiveMembership(
 		return cached.active;
 	}
 
+	const generation = membershipGeneration;
 	const [row] = await controlDb
 		.select({ status: tenantMemberships.status })
 		.from(tenantMemberships)
@@ -161,10 +191,15 @@ export async function hasActiveMembership(
 		.limit(1);
 
 	const active = row?.status === "active";
-	membershipCache.set(key, {
-		active,
-		expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS,
-	});
+	if (generation === membershipGeneration) {
+		if (membershipCache.size >= MAX_MEMBERSHIP_ENTRIES) {
+			membershipCache.clear();
+		}
+		membershipCache.set(key, {
+			active,
+			expiresAt: Date.now() + MEMBERSHIP_CACHE_TTL_MS,
+		});
+	}
 	return active;
 }
 

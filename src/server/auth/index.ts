@@ -20,9 +20,13 @@ import {
 import { roles, userRoles } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
 import {
+	forgetMembership,
+	getTenantById,
 	getTenantId,
+	hasActiveMembership,
 	resolveTenantByHost,
 	TENANT_HEADER,
+	type TenantContext,
 } from "~/server/lib/tenant-context";
 import {
 	mirrorUserToAllMemberTenants,
@@ -212,6 +216,7 @@ export const betterAuthInstance = betterAuth({
 						.onConflictDoNothing({
 							target: [tenantMemberships.userId, tenantMemberships.tenantId],
 						});
+					forgetMembership(user.id, tenantId);
 
 					await mirrorUserToTenant(mirrored, tenantId);
 				},
@@ -258,6 +263,7 @@ export const betterAuthInstance = betterAuth({
 						.onConflictDoNothing({
 							target: [tenantMemberships.userId, tenantMemberships.tenantId],
 						});
+					forgetMembership(account.userId, tenantId);
 
 					const [u] = await controlDb
 						.select()
@@ -306,42 +312,54 @@ export const getIdentity = cache(async () => {
 	};
 });
 
+type Identity = NonNullable<Awaited<ReturnType<typeof getIdentity>>>;
+
+/** The signed-in identity as a member of the request's tenant. */
+export type RequestMember = Identity["user"] & { roles: string[] };
+
+export type RequestContext = {
+	/** Tenant id of the request's host; null outside a tenant (scripts, build). */
+	tenantId: string | null;
+	/** That tenant's config and feature flags. */
+	tenant: TenantContext | null;
+	/** The signed-in identity, whatever its memberships. */
+	identity: Identity | null;
+	/**
+	 * The identity with its roles in `tenant`, only if its membership there is
+	 * ACTIVE. Null without a tenant in scope.
+	 */
+	member: RequestMember | null;
+};
+
 /**
- * Session of the current request, scoped to the current tenant.
+ * Everything the guards and loaders need about the caller, resolved once per
+ * request (React `cache`) however many components and actions ask (#20).
+ *
+ * Cost per request: Better Auth's session lookup (control DB), the
+ * membership check (cached per instance for MEMBERSHIP_CACHE_TTL_MS, shared
+ * with the proxy) and one role query (tenant DB). Tenant config comes from
+ * the tenant-config cache.
  *
  * Identity is global (one session works on every tenant's domain), so a
- * session alone must never grant access to a tenant's data. `auth()` returns
- * null unless the user has an ACTIVE membership in the tenant of the request,
- * and attaches that tenant's role names. Every server action that checks
- * `auth()` therefore also checks membership.
+ * session alone must never grant access to a tenant's data: `member` is null
+ * unless the membership in the request's tenant is active.
  */
-// Memoized per request (React `cache`): every guarded server action and data
-// loader calls auth(), and a page renders many of them at once. Without it
-// each call repeats the session, membership and role lookups (#20).
-export const auth = cache(async () => {
-	const identity = await getIdentity();
+export const getRequestContext = cache(async (): Promise<RequestContext> => {
+	const [identity, tenantId] = await Promise.all([
+		getIdentity(),
+		getTenantId(),
+	]);
+	const tenant = tenantId ? await getTenantById(tenantId) : null;
 	if (!identity) {
-		return null;
+		return { tenantId, tenant, identity, member: null };
 	}
-
-	// No tenant behind the host (unknown or suspended): nobody is a member.
-	const tenantId = await getTenantId();
 	if (!tenantId) {
-		return null;
+		// No tenant behind the host (unknown or suspended, or no request
+		// at all): nobody is a member.
+		return { tenantId, tenant, identity, member: null };
 	}
-
-	const [membership] = await controlDb
-		.select({ status: tenantMemberships.status })
-		.from(tenantMemberships)
-		.where(
-			and(
-				eq(tenantMemberships.userId, identity.user.id),
-				eq(tenantMemberships.tenantId, tenantId),
-			),
-		)
-		.limit(1);
-	if (membership?.status !== "active") {
-		return null;
+	if (!tenant || !(await hasActiveMembership(identity.user.id, tenantId))) {
+		return { tenantId, tenant, identity, member: null };
 	}
 
 	const tdb = await getTenantDb(tenantId);
@@ -352,9 +370,23 @@ export const auth = cache(async () => {
 		.where(eq(userRoles.userId, identity.user.id));
 
 	return {
-		user: {
+		tenantId,
+		tenant,
+		identity,
+		member: {
 			...identity.user,
 			roles: userRoleRows.map((r) => r.roleName),
 		},
 	};
+});
+
+/**
+ * Session of the current request, scoped to the current tenant: null unless
+ * the user has an ACTIVE membership in the tenant of the request, with that
+ * tenant's role names. Every server action that checks `auth()` therefore
+ * also checks membership. A thin view of `getRequestContext()`.
+ */
+export const auth = cache(async () => {
+	const { member } = await getRequestContext();
+	return member ? { user: member } : null;
 });

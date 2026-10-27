@@ -182,6 +182,17 @@ vi.mock("~/server/auth", async () => {
 		return { user: { ...user, roles: rows.map((r) => r.roleName) } };
 	}
 
+	async function getRequestContext() {
+		const { getTenantById } = await import("~/server/lib/tenant-context");
+		const tenantId = testState.tenantId;
+		const [identity, session, tenant] = await Promise.all([
+			getIdentity(),
+			auth(),
+			tenantId ? getTenantById(tenantId) : null,
+		]);
+		return { tenantId, tenant, identity, member: session?.user ?? null };
+	}
+
 	const betterAuthInstance = {
 		api: {
 			getSession: async () => {
@@ -193,14 +204,14 @@ vi.mock("~/server/auth", async () => {
 		},
 	};
 
-	return { auth, getIdentity, betterAuthInstance };
+	return { auth, getIdentity, getRequestContext, betterAuthInstance };
 });
 
 // ─── Isolation between tests ────────────────────────────────────────────────
 afterEach(async () => {
-	const { clearTenantCache, clearTenantHostCache } = await import(
-		"~/server/lib/tenant-context"
-	);
+	const { clearTenantCache, clearTenantHostCache, forgetMembership } =
+		await import("~/server/lib/tenant-context");
 	clearTenantCache();
 	clearTenantHostCache();
+	forgetMembership();
 });

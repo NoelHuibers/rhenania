@@ -11,7 +11,6 @@ import {
 	fuchsenBills,
 } from "~/server/db/schema";
 import { log } from "~/server/lib/log";
-import { hasRole } from "../admin/userRoles";
 import { getFuchsenBillingConfig } from "./billingConfig";
 
 function eur(amount: number): string {
@@ -59,11 +58,9 @@ export async function generateFuchsenBillPDF(billId: string): Promise<{
 		}
 
 		if (bill.userId !== session.user.id) {
-			const [isFuchs, isAdmin] = await Promise.all([
-				hasRole(session.user.id, "Fuchs"),
-				hasRole(session.user.id, "Admin"),
-			]);
-			if (!isFuchs && !isAdmin) {
+			if (
+				!session.user.roles.some((role) => role === "Fuchs" || role === "Admin")
+			) {
 				return { success: false, error: "Keine Berechtigung" };
 			}
 		}

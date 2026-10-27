@@ -26,7 +26,7 @@ import {
 } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { ROLES, requireRole } from "~/server/lib/authz";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import { forgetMembership, requireTenantId } from "~/server/lib/tenant-context";
 import { seedDefaultRoles } from "~/server/lib/tenant-seed";
 import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
@@ -446,6 +446,7 @@ export async function deleteUser(userId: string): Promise<void> {
 					eq(tenantMemberships.tenantId, tenantId),
 				),
 			);
+		forgetMembership(userId, tenantId);
 
 		// Last membership gone → delete the global identity as before.
 		const [remaining] = await controlDb

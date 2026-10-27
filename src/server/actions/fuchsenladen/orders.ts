@@ -9,7 +9,6 @@ import { fuchsenBills, fuchsenItems, fuchsenOrders } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { ROLES, requireRole } from "~/server/lib/authz";
 import { log } from "~/server/lib/log";
-import { hasRole } from "../admin/userRoles";
 import { getUserName } from "../getUserName";
 
 export type FuchsenOrder = typeof fuchsenOrders.$inferSelect;
@@ -219,11 +218,9 @@ async function requireFuchsenwart() {
 	if (!session?.user?.id) {
 		return { ok: false as const, error: "Authentifizierung erforderlich" };
 	}
-	const [isFuchs, isAdmin] = await Promise.all([
-		hasRole(session.user.id, "Fuchs"),
-		hasRole(session.user.id, "Admin"),
-	]);
-	if (!isFuchs && !isAdmin) {
+	if (
+		!session.user.roles.some((role) => role === "Fuchs" || role === "Admin")
+	) {
 		return { ok: false as const, error: "Keine Berechtigung" };
 	}
 	return { ok: true as const };
