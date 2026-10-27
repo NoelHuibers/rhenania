@@ -113,6 +113,11 @@ export default function AdminPage() {
 	);
 }
 
+// Server actions run within the page's time limit. The data export (#69)
+// reads every table and stored file of the Corps, so it gets more than the
+// platform default.
+export const maxDuration = 300;
+
 export const metadata = {
 	title: "Admin Dashboard",
 	description: "Verwaltung von Benutzern und Rollen",
