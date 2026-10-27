@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { ChipGroup } from "~/components/ui/chip-group";
 import type { PublicAchievement } from "~/server/actions/profile/public-profile";
 import { AchievementCard, CATEGORIES } from "./achievement-ui";
 
@@ -37,23 +38,12 @@ export function PublicAchievements({
 				</div>
 			</CardHeader>
 			<CardContent className="space-y-4">
-				{/* Category filter */}
-				<div className="flex flex-wrap gap-2">
-					{CATEGORIES.map((cat) => (
-						<button
-							type="button"
-							key={cat.key}
-							onClick={() => setActiveCategory(cat.key)}
-							className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-								activeCategory === cat.key
-									? "border-primary bg-primary text-primary-foreground"
-									: "border-border bg-transparent text-muted-foreground hover:border-foreground"
-							}`}
-						>
-							{cat.label}
-						</button>
-					))}
-				</div>
+				<ChipGroup
+					aria-label="Kategorie"
+					value={activeCategory}
+					onValueChange={setActiveCategory}
+					options={CATEGORIES.map((c) => ({ value: c.key, label: c.label }))}
+				/>
 
 				{filtered.length > 0 ? (
 					<div className="grid grid-cols-1 gap-2">

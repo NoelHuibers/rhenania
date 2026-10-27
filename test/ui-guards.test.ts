@@ -62,11 +62,8 @@ describe("status colours come from theme tokens (#76)", () => {
 		"src/components/semesterprogramm/WeekPreview.tsx": 7,
 		"src/components/orders/Orderspage.tsx": 6,
 		"src/components/bilder/DraggableImageGrid.tsx": 2,
-		"src/components/eloranking/stats-overview.tsx": 2,
 		"src/components/bilder/OptimizedImagePreview.tsx": 1,
 		"src/components/getraenkewart/KasseTab.tsx": 1,
-		"src/components/members/AdresslistePage.tsx": 1,
-		"src/components/profile/KPIGrid.tsx": 1,
 		"src/app/(protected)/semesterprogramm/page.tsx": 14,
 	};
 	// The public marketing pages have their own per-tenant design.
@@ -398,5 +395,62 @@ describe("loading, error and empty states (#85, #34)", () => {
 		expect(impls).toEqual([
 			expect.stringMatching(/^src[\\/]components[\\/]ui[\\/]empty-state\.tsx:/),
 		]);
+	});
+});
+
+describe("one tabs, chip and tile pattern (#87)", () => {
+	const UI = path.join("src", "components", "ui");
+	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
+
+	test("a TabsList picks a layout instead of overriding classes", () => {
+		const overridden: string[] = [];
+		for (const file of UI_FILES) {
+			for (const el of elements(read(file), "TabsList")) {
+				if (/className=/.test(el.attrs)) {
+					overridden.push(`${file}:${el.line}`);
+				}
+			}
+		}
+		expect(overridden).toEqual([]);
+	});
+
+	test("?tab= is read through UrlTabs, not by hand", () => {
+		expect(offending(UI_FILES, /\.get\(\s*["']tab["']\s*\)/)).toEqual([]);
+	});
+
+	test("chip rows and radio buttons come from ChipGroup", () => {
+		expect(offending(UI_FILES, /role=["']radio(group)?["']/)).toEqual([]);
+		expect(offending(UI_FILES, /rounded-full border px-\d/)).toEqual([]);
+	});
+
+	test("the shared blocks are defined only in src/components/ui", () => {
+		const impls = offending(
+			[...UI_FILES, ...sourceFiles(UI)],
+			/(function|const|class)\s+(FilterChips|ChipGroup|BudgetBar|StackedBar|BarLegend|StatTile|StatCard|KPIStatCard|Stat|SectionCard|StatusBadge)\b/,
+		).map((hit) => hit.split(":")[0]);
+		expect([...new Set(impls)].sort()).toEqual(
+			[
+				"chip-group.tsx",
+				"section-card.tsx",
+				"stacked-bar.tsx",
+				"stat-tile.tsx",
+				"status-badge.tsx",
+			].map((f) => path.join(UI, f)),
+		);
+		expect(UI_FILES).not.toContain(
+			path.join("src", "components", "cc-kasse", "KasseUi.tsx"),
+		);
+	});
+
+	test("no raw palette colours through CSS variables either", () => {
+		const files = [...UI_FILES, ...sourceFiles(UI)].filter(
+			(f) => !/[\\/](landingpage|footer|header)[\\/]/.test(f),
+		);
+		expect(
+			offending(
+				files,
+				/var\(--color-(?:red|green|blue|yellow|amber|orange|emerald|lime|teal|cyan|sky|indigo|violet|purple|fuchsia|pink|rose|gray|slate|zinc|neutral|stone)-\d/,
+			),
+		).toEqual([]);
 	});
 });

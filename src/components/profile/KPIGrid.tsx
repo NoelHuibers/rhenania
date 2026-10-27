@@ -1,6 +1,5 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
 import {
 	Calendar,
 	Swords,
@@ -9,6 +8,7 @@ import {
 	TrendingUp,
 	Trophy,
 } from "lucide-react";
+import { StatTile } from "~/components/ui/stat-tile";
 import { formatDate } from "~/lib/format";
 
 type NullableDate = Date | string | null;
@@ -34,33 +34,6 @@ export interface KPIGridProps {
 	winRate: number;
 }
 
-interface KPIStatCardProps {
-	icon: LucideIcon;
-	iconClassName?: string;
-	label: string;
-	children: React.ReactNode;
-	trend?: "up" | "down" | null;
-}
-
-function KPIStatCard({
-	icon: Icon,
-	iconClassName,
-	label,
-	children,
-}: KPIStatCardProps) {
-	return (
-		<div className="relative overflow-hidden rounded-lg border bg-card p-4 transition-colors hover:bg-accent/50">
-			<div className="flex items-center gap-2">
-				<span className="inline-flex h-6 w-6 items-center justify-center">
-					<Icon className={`h-4 w-4 ${iconClassName ?? "text-primary"}`} />
-				</span>
-				<p className="font-medium text-muted-foreground text-xs">{label}</p>
-			</div>
-			<div className="mt-2">{children}</div>
-		</div>
-	);
-}
-
 function formatLastGame(value: NullableDate) {
 	if (!value) {
 		return "Nie";
@@ -76,81 +49,73 @@ export function KPIGrid({
 }: KPIGridProps) {
 	return (
 		<div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-			{/* Aktuelle Elo */}
-			<KPIStatCard icon={Target} label="Derzeitige Elo">
-				<div className="flex items-baseline gap-2">
-					<p className="font-bold text-2xl text-primary">
+			<StatTile
+				icon={<Target />}
+				label="Derzeitige Elo"
+				value={
+					<span className="flex items-baseline gap-2">
 						{userStats.currentElo}
-					</p>
-
-					{eloTrend !== 0 && (
-						<span
-							className={`inline-flex items-center gap-1 font-medium text-sm ${
-								eloTrend > 0 ? "text-success" : "text-destructive"
-							}`}
-						>
-							{eloTrend > 0 ? (
-								<TrendingUp className="h-4 w-4" />
-							) : (
-								<TrendingDown className="h-4 w-4" />
-							)}
-						</span>
-					)}
-				</div>
-			</KPIStatCard>
-
-			{/* Peak Elo */}
-			<KPIStatCard
-				icon={Trophy}
-				iconClassName="text-warning-muted-foreground"
+						{eloTrend !== 0 && (
+							<span
+								className={`inline-flex items-center font-medium text-sm ${
+									eloTrend > 0 ? "text-success" : "text-destructive"
+								}`}
+							>
+								{eloTrend > 0 ? (
+									<TrendingUp aria-hidden="true" className="size-4" />
+								) : (
+									<TrendingDown aria-hidden="true" className="size-4" />
+								)}
+								<span className="sr-only">
+									{eloTrend > 0 ? "steigend" : "fallend"}
+								</span>
+							</span>
+						)}
+					</span>
+				}
+			/>
+			<StatTile
+				icon={<Trophy />}
 				label="Maximale Steilheit"
-			>
-				<p className="font-semibold text-xl">{userStats.peakElo}</p>
-			</KPIStatCard>
-
-			{/* Gesamtspiele */}
-			<KPIStatCard
-				icon={Swords}
-				iconClassName="text-info"
+				value={userStats.peakElo}
+			/>
+			<StatTile
+				icon={<Swords />}
 				label="Anzahl Schnelle"
+				value={userStats.totalGames}
+			/>
+			<StatTile
+				icon={<Target />}
+				label="Win Rate"
+				value={`${winRate}%`}
+				tone="success"
 			>
-				<p className="font-semibold text-xl">{userStats.totalGames}</p>
-			</KPIStatCard>
-
-			{/* Win Rate */}
-			<KPIStatCard icon={Target} iconClassName="text-success" label="Win Rate">
-				<p className="font-semibold text-success text-xl">{winRate}%</p>
-				<div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+				<div
+					aria-hidden="true"
+					className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"
+				>
 					<div
-						className="h-full rounded-full bg-success text-success-foreground transition-all duration-500"
+						className="h-full rounded-full bg-success transition-all duration-500"
 						style={{ width: `${winRate}%` }}
 					/>
 				</div>
-			</KPIStatCard>
-
-			{/* W / L */}
-			<KPIStatCard
-				icon={Swords}
-				iconClassName="text-muted-foreground"
+			</StatTile>
+			<StatTile
+				icon={<Swords />}
 				label="W / L"
-			>
-				<p className="font-semibold text-xl">
-					<span className="text-success">{userStats.wins}</span>
-					<span className="mx-1 text-muted-foreground">/</span>
-					<span className="text-destructive">{userStats.losses}</span>
-				</p>
-			</KPIStatCard>
-
-			{/* Letztes Spiel */}
-			<KPIStatCard
-				icon={Calendar}
-				iconClassName="text-purple-500"
+				value={
+					<>
+						<span className="text-success">{userStats.wins}</span>
+						<span className="mx-1 text-muted-foreground">/</span>
+						<span className="text-destructive">{userStats.losses}</span>
+					</>
+				}
+			/>
+			<StatTile
+				icon={<Calendar />}
 				label="Letztes Schnelles"
-			>
-				<p className="font-medium text-sm">
-					{formatLastGame(userStats.lastGameAt)}
-				</p>
-			</KPIStatCard>
+				value={formatLastGame(userStats.lastGameAt)}
+			/>
 		</div>
 	);
 }

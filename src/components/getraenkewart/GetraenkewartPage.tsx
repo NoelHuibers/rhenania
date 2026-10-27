@@ -1,8 +1,12 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+	UrlTabs,
+} from "~/components/ui/tabs";
 
 type Props = {
 	getraenkeTab: React.ReactNode;
@@ -12,6 +16,8 @@ type Props = {
 	buchungTab: React.ReactNode;
 };
 
+const TABS = ["getraenke", "inventur", "verlauf", "kasse", "buchung"] as const;
+
 export function GetraenkewartPage({
 	getraenkeTab,
 	inventurTab,
@@ -19,25 +25,14 @@ export function GetraenkewartPage({
 	kasseTab,
 	buchungTab,
 }: Props) {
-	const searchParams = useSearchParams();
-	const activeTab = searchParams.get("tab") ?? "getraenke";
-
 	// Every tab's data is already in the page (each streams in its own
-	// Suspense boundary), so switching only updates the URL. The native
-	// History API keeps useSearchParams in sync without a server round trip;
-	// router.replace would re-run all tabs' queries.
-	function handleTabChange(value: string) {
-		const params = new URLSearchParams(searchParams.toString());
-		params.set("tab", value);
-		window.history.replaceState(null, "", `?${params.toString()}`);
-	}
-
+	// Suspense boundary), so UrlTabs only updates the URL when switching.
 	return (
 		<div className="flex flex-col">
 			<SiteHeader title="Getränkewart" />
 
 			<div className="p-4 md:p-6">
-				<Tabs value={activeTab} onValueChange={handleTabChange}>
+				<UrlTabs values={TABS} defaultValue="getraenke">
 					<TabsList>
 						<TabsTrigger value="getraenke">Getränke</TabsTrigger>
 						<TabsTrigger value="inventur">Inventur</TabsTrigger>
@@ -65,7 +60,7 @@ export function GetraenkewartPage({
 					<TabsContent value="buchung" className="mt-4">
 						{buchungTab}
 					</TabsContent>
-				</Tabs>
+				</UrlTabs>
 			</div>
 		</div>
 	);

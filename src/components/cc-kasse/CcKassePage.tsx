@@ -24,7 +24,12 @@ import {
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { EmptyState } from "~/components/ui/empty-state";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import {
+	TabsContent,
+	TabsList,
+	TabsTrigger,
+	UrlTabs,
+} from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
 import type { EinnahmeRow } from "~/server/actions/cc-kasse/einnahmen";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
@@ -71,7 +76,6 @@ export function CcKassePage({
 }: Props) {
 	const router = useRouter();
 	const sp = useSearchParams();
-	const tab = sp.get("tab") ?? "uebersicht";
 	const [createOpen, setCreateOpen] = useState(false);
 
 	const kostenpunktOptions = kostenpunkte.map((k) => ({
@@ -80,11 +84,10 @@ export function CcKassePage({
 		category: k.category,
 	}));
 
-	const navigate = (next: { tab?: string; etaplan?: string; run?: string }) => {
+	// Etatplan and Beitragslauf load server data; the tab is URL-only state
+	// (UrlTabs) and is carried along in `sp`.
+	const navigate = (next: { etaplan?: string; run?: string }) => {
 		const params = new URLSearchParams(sp.toString());
-		if (next.tab) {
-			params.set("tab", next.tab);
-		}
 		if (next.etaplan) {
 			params.set("etaplan", next.etaplan);
 		}
@@ -174,28 +177,36 @@ export function CcKassePage({
 						</Button>
 					</EmptyState>
 				) : (
-					<Tabs value={tab} onValueChange={(v) => navigate({ tab: v })}>
+					<UrlTabs
+						values={
+							isTreasury
+								? ["uebersicht", "antraege", "etaplan", "beitraege"]
+								: ["uebersicht", "antraege", "etaplan"]
+						}
+						defaultValue="uebersicht"
+					>
 						<div className="sticky top-0 z-10 -mx-4 bg-background/95 px-4 py-1 backdrop-blur supports-backdrop-filter:bg-background/80 md:static md:mx-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
-							<TabsList className="h-10! w-full sm:w-fit">
-								<TabsTrigger value="uebersicht" className="sm:px-3">
+							<TabsList>
+								<TabsTrigger value="uebersicht">
 									<LayoutDashboard className="hidden sm:block" />
 									Übersicht
 								</TabsTrigger>
-								<TabsTrigger value="antraege" className="sm:px-3">
+								<TabsTrigger value="antraege">
 									<Inbox className="hidden sm:block" />
 									Anträge
 									{openCount > 0 && (
 										<span className="rounded-full bg-primary px-1.5 font-semibold text-[10px] text-primary-foreground tabular-nums leading-4">
 											{openCount}
+											<span className="sr-only"> offen</span>
 										</span>
 									)}
 								</TabsTrigger>
-								<TabsTrigger value="etaplan" className="sm:px-3">
+								<TabsTrigger value="etaplan">
 									<ListTree className="hidden sm:block" />
 									Etatplan
 								</TabsTrigger>
 								{isTreasury && (
-									<TabsTrigger value="beitraege" className="sm:px-3">
+									<TabsTrigger value="beitraege">
 										<Users className="hidden sm:block" />
 										Beiträge
 									</TabsTrigger>
@@ -232,7 +243,7 @@ export function CcKassePage({
 								/>
 							</TabsContent>
 						)}
-					</Tabs>
+					</UrlTabs>
 				)}
 			</div>
 

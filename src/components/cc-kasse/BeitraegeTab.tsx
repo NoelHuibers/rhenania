@@ -30,6 +30,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import { ChipGroup } from "~/components/ui/chip-group";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -64,7 +65,6 @@ import {
 	sendMahnungen,
 } from "~/server/actions/members/semesterbeitrag";
 import { BeitragRunDialog } from "./BeitragRunDialog";
-import { FilterChips } from "./KasseUi";
 
 type KpOption = { id: string; name: string; category: string };
 type ChargeFilter = "offen" | "Bezahlt" | "Gestundet" | "alle";
@@ -368,9 +368,11 @@ export function BeitraegeTab({
 									className="pl-9"
 								/>
 							</div>
-							<FilterChips<ChargeFilter>
+							<ChipGroup<ChargeFilter>
+								aria-label="Beiträge filtern"
+								bleed
 								value={filter}
-								onChange={setFilter}
+								onValueChange={setFilter}
 								options={[
 									{ value: "offen", label: "Offen", count: countBy("offen") },
 									{

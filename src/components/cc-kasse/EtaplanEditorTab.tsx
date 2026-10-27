@@ -37,6 +37,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { EmptyState } from "~/components/ui/empty-state";
 import { IconButton } from "~/components/ui/icon-button";
+import { SectionCard } from "~/components/ui/section-card";
 import { formatDate, formatEUR } from "~/lib/format";
 import {
 	deleteEinnahme,
@@ -342,15 +343,11 @@ export function EtaplanEditorTab({
 					const catBudget = g.items.reduce((s, k) => s + k.budget, 0);
 					const catIncome = g.items.reduce((s, k) => s + k.income, 0);
 					return (
-						<section
+						<SectionCard
 							key={g.category}
-							className="overflow-hidden rounded-xl border bg-card shadow-xs"
-						>
-							<div className="flex items-center justify-between gap-3 bg-muted/40 px-4 py-2.5">
-								<h3 className="min-w-0 truncate font-semibold text-sm">
-									{g.category}
-								</h3>
-								<div className="shrink-0 text-right text-xs tabular-nums">
+							title={g.category}
+							aside={
+								<div className="text-xs tabular-nums">
 									<span className="font-semibold">{formatEUR(catBudget)}</span>
 									{catIncome > 0 && (
 										<span className="text-muted-foreground">
@@ -359,7 +356,8 @@ export function EtaplanEditorTab({
 										</span>
 									)}
 								</div>
-							</div>
+							}
+						>
 							<ul className="divide-y">
 								{g.items.map((kp) => {
 									const kpEinnahmen = einnahmenByKp.get(kp.id) ?? [];
@@ -489,7 +487,7 @@ export function EtaplanEditorTab({
 									);
 								})}
 							</ul>
-						</section>
+						</SectionCard>
 					);
 				})
 			)}

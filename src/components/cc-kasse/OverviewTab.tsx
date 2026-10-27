@@ -10,7 +10,6 @@ import {
 	PiggyBank,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import {
 	Collapsible,
@@ -19,8 +18,19 @@ import {
 } from "~/components/ui/collapsible";
 import { EmptyState } from "~/components/ui/empty-state";
 import { Progress } from "~/components/ui/progress";
-import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
+import { SectionCard } from "~/components/ui/section-card";
+import {
+	BarLegend,
+	type BarSegment,
+	StackedBar,
+} from "~/components/ui/stacked-bar";
+import { StatTile } from "~/components/ui/stat-tile";
+import {
+	ReimbursementStatusBadge,
+	StatusBadge,
+} from "~/components/ui/status-badge";
 import { formatDate, formatEUR } from "~/lib/format";
+import type { StatusTone } from "~/lib/status";
 import { cn } from "~/lib/utils";
 import type { QueueReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
 import type {
@@ -28,30 +38,30 @@ import type {
 	EtaplanOverview,
 	KostenpunktOverview,
 } from "~/server/actions/cc-kasse/overview";
-import { BarLegend, BudgetBar } from "./KasseUi";
 
-const STATUS_META: Record<BudgetStatus, { label: string; cls: string }> = {
-	"on-track": {
-		label: "Im Plan",
-		cls: "border-success/40 bg-success-muted text-success-muted-foreground",
-	},
-	warning: {
-		label: "Achtung",
-		cls: "border-warning/40 bg-warning-muted text-warning-muted-foreground",
-	},
-	"over-budget": {
-		label: "Über Budget",
-		cls: "border-danger/40 bg-danger-muted text-danger-muted-foreground",
-	},
-};
+const BUDGET_STATUS: Record<BudgetStatus, { label: string; tone: StatusTone }> =
+	{
+		"on-track": { label: "Im Plan", tone: "success" },
+		warning: { label: "Achtung", tone: "warning" },
+		"over-budget": { label: "Über Budget", tone: "danger" },
+	};
 
-function StatusBadge({ status }: { status: BudgetStatus }) {
-	const m = STATUS_META[status];
-	return (
-		<Badge variant="outline" className={cn("font-medium", m.cls)}>
-			{m.label}
-		</Badge>
-	);
+/** Paid, approved and submitted against the budget; red once overspent. */
+function budgetBar(
+	budget: number,
+	ausgegeben: number,
+	genehmigt: number,
+	eingereicht: number,
+): { max: number; segments: BarSegment[]; tone: "primary" | "danger" } {
+	return {
+		max: budget,
+		segments: [
+			{ value: ausgegeben, swatch: "solid" },
+			{ value: genehmigt, swatch: "soft" },
+			{ value: eingereicht, swatch: "hatched" },
+		],
+		tone: ausgegeben + genehmigt > budget + 0.005 ? "danger" : "primary",
+	};
 }
 
 function remainingTone(verbleibend: number, budget: number) {
@@ -146,15 +156,27 @@ export function OverviewTab({
 					className="lg:col-span-2"
 				/>
 				<div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
-					<IncomeTile
-						geplant={overview.geplanteEinnahmen}
-						erhalten={total.istEinnahmen}
-					/>
 					<StatTile
-						icon={<HandCoins className="size-4" />}
+						icon={<PiggyBank />}
+						label="Einnahmen"
+						value={formatEUR(total.istEinnahmen)}
+						tone="success"
+						hint={`von ${formatEUR(overview.geplanteEinnahmen)} geplant`}
+					>
+						<Progress
+							className="mt-2 [&>[data-slot=progress-indicator]]:bg-success"
+							value={Math.min(
+								incomePct(overview.geplanteEinnahmen, total.istEinnahmen),
+								100,
+							)}
+							aria-label="Anteil der geplanten Einnahmen erhalten"
+						/>
+					</StatTile>
+					<StatTile
+						icon={<HandCoins />}
 						label="AHV-Zuschuss"
 						value={formatEUR(overview.geplanterZuschuss)}
-						sub="geplant (Ausgaben − Einnahmen)"
+						hint="geplant (Ausgaben − Einnahmen)"
 					/>
 				</div>
 			</div>
@@ -187,20 +209,12 @@ export function OverviewTab({
 				{categories.map((cat) => {
 					const items = kostenpunkte.filter((k) => k.category === cat.category);
 					return (
-						<div
+						<SectionCard
 							key={cat.category}
-							className="overflow-hidden rounded-xl border bg-card shadow-xs"
-						>
-							<div className="flex items-center justify-between gap-3 bg-muted/40 px-4 py-2.5">
-								<div className="min-w-0">
-									<div className="truncate font-semibold text-sm">
-										{cat.category}
-									</div>
-									<div className="text-muted-foreground text-xs tabular-nums">
-										{formatEUR(cat.ausgegeben)} von {formatEUR(cat.budget)}
-									</div>
-								</div>
-								<div className="shrink-0 text-right">
+							title={cat.category}
+							meta={`${formatEUR(cat.ausgegeben)} von ${formatEUR(cat.budget)}`}
+							aside={
+								<>
 									<div
 										className={cn(
 											"font-semibold text-sm tabular-nums",
@@ -210,8 +224,9 @@ export function OverviewTab({
 										{formatEUR(cat.verbleibend)}
 									</div>
 									<div className="text-muted-foreground text-xs">übrig</div>
-								</div>
-							</div>
+								</>
+							}
+						>
 							<ul className="divide-y">
 								{items.map((k) => (
 									<KostenpunktRow
@@ -223,7 +238,7 @@ export function OverviewTab({
 									/>
 								))}
 							</ul>
-						</div>
+						</SectionCard>
 					);
 				})}
 			</section>
@@ -266,16 +281,23 @@ function HeroCard({
 						ausgegeben
 					</p>
 				</div>
-				<StatusBadge status={total.status} />
+				<StatusBadge
+					tone={BUDGET_STATUS[total.status].tone}
+					className="font-medium"
+				>
+					{BUDGET_STATUS[total.status].label}
+				</StatusBadge>
 			</div>
 
-			<BudgetBar
+			<StackedBar
 				className="mt-5"
 				size="lg"
-				budget={total.budget}
-				ausgegeben={total.ausgegeben}
-				genehmigt={total.genehmigt}
-				eingereicht={eingereicht}
+				{...budgetBar(
+					total.budget,
+					total.ausgegeben,
+					total.genehmigt,
+					eingereicht,
+				)}
 			/>
 			<div className="mt-3">
 				<BarLegend
@@ -283,14 +305,14 @@ function HeroCard({
 						{
 							label: "Ausgezahlt",
 							value: formatEUR(total.ausgegeben),
-							swatch: "paid",
+							swatch: "solid",
 						},
 						...(total.genehmigt > 0
 							? [
 									{
 										label: "Genehmigt",
 										value: formatEUR(total.genehmigt),
-										swatch: "approved" as const,
+										swatch: "soft" as const,
 									},
 								]
 							: []),
@@ -299,7 +321,7 @@ function HeroCard({
 									{
 										label: "Eingereicht",
 										value: formatEUR(eingereicht),
-										swatch: "submitted" as const,
+										swatch: "hatched" as const,
 									},
 								]
 							: []),
@@ -322,57 +344,6 @@ function HeroCard({
 					übrig.
 				</p>
 			)}
-		</div>
-	);
-}
-
-function IncomeTile({
-	geplant,
-	erhalten,
-}: {
-	geplant: number;
-	erhalten: number;
-}) {
-	const pct = incomePct(geplant, erhalten);
-	return (
-		<div className="rounded-2xl border bg-card p-4 shadow-xs">
-			<div className="flex items-center gap-2 text-muted-foreground text-xs">
-				<PiggyBank className="size-4" /> Einnahmen
-			</div>
-			<p className="mt-1 font-semibold text-lg text-success tabular-nums sm:text-xl">
-				{formatEUR(erhalten)}
-			</p>
-			<p className="text-muted-foreground text-xs tabular-nums">
-				von {formatEUR(geplant)} geplant
-			</p>
-			<Progress
-				className="mt-2 [&>[data-slot=progress-indicator]]:bg-success"
-				value={Math.min(pct, 100)}
-			/>
-		</div>
-	);
-}
-
-function StatTile({
-	icon,
-	label,
-	value,
-	sub,
-}: {
-	icon: React.ReactNode;
-	label: string;
-	value: string;
-	sub?: string;
-}) {
-	return (
-		<div className="rounded-2xl border bg-card p-4 shadow-xs">
-			<div className="flex items-center gap-2 text-muted-foreground text-xs">
-				{icon} <span className="truncate">{label}</span>
-			</div>
-			<p className="mt-1 font-semibold text-lg tabular-nums sm:text-xl">
-				{value}
-			</p>
-			{sub && <p className="text-muted-foreground text-xs">{sub}</p>}
 		</div>
 	);
 }
@@ -428,13 +399,10 @@ function KostenpunktRow({
 							<ChevronDown className="mt-0.5 size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
 						</div>
 					</div>
-					<BudgetBar
+					<StackedBar
 						className="mt-2.5"
 						size="sm"
-						budget={kp.budget}
-						ausgegeben={kp.ausgegeben}
-						genehmigt={kp.genehmigt}
-						eingereicht={eingereicht}
+						{...budgetBar(kp.budget, kp.ausgegeben, kp.genehmigt, eingereicht)}
 					/>
 				</CollapsibleTrigger>
 

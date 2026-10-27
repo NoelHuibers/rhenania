@@ -99,7 +99,7 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 			</Dialog>
 
 			<Tabs defaultValue={defaultTab}>
-				<TabsList className="grid w-full grid-cols-3">
+				<TabsList layout="fill">
 					<TabsTrigger value="incoming">
 						Eingehend{incomingCount > 0 ? ` (${incomingCount})` : ""}
 					</TabsTrigger>
