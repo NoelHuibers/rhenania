@@ -40,10 +40,14 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-const receipt = { url: "https://blob.example/beleg.pdf", name: "beleg.pdf" };
+const STORE = "https://abc123.public.blob.vercel-storage.com";
+const receipt = {
+	url: `${STORE}/tenants/rhenania/receipts/1-beleg.pdf`,
+	name: "beleg.pdf",
+};
 
 async function setup() {
-	await createTenant();
+	await createTenant({ slug: "rhenania" });
 	const member = await createUser({ name: "Fux Fuchs" });
 	const kassier = await createUser({ name: "Kassier", roles: ["CC-Kasse"] });
 	const plan = await createEtaplan({ name: "WS 2026" });
@@ -543,5 +547,103 @@ describe("listReimbursementQueue", () => {
 		await queueSetup((c) => c.kassier);
 		signInAs(await createUser());
 		expect(await listReimbursementQueue()).toEqual([]);
+	});
+});
+
+describe("receipt links", () => {
+	const foreignCorps = {
+		url: `${STORE}/tenants/hassia/receipts/1-beleg.pdf`,
+		name: "beleg.pdf",
+	};
+	const foreignHost = {
+		url: "https://files.example/tenants/rhenania/receipts/1-beleg.pdf",
+		name: "beleg.pdf",
+	};
+	const invalid = { success: false, error: "Ungültiger Beleg" };
+
+	test.each([
+		["another Corps' receipt", foreignCorps],
+		["a foreign host", foreignHost],
+	])("submitting %s is refused", async (_label, bad) => {
+		const { member, kp } = await setup();
+		signInAs(member);
+
+		expect(
+			await submitReimbursement({
+				...submitInput(kp.id),
+				receipts: [receipt, bad],
+			}),
+		).toEqual(invalid);
+		expect(await tenantDb().select().from(kostenerstattungen)).toHaveLength(0);
+	});
+
+	test("a direct booking with another Corps' receipt is refused", async () => {
+		const { kassier, kp } = await setup();
+		signInAs(kassier);
+
+		expect(
+			await createDirectBooking({
+				kostenpunktId: kp.id,
+				description: "Fass",
+				amount: 80,
+				recipientName: "Brauerei",
+				receipts: [foreignCorps],
+				expenseDate: NOW,
+			}),
+		).toEqual(invalid);
+		expect(await tenantDb().select().from(kostenerstattungen)).toHaveLength(0);
+	});
+
+	test("editing my request keeps stored links but refuses new foreign ones", async () => {
+		const { member, kp } = await setup();
+		const legacy = { url: "https://blob.example/alt.pdf", name: "alt.pdf" };
+		const mine = await createReimbursement(kp, {
+			submittedBy: member.id,
+			receipts: [legacy],
+		});
+		signInAs(member);
+
+		expect(
+			await updateMyReimbursement(mine.id, {
+				...submitInput(kp.id),
+				receipts: [legacy, receipt],
+			}),
+		).toEqual({ success: true });
+		expect((await onlyRow()).receipts).toEqual([legacy, receipt]);
+
+		expect(
+			await updateMyReimbursement(mine.id, {
+				...submitInput(kp.id),
+				receipts: [legacy, foreignHost],
+			}),
+		).toEqual(invalid);
+		expect((await onlyRow()).receipts).toEqual([legacy, receipt]);
+	});
+
+	test("the treasury can't attach another Corps' receipt", async () => {
+		const { kassier, kp } = await setup();
+		const row = await createReimbursement(kp, { receipts: [receipt] });
+		signInAs(kassier);
+
+		expect(
+			await updateReimbursement(row.id, {
+				description: "neu",
+				receipts: [receipt, foreignCorps],
+			}),
+		).toEqual(invalid);
+		expect(
+			await updateReimbursement(row.id, {
+				receipts: [{ url: "not a url", name: "x" }],
+			}),
+		).toEqual(invalid);
+		expect(await onlyRow()).toMatchObject({
+			description: expect.not.stringMatching("neu"),
+			receipts: [receipt],
+		});
+
+		expect(await updateReimbursement(row.id, { receipts: [] })).toEqual({
+			success: true,
+		});
+		expect((await onlyRow()).receipts).toEqual([]);
 	});
 });

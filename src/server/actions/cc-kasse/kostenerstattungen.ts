@@ -7,6 +7,8 @@ import { ibanSchema } from "~/lib/iban";
 import { roundToCent } from "~/lib/money";
 import { db } from "~/server/db";
 import { kostenerstattungen } from "~/server/db/schema";
+import { isTenantReceiptUrl } from "~/server/lib/blob-url";
+import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import {
 	EDIT_ROLES,
 	requireAuth,
@@ -34,6 +36,29 @@ function canTransition(from: ErstattungStatus, to: ErstattungStatus): boolean {
 const receiptsSchema = z
 	.array(z.object({ url: z.string().url(), name: z.string().max(255) }))
 	.max(20, "Zu viele Belege");
+
+type Receipt = { url: string; name: string };
+
+const INVALID_RECEIPT = "Ungültiger Beleg";
+
+/**
+ * Receipts must be files uploaded to this Corps' receipt folder. Links already
+ * stored on the row (`stored`) stay accepted, so older entries can still be
+ * edited without re-uploading their receipts.
+ */
+async function receiptsAllowed(
+	receipts: Receipt[] | undefined,
+	stored: Receipt[] | null = null,
+): Promise<boolean> {
+	if (!receipts?.length) {
+		return true;
+	}
+	const { slug } = await requireCurrentTenant();
+	const kept = new Set(stored?.map((r) => r.url));
+	return receipts.every(
+		(r) => kept.has(r.url) || isTenantReceiptUrl(r.url, slug),
+	);
+}
 
 const submitSchema = z.object({
 	kostenpunktId: z.string().min(1, "Kostenpunkt ist erforderlich"),
@@ -72,6 +97,9 @@ export async function submitReimbursement(input: {
 
 	try {
 		const parsed = submitSchema.parse(input);
+		if (!(await receiptsAllowed(parsed.receipts))) {
+			return { success: false as const, error: INVALID_RECEIPT };
+		}
 		const kp = await db.query.kostenpunkte.findFirst({
 			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
 			columns: { id: true, etaplanId: true },
@@ -174,7 +202,7 @@ export async function updateMyReimbursement(
 		const parsed = submitSchema.parse(input);
 		const row = await db.query.kostenerstattungen.findFirst({
 			where: (t, { eq }) => eq(t.id, id),
-			columns: { id: true, submittedBy: true, status: true },
+			columns: { id: true, submittedBy: true, status: true, receipts: true },
 		});
 		if (!row || row.submittedBy !== guard.userId) {
 			return { success: false as const, error: "Antrag nicht gefunden" };
@@ -184,6 +212,9 @@ export async function updateMyReimbursement(
 				success: false as const,
 				error: "Nur eingereichte Anträge können bearbeitet werden",
 			};
+		}
+		if (!(await receiptsAllowed(parsed.receipts, row.receipts))) {
+			return { success: false as const, error: INVALID_RECEIPT };
 		}
 		const kp = await db.query.kostenpunkte.findFirst({
 			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
@@ -346,6 +377,9 @@ export async function createDirectBooking(input: {
 
 	try {
 		const parsed = directBookingSchema.parse(input);
+		if (!(await receiptsAllowed(parsed.receipts))) {
+			return { success: false as const, error: INVALID_RECEIPT };
+		}
 		const kp = await db.query.kostenpunkte.findFirst({
 			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
 			columns: { id: true, etaplanId: true },
@@ -431,7 +465,18 @@ export async function updateReimbursement(
 		patch.expenseDate = input.expenseDate;
 	}
 	if (input.receipts !== undefined) {
-		patch.receipts = input.receipts;
+		const parsed = receiptsSchema.safeParse(input.receipts);
+		const row = await db.query.kostenerstattungen.findFirst({
+			where: (t, { eq }) => eq(t.id, id),
+			columns: { receipts: true },
+		});
+		if (
+			!parsed.success ||
+			!(await receiptsAllowed(parsed.data, row?.receipts ?? null))
+		) {
+			return { success: false as const, error: INVALID_RECEIPT };
+		}
+		patch.receipts = parsed.data;
 	}
 	if (Object.keys(patch).length === 0) {
 		return { success: false as const, error: "Keine Änderungen" };
