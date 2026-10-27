@@ -92,12 +92,12 @@ export function FuchsenwartBilling({
 		setIsRunning(true);
 		try {
 			const result = await createNewFuchsenBilling();
-			if (result.success) {
-				toast.success(result.message);
+			if (result.ok) {
+				toast.success(result.data.message);
 				await loadAll();
 				setActiveTab("current-billing");
 			} else {
-				toast.error(result.message);
+				toast.error(result.error);
 			}
 		} catch {
 			toast.error("Fehler beim Erstellen der Abrechnung");
@@ -120,23 +120,23 @@ export function FuchsenwartBilling({
 			prev.map((b) => (b.id === billId ? { ...b, status: newStatus } : b)),
 		);
 		const result = await updateFuchsenBillStatus(billId, newStatus);
-		if (result.success) {
+		if (result.ok) {
 			toast.success("Status aktualisiert");
 		} else {
 			setCurrentBills((prev) =>
 				prev.map((b) => (b.id === billId ? { ...b, status: previous } : b)),
 			);
-			toast.error(result.error || "Fehler beim Aktualisieren");
+			toast.error(result.error);
 		}
 	};
 
 	const handleExport = async (periodId: string) => {
 		const result = await getFuchsenBillPeriodCSV(periodId);
-		if (result.success && result.csvContent) {
-			downloadCSV(result.csvContent, result.fileName ?? "fuchsenrechnung.csv");
+		if (result.ok) {
+			downloadCSV(result.data.csvContent, result.data.fileName);
 			toast.success("CSV exportiert");
 		} else {
-			toast.error(result.error || "Export fehlgeschlagen");
+			toast.error(result.error);
 		}
 	};
 

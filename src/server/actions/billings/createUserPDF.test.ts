@@ -75,7 +75,7 @@ describe("generateUserBillPDF", () => {
 
 		expect(await generateUserBillPDF("missing")).toEqual({
 			success: false,
-			error: "Bill with ID missing not found",
+			error: "Rechnung nicht gefunden",
 		});
 	});
 

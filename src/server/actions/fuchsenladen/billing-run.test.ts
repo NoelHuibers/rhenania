@@ -71,7 +71,7 @@ describe("Fuchsenladen billing run (#23)", () => {
 	test("the round trips do not grow with the members", async () => {
 		await setup();
 		await addMembers(1);
-		expect(await createNewFuchsenBilling()).toMatchObject({ success: true });
+		expect(await createNewFuchsenBilling()).toMatchObject({ ok: true });
 
 		await addMembers(2);
 		const small = await countQueries(createNewFuchsenBilling);
@@ -79,8 +79,14 @@ describe("Fuchsenladen billing run (#23)", () => {
 		const large = await countQueries(createNewFuchsenBilling);
 
 		// Carry-over bills for the members of the run before included.
-		expect(small.result).toMatchObject({ success: true, billsCreated: 3 });
-		expect(large.result).toMatchObject({ success: true, billsCreated: 23 });
+		expect(small.result).toMatchObject({
+			ok: true,
+			data: { billsCreated: 3 },
+		});
+		expect(large.result).toMatchObject({
+			ok: true,
+			data: { billsCreated: 23 },
+		});
 		// Membership and roles of the session, one read batch and one write
 		// batch (was 24 → 118).
 		expect(small.total).toBe(4);
@@ -94,15 +100,21 @@ describe("Fuchsenladen billing run (#23)", () => {
 	test("5 and 200 members: the same round trips and one write batch", async () => {
 		await setup();
 		await addMembers(1);
-		expect(await createNewFuchsenBilling()).toMatchObject({ success: true });
+		expect(await createNewFuchsenBilling()).toMatchObject({ ok: true });
 
 		await addMembers(5);
 		const small = await countQueries(createNewFuchsenBilling);
 		await addMembers(200);
 		const large = await countQueries(createNewFuchsenBilling);
 
-		expect(small.result).toMatchObject({ success: true, billsCreated: 6 });
-		expect(large.result).toMatchObject({ success: true, billsCreated: 206 });
+		expect(small.result).toMatchObject({
+			ok: true,
+			data: { billsCreated: 6 },
+		});
+		expect(large.result).toMatchObject({
+			ok: true,
+			data: { billsCreated: 206 },
+		});
 		expect(small.total).toBe(4);
 		expect(large.total).toBe(small.total);
 		expect(large.writes).toBe(1);
@@ -136,16 +148,15 @@ describe("Fuchsenladen billing run (#23)", () => {
 		);
 
 		expect(await createNewFuchsenBilling()).toMatchObject({
-			success: false,
-			billsCreated: 0,
-			message: expect.stringContaining("neu starten"),
+			ok: false,
+			error: expect.stringContaining("neu starten"),
+			code: "CONFLICT",
 		});
 		expect(await tenantDb().select().from(fuchsenBillPeriods)).toEqual([]);
 
 		expect(await createNewFuchsenBilling()).toMatchObject({
-			success: true,
-			billsCreated: 1,
-			totalAmount: 3,
+			ok: true,
+			data: { billsCreated: 1, totalAmount: 3 },
 		});
 		const [stillPaid] = await tenantDb()
 			.select()
@@ -172,8 +183,8 @@ describe("Fuchsenladen billing run (#23)", () => {
 
 		const outer = await createNewFuchsenBilling();
 
-		expect(inner).toMatchObject({ success: true, billsCreated: 1 });
-		expect(outer).toMatchObject({ success: false, billsCreated: 0 });
+		expect(inner).toMatchObject({ ok: true, data: { billsCreated: 1 } });
+		expect(outer).toMatchObject({ ok: false, code: "CONFLICT" });
 		expect(
 			(
 				await tenantDb()

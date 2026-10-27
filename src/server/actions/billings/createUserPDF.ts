@@ -42,7 +42,7 @@ export async function generateUserBillPDF(
 		if (!userBill) {
 			return {
 				success: false,
-				error: `Bill with ID ${billId} not found`,
+				error: "Rechnung nicht gefunden",
 			};
 		}
 
@@ -56,7 +56,7 @@ export async function generateUserBillPDF(
 		if (!billPeriod) {
 			return {
 				success: false,
-				error: `Bill period ${userBill.billPeriodId} not found`,
+				error: "Abrechnung nicht gefunden",
 			};
 		}
 
@@ -89,8 +89,7 @@ export async function generateUserBillPDF(
 		await log.error("Error generating PDF", { err: error });
 		return {
 			success: false,
-			error:
-				error instanceof Error ? error.message : "Unknown error generating PDF",
+			error: "PDF-Generierung fehlgeschlagen",
 		};
 	}
 }

@@ -18,13 +18,13 @@ import {
 	userRoles,
 } from "~/server/db/schema";
 import { ROLES, requireRole } from "~/server/lib/authz";
-import { FeatureDisabledError, hasFeature } from "~/server/lib/features";
+import { ActionError, defineAction } from "~/server/lib/define-action";
+import { hasFeature } from "~/server/lib/features";
 import {
 	getGetraenkeBillingProfile,
 	getGetraenkekasseAccount,
 	resolveGetraenkeBillSender,
 } from "~/server/lib/getraenkekasse-payment";
-import { log } from "~/server/lib/log";
 import { generateUserBillPDF } from "../billings/createUserPDF";
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
@@ -143,42 +143,40 @@ export async function getBankEntries() {
 	return db.select().from(bankEntries).orderBy(desc(bankEntries.date));
 }
 
-export async function addBankEntry(data: {
-	amount: number;
-	description: string;
-	date: Date;
-}) {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht angemeldet" };
-	}
-	if (
-		!Number.isFinite(data.amount) ||
-		Number.isNaN(new Date(data.date).getTime())
-	) {
-		return { success: false, error: "Ungültiger Betrag oder Datum" };
-	}
+const INVALID_BANK_ENTRY = "Ungültiger Betrag oder Datum";
 
-	await db.insert(bankEntries).values({
-		amount: data.amount,
-		description: data.description,
-		date: data.date,
-		createdBy: session.user.id,
-	});
-	return { success: true };
-}
+export const addBankEntry = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([
+			z.object({
+				amount: z.number({ error: INVALID_BANK_ENTRY }),
+				description: z.string(),
+				date: z.date({ error: INVALID_BANK_ENTRY }),
+			}),
+		]),
+		errorMessage: "Fehler beim Hinzufügen",
+	},
+	async ([data], { user }) => {
+		await db.insert(bankEntries).values({
+			amount: data.amount,
+			description: data.description,
+			date: data.date,
+			createdBy: user.id,
+		});
+	},
+);
 
-export async function deleteBankEntry(id: string) {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht angemeldet" };
-	}
-
-	await db.delete(bankEntries).where(eq(bankEntries.id, id));
-	return { success: true };
-}
+export const deleteBankEntry = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([z.string()]),
+		errorMessage: "Fehler beim Löschen",
+	},
+	async ([id]) => {
+		await db.delete(bankEntries).where(eq(bankEntries.id, id));
+	},
+);
 
 // ─── External Bills ───────────────────────────────────────────────────────────
 
@@ -187,53 +185,54 @@ export async function getExternalBills() {
 	return db.select().from(externalBills).orderBy(desc(externalBills.createdAt));
 }
 
-export async function addExternalBill(data: {
-	creditor: string;
-	description: string;
-	amount: number;
-}) {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht angemeldet" };
-	}
-	if (!Number.isFinite(data.amount) || data.amount <= 0) {
-		return { success: false, error: "Ungültiger Betrag" };
-	}
+export const addExternalBill = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([
+			z.object({
+				creditor: z.string(),
+				description: z.string(),
+				amount: z
+					.number({ error: "Ungültiger Betrag" })
+					.positive("Ungültiger Betrag"),
+			}),
+		]),
+		errorMessage: "Fehler beim Hinzufügen",
+	},
+	async ([data], { user }) => {
+		await db.insert(externalBills).values({
+			creditor: data.creditor,
+			description: data.description,
+			amount: data.amount,
+			createdBy: user.id,
+		});
+	},
+);
 
-	await db.insert(externalBills).values({
-		creditor: data.creditor,
-		description: data.description,
-		amount: data.amount,
-		createdBy: session.user.id,
-	});
-	return { success: true };
-}
+export const markExternalBillPaid = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([z.string()]),
+		errorMessage: "Status konnte nicht geändert werden",
+	},
+	async ([id]) => {
+		await db
+			.update(externalBills)
+			.set({ status: "Bezahlt", paidAt: new Date() })
+			.where(eq(externalBills.id, id));
+	},
+);
 
-export async function markExternalBillPaid(id: string) {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht angemeldet" };
-	}
-
-	await db
-		.update(externalBills)
-		.set({ status: "Bezahlt", paidAt: new Date() })
-		.where(eq(externalBills.id, id));
-	return { success: true };
-}
-
-export async function deleteExternalBill(id: string) {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht angemeldet" };
-	}
-
-	await db.delete(externalBills).where(eq(externalBills.id, id));
-	return { success: true };
-}
+export const deleteExternalBill = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([z.string()]),
+		errorMessage: "Fehler beim Löschen",
+	},
+	async ([id]) => {
+		await db.delete(externalBills).where(eq(externalBills.id, id));
+	},
+);
 
 // ─── Pfand ────────────────────────────────────────────────────────────────────
 
@@ -246,25 +245,26 @@ export async function getPfandWert() {
 	return Number(row?.pfandWert ?? 0);
 }
 
-export async function setPfandWert(value: number) {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht angemeldet" };
-	}
-	if (!Number.isFinite(value) || value < 0) {
-		return { success: false, error: "Ungültiger Pfandwert" };
-	}
-
-	await db
-		.insert(kasseConfig)
-		.values({ id: "singleton", pfandWert: value, updatedBy: session.user.id })
-		.onConflictDoUpdate({
-			target: kasseConfig.id,
-			set: { pfandWert: value, updatedBy: session.user.id },
-		});
-	return { success: true };
-}
+export const setPfandWert = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([
+			z
+				.number({ error: "Ungültiger Pfandwert" })
+				.min(0, "Ungültiger Pfandwert"),
+		]),
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([value], { user }) => {
+		await db
+			.insert(kasseConfig)
+			.values({ id: "singleton", pfandWert: value, updatedBy: user.id })
+			.onConflictDoUpdate({
+				target: kasseConfig.id,
+				set: { pfandWert: value, updatedBy: user.id },
+			});
+	},
+);
 
 // ─── Open entity bills (for PDF download) ────────────────────────────────────
 
@@ -340,45 +340,32 @@ async function hasGetraenkewartRole(userId: string): Promise<boolean> {
 	return !!row;
 }
 
-export async function downloadEntityBillPDF(billId: string): Promise<{
-	success: boolean;
-	base64?: string;
-	fileName?: string;
-	error?: string;
-}> {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht angemeldet" };
-	}
-
-	const allowed = await hasGetraenkewartRole(session.user.id);
-	if (!allowed) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
-
-	const result = await generateUserBillPDF(billId);
-	if (!result.success || !result.pdfContent) {
+export const downloadEntityBillPDF = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([z.string()]),
+		errorMessage: "PDF-Generierung fehlgeschlagen",
+	},
+	async ([billId]) => {
+		const result = await generateUserBillPDF(billId);
+		if (!result.success || !result.pdfContent || !result.fileName) {
+			throw new ActionError(
+				result.error ?? "PDF-Generierung fehlgeschlagen",
+				"PDF_FAILED",
+			);
+		}
 		return {
-			success: false,
-			error: result.error ?? "PDF-Generierung fehlgeschlagen",
+			base64: result.pdfContent.toString("base64"),
+			fileName: result.fileName,
 		};
-	}
-
-	return {
-		success: true,
-		base64: result.pdfContent.toString("base64"),
-		fileName: result.fileName,
-	};
-}
+	},
+);
 
 // ─── Feature settings (markup, bill recipient) ───────────────────────────────
 //
 // Values behind the `drinks.markup` and `billing.treasurerRecipient` features.
 // Every action checks the Getränkewart/Admin role AND the feature flag on the
 // server — hiding the card in the UI is not the gate.
-
-type ActionResult = { success: true } | { success: false; error: string };
 
 async function requireGetraenkewart(): Promise<
 	{ ok: true; userId: string } | { ok: false; error: string }
@@ -426,73 +413,60 @@ export async function getGetraenkeSettings(): Promise<GetraenkeSettings | null> 
 	};
 }
 
-export async function setMarkupPercent(value: number): Promise<ActionResult> {
-	const gate = await requireGetraenkewart();
-	if (!gate.ok) {
-		return { success: false, error: gate.error };
-	}
-	if (!(await hasFeature("drinks.markup"))) {
-		return {
-			success: false,
-			error: new FeatureDisabledError("drinks.markup").message,
-		};
-	}
-	if (!isValidMarkupPercent(value)) {
-		return {
-			success: false,
-			error: `Der Aufschlag muss zwischen 0 und ${MAX_MARKUP_PERCENT} % liegen.`,
-		};
-	}
+const INVALID_MARKUP = `Der Aufschlag muss zwischen 0 und ${MAX_MARKUP_PERCENT} % liegen.`;
 
-	await db
-		.insert(kasseConfig)
-		.values({ id: "singleton", markupPercent: value, updatedBy: gate.userId })
-		.onConflictDoUpdate({
-			target: kasseConfig.id,
-			set: { markupPercent: value, updatedBy: gate.userId },
-		});
-	return { success: true };
-}
+export const setMarkupPercent = defineAction(
+	{
+		roles: ROLES.getraenke,
+		feature: "drinks.markup",
+		schema: z.tuple([
+			z
+				.number({ error: INVALID_MARKUP })
+				.refine(isValidMarkupPercent, INVALID_MARKUP),
+		]),
+	},
+	async ([value], { user }) => {
+		await db
+			.insert(kasseConfig)
+			.values({ id: "singleton", markupPercent: value, updatedBy: user.id })
+			.onConflictDoUpdate({
+				target: kasseConfig.id,
+				set: { markupPercent: value, updatedBy: user.id },
+			});
+	},
+);
 
-export async function setBillRecipient(
-	mode: "members" | "treasurer",
-	treasurerEmail: string,
-): Promise<ActionResult> {
-	const gate = await requireGetraenkewart();
-	if (!gate.ok) {
-		return { success: false, error: gate.error };
-	}
-	if (!(await hasFeature("billing.treasurerRecipient"))) {
-		return {
-			success: false,
-			error: new FeatureDisabledError("billing.treasurerRecipient").message,
-		};
-	}
-	if (mode !== "members" && mode !== "treasurer") {
-		return { success: false, error: "Ungültiger Empfänger" };
-	}
+export const setBillRecipient = defineAction(
+	{
+		roles: ROLES.getraenke,
+		feature: "billing.treasurerRecipient",
+		schema: z.tuple([
+			z.enum(["members", "treasurer"], { error: "Ungültiger Empfänger" }),
+			z.string(),
+		]),
+	},
+	async ([mode, treasurerEmail], { user }) => {
+		const email = treasurerEmail.trim();
+		if (email && !z.string().email().safeParse(email).success) {
+			throw new ActionError("Ungültige E-Mail-Adresse", "INVALID_INPUT");
+		}
+		if (mode === "treasurer" && !email) {
+			throw new ActionError(
+				"Bitte die E-Mail-Adresse des Kassenwarts eintragen.",
+				"INVALID_INPUT",
+			);
+		}
 
-	const email = treasurerEmail.trim();
-	if (email && !z.string().email().safeParse(email).success) {
-		return { success: false, error: "Ungültige E-Mail-Adresse" };
-	}
-	if (mode === "treasurer" && !email) {
-		return {
-			success: false,
-			error: "Bitte die E-Mail-Adresse des Kassenwarts eintragen.",
-		};
-	}
-
-	const values = { billRecipient: mode, treasurerEmail: email || null };
-	await db
-		.insert(kasseConfig)
-		.values({ id: "singleton", ...values, updatedBy: gate.userId })
-		.onConflictDoUpdate({
-			target: kasseConfig.id,
-			set: { ...values, updatedBy: gate.userId },
-		});
-	return { success: true };
-}
+		const values = { billRecipient: mode, treasurerEmail: email || null };
+		await db
+			.insert(kasseConfig)
+			.values({ id: "singleton", ...values, updatedBy: user.id })
+			.onConflictDoUpdate({
+				target: kasseConfig.id,
+				set: { ...values, updatedBy: user.id },
+			});
+	},
+);
 
 // ─── Absender und Konto der Getränkerechnungen ──────────────────────────────
 //
@@ -551,59 +525,40 @@ export async function getGetraenkeBillingSettings(): Promise<GetraenkeBillingSet
 	};
 }
 
-export async function updateGetraenkeBillingProfile(
-	input: GetraenkeBillingProfileInput,
-): Promise<ActionResult> {
-	const gate = await requireGetraenkewart();
-	if (!gate.ok) {
-		return { success: false, error: gate.error };
-	}
-	const parsed = billingProfileSchema.safeParse(input);
-	if (!parsed.success) {
-		return {
-			success: false,
-			error: parsed.error.issues[0]?.message ?? "Ungültige Eingabe",
-		};
-	}
-
-	const values = { ...parsed.data, updatedBy: gate.userId };
-	await db
-		.insert(getraenkeBillingConfig)
-		.values({ id: "singleton", ...values })
-		.onConflictDoUpdate({ target: getraenkeBillingConfig.id, set: values });
-	return { success: true };
-}
+export const updateGetraenkeBillingProfile = defineAction(
+	{ roles: ROLES.getraenke, schema: z.tuple([billingProfileSchema]) },
+	async ([profile], { user }) => {
+		const values = { ...profile, updatedBy: user.id };
+		await db
+			.insert(getraenkeBillingConfig)
+			.values({ id: "singleton", ...values })
+			.onConflictDoUpdate({ target: getraenkeBillingConfig.id, set: values });
+	},
+);
 
 // ─── "Alle haben gezahlt" (feature `billing.markAllPaid`) ────────────────────
 
-export async function markAllMemberBillsPaid(): Promise<
-	{ success: true; count: number } | { success: false; error: string }
-> {
-	const gate = await requireGetraenkewart();
-	if (!gate.ok) {
-		return { success: false, error: gate.error };
-	}
-	if (!(await hasFeature("billing.markAllPaid"))) {
-		return {
-			success: false,
-			error: new FeatureDisabledError("billing.markAllPaid").message,
-		};
-	}
-
-	// Same set the Kasse lists as open: unpaid and deferred member bills.
-	// Group bills are settled separately and stay untouched. Settles what
-	// paying each of them on its own settles (updateBillStatus): the bill and
-	// the member's carried bills created before it, all with the same paidAt,
-	// which links them for an undo (see carried-bills). One atomic batch, so
-	// either every bill is paid or none (#23).
-	const isOpenMemberBill = and(
-		inArray(bills.status, ["Unbezahlt", "Gestundet"]),
-		sql`${bills.userId} NOT LIKE 'event-%'`,
-	);
-	const later = alias(bills, "later");
-	const now = new Date();
-	const paid = { status: "Bezahlt" as const, paidAt: now, updatedAt: now };
-	try {
+export const markAllMemberBillsPaid = defineAction(
+	{
+		roles: ROLES.getraenke,
+		feature: "billing.markAllPaid",
+		errorMessage:
+			"Fehler beim Markieren als bezahlt. Es wurde nichts geändert.",
+	},
+	async () => {
+		// Same set the Kasse lists as open: unpaid and deferred member bills.
+		// Group bills are settled separately and stay untouched. Settles what
+		// paying each of them on its own settles (updateBillStatus): the bill and
+		// the member's carried bills created before it, all with the same paidAt,
+		// which links them for an undo (see carried-bills). One atomic batch, so
+		// either every bill is paid or none (#23).
+		const isOpenMemberBill = and(
+			inArray(bills.status, ["Unbezahlt", "Gestundet"]),
+			sql`${bills.userId} NOT LIKE 'event-%'`,
+		);
+		const later = alias(bills, "later");
+		const now = new Date();
+		const paid = { status: "Bezahlt" as const, paidAt: now, updatedAt: now };
 		const [, settled] = await db.batch([
 			// Carried bills first, while the bills they were carried into are
 			// still open.
@@ -634,12 +589,6 @@ export async function markAllMemberBillsPaid(): Promise<
 				.where(isOpenMemberBill)
 				.returning({ id: bills.id }),
 		]);
-		return { success: true, count: settled.length };
-	} catch (error) {
-		await log.error("Error marking all member bills paid", { err: error });
-		return {
-			success: false,
-			error: "Fehler beim Markieren als bezahlt. Es wurde nichts geändert.",
-		};
-	}
-}
+		return { count: settled.length };
+	},
+);

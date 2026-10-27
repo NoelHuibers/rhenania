@@ -109,7 +109,7 @@ export function GetraenkeBillingCard({
 				...form,
 				paymentDueDays: dueDaysNumber,
 			});
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Absender und Kontoinhaber gespeichert");
 				router.refresh();
 			} else {

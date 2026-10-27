@@ -61,11 +61,11 @@ function NeueRechnungCard() {
 		startTransition(async () => {
 			setOpen(false);
 			const result = await createNewBilling();
-			if (result?.success) {
+			if (result.ok) {
 				toast.success("Neue Rechnung erfolgreich erstellt");
 				router.refresh();
 			} else {
-				toast.error(result?.message ?? "Fehler beim Erstellen der Rechnung");
+				toast.error(result.error);
 			}
 		});
 	}

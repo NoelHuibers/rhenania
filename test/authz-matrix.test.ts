@@ -596,10 +596,12 @@ function isDenial({ threw, value }: Outcome): boolean {
 	return false;
 }
 
-/** Data in a denied caller's answer: rows, strings, `success: true`. */
+/** Data in a denied caller's answer: rows, strings, `success`/`ok: true`. */
 function leakedData(value: unknown, key = ""): string | null {
 	if (value === null || value === undefined || typeof value === "boolean") {
-		return key === "success" && value === true ? "success: true" : null;
+		return (key === "success" || key === "ok") && value === true
+			? `${key}: true`
+			: null;
 	}
 	if (typeof value === "number") {
 		return value === 0 ? null : `${key || "value"}: ${value}`;

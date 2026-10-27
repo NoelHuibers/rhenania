@@ -14,7 +14,6 @@ import {
 } from "~/components/ui/dialog";
 import { Label } from "~/components/ui/label";
 import {
-	type CloseInventoryAndBillResult,
 	closeInventoryAndBill,
 	type InventoryCountItem,
 	saveInventoryCount,
@@ -25,8 +24,8 @@ import type { StockStatusWithDetails } from "./utils";
 function notifyInventory(
 	result: Awaited<ReturnType<typeof saveInventoryCount>>,
 ): boolean {
-	if (!result.success) {
-		toast.error(result.error ?? "Inventur konnte nicht erstellt werden");
+	if (!result.ok) {
+		toast.error(result.error);
 		return false;
 	}
 	toast.success("Inventur erfolgreich erstellt");
@@ -35,21 +34,21 @@ function notifyInventory(
 
 /** Toasts which step of "Inventur + Rechnung" failed; true when the inventory was saved. */
 function notifyInventoryAndBilling(
-	result: CloseInventoryAndBillResult,
+	result: Awaited<ReturnType<typeof closeInventoryAndBill>>,
 ): boolean {
-	if (result.success) {
-		if (result.billsCreated > 0) {
+	if (result.ok) {
+		if (result.data.billsCreated > 0) {
 			toast.success("Inventur und Rechnung erfolgreich erstellt");
 		} else {
 			toast.warning(
-				`Inventur gespeichert, keine Rechnung erstellt: ${result.message}`,
+				`Inventur gespeichert, keine Rechnung erstellt: ${result.data.message}`,
 			);
 		}
 		return true;
 	}
 	// A billing failure leaves the inventory closed: only billing is missing.
 	toast.error(result.error);
-	return result.failedStep === "billing";
+	return result.code === "BILLING_FAILED";
 }
 
 /**

@@ -66,7 +66,7 @@ async function billsOf(user: TestUser) {
 function billNumberOf(
 	result: Awaited<ReturnType<typeof createNewFuchsenBilling>>,
 ) {
-	return "billPeriod" in result ? result.billPeriod?.billNumber : undefined;
+	return result.ok ? result.data.billPeriod?.billNumber : undefined;
 }
 
 async function runAt(date: Date) {
@@ -80,7 +80,7 @@ describe("createNewFuchsenBilling", () => {
 
 		const result = await createNewFuchsenBilling();
 
-		expect(result).toMatchObject({ success: true, billsCreated: 0 });
+		expect(result).toMatchObject({ ok: true, data: { billsCreated: 0 } });
 		expect(await tenantDb().select().from(fuchsenBillPeriods)).toHaveLength(0);
 	});
 
@@ -98,10 +98,12 @@ describe("createNewFuchsenBilling", () => {
 		const result = await createNewFuchsenBilling();
 
 		expect(result).toMatchObject({
-			success: true,
-			billsCreated: 2,
-			totalAmount: 12.5,
-			billPeriod: { billNumber: "KW-44-26" },
+			ok: true,
+			data: {
+				billsCreated: 2,
+				totalAmount: 12.5,
+				billPeriod: { billNumber: "KW-44-26" },
+			},
 		});
 		const [period] = await tenantDb().select().from(fuchsenBillPeriods);
 		expect(period).toMatchObject({
@@ -206,7 +208,11 @@ describe("createNewFuchsenBilling", () => {
 
 		const result = await createNewFuchsenBilling();
 
-		expect(result).toMatchObject({ success: false, billsCreated: 0 });
+		expect(result).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 		expect(await tenantDb().select().from(fuchsenBills)).toHaveLength(0);
 	});
 
@@ -355,14 +361,15 @@ describe("carry-over across periods (#12, #143)", () => {
 		// Carried bills can't be paid on their own: they live on in P3.
 		const [p1, , p3] = bills;
 		expect(await updateFuchsenBillStatus(p1?.id ?? "", "Bezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error:
 				"Diese Rechnung wurde in eine spätere Rechnung übertragen und wird dort bezahlt",
+			code: "CARRIED_BILL",
 		});
 
 		vi.setSystemTime(RUN_4);
 		expect(await updateFuchsenBillStatus(p3?.id ?? "", "Bezahlt")).toEqual({
-			success: true,
+			ok: true,
 		});
 
 		bills = await billsOf(member);
@@ -430,7 +437,10 @@ describe("carry-over across periods (#12, #143)", () => {
 
 		const result = await runAt(RUN_2);
 
-		expect(result).toMatchObject({ billsCreated: 3, totalAmount: 16 });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { billsCreated: 3, totalAmount: 16 },
+		});
 		const [latest] = await getAllFuchsenBillPeriods();
 		expect(latest?.totalAmount).toBe(16);
 		const bills = await getFuchsenBillsForPeriod(latest?.id ?? "");
@@ -524,15 +534,19 @@ describe("carry-over across periods (#12, #143)", () => {
 		expect(orders.find((o) => o.status === "Bezahlt")?.billId).toBeNull();
 		expect(await getUnbilledFuchsenOrdersGrouped()).toEqual([]);
 		// Nothing billable left: a second run creates no period.
-		expect(await runAt(RUN_2)).toMatchObject({ billsCreated: 0 });
+		expect(await runAt(RUN_2)).toMatchObject({
+			ok: true,
+			data: { billsCreated: 0 },
+		});
 	});
 
 	test("refuses status changes of unknown bills", async () => {
 		await setup();
 
 		expect(await updateFuchsenBillStatus("missing", "Bezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error: "Rechnung nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });
@@ -554,7 +568,7 @@ describe("updateFuchsenBillStatus", () => {
 				.where(eq(fuchsenOrders.billId, billId));
 
 		expect(await updateFuchsenBillStatus(billId, "Bezahlt")).toEqual({
-			success: true,
+			ok: true,
 		});
 		expect((await billsOf(member))[0]).toMatchObject({
 			status: "Bezahlt",
@@ -584,7 +598,11 @@ describe("updateFuchsenBillStatus", () => {
 
 		const result = await updateFuchsenBillStatus(bills[0]?.id ?? "", "Bezahlt");
 
-		expect(result).toEqual({ success: false, error: "Keine Berechtigung" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 		expect((await billsOf(member))[0]?.status).toBe("Unbezahlt");
 	});
 
@@ -608,9 +626,10 @@ describe("updateFuchsenBillStatus", () => {
 
 		for (const status of ["Unbezahlt", "Gestundet", "Bezahlt"] as const) {
 			expect(await updateFuchsenBillStatus(p1, status)).toEqual({
-				success: false,
+				ok: false,
 				error:
 					"Diese Rechnung wurde mit der späteren Rechnung bezahlt, in die sie übertragen wurde. Ändere den Status dort.",
+				code: "CARRIED_BILL",
 			});
 		}
 		expect((await billsOf(member)).map((b) => [b.status, b.paidAt])).toEqual([
@@ -685,7 +704,7 @@ describe("updateFuchsenBillStatus", () => {
 		});
 
 		for (const { result } of [payOne, paySix, undoOne, undoSix]) {
-			expect(result).toEqual({ success: true });
+			expect(result).toEqual({ ok: true });
 		}
 		// Session (2), the bill and one write batch; undo also checks for a later
 		// bill paid together with this one (was 9 and 10, in a transaction).
@@ -705,16 +724,15 @@ describe("updateFuchsenBillStatus", () => {
 		const { member, p1, p2 } = await paidThroughP2();
 		vi.setSystemTime(new Date("2026-11-26T11:00:00Z"));
 
-		expect(await updateFuchsenBillStatus(p2, "Bezahlt")).toEqual({
-			success: true,
-		});
+		expect(await updateFuchsenBillStatus(p2, "Bezahlt")).toEqual({ ok: true });
 
 		expect((await billsOf(member)).map((b) => b.paidAt)).toEqual([
 			RUN_3,
 			RUN_3,
 		]);
 		expect(await updateFuchsenBillStatus(p1, "Unbezahlt")).toMatchObject({
-			success: false,
+			ok: false,
+			code: "CARRIED_BILL",
 		});
 	});
 });
@@ -791,11 +809,12 @@ describe("getFuchsenBillPeriodCSV", () => {
 		const result = await getFuchsenBillPeriodCSV(period.id);
 
 		expect(result).toMatchObject({
-			success: true,
-			fileName: "Fuchsenrechnung_KW-44-26.csv",
+			ok: true,
+			data: { fileName: "Fuchsenrechnung_KW-44-26.csv" },
 		});
-		expect(result.csvContent?.startsWith("﻿")).toBe(true);
-		expect(result.csvContent?.slice(1).split("\r\n")).toEqual([
+		const csv = result.ok ? result.data.csvContent : "";
+		expect(csv.startsWith("﻿")).toBe(true);
+		expect(csv.slice(1).split("\r\n")).toEqual([
 			"Name;Status;Artikel;Alter Saldo;Gesamt",
 			"Anton;Gestundet;1,00;3,25;4,25",
 			"Berta;Unbezahlt;2,50;0,00;2,50",
@@ -817,7 +836,8 @@ describe("getFuchsenBillPeriodCSV", () => {
 
 		const result = await getFuchsenBillPeriodCSV(period.id);
 
-		expect(result.csvContent?.slice(1).split("\r\n").slice(1, 3)).toEqual([
+		const csv = result.ok ? result.data.csvContent : "";
+		expect(csv.slice(1).split("\r\n").slice(1, 3)).toEqual([
 			'"\'=HYPERLINK(""http://x"";""Hi"")";Unbezahlt;1,00;0,00;1,00',
 			'"Müller; Max";Unbezahlt;2,00;0,00;2,00',
 		]);
@@ -827,8 +847,9 @@ describe("getFuchsenBillPeriodCSV", () => {
 		await setup();
 
 		expect(await getFuchsenBillPeriodCSV("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Periode nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });

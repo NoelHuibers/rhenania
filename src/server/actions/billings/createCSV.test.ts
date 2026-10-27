@@ -291,10 +291,12 @@ describe("saveBillPeriodCSV", () => {
 
 		const path = `tenants/${tenant.slug}/bills/Rechnung_21_Okt_2026.csv`;
 		expect(result).toMatchObject({
-			success: true,
-			downloadUrl: `https://blob.test/${path}`,
-			fileName: path,
-			wasExisting: false,
+			ok: true,
+			data: {
+				downloadUrl: `https://blob.test/${path}`,
+				fileName: path,
+				wasExisting: false,
+			},
 		});
 		const [pathname, content, options] = putMock.mock.calls[0] ?? [];
 		expect(pathname).toBe(path);
@@ -306,7 +308,7 @@ describe("saveBillPeriodCSV", () => {
 		});
 		const [row] = await tenantDb().select().from(billCSVs);
 		expect(row).toMatchObject({
-			id: result.csvId,
+			id: result.ok && result.data.csvId,
 			billPeriodId: period.id,
 			blobUrl: `https://blob.test/${path}`,
 			delimiter: ";",
@@ -323,7 +325,7 @@ describe("saveBillPeriodCSV", () => {
 
 		const result = await saveBillPeriodCSV(period.id);
 
-		expect(result.fileName).toBe(
+		expect(result.ok && result.data.fileName).toBe(
 			`tenants/${tenant.slug}/bills/Rechnung_01_Nov_2026.csv`,
 		);
 	});
@@ -335,16 +337,24 @@ describe("saveBillPeriodCSV", () => {
 		const first = await saveBillPeriodCSV(period.id);
 
 		const cached = await saveBillPeriodCSV(period.id);
-		expect(cached).toMatchObject({ wasExisting: true, csvId: first.csvId });
+		expect(cached).toMatchObject({
+			ok: true,
+			data: { wasExisting: true, csvId: first.ok && first.data.csvId },
+		});
 		expect(putMock).toHaveBeenCalledTimes(1);
 
 		headMock.mockRejectedValueOnce(new Error("BlobNotFoundError"));
 		const regenerated = await saveBillPeriodCSV(period.id);
 
-		expect(regenerated).toMatchObject({ success: true, wasExisting: false });
+		expect(regenerated).toMatchObject({
+			ok: true,
+			data: { wasExisting: false },
+		});
 		expect(putMock).toHaveBeenCalledTimes(2);
 		const rows = await tenantDb().select().from(billCSVs);
-		expect(rows.map((r) => r.id)).toEqual([regenerated.csvId]);
+		expect(rows.map((r) => r.id)).toEqual([
+			regenerated.ok && regenerated.data.csvId,
+		]);
 	});
 
 	test("uploads nothing when the period has no bills", async () => {
@@ -354,7 +364,11 @@ describe("saveBillPeriodCSV", () => {
 
 		const result = await saveBillPeriodCSV(period.id);
 
-		expect(result.success).toBe(false);
+		expect(result).toEqual({
+			ok: false,
+			error: "Für diese Abrechnung konnte keine CSV erstellt werden.",
+			code: "CSV_FAILED",
+		});
 		expect(putMock).not.toHaveBeenCalled();
 		expect(await tenantDb().select().from(billCSVs)).toHaveLength(0);
 	});

@@ -2,9 +2,8 @@
 "use server";
 
 import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { addMoney, roundToCent } from "~/lib/money";
-import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
 	drinks,
@@ -18,11 +17,13 @@ import {
 } from "~/server/db/schema";
 import { ROLES, requireRole } from "~/server/lib/authz";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
+import { ActionError, defineAction } from "~/server/lib/define-action";
 import { hasFeature } from "~/server/lib/features";
 import {
 	incompleteBillingMessage,
 	resolveGetraenkeBillSender,
 } from "~/server/lib/getraenkekasse-payment";
+import { log } from "~/server/lib/log";
 
 export type EventInfo = {
 	eventId?: string | null;
@@ -293,17 +294,39 @@ export type InventoryCountItem = {
 	purchasedSince: number;
 };
 
-export async function saveInventoryCount(
-	items: InventoryCountItem[],
-	opts?: { startEvent?: EventInfo },
-) {
-	await requireRole(ROLES.getraenke);
-	const result = await countInventory(items, opts);
-	if (!result.success) {
-		return { success: false, error: result.error };
-	}
-	return { success: true, totalInventoryLoss: result.totalInventoryLoss };
-}
+// Negative counts are clamped to 0 when stored; NaN, Infinity and fractions
+// are rejected outright.
+const NOT_WHOLE = "Bestände müssen ganze Zahlen sein";
+const wholeStock = z.number({ error: NOT_WHOLE }).int(NOT_WHOLE);
+const countItems = z.array(
+	z.object({
+		drinkId: z.string(),
+		countedStock: wholeStock,
+		purchasedSince: wholeStock,
+	}),
+);
+const eventInfo = z.object({
+	eventId: z.string().nullish(),
+	eventName: z.string(),
+	eventDate: z.date().nullish(),
+});
+
+const COUNT_FAILED = "Inventur konnte nicht gespeichert werden";
+
+export const saveInventoryCount = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([
+			countItems,
+			z.object({ startEvent: eventInfo.optional() }).optional(),
+		]),
+		errorMessage: COUNT_FAILED,
+	},
+	async ([items, opts], { user }) => {
+		const { totalInventoryLoss } = await countInventory(items, user.id, opts);
+		return { totalInventoryLoss };
+	},
+);
 
 /**
  * Closes the running inventory with the given counts and opens the next one.
@@ -311,311 +334,264 @@ export async function saveInventoryCount(
  */
 async function countInventory(
 	items: InventoryCountItem[],
+	performedBy: string,
 	opts?: { startEvent?: EventInfo },
-): Promise<
-	| {
-			success: true;
-			totalInventoryLoss: number;
-			closedInventoryId: string | null;
-	  }
-	| { success: false; error: string }
-> {
-	const session = await auth();
-	if (!session?.user) {
-		return { success: false, error: "Unauthorized" };
-	}
-	// Negative counts are clamped to 0 below; NaN, Infinity and fractions are
-	// rejected outright.
-	const isWhole = (n: unknown) => typeof n === "number" && Number.isInteger(n);
-	if (
-		items.some((i) => !isWhole(i.countedStock) || !isWhole(i.purchasedSince))
-	) {
-		return { success: false, error: "Bestände müssen ganze Zahlen sein" };
-	}
-
+): Promise<{ totalInventoryLoss: number; closedInventoryId: string | null }> {
 	let totalInventoryLoss = 0;
 	let closedInventoryId: string | null = null;
 
-	try {
-		await db.transaction(async (tx) => {
-			const lastActive = await tx
-				.select()
-				.from(inventories)
-				.where(eq(inventories.status, "active"))
-				.orderBy(desc(inventories.createdAt))
-				.limit(1);
+	await db.transaction(async (tx) => {
+		const lastActive = await tx
+			.select()
+			.from(inventories)
+			.where(eq(inventories.status, "active"))
+			.orderBy(desc(inventories.createdAt))
+			.limit(1);
 
-			const activeInv = lastActive[0] ?? null;
+		const activeInv = lastActive[0] ?? null;
 
-			// Drinks and sales since the running inventory, read once for all
-			// items instead of once per drink.
-			const drinkIds = [...new Set(items.map((item) => item.drinkId))];
-			const drinksById = new Map(
+		// Drinks and sales since the running inventory, read once for all
+		// items instead of once per drink.
+		const drinkIds = [...new Set(items.map((item) => item.drinkId))];
+		const drinksById = new Map(
+			(drinkIds.length > 0
+				? await tx.select().from(drinks).where(inArray(drinks.id, drinkIds))
+				: []
+			).map((d) => [d.id, d]),
+		);
+
+		if (activeInv) {
+			const soldByDrink = new Map(
 				(drinkIds.length > 0
-					? await tx.select().from(drinks).where(inArray(drinks.id, drinkIds))
+					? await tx
+							.select({
+								drinkId: orders.drinkId,
+								total: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
+							})
+							.from(orders)
+							.where(
+								and(
+									inArray(orders.drinkId, drinkIds),
+									gte(orders.createdAt, activeInv.createdAt),
+								),
+							)
+							.groupBy(orders.drinkId)
 					: []
-				).map((d) => [d.id, d]),
+				).map((r) => [r.drinkId, r.total]),
+			);
+			// The running inventory's item per drink (unique per drink).
+			const activeItems = new Map(
+				(
+					await tx
+						.select({
+							id: inventoryItems.id,
+							drinkId: inventoryItems.drinkId,
+							previousStock: inventoryItems.previousStock,
+						})
+						.from(inventoryItems)
+						.where(eq(inventoryItems.inventoryId, activeInv.id))
+				).map((row) => [row.drinkId, row]),
 			);
 
-			if (activeInv) {
-				const soldByDrink = new Map(
-					(drinkIds.length > 0
-						? await tx
-								.select({
-									drinkId: orders.drinkId,
-									total: sql<number>`COALESCE(SUM(${orders.amount}), 0)`,
-								})
-								.from(orders)
-								.where(
-									and(
-										inArray(orders.drinkId, drinkIds),
-										gte(orders.createdAt, activeInv.createdAt),
-									),
-								)
-								.groupBy(orders.drinkId)
-						: []
-					).map((r) => [r.drinkId, r.total]),
-				);
-				// The running inventory's item per drink (unique per drink).
-				const activeItems = new Map(
-					(
-						await tx
-							.select({
-								id: inventoryItems.id,
-								drinkId: inventoryItems.drinkId,
-								previousStock: inventoryItems.previousStock,
-							})
-							.from(inventoryItems)
-							.where(eq(inventoryItems.inventoryId, activeInv.id))
-					).map((row) => [row.drinkId, row]),
-				);
+			for (const item of items) {
+				const validatedCountedStock = Math.max(0, item.countedStock);
+				const validatedPurchasedSince = Math.max(0, item.purchasedSince);
 
-				for (const item of items) {
-					const validatedCountedStock = Math.max(0, item.countedStock);
-					const validatedPurchasedSince = Math.max(0, item.purchasedSince);
+				const drink = drinksById.get(item.drinkId);
+				if (!drink) {
+					continue;
+				}
 
-					const drink = drinksById.get(item.drinkId);
-					if (!drink) {
-						continue;
+				const soldSinceFinal = Number(soldByDrink.get(item.drinkId) || 0);
+
+				const existing = activeItems.get(item.drinkId);
+
+				let itemLoss = 0;
+				if (existing) {
+					const expectedStock = Math.max(
+						0,
+						existing.previousStock + validatedPurchasedSince - soldSinceFinal,
+					);
+					const difference = validatedCountedStock - expectedStock;
+					if (difference < 0) {
+						itemLoss = roundToCent(Math.abs(difference) * drink.price);
 					}
+					totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
 
-					const soldSinceFinal = Number(soldByDrink.get(item.drinkId) || 0);
-
-					const existing = activeItems.get(item.drinkId);
-
-					let itemLoss = 0;
-					if (existing) {
-						const expectedStock = Math.max(
-							0,
-							existing.previousStock + validatedPurchasedSince - soldSinceFinal,
-						);
-						const difference = validatedCountedStock - expectedStock;
-						if (difference < 0) {
-							itemLoss = roundToCent(Math.abs(difference) * drink.price);
-						}
-						totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
-
-						await tx
-							.update(inventoryItems)
-							.set({
-								countedStock: validatedCountedStock,
-								purchasedSince: validatedPurchasedSince,
-								soldSince: soldSinceFinal,
-								lossValue: itemLoss,
-							})
-							.where(eq(inventoryItems.id, existing.id));
-					} else {
-						const priorForBaseline = await tx
-							.select()
-							.from(inventoryItems)
-							.innerJoin(
-								inventories,
-								eq(inventoryItems.inventoryId, inventories.id),
-							)
-							.where(eq(inventoryItems.drinkId, item.drinkId))
-							.orderBy(desc(inventories.createdAt))
-							.limit(1);
-
-						const baselinePreviousStock =
-							priorForBaseline[0]?.inventory_item.countedStock ?? 0;
-
-						const expectedStock = Math.max(
-							0,
-							baselinePreviousStock + validatedPurchasedSince - soldSinceFinal,
-						);
-						const difference = validatedCountedStock - expectedStock;
-						if (difference < 0) {
-							itemLoss = roundToCent(Math.abs(difference) * drink.price);
-						}
-						totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
-
-						await tx.insert(inventoryItems).values({
-							inventoryId: activeInv.id,
-							drinkId: item.drinkId,
-							previousStock: Math.max(0, baselinePreviousStock),
+					await tx
+						.update(inventoryItems)
+						.set({
 							countedStock: validatedCountedStock,
 							purchasedSince: validatedPurchasedSince,
 							soldSince: soldSinceFinal,
-							priceAtCount: drink.price,
 							lossValue: itemLoss,
-						});
+						})
+						.where(eq(inventoryItems.id, existing.id));
+				} else {
+					const priorForBaseline = await tx
+						.select()
+						.from(inventoryItems)
+						.innerJoin(
+							inventories,
+							eq(inventoryItems.inventoryId, inventories.id),
+						)
+						.where(eq(inventoryItems.drinkId, item.drinkId))
+						.orderBy(desc(inventories.createdAt))
+						.limit(1);
+
+					const baselinePreviousStock =
+						priorForBaseline[0]?.inventory_item.countedStock ?? 0;
+
+					const expectedStock = Math.max(
+						0,
+						baselinePreviousStock + validatedPurchasedSince - soldSinceFinal,
+					);
+					const difference = validatedCountedStock - expectedStock;
+					if (difference < 0) {
+						itemLoss = roundToCent(Math.abs(difference) * drink.price);
 					}
-				}
+					totalInventoryLoss = addMoney(totalInventoryLoss, itemLoss);
 
-				await tx
-					.update(inventories)
-					.set({
-						status: "closed",
-						closedAt: new Date(),
-						totalLoss: totalInventoryLoss,
-					})
-					.where(eq(inventories.id, activeInv.id));
-				closedInventoryId = activeInv.id;
-			}
-
-			const [newInventory] = await tx
-				.insert(inventories)
-				.values({
-					status: "active",
-					performedBy: session.user.id,
-					totalLoss: 0,
-					kind: opts?.startEvent ? "event" : "routine",
-					eventId: opts?.startEvent?.eventId ?? null,
-					eventName: opts?.startEvent?.eventName ?? null,
-					eventDate: opts?.startEvent?.eventDate ?? null,
-				})
-				.returning();
-
-			if (!newInventory) {
-				throw new Error("Failed to create inventory");
-			}
-
-			// Each counted stock is the opening stock of the next inventory.
-			const openingItems = items.flatMap((item) => {
-				const drink = drinksById.get(item.drinkId);
-				if (!drink) {
-					return [];
-				}
-				const validatedCountedStock = Math.max(0, item.countedStock);
-				return [
-					{
-						inventoryId: newInventory.id,
+					await tx.insert(inventoryItems).values({
+						inventoryId: activeInv.id,
 						drinkId: item.drinkId,
-						previousStock: validatedCountedStock,
+						previousStock: Math.max(0, baselinePreviousStock),
 						countedStock: validatedCountedStock,
-						purchasedSince: 0,
-						soldSince: 0,
+						purchasedSince: validatedPurchasedSince,
+						soldSince: soldSinceFinal,
 						priceAtCount: drink.price,
-						lossValue: 0,
-					},
-				];
-			});
-			if (openingItems.length > 0) {
-				await tx.insert(inventoryItems).values(openingItems);
+						lossValue: itemLoss,
+					});
+				}
 			}
+
+			await tx
+				.update(inventories)
+				.set({
+					status: "closed",
+					closedAt: new Date(),
+					totalLoss: totalInventoryLoss,
+				})
+				.where(eq(inventories.id, activeInv.id));
+			closedInventoryId = activeInv.id;
+		}
+
+		const [newInventory] = await tx
+			.insert(inventories)
+			.values({
+				status: "active",
+				performedBy,
+				totalLoss: 0,
+				kind: opts?.startEvent ? "event" : "routine",
+				eventId: opts?.startEvent?.eventId ?? null,
+				eventName: opts?.startEvent?.eventName ?? null,
+				eventDate: opts?.startEvent?.eventDate ?? null,
+			})
+			.returning();
+
+		if (!newInventory) {
+			throw new Error("Failed to create inventory");
+		}
+
+		// Each counted stock is the opening stock of the next inventory.
+		const openingItems = items.flatMap((item) => {
+			const drink = drinksById.get(item.drinkId);
+			if (!drink) {
+				return [];
+			}
+			const validatedCountedStock = Math.max(0, item.countedStock);
+			return [
+				{
+					inventoryId: newInventory.id,
+					drinkId: item.drinkId,
+					previousStock: validatedCountedStock,
+					countedStock: validatedCountedStock,
+					purchasedSince: 0,
+					soldSince: 0,
+					priceAtCount: drink.price,
+					lossValue: 0,
+				},
+			];
 		});
+		if (openingItems.length > 0) {
+			await tx.insert(inventoryItems).values(openingItems);
+		}
+	});
 
-		return { success: true, totalInventoryLoss, closedInventoryId };
-	} catch (error) {
-		console.error("Failed to save inventory:", error);
-		return {
-			success: false,
-			error:
-				error instanceof Error ? error.message : "Failed to save inventory",
-		};
-	}
+	return { totalInventoryLoss, closedInventoryId };
 }
-
-export type CloseInventoryAndBillResult =
-	| {
-			success: true;
-			totalInventoryLoss: number;
-			billsCreated: number;
-			message: string;
-	  }
-	| { success: false; failedStep: "inventory"; error: string }
-	| {
-			success: false;
-			failedStep: "billing";
-			totalInventoryLoss: number;
-			error: string;
-	  };
 
 /**
  * "Inventur + Rechnung": closes the running inventory and then starts a
  * billing run. The Umlage is the loss of the inventory just closed, read from
  * the database — never a value sent by the browser. Billing only runs when
- * the inventory was saved, and a billing failure is reported as such.
+ * the inventory was saved. A billing failure after that is reported with the
+ * code "BILLING_FAILED": the inventory is saved, only the bills are missing.
  */
-export async function closeInventoryAndBill(
-	items: InventoryCountItem[],
-): Promise<CloseInventoryAndBillResult> {
-	await requireRole(ROLES.getraenke);
-	// Billing would refuse without the tenant's sender and account; check
-	// first so the inventory is not closed with its loss left unbilled.
-	if ((await auth())?.user) {
+export const closeInventoryAndBill = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([countItems]),
+		errorMessage: COUNT_FAILED,
+	},
+	async ([items], { user }) => {
+		// Billing would refuse without the tenant's sender and account; check
+		// first so the inventory is not closed with its loss left unbilled.
 		const sender = await resolveGetraenkeBillSender();
 		if (!sender.ok) {
-			return {
-				success: false,
-				failedStep: "inventory",
-				error: incompleteBillingMessage(sender.missing),
-			};
+			throw new ActionError(
+				incompleteBillingMessage(sender.missing),
+				"BILLING_INCOMPLETE",
+			);
 		}
-	}
 
-	const counted = await countInventory(items);
-	if (!counted.success) {
-		return { success: false, failedStep: "inventory", error: counted.error };
-	}
+		const counted = await countInventory(items, user.id);
 
-	let totalInventoryLoss = 0;
-	if (counted.closedInventoryId) {
-		const [closed] = await db
-			.select({ totalLoss: inventories.totalLoss })
-			.from(inventories)
-			.where(eq(inventories.id, counted.closedInventoryId))
-			.limit(1);
-		totalInventoryLoss = closed?.totalLoss ?? 0;
-	}
-
-	let billingError: string | null = null;
-	let billsCreated = 0;
-	let message = "";
-	try {
-		const billing = await runGetraenkeBilling({
-			inventoryLoss: totalInventoryLoss,
-		});
-		if (billing.success) {
-			billsCreated =
-				billing.billsCreated +
-				("eventBillsCreated" in billing ? billing.eventBillsCreated : 0);
-			message = billing.message;
-		} else {
-			billingError =
-				"error" in billing && billing.error ? billing.error : billing.message;
+		let totalInventoryLoss = 0;
+		if (counted.closedInventoryId) {
+			const [closed] = await db
+				.select({ totalLoss: inventories.totalLoss })
+				.from(inventories)
+				.where(eq(inventories.id, counted.closedInventoryId))
+				.limit(1);
+			totalInventoryLoss = closed?.totalLoss ?? 0;
 		}
-	} catch (error) {
-		console.error("Billing after inventory failed:", error);
-		billingError =
-			error instanceof Error ? error.message : "Unbekannter Fehler";
-	}
 
-	if (billingError !== null) {
-		const unbilledLoss =
-			totalInventoryLoss > 0
-				? ` Der Inventurverlust von €${totalInventoryLoss.toFixed(2)} wurde nicht abgerechnet.`
-				: "";
-		return {
-			success: false,
-			failedStep: "billing",
-			totalInventoryLoss,
-			error: `Inventur gespeichert, aber die Rechnung ist fehlgeschlagen: ${billingError}.${unbilledLoss}`,
-		};
-	}
+		// The run's message is meant for the user; it logs its own failures.
+		let billingError: string | null = null;
+		let billsCreated = 0;
+		let message = "";
+		try {
+			const billing = await runGetraenkeBilling({
+				inventoryLoss: totalInventoryLoss,
+			});
+			if (billing.success) {
+				billsCreated =
+					billing.billsCreated +
+					("eventBillsCreated" in billing ? billing.eventBillsCreated : 0);
+				message = billing.message;
+			} else {
+				billingError = billing.message;
+			}
+		} catch (error) {
+			await log.error("billing after inventory failed", { err: error });
+			billingError = "Fehler beim Erstellen der Rechnungen";
+		}
 
-	return { success: true, totalInventoryLoss, billsCreated, message };
-}
+		if (billingError !== null) {
+			const unbilledLoss =
+				totalInventoryLoss > 0
+					? ` Der Inventurverlust von €${totalInventoryLoss.toFixed(2)} wurde nicht abgerechnet.`
+					: "";
+			throw new ActionError(
+				`Inventur gespeichert, aber die Rechnung ist fehlgeschlagen: ${billingError}.${unbilledLoss}`,
+				"BILLING_FAILED",
+			);
+		}
+
+		return { totalInventoryLoss, billsCreated, message };
+	},
+);
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -688,20 +664,21 @@ async function openInventoryWithBaselines(
 	return newInventory.id;
 }
 
-export async function saveQuickAdjustments(
-	adjustments: Array<{
-		drinkId: string;
-		countedStock?: number;
-		purchasedQuantity?: number;
-	}>,
-) {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user) {
-		return { success: false, error: "Unauthorized" };
-	}
-
-	try {
+export const saveQuickAdjustments = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([
+			z.array(
+				z.object({
+					drinkId: z.string(),
+					countedStock: z.number().optional(),
+					purchasedQuantity: z.number().optional(),
+				}),
+			),
+		]),
+		errorMessage: "Änderungen konnten nicht gespeichert werden",
+	},
+	async ([adjustments], { user }) => {
 		await db.transaction(async (tx) => {
 			const [activeInventory] = await tx
 				.select({ id: inventories.id })
@@ -710,8 +687,7 @@ export async function saveQuickAdjustments(
 				.limit(1);
 
 			const currentInventoryId =
-				activeInventory?.id ??
-				(await openInventoryWithBaselines(tx, session.user.id));
+				activeInventory?.id ?? (await openInventoryWithBaselines(tx, user.id));
 
 			for (const adjustment of adjustments) {
 				if (
@@ -775,19 +751,8 @@ export async function saveQuickAdjustments(
 				}
 			}
 		});
-
-		return { success: true };
-	} catch (error) {
-		console.error("Failed to save adjustments:", error);
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Änderungen konnten nicht gespeichert werden",
-		};
-	}
-}
+	},
+);
 
 // ─── Veranstaltungs-Inventur (before/after an event) ──────────────────────────
 
@@ -851,21 +816,17 @@ export type EtaplanWithKostenpunkte = Awaited<
 	ReturnType<typeof listEtaplansWithKostenpunkte>
 >[number];
 
-export async function cancelEventInventory() {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user) {
-		return { success: false as const, error: "Unauthorized" };
-	}
-	await db
-		.update(inventories)
-		.set({ kind: "routine", eventId: null, eventName: null, eventDate: null })
-		.where(
-			and(eq(inventories.status, "active"), eq(inventories.kind, "event")),
-		);
-	revalidatePath("/getraenkewart");
-	return { success: true as const };
-}
+export const cancelEventInventory = defineAction(
+	{ roles: ROLES.getraenke, revalidate: ["/getraenkewart"] },
+	async () => {
+		await db
+			.update(inventories)
+			.set({ kind: "routine", eventId: null, eventName: null, eventDate: null })
+			.where(
+				and(eq(inventories.status, "active"), eq(inventories.kind, "event")),
+			);
+	},
+);
 
 export type EventConsumptionReport = {
 	eventName: string | null;
@@ -876,25 +837,18 @@ export type EventConsumptionReport = {
 	booked: boolean;
 };
 
-export async function finishEventInventory(
-	items: Array<{
-		drinkId: string;
-		countedStock: number;
-		purchasedSince: number;
-	}>,
-	opts: { kostenpunktId?: string | null } = {},
-): Promise<
-	| { success: true; report: EventConsumptionReport }
-	| { success: false; error: string }
-> {
-	await requireRole(ROLES.getraenke);
-	const session = await auth();
-	if (!session?.user) {
-		return { success: false, error: "Unauthorized" };
-	}
-
-	try {
-		const report = await db.transaction(async (tx) => {
+export const finishEventInventory = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([
+			countItems,
+			z.object({ kostenpunktId: z.string().nullish() }).optional(),
+		]),
+		revalidate: ["/getraenkewart", "/cc-kasse"],
+		errorMessage: "Veranstaltungs-Inventur fehlgeschlagen",
+	},
+	async ([items, opts = {}], { user }): Promise<EventConsumptionReport> => {
+		return db.transaction(async (tx) => {
 			const [activeInv] = await tx
 				.select()
 				.from(inventories)
@@ -903,10 +857,13 @@ export async function finishEventInventory(
 				.limit(1);
 
 			if (!activeInv) {
-				throw new Error("Keine aktive Inventur vorhanden");
+				throw new ActionError("Keine aktive Inventur vorhanden", "NOT_FOUND");
 			}
 			if (activeInv.kind !== "event") {
-				throw new Error("Die aktive Inventur ist keine Veranstaltung");
+				throw new ActionError(
+					"Die aktive Inventur ist keine Veranstaltung",
+					"NOT_AN_EVENT",
+				);
 			}
 
 			const reportItems: EventConsumptionReport["items"] = [];
@@ -1006,7 +963,7 @@ export async function finishEventInventory(
 				.insert(inventories)
 				.values({
 					status: "active",
-					performedBy: session.user.id,
+					performedBy: user.id,
 					totalLoss: 0,
 				})
 				.returning();
@@ -1056,9 +1013,9 @@ export async function finishEventInventory(
 						submittedBy: null,
 						recipientName: "Getränkekasse",
 						expenseDate: when,
-						approvedBy: session.user.id,
+						approvedBy: user.id,
 						approvedAt: when,
-						paidBy: session.user.id,
+						paidBy: user.id,
 						paidAt: when,
 					});
 					booked = true;
@@ -1074,18 +1031,5 @@ export async function finishEventInventory(
 				booked,
 			} satisfies EventConsumptionReport;
 		});
-
-		revalidatePath("/getraenkewart");
-		revalidatePath("/cc-kasse");
-		return { success: true, report };
-	} catch (error) {
-		console.error("Failed to finish event inventory:", error);
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Veranstaltungs-Inventur fehlgeschlagen",
-		};
-	}
-}
+	},
+);

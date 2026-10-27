@@ -1,7 +1,9 @@
 // Inventory of every server action, read from the source with the
 // TypeScript parser. Each exported function of a "use server" module is a
-// public POST endpoint. Used by `authz-guards.test.ts` (every action checks
-// its caller) and `authz-matrix.test.ts` (who may call what).
+// public POST endpoint: `export async function` declarations and
+// `export const x = defineAction(…)` (src/server/lib/define-action.ts).
+// Used by `authz-guards.test.ts` (every action checks its caller),
+// `authz-matrix.test.ts` (who may call what) and `tenant-isolation.test.ts`.
 
 import { globSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -44,7 +46,8 @@ export type ActionInventory = {
 	actions: ServerAction[];
 	/**
 	 * Exports of a "use server" module that the scan cannot check (anything
-	 * but `export async function` and type exports). Next would still expose
+	 * but `export async function`, `export const x = defineAction(…)` and
+	 * type exports). Next would still expose
 	 * them as actions, so they must not exist.
 	 */
 	unsupportedExports: string[];
@@ -129,6 +132,115 @@ function findInlineDirectives(sf: TS.SourceFile, file: string): string[] {
 	return found;
 }
 
+/** The top-level `const name = …` initialiser of `sf`, if any. */
+function constInitializer(sf: TS.SourceFile, name: string) {
+	for (const st of sf.statements) {
+		if (!ts.isVariableStatement(st)) {
+			continue;
+		}
+		for (const decl of st.declarationList.declarations) {
+			if (ts.isIdentifier(decl.name) && decl.name.text === name) {
+				return decl.initializer;
+			}
+		}
+	}
+	return undefined;
+}
+
+const ZOD_KINDS: Record<string, string> = {
+	string: "string",
+	number: "number",
+	boolean: "boolean",
+	array: "unknown[]",
+	object: "object",
+};
+
+/**
+ * The parameter type a zod schema stands for, as far as the tests care:
+ * "string", "number", "boolean", "unknown[]", "object" or "" (anything
+ * else). Follows method chains (`z.string().min(1)`) and module constants.
+ */
+function zodTypeOf(expr: TS.Expression, sf: TS.SourceFile, hops = 0): string {
+	if (ts.isIdentifier(expr)) {
+		const init = hops < 5 ? constInitializer(sf, expr.text) : undefined;
+		return init ? zodTypeOf(init, sf, hops + 1) : "";
+	}
+	if (
+		!(
+			ts.isCallExpression(expr) &&
+			ts.isPropertyAccessExpression(expr.expression)
+		)
+	) {
+		return "";
+	}
+	const target = expr.expression.expression;
+	if (ts.isIdentifier(target) && target.text === "z") {
+		return ZOD_KINDS[expr.expression.name.text] ?? "";
+	}
+	// A method of another schema: `.min(1)`, `.optional()`, …
+	return zodTypeOf(target, sf, hops);
+}
+
+/**
+ * `export const x = defineAction(options, handler)` declarations: the
+ * wrapper checks the caller before the handler runs (see
+ * src/server/lib/define-action.ts), so it counts as the first call. The
+ * parameters are the names of the handler's destructured argument list,
+ * typed after the `schema: z.tuple([...])` option. Null if any declaration
+ * of the statement is something else.
+ */
+function definedActions(
+	st: TS.VariableStatement,
+	sf: TS.SourceFile,
+): Omit<ServerAction, "file" | "key">[] | null {
+	const found: Omit<ServerAction, "file" | "key">[] = [];
+	for (const decl of st.declarationList.declarations) {
+		const init = decl.initializer;
+		const [options, handler] =
+			init && ts.isCallExpression(init) ? init.arguments : [];
+		if (
+			!(
+				init &&
+				ts.isCallExpression(init) &&
+				ts.isIdentifier(init.expression) &&
+				init.expression.text === "defineAction" &&
+				ts.isIdentifier(decl.name) &&
+				options &&
+				ts.isObjectLiteralExpression(options) &&
+				handler &&
+				(ts.isArrowFunction(handler) || ts.isFunctionExpression(handler))
+			)
+		) {
+			return null;
+		}
+		const schema = options.properties.find(
+			(p): p is TS.PropertyAssignment =>
+				ts.isPropertyAssignment(p) && p.name.getText() === "schema",
+		)?.initializer;
+		const elements =
+			schema &&
+			ts.isCallExpression(schema) &&
+			schema.arguments[0] &&
+			ts.isArrayLiteralExpression(schema.arguments[0])
+				? schema.arguments[0].elements
+				: [];
+		const first = handler.parameters[0]?.name;
+		const names =
+			schema && first && ts.isArrayBindingPattern(first)
+				? first.elements.map((e) => e.getText().replace(/\s*=.*$/s, ""))
+				: [];
+		found.push({
+			name: decl.name.text,
+			callOrder: ["defineAction", ...callsIn(handler.body)],
+			params: elements.map((element, i) => ({
+				name: names[i] ?? `arg${i}`,
+				type: zodTypeOf(element, sf),
+			})),
+		});
+	}
+	return found;
+}
+
 /** Adds the exports of one "use server" module to `inventory`. */
 function scanModule(
 	sf: TS.SourceFile,
@@ -156,6 +268,14 @@ function scanModule(
 					type: p.type?.getText() ?? "",
 				})),
 			});
+		} else if (ts.isVariableStatement(st) && definedActions(st, sf)) {
+			for (const action of definedActions(st, sf) ?? []) {
+				inventory.actions.push({
+					file,
+					key: `${file}#${action.name}`,
+					...action,
+				});
+			}
 		} else {
 			unsupported(st);
 		}

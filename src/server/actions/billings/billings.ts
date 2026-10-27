@@ -1,11 +1,13 @@
 "use server";
 
 import { and, desc, eq, lt, sql } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "~/server/db";
 import { billItems, billPeriods, bills } from "~/server/db/schema";
-import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
+import { ROLES, requireMember } from "~/server/lib/authz";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { carriedBillRefusal, paidAlongWith } from "~/server/lib/carried-bills";
+import { ActionError, defineAction } from "~/server/lib/define-action";
 import { groupBy } from "~/server/lib/group-by";
 import { log } from "~/server/lib/log";
 
@@ -15,10 +17,17 @@ import { log } from "~/server/lib/log";
  * arguments, so this one takes none: the inventory-loss Umlage is only
  * billed by "Inventur + Rechnung", from the loss stored on the server (#10).
  */
-export async function createNewBilling() {
-	await requireRole(ROLES.getraenke);
-	return runGetraenkeBilling({ inventoryLoss: 0 });
-}
+export const createNewBilling = defineAction(
+	{ roles: ROLES.getraenke },
+	async () => {
+		const run = await runGetraenkeBilling({ inventoryLoss: 0 });
+		if (!run.success) {
+			// The run logs its own failures; its message is meant for the user.
+			throw new ActionError(run.message, "BILLING_FAILED");
+		}
+		return run;
+	},
+);
 
 // Get all bill periods (for displaying tabs)
 export async function getAllBillPeriods() {
@@ -105,37 +114,37 @@ export async function getBillsForPeriod(billPeriodId: string) {
  * only. Carried bills and bills paid through the later bill they were
  * carried into change only through that later bill (see carried-bills).
  */
-export async function updateBillStatus(
-	billId: string,
-	newStatus: "Bezahlt" | "Unbezahlt" | "Gestundet" | "Übertragen",
-): Promise<{ success: true } | { success: false; error?: string }> {
-	await requireRole(ROLES.getraenke);
-	if (
-		newStatus !== "Bezahlt" &&
-		newStatus !== "Unbezahlt" &&
-		newStatus !== "Gestundet"
-	) {
-		return { success: false, error: "Ungültiger Status" };
-	}
-	try {
+export const updateBillStatus = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([
+			z.string(),
+			z.enum(["Bezahlt", "Unbezahlt", "Gestundet", "Übertragen"]),
+		]),
+		errorMessage: "Fehler beim Aktualisieren des Status",
+	},
+	async ([billId, newStatus]) => {
+		if (newStatus === "Übertragen") {
+			throw new ActionError("Ungültiger Status", "INVALID_INPUT");
+		}
 		const [bill] = await db
 			.select()
 			.from(bills)
 			.where(eq(bills.id, billId))
 			.limit(1);
 		if (!bill) {
-			return { success: false, error: "Rechnung nicht gefunden" };
+			throw new ActionError("Rechnung nicht gefunden", "NOT_FOUND");
 		}
 		// Gruppenrechnungen are settled directly and never carried.
 		const carries = !bill.userId.startsWith("event-");
 		const refusal = carries ? await carriedBillRefusal(bills, bill) : null;
 		if (refusal) {
-			return { success: false, error: refusal };
+			throw new ActionError(refusal, "CARRIED_BILL");
 		}
 		// Paying a paid bill again would move its paidAt away from the bills
 		// it settled, and with it the link to them.
 		if (bill.status === newStatus) {
-			return { success: true };
+			return;
 		}
 
 		const now = new Date();
@@ -176,10 +185,5 @@ export async function updateBillStatus(
 		} else {
 			await setStatus;
 		}
-
-		return { success: true };
-	} catch (error) {
-		await log.error("Error updating bill status", { err: error });
-		return { success: false, error: "Fehler beim Aktualisieren des Status" };
-	}
-}
+	},
+);

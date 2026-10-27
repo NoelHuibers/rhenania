@@ -57,7 +57,7 @@ export function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 				description: description.trim(),
 				amount: parsed,
 			});
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Verbindlichkeit hinzugefügt");
 				setDialogOpen(false);
 				setCreditor("");
@@ -65,7 +65,7 @@ export function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 				setAmount("");
 				router.refresh();
 			} else {
-				toast.error("Fehler beim Hinzufügen");
+				toast.error(res.error);
 			}
 		});
 	}
@@ -73,11 +73,11 @@ export function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 	function handlePaid(id: string) {
 		startTransition(async () => {
 			const res = await markExternalBillPaid(id);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Als bezahlt markiert");
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Status konnte nicht geändert werden");
+				toast.error(res.error);
 			}
 		});
 	}
@@ -85,11 +85,11 @@ export function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 	function handleDelete(id: string) {
 		startTransition(async () => {
 			const res = await deleteExternalBill(id);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Gelöscht");
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Fehler beim Löschen");
+				toast.error(res.error);
 			}
 		});
 	}

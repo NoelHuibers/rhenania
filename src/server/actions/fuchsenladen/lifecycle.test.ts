@@ -75,10 +75,12 @@ async function bestellen(member: TestUser, item: Item, amount = 1) {
 async function abrechnen(date: Date) {
 	vi.setSystemTime(date);
 	const result = await createNewFuchsenBilling();
-	if (!("billPeriod" in result) || !result.billPeriod) {
-		throw new Error(`Billing created no period: ${result.message}`);
+	if (!result.ok || !result.data.billPeriod) {
+		throw new Error(
+			`Billing created no period: ${result.ok ? result.data.message : result.error}`,
+		);
 	}
-	return result as typeof result & { billPeriod: { id: string } };
+	return { ...result.data, billPeriod: result.data.billPeriod };
 }
 
 async function rechnungenVon(member: TestUser) {
@@ -98,9 +100,7 @@ async function neuesteRechnung(member: TestUser): Promise<Bill> {
 }
 
 async function setStatus(bill: Bill, status: "Bezahlt" | "Unbezahlt") {
-	expect(await updateFuchsenBillStatus(bill.id, status)).toEqual({
-		success: true,
-	});
+	expect(await updateFuchsenBillStatus(bill.id, status)).toEqual({ ok: true });
 	const sign = status === "Bezahlt" ? 1 : -1;
 	kassenbuch.set(
 		bill.userId,
@@ -217,7 +217,7 @@ describe("Fuchsenladen über drei Perioden", () => {
 		]);
 		// Carried amounts are counted once: in the newest bills only.
 		const csv = await getFuchsenBillPeriodCSV(p3.billPeriod.id);
-		expect(csv.csvContent?.slice(1).split("\r\n")).toEqual([
+		expect(csv.ok && csv.data.csvContent.slice(1).split("\r\n")).toEqual([
 			"Name;Status;Artikel;Alter Saldo;Gesamt",
 			"Bursch;Unbezahlt;0,00;9,00;9,00",
 			"Fux;Unbezahlt;2,50;10,00;12,50",
@@ -228,9 +228,9 @@ describe("Fuchsenladen über drei Perioden", () => {
 
 		// A carried bill can't be paid on its own.
 		const [fuxP1] = await rechnungenVon(fux);
-		expect(
-			(await updateFuchsenBillStatus(fuxP1?.id ?? "", "Bezahlt")).success,
-		).toBe(false);
+		expect((await updateFuchsenBillStatus(fuxP1?.id ?? "", "Bezahlt")).ok).toBe(
+			false,
+		);
 
 		// Paying the newest bill settles the whole chain and its orders.
 		vi.setSystemTime(new Date(periode(2).getTime() + 86_400_000));
@@ -311,7 +311,7 @@ describe("Fuchsenladen über drei Perioden", () => {
 
 		expect(
 			await updateFuchsenBillStatus(p1?.id ?? "", "Unbezahlt"),
-		).toMatchObject({ success: false });
+		).toMatchObject({ ok: false, code: "CARRIED_BILL" });
 		await bestellen(fux, mappe);
 		await abrechnen(periode(2));
 

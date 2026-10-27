@@ -25,6 +25,8 @@ const GUARDS = new Set([
 	"requireRoles",
 	"requireGetraenkewart",
 	"requireFuchsenwart",
+	// checks the caller before the body runs (src/server/lib/define-action.ts)
+	"defineAction",
 ]);
 
 /**
@@ -93,10 +95,11 @@ describe("server action authorization", () => {
 		);
 	});
 
-	// The checks above only see `export async function` declarations. Next
-	// would still expose `export const x = async () => …`, re-exports or
-	// inline "use server" functions as actions, so they are not allowed.
-	test("server actions are plain exported function declarations", () => {
+	// The checks above only see `export async function` declarations and
+	// `export const x = defineAction(…)`. Next would still expose
+	// `export const x = async () => …`, re-exports or inline "use server"
+	// functions as actions, so they are not allowed.
+	test("server actions are exported functions or defineAction calls", () => {
 		expect(unsupportedExports).toEqual([]);
 		expect(inlineActions).toEqual([]);
 	});

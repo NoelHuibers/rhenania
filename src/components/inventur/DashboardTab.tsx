@@ -147,15 +147,15 @@ export function DashboardTab({
 					return;
 				}
 				const result = await saveQuickAdjustments(adjustments);
-				if (result.success) {
-					setChangedItems((currentItems) =>
-						removeSavedItemIds(currentItems, savedItemIds),
-					);
-					toast.success(`${adjustments.length} Artikel aktualisiert`);
-					router.refresh();
-				} else {
-					throw new Error(result.error);
+				if (!result.ok) {
+					toast.error(result.error);
+					return;
 				}
+				setChangedItems((currentItems) =>
+					removeSavedItemIds(currentItems, savedItemIds),
+				);
+				toast.success(`${adjustments.length} Artikel aktualisiert`);
+				router.refresh();
 			} catch (error) {
 				toast.error(
 					error instanceof Error
@@ -202,11 +202,11 @@ export function DashboardTab({
 	const handleCancelEvent = () => {
 		startEventTransition(async () => {
 			const res = await cancelEventInventory();
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Veranstaltungs-Inventur abgebrochen");
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Fehler");
+				toast.error(res.error);
 			}
 		});
 	};

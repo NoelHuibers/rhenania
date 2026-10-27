@@ -78,10 +78,12 @@ describe("closeInventoryAndBill", () => {
 		]);
 
 		expect(result).toEqual({
-			success: true,
-			totalInventoryLoss: 4.5,
-			billsCreated: 1,
-			message: "Erfolgreich 1 Rechnungen erstellt",
+			ok: true,
+			data: {
+				totalInventoryLoss: 4.5,
+				billsCreated: 1,
+				message: "Erfolgreich 1 Rechnungen erstellt",
+			},
 		});
 		expect(billing).toHaveBeenCalledExactlyOnceWith({ inventoryLoss: 4.5 });
 		const [closed, next] = await allInventories();
@@ -108,9 +110,8 @@ describe("closeInventoryAndBill", () => {
 		]);
 
 		expect(result).toMatchObject({
-			success: true,
-			totalInventoryLoss: 4.5,
-			billsCreated: 3,
+			ok: true,
+			data: { totalInventoryLoss: 4.5, billsCreated: 3 },
 		});
 		expect((await billsOf(resident.id))[0]).toMatchObject({
 			drinksTotal: 3,
@@ -144,7 +145,10 @@ describe("closeInventoryAndBill", () => {
 			{ drinkId: pils.id, countedStock: 10, purchasedSince: 0 },
 		]);
 
-		expect(result).toMatchObject({ success: true, totalInventoryLoss: 0 });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { totalInventoryLoss: 0 },
+		});
 		expect(billing).toHaveBeenCalledExactlyOnceWith({ inventoryLoss: 0 });
 		expect((await billsOf(resident.id))[0]?.umlage).toBe(0);
 	});
@@ -153,11 +157,11 @@ describe("closeInventoryAndBill", () => {
 		const { pils, running } = await seedRunningInventory();
 
 		const result = await closeInventoryAndBill([
-			// NaN violates the NOT NULL column and rolls the count back.
+			// Not a whole number: refused before anything is written.
 			{ drinkId: pils.id, countedStock: Number.NaN, purchasedSince: 0 },
 		]);
 
-		expect(result).toMatchObject({ success: false, failedStep: "inventory" });
+		expect(result).toMatchObject({ ok: false, code: "INVALID_INPUT" });
 		expect(billing).not.toHaveBeenCalled();
 		expect(await tenantDb().select().from(billPeriods)).toEqual([]);
 		expect(await allInventories()).toEqual([
@@ -174,10 +178,10 @@ describe("closeInventoryAndBill", () => {
 		]);
 
 		expect(result).toEqual({
-			success: false,
-			failedStep: "inventory",
+			ok: false,
 			error:
 				"Bitte Absender und Konto in der Kasse hinterlegen (fehlt: Straße).",
+			code: "BILLING_INCOMPLETE",
 		});
 		expect(billing).not.toHaveBeenCalled();
 		expect(await allInventories()).toEqual([
@@ -189,11 +193,11 @@ describe("closeInventoryAndBill", () => {
 		const { pils, running } = await seedRunningInventory();
 		signOut();
 
-		await expect(
-			closeInventoryAndBill([
+		expect(
+			await closeInventoryAndBill([
 				{ drinkId: pils.id, countedStock: 15, purchasedSince: 0 },
 			]),
-		).rejects.toThrow();
+		).toMatchObject({ ok: false, code: "UNAUTHENTICATED" });
 		expect(billing).not.toHaveBeenCalled();
 		expect(await allInventories()).toEqual([
 			expect.objectContaining({ id: running.id, status: "active" }),
@@ -214,12 +218,12 @@ describe("closeInventoryAndBill", () => {
 			{ drinkId: pils.id, countedStock: 15, purchasedSince: 0 },
 		]);
 
+		// The run's message, not the raw database error.
 		expect(result).toEqual({
-			success: false,
-			failedStep: "billing",
-			totalInventoryLoss: 4.5,
+			ok: false,
 			error:
-				"Inventur gespeichert, aber die Rechnung ist fehlgeschlagen: database is locked. Der Inventurverlust von €4.50 wurde nicht abgerechnet.",
+				"Inventur gespeichert, aber die Rechnung ist fehlgeschlagen: Fehler beim Erstellen der Rechnungen. Der Inventurverlust von €4.50 wurde nicht abgerechnet.",
+			code: "BILLING_FAILED",
 		});
 		const [closed] = await allInventories();
 		expect(closed).toMatchObject({ id: running.id, status: "closed" });
@@ -237,11 +241,10 @@ describe("closeInventoryAndBill", () => {
 		]);
 
 		expect(result).toEqual({
-			success: false,
-			failedStep: "billing",
-			totalInventoryLoss: 0,
+			ok: false,
 			error:
-				"Inventur gespeichert, aber die Rechnung ist fehlgeschlagen: Verbindung verloren.",
+				"Inventur gespeichert, aber die Rechnung ist fehlgeschlagen: Fehler beim Erstellen der Rechnungen.",
+			code: "BILLING_FAILED",
 		});
 	});
 
@@ -257,10 +260,12 @@ describe("closeInventoryAndBill", () => {
 		]);
 
 		expect(result).toEqual({
-			success: true,
-			totalInventoryLoss: 0,
-			billsCreated: 0,
-			message: "Keine unbezahlten Bestellungen gefunden",
+			ok: true,
+			data: {
+				totalInventoryLoss: 0,
+				billsCreated: 0,
+				message: "Keine unbezahlten Bestellungen gefunden",
+			},
 		});
 	});
 });
