@@ -43,6 +43,24 @@ test("member orders a drink", async () => {
 Fire-and-forget side effects (achievements, mails) should be mocked in the
 test file with `vi.mock(...)` and tested separately.
 
+## Authorization and tenant isolation
+
+Every exported function of a `"use server"` module and every route handler
+is a public endpoint. Four tests keep them closed:
+
+- `authz-guards.test.ts` (static): each action calls a guard from
+  `src/server/lib/authz.ts` before its first query, or is in
+  `PUBLIC_ACTIONS` (`test/server-actions.ts`) with a reason.
+- `authz-matrix.test.ts`: says who may call each action. A new action fails
+  until it has an entry. Every action is called as anonymous, a session
+  without membership, an Admin of another Corps, a suspended Admin, an Admin
+  on a host without a Corps, a superadmin, a plain member and one member per
+  role. Denied callers must not read or write anything; allowed ones must get
+  past the guard.
+- `tenant-isolation.test.ts`: an Admin of Corps A passes Corps B's ids to
+  every action; B's data stays unchanged and doesn't come back.
+- `authz-routes.test.ts`: the same for `src/app/**/route.ts`.
+
 ## End-to-end tests (Playwright)
 
 ```bash
