@@ -6,7 +6,7 @@
 // existing identity by e-mail when that e-mail counts as verified, so a
 // provider's e-mail only counts as verified for an identity that already
 // belongs to the provider's Corps. Everyone else has to link explicitly while
-// signed in (`/oauth2/link`), which proves they own the identity.
+// signed in (`/link-social`), which proves they own the identity.
 
 import type { GenericOAuthConfig } from "better-auth/plugins/generic-oauth";
 import { and, eq } from "drizzle-orm";
@@ -21,11 +21,17 @@ type OAuthTokens = Parameters<GetUserInfo>[0];
 type OAuthUserInfo = NonNullable<Awaited<ReturnType<GetUserInfo>>>;
 type Claims = Record<string, unknown>;
 
-/** Better Auth endpoints that take a generic-OAuth provider id. */
-const PROVIDER_ENDPOINTS = new Set([
-	"/sign-in/oauth2",
-	"/oauth2/link",
-	"/oauth2/callback/:providerId",
+/**
+ * Better Auth endpoints that take an OAuth provider id, and where it is.
+ * Since 1.7 generic OAuth providers are ordinary social providers, so these
+ * are the core social endpoints. The legacy callback URL registered in each
+ * Entra app (`/oauth2/callback/:id`) is rewritten to `/callback/:id` before
+ * Better Auth sees it (see the auth route).
+ */
+const PROVIDER_ENDPOINTS = new Map<string, "body" | "params">([
+	["/sign-in/social", "body"],
+	["/link-social", "body"],
+	["/callback/:id", "params"],
 ]);
 
 /** Provider id an auth request asks for, or null for every other endpoint. */
@@ -34,14 +40,14 @@ export function requestedProviderId(ctx: {
 	body?: unknown;
 	params?: unknown;
 }): string | null {
-	if (!ctx.path || !PROVIDER_ENDPOINTS.has(ctx.path)) {
+	const where = ctx.path ? PROVIDER_ENDPOINTS.get(ctx.path) : undefined;
+	if (!where) {
 		return null;
 	}
-	const source = ctx.path.startsWith("/oauth2/callback/")
-		? ctx.params
-		: ctx.body;
-	const providerId = (source as { providerId?: unknown } | undefined)
-		?.providerId;
+	const providerId =
+		where === "params"
+			? (ctx.params as { id?: unknown } | undefined)?.id
+			: (ctx.body as { provider?: unknown } | undefined)?.provider;
 	// An endpoint that takes a provider but got none is refused, not skipped.
 	return typeof providerId === "string" ? providerId : "";
 }

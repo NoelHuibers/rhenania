@@ -53,7 +53,7 @@ async function corps(slug: string, clientId: string | null) {
 	return tenant;
 }
 
-/** POST /api/auth/sign-in/oauth2 through the real route on `origin`. */
+/** POST /api/auth/sign-in/social through the real route on `origin`. */
 async function startSignIn(
 	origin: string,
 	providerId: string,
@@ -61,14 +61,14 @@ async function startSignIn(
 ) {
 	const { POST } = await route();
 	return POST(
-		new Request(`${origin}/api/auth/sign-in/oauth2`, {
+		new Request(`${origin}/api/auth/sign-in/social`, {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
 				origin,
 				host: new URL(origin).host,
 			},
-			body: JSON.stringify({ providerId, callbackURL }),
+			body: JSON.stringify({ provider: providerId, callbackURL }),
 		}),
 	);
 }

@@ -70,26 +70,26 @@ describe("requestedProviderId", () => {
 	test("reads the provider of sign-in, link and callback requests", () => {
 		expect(
 			requestedProviderId({
-				path: "/sign-in/oauth2",
-				body: { providerId: "microsoft-x" },
+				path: "/sign-in/social",
+				body: { provider: "microsoft-x" },
 			}),
 		).toBe("microsoft-x");
 		expect(
 			requestedProviderId({
-				path: "/oauth2/link",
-				body: { providerId: "microsoft-y" },
+				path: "/link-social",
+				body: { provider: "microsoft-y" },
 			}),
 		).toBe("microsoft-y");
 		expect(
 			requestedProviderId({
-				path: "/oauth2/callback/:providerId",
-				params: { providerId: "microsoft-z" },
+				path: "/callback/:id",
+				params: { id: "microsoft-z" },
 			}),
 		).toBe("microsoft-z");
 	});
 
 	test("is empty for a provider endpoint without a provider, null elsewhere", () => {
-		expect(requestedProviderId({ path: "/sign-in/oauth2", body: {} })).toBe("");
+		expect(requestedProviderId({ path: "/sign-in/social", body: {} })).toBe("");
 		expect(requestedProviderId({ path: "/sign-in/email", body: {} })).toBe(
 			null,
 		);
@@ -218,7 +218,7 @@ function cookieHeader(res: Response): string {
 async function startSignIn(slug: string, providerId: string) {
 	const origin = `http://${host(slug)}:3000`;
 	return authRoute(
-		new Request(`${origin}/api/auth/sign-in/oauth2`, {
+		new Request(`${origin}/api/auth/sign-in/social`, {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
@@ -226,7 +226,7 @@ async function startSignIn(slug: string, providerId: string) {
 				host: `${host(slug)}:3000`,
 			},
 			body: JSON.stringify({
-				providerId,
+				provider: providerId,
 				callbackURL: "/",
 				errorCallbackURL: "/auth/signin",
 			}),
@@ -312,6 +312,28 @@ describe("Microsoft login across Corps (real Better Auth)", () => {
 		]);
 	});
 
+	test("Entra gets the redirect URI registered in its app (pre-1.7 path)", async () => {
+		const { b } = await twoCorps();
+		await createUser({ email: "member@b.test", tenantId: b.id });
+
+		const start = await startSignIn(B.slug, `microsoft-${B.slug}`);
+		const { url } = (await start.json()) as { url: string };
+		const registered = `http://${host(B.slug)}:3000/api/auth/oauth2/callback/microsoft-${B.slug}`;
+		expect(new URL(url).searchParams.get("redirect_uri")).toBe(registered);
+
+		await microsoftLogin(B.slug, `microsoft-${B.slug}`, {
+			sub: "member-sub",
+			email: "member@b.test",
+			name: "Member",
+			tid: B.azure,
+		});
+		const exchange = vi
+			.mocked(globalThis.fetch)
+			.mock.calls.map(([, init]) => new URLSearchParams(String(init?.body)))
+			.find((body) => body.get("grant_type") === "authorization_code");
+		expect(exchange?.get("redirect_uri")).toBe(registered);
+	});
+
 	test("a token from another Entra tenant is refused", async () => {
 		const { b } = await twoCorps();
 		const member = await createUser({ email: "member@b.test", tenantId: b.id });
@@ -344,6 +366,15 @@ describe("Microsoft login across Corps (real Better Auth)", () => {
 		);
 		expect(callback.status).toBe(403);
 
+		// The core callback path is held to the same check.
+		const core = await authRoute(
+			new Request(
+				`http://${host(A.slug)}:3000/api/auth/callback/microsoft-${B.slug}?code=c&state=s`,
+				{ headers: { host: `${host(A.slug)}:3000` } },
+			),
+		);
+		expect(core.status).toBe(403);
+
 		const unknown = await startSignIn(A.slug, "microsoft-nope");
 		expect(unknown.status).toBe(403);
 	});
@@ -351,7 +382,7 @@ describe("Microsoft login across Corps (real Better Auth)", () => {
 	test("explicit linking is held to the same host check", async () => {
 		await twoCorps();
 		const res = await authRoute(
-			new Request(`http://${host(A.slug)}:3000/api/auth/oauth2/link`, {
+			new Request(`http://${host(A.slug)}:3000/api/auth/link-social`, {
 				method: "POST",
 				headers: {
 					"content-type": "application/json",
@@ -359,7 +390,7 @@ describe("Microsoft login across Corps (real Better Auth)", () => {
 					host: `${host(A.slug)}:3000`,
 				},
 				body: JSON.stringify({
-					providerId: `microsoft-${B.slug}`,
+					provider: `microsoft-${B.slug}`,
 					callbackURL: "/",
 				}),
 			}),

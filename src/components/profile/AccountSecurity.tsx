@@ -111,7 +111,7 @@ export function AccountSecurity({
 					}
 				} else {
 					// Resolve the per-tenant providerId server-side, then start
-					// the OAuth flow via Better Auth's generic OAuth endpoint.
+					// the OAuth flow via Better Auth's social sign-in endpoint.
 					const connectResult = await connectProviderAction(
 						providerName.toLowerCase(),
 					);
@@ -123,8 +123,8 @@ export function AccountSecurity({
 						});
 						return;
 					}
-					await authClient.signIn.oauth2({
-						providerId: connectResult.data.providerId,
+					await authClient.signIn.social({
+						provider: connectResult.data.providerId,
 						callbackURL: window.location.pathname,
 					});
 				}

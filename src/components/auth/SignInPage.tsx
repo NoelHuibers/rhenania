@@ -84,8 +84,8 @@ export function SignInPage({ microsoftProviderId }: SignInPageProps) {
 			return;
 		}
 		setIsLoading(true);
-		await authClient.signIn.oauth2({
-			providerId: microsoftProviderId,
+		await authClient.signIn.social({
+			provider: microsoftProviderId,
 			callbackURL: callbackUrl,
 			errorCallbackURL: "/auth/signin",
 		});
