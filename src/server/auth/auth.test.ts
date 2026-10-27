@@ -3,8 +3,11 @@
 // tested here against the real module: null unless the caller is an ACTIVE
 // member of the request's tenant, roles of that tenant only.
 
+import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
+import { tenants } from "~/server/db/control-schema";
+import { clearTenantHostCache } from "~/server/lib/tenant-context";
 import {
 	createTenant,
 	createUser,
@@ -12,7 +15,7 @@ import {
 	signInAs,
 	switchTenant,
 } from "../../../test/harness";
-import { testState } from "../../../test/state";
+import { requireControl, testState } from "../../../test/state";
 
 vi.unmock("~/server/auth");
 
@@ -32,6 +35,14 @@ async function realAuth() {
 afterEach(() => {
 	vi.restoreAllMocks();
 });
+
+async function setTenantStatus(id: string, status: "active" | "suspended") {
+	await requireControl()
+		.db.update(tenants)
+		.set({ status })
+		.where(eq(tenants.id, id));
+	clearTenantHostCache();
+}
 
 describe("auth() (real)", () => {
 	test("returns the member with the roles of the request tenant", async () => {
@@ -61,6 +72,22 @@ describe("auth() (real)", () => {
 		expect(await auth()).toBeNull();
 		// The identity itself still exists (superadmin / access-denied use it).
 		expect(await getIdentity()).not.toBeNull();
+	});
+
+	test("is null on a host without an active tenant", async () => {
+		const tenant = await createTenant();
+		signInAs(await createUser({ roles: ["Admin"] }));
+		const { auth, getIdentity } = await realAuth();
+
+		testState.tenantId = null;
+		testState.headers = { host: "unknown.example" };
+		expect(await auth()).toBeNull();
+		expect(await getIdentity()).not.toBeNull();
+
+		await setTenantStatus(tenant.id, "suspended");
+		testState.headers = {};
+		testState.tenantId = tenant.id;
+		expect(await auth()).toBeNull();
 	});
 
 	test("is null for suspended members and anonymous callers", async () => {

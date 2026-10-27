@@ -1,14 +1,17 @@
 // Every exported function in a "use server" module is a public POST
 // endpoint. This test fails if one doesn't check its caller: it must call a
-// guard (or delegate to a guarded action in the same module), or be listed
-// in PUBLIC_ACTIONS below with the reason it may be called by anyone.
+// guard (or delegate to a guarded action in the same module) before it reads
+// or writes data, or be listed in PUBLIC_ACTIONS (test/server-actions.ts)
+// with the reason it may be called by anyone. Who may call what is checked
+// at runtime by authz-matrix.test.ts.
 
-import { globSync, readFileSync } from "node:fs";
-import { createRequire } from "node:module";
 import { describe, expect, test } from "vitest";
 
-const require = createRequire(import.meta.url);
-const ts = require("typescript") as typeof import("typescript");
+import {
+	PUBLIC_ACTIONS,
+	type ServerAction,
+	scanServerActions,
+} from "./server-actions";
 
 /** Calls that establish the caller (all go through the tenant-scoped auth()). */
 const GUARDS = new Set([
@@ -24,113 +27,77 @@ const GUARDS = new Set([
 	"requireFuchsenwart",
 ]);
 
-/** Deliberately callable without a session. Key: "<file>#<function>". */
-const PUBLIC_ACTIONS: Record<string, string> = {
-	"src/lib/formSubmit.ts#onSubmitAction": "public contact form",
-	"src/server/actions/newuser/verifyEmail.ts#verifyEmailAndSetPassword":
-		"invite link; authorised by the single-use token",
-	"src/server/actions/bilder/images.ts#getActiveImageBySection":
-		"images of the public website",
-	"src/server/actions/bilder/images.ts#getAllActiveImagesBySection":
-		"images of the public website",
-	"src/server/actions/events/events.ts#getPublicUpcomingEvents":
-		"public events on the website",
-	"src/server/actions/events/events.ts#getPublicPastEvents":
-		"public events on the website",
-};
-
-type Finding = { file: string; name: string };
-
-function isUseServer(sf: import("typescript").SourceFile) {
-	const first = sf.statements[0];
-	return (
-		first !== undefined &&
-		ts.isExpressionStatement(first) &&
-		ts.isStringLiteral(first.expression) &&
-		first.expression.text === "use server"
-	);
-}
-
-function calledNames(node: import("typescript").Node): Set<string> {
-	const names = new Set<string>();
-	const visit = (n: import("typescript").Node) => {
-		if (ts.isCallExpression(n)) {
-			const callee = n.expression;
-			if (ts.isIdentifier(callee)) {
-				names.add(callee.text);
-			} else if (ts.isPropertyAccessExpression(callee)) {
-				names.add(callee.name.text);
-			}
-		}
-		ts.forEachChild(n, visit);
-	};
-	visit(node);
-	return names;
-}
-
-function scan(): { exports: Finding[]; unguarded: Finding[] } {
-	const exports: Finding[] = [];
-	const unguarded: Finding[] = [];
-	for (const file of globSync("src/**/*.ts")) {
-		if (file.endsWith(".test.ts")) {
-			continue;
-		}
-		const text = readFileSync(file, "utf8");
-		const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-		if (!isUseServer(sf)) {
-			continue;
-		}
-		const fns = new Map<string, Set<string>>();
-		for (const st of sf.statements) {
-			const exported = ts
-				.getModifiers?.(st as import("typescript").HasModifiers)
-				?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
-			if (exported && ts.isFunctionDeclaration(st) && st.name && st.body) {
-				fns.set(st.name.text, calledNames(st.body));
-			}
-		}
-		const guarded = (name: string, seen = new Set<string>()): boolean => {
-			const calls = fns.get(name);
-			if (!calls || seen.has(name)) {
-				return false;
-			}
-			seen.add(name);
-			for (const call of calls) {
-				if (GUARDS.has(call)) {
-					return true;
-				}
-				// Delegating to another guarded action of the same module counts.
-				if (fns.has(call) && guarded(call, seen)) {
-					return true;
-				}
-			}
-			return false;
-		};
-		for (const name of fns.keys()) {
-			exports.push({ file, name });
-			if (!guarded(name) && !PUBLIC_ACTIONS[`${file}#${name}`]) {
-				unguarded.push({ file, name });
-			}
-		}
-	}
-	return { exports, unguarded };
-}
+/**
+ * Calls that run a query. Getting a DB handle (`getCurrentTenantDb()`) is
+ * fine before the guard, using it is not.
+ */
+const DATA_ACCESS = new Set([
+	"select",
+	"selectDistinct",
+	"insert",
+	"update",
+	"delete",
+	"transaction",
+	"batch",
+	"execute",
+	"findFirst",
+	"findMany",
+]);
 
 describe("server action authorization", () => {
-	const { exports, unguarded } = scan();
+	const { actions, unsupportedExports, inlineActions } = scanServerActions();
+	const byKey = new Map(actions.map((a) => [a.key, a]));
+
+	/** Index of the first call that establishes the caller, or -1. */
+	function firstGuard(action: ServerAction, seen = new Set<string>()): number {
+		seen.add(action.name);
+		return action.callOrder.findIndex((call) => {
+			if (GUARDS.has(call)) {
+				return true;
+			}
+			// Delegating to another guarded action of the same module counts.
+			const target = byKey.get(`${action.file}#${call}`);
+			return (
+				target !== undefined &&
+				!seen.has(call) &&
+				firstGuard(target, new Set(seen)) !== -1
+			);
+		});
+	}
+
+	const isPublic = (a: ServerAction) => a.key in PUBLIC_ACTIONS;
 
 	test("the scan finds the server actions", () => {
-		expect(exports.length).toBeGreaterThan(200);
+		expect(actions.length).toBeGreaterThan(200);
 	});
 
 	test("every exported server action checks its caller", () => {
-		expect(unguarded.map((f) => `${f.file}#${f.name}`)).toEqual([]);
+		const unguarded = actions.filter((a) => !isPublic(a) && firstGuard(a) < 0);
+		expect(unguarded.map((a) => a.key)).toEqual([]);
+	});
+
+	test("the guard comes before the first query", () => {
+		const late = actions.filter((a) => {
+			if (isPublic(a)) {
+				return false;
+			}
+			const data = a.callOrder.findIndex((call) => DATA_ACCESS.has(call));
+			return data !== -1 && data < firstGuard(a);
+		});
+		expect(late.map((a) => a.key)).toEqual([]);
 	});
 
 	test("the public allowlist only names existing actions", () => {
-		const known = new Set(exports.map((f) => `${f.file}#${f.name}`));
-		expect(Object.keys(PUBLIC_ACTIONS).filter((k) => !known.has(k))).toEqual(
+		expect(Object.keys(PUBLIC_ACTIONS).filter((k) => !byKey.has(k))).toEqual(
 			[],
 		);
+	});
+
+	// The checks above only see `export async function` declarations. Next
+	// would still expose `export const x = async () => …`, re-exports or
+	// inline "use server" functions as actions, so they are not allowed.
+	test("server actions are plain exported function declarations", () => {
+		expect(unsupportedExports).toEqual([]);
+		expect(inlineActions).toEqual([]);
 	});
 });
