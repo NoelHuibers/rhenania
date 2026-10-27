@@ -65,7 +65,7 @@
 		"@vercel/blob": "^2.4.0",
 		"@vercel/speed-insights": "^2.0.0",
 		"bcryptjs": "^3.0.3",
-		"better-auth": "~1.6.33",
+		"better-auth": "~1.7.14",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"cmdk": "^1.1.1",

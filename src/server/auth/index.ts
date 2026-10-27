@@ -31,6 +31,7 @@ import {
 	mirrorUserToAllMemberTenants,
 	mirrorUserToTenant,
 } from "~/server/lib/user-mirror";
+import { legacyCallbackPath } from "./legacy-callback";
 import { type TenantAuthSettings, tenantAuthSettings } from "./load-providers";
 import { getMicrosoftUserInfo, requestedProviderId } from "./microsoft-linking";
 
@@ -131,8 +132,8 @@ function createTenantAuth(settings: TenantAuthSettings) {
 			},
 		},
 
-		// Always registered, so a sign-in with a provider this tenant doesn't
-		// have is refused by providerMustMatchHost (403), not a missing route.
+		// A sign-in with a provider this tenant doesn't have is refused by
+		// providerMustMatchHost (403) before Better Auth looks it up.
 		plugins: [
 			genericOAuth({
 				config: provider
@@ -150,6 +151,7 @@ function createTenantAuth(settings: TenantAuthSettings) {
 						]
 					: [],
 			}),
+			...(provider ? [legacyCallbackPath(provider.providerId)] : []),
 		],
 
 		session: {
@@ -217,7 +219,7 @@ function createTenantAuth(settings: TenantAuthSettings) {
 				create: {
 					// Fires when an OAuth account is linked: a new user's first
 					// login, a member's implicit link, or an explicit link by a
-					// signed-in user (`/oauth2/link`), which is how an existing
+					// signed-in user (`/link-social`), which is how an existing
 					// identity joins another Corps through its Microsoft login.
 					// (The user.create hook only fires for brand-new users.)
 					after: async (account) => {

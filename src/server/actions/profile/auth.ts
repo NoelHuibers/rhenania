@@ -231,8 +231,8 @@ export async function connectProviderAction(
 		}
 
 		// The client takes this providerId and calls
-		// `authClient.signIn.oauth2({ providerId, callbackURL })` — a redirect
-		// URL won't work because Better Auth's generic OAuth sign-in is a
+		// `authClient.signIn.social({ provider: providerId, callbackURL })` —
+		// a redirect URL won't work because Better Auth's social sign-in is a
 		// POST endpoint.
 		return { success: true, data: { providerId } };
 	} catch (error) {
