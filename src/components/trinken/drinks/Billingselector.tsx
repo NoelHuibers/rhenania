@@ -7,80 +7,69 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import {
+	BOOKING_ACCOUNTS,
+	type BookingAccount,
+	COMMON_BOOKING_ACCOUNTS,
+} from "~/lib/drink-order";
 
-export type BillingOption =
-	| "CC"
-	| "AKN"
-	| "CBesuch"
-	| "AHV"
-	| "RC"
-	| "SC"
-	| "Stiftungsfest"
-	| "Nikolausbowle"
-	| null;
+/** Group account the next order is booked on; null books on the member. */
+export type BillingOption = BookingAccount | null;
 
 interface BillingSelectorProps {
 	selectedBilling: BillingOption;
 	onBillingChange: (billing: BillingOption) => void;
 }
 
-const commonOptions: BillingOption[] = ["CC", "AKN", "CBesuch"];
-const rareOptions: BillingOption[] = [
-	"AHV",
-	"RC",
-	"SC",
-	"Stiftungsfest",
-	"Nikolausbowle",
-];
+const rareOptions = BOOKING_ACCOUNTS.filter(
+	(a) => !COMMON_BOOKING_ACCOUNTS.includes(a),
+);
 
 export function BillingSelector({
 	selectedBilling,
 	onBillingChange,
 }: BillingSelectorProps) {
-	const handleOptionClick = (option: BillingOption) => {
-		// If the same option is clicked, deselect it (set to null)
-		if (selectedBilling === option) {
-			onBillingChange(null);
-		} else {
-			onBillingChange(option);
-		}
-	};
+	// Tapping the selected account again books on the member again.
+	const toggle = (option: BookingAccount) =>
+		onBillingChange(selectedBilling === option ? null : option);
+	const rareSelected =
+		selectedBilling !== null && rareOptions.includes(selectedBilling);
 
 	return (
-		<div>
-			<div className="flex flex-nowrap gap-1 sm:gap-2">
-				{/* Quick access buttons for common options */}
-				{commonOptions.map((option) => (
+		<fieldset className="min-w-0">
+			<legend className="mb-1.5 text-muted-foreground text-xs">
+				Auf ein Konto buchen (optional)
+			</legend>
+			<div className="flex flex-nowrap gap-2 overflow-x-auto">
+				{COMMON_BOOKING_ACCOUNTS.map((option) => (
 					<Button
 						key={option}
+						type="button"
 						variant={selectedBilling === option ? "default" : "outline"}
-						size="sm"
-						onClick={() => handleOptionClick(option)}
-						className="min-w-[50px] flex-shrink-0 px-2 text-xs sm:min-w-[80px] sm:px-3 sm:text-sm"
+						aria-pressed={selectedBilling === option}
+						onClick={() => toggle(option)}
+						className="h-11 min-w-16 shrink-0 px-3"
 					>
 						{option}
 					</Button>
 				))}
-				{/* Dropdown for rare options */}
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button
-							variant={
-								rareOptions.includes(selectedBilling) ? "default" : "outline"
-							}
-							size="sm"
-							className="flex-shrink-0 gap-1 px-2 text-xs sm:px-3 sm:text-sm"
+							type="button"
+							variant={rareSelected ? "default" : "outline"}
+							className="h-11 shrink-0 gap-1 px-3"
 						>
-							Weitere
-							<ChevronDown className="h-3 w-3" />
+							{rareSelected ? selectedBilling : "Weitere"}
+							<ChevronDown className="size-4" />
 						</Button>
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="end">
 						{rareOptions.map((option) => (
 							<DropdownMenuItem
 								key={option}
-								onClick={() => handleOptionClick(option)}
-								className={selectedBilling === option ? "bg-accent" : ""}
+								onClick={() => toggle(option)}
+								className={`min-h-11 ${selectedBilling === option ? "bg-accent" : ""}`}
 							>
 								{option}
 							</DropdownMenuItem>
@@ -88,6 +77,6 @@ export function BillingSelector({
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>
-		</div>
+		</fieldset>
 	);
 }
