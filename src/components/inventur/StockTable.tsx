@@ -115,11 +115,15 @@ export function StockTable({
 		{
 			id: "sold",
 			header: "Verkauft (−)",
-			cell: ({ row }) => (
-				<span className="font-semibold text-destructive">
-					−{row.original.item.soldSince}
-				</span>
-			),
+			cell: ({ row }) => {
+				const sold = row.original.item.soldSince;
+				// Nothing sold: a plain 0, not a red "−0".
+				return sold === 0 ? (
+					<span className="text-muted-foreground">0</span>
+				) : (
+					<span className="font-semibold text-destructive">−{sold}</span>
+				);
+			},
 			meta: {
 				mobile: "meta",
 				label: "Verkauft",
