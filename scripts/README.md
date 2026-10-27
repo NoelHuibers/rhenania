@@ -35,12 +35,13 @@ pnpm exec tsx scripts/dev/run.ts pnpm db:migrate-tenants --dry-run
 | `pnpm diag:member-statuses [slug]` | distinct `member.status` values |
 | `pnpm diag:duplicate-settlements [slug]` | challenges settled more than once (several games per `challengeId`), per Corps and cross-Corps |
 
-## One-off repairs
+## Repairs
 
 Dry run by default; `--apply` writes and needs `CONFIRM_PROD=<db-host>` for a remote DB.
 
 | Command | What it does |
 |---|---|
+| `pnpm ops:reconcile-user-mirror [slug] [--apply]` | #35: brings each tenant's `user` mirror in line with the control DB (inserts missing members, updates name, e-mail and image; former members' rows stay). Run when the superadmin health table shows user mirror drift. Idempotent; all tenants without a slug. |
 | `pnpm ops:repair-fuchsen-carry <slug> [--apply]` | closes Fuchsen bills the old billing carried into a later bill but left open (→ "Übertragen", or "Bezahlt" when the later bill was paid), so the next run doesn't charge them twice; lists carries and bills that need a human look. Run once per tenant before the first Fuchsen billing with the new code. |
 
 ## Removed one-off migrations

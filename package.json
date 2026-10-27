@@ -37,6 +37,7 @@
 		"diag:migration-journal": "tsx scripts/diag/inspect-migration-journal.ts",
 		"diag:member-statuses": "tsx scripts/diag/list-member-statuses.ts",
 		"diag:duplicate-settlements": "tsx scripts/diag/duplicate-settlements.ts",
+		"ops:reconcile-user-mirror": "tsx scripts/ops/reconcile-user-mirror.ts",
 		"ops:repair-fuchsen-carry": "tsx scripts/ops/repair-fuchsen-carry.ts",
 		"preview": "next build && next start",
 		"start": "next start",
