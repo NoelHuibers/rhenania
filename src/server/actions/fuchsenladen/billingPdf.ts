@@ -2,6 +2,7 @@
 
 import { eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
+import { formatDateWith } from "~/lib/format";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -21,11 +22,13 @@ function payPalAmount(amount: number): string {
 	return `${(whole ?? "0").padStart(3, "0")},${cents}`;
 }
 
+/** The Berlin calendar day as `dd.mm.yy`, whatever the server's time zone. */
 function formatDate(date: Date): string {
-	const d = new Date(date);
-	const day = d.getDate().toString().padStart(2, "0");
-	const month = (d.getMonth() + 1).toString().padStart(2, "0");
-	return `${day}.${month}.${d.getFullYear().toString().slice(-2)}`;
+	return formatDateWith(date, {
+		day: "2-digit",
+		month: "2-digit",
+		year: "2-digit",
+	});
 }
 
 /**

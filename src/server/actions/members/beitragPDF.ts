@@ -2,7 +2,9 @@
 
 import { and, eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
-import { formatEUR } from "~/lib/format";
+// formatDate prints the Berlin calendar day (`15.11.2026`), whatever the
+// server's time zone.
+import { formatDate, formatEUR } from "~/lib/format";
 import { normalizePaypalLink } from "~/lib/paypal";
 import { db } from "~/server/db";
 import { kontos } from "~/server/db/schema";
@@ -11,14 +13,6 @@ import { getCurrentTenant } from "~/server/lib/tenant-context";
 type Result =
 	| { success: true; pdfContent: Buffer; fileName: string }
 	| { success: false; error: string };
-
-function formatDate(d: Date | number): string {
-	return new Date(d).toLocaleDateString("de-DE", {
-		day: "2-digit",
-		month: "2-digit",
-		year: "numeric",
-	});
-}
 
 export async function generateBeitragPDF(
 	chargeId: string,

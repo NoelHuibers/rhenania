@@ -8,6 +8,7 @@ import { describe, expect, test } from "vitest";
 
 import {
 	addDaysInTZ,
+	addMonthsInTZ,
 	dayKeyInTZ,
 	formatAcademicTime,
 	formatAcademicTimeAlways,
@@ -18,6 +19,7 @@ import {
 	getZonedParts,
 	sameDayInTZ,
 	startOfDayInTZ,
+	startOfMonthInTZ,
 	startOfWeekInTZ,
 	utcToDateInput,
 	utcToWallClockInput,
@@ -306,5 +308,32 @@ describe("day arithmetic", () => {
 		["2026-03-30T08:00:00", "2026-03-29T22:00:00"],
 	])("startOfWeekInTZ(%sZ) is Monday %sZ", (from, expected) => {
 		expect(startOfWeekInTZ(utc(from))).toEqual(utc(expected));
+	});
+});
+
+describe("month arithmetic (#15)", () => {
+	test.each([
+		// 00:30 on 1 Oct in Berlin is still September in UTC.
+		["2026-09-30T22:30:00", 0, "2026-09-30T22:00:00"],
+		["2026-10-27T10:00:00", -5, "2026-04-30T22:00:00"],
+		["2026-10-27T10:00:00", 1, "2026-10-31T23:00:00"],
+		["2026-10-27T10:00:00", -10, "2025-11-30T23:00:00"],
+		["2026-12-31T23:30:00", 0, "2026-12-31T23:00:00"],
+	])("startOfMonthInTZ(%sZ, %i) is %sZ", (from, months, expected) => {
+		expect(startOfMonthInTZ(utc(from), months)).toEqual(utc(expected));
+	});
+
+	test.each([
+		// Same Berlin wall-clock time across the autumn switch: 20:30 CEST
+		// becomes 20:30 CET, an hour later in UTC.
+		["2026-05-04T18:30:00", 6, "2026-11-04T19:30:00"],
+		["2026-11-04T19:30:00", -6, "2026-05-04T18:30:00"],
+		// Clamped to the last day of February.
+		["2026-08-31T10:00:00", 6, "2027-02-28T11:00:00"],
+		// 1 Feb 00:30 in Berlin (31 Jan in UTC) plus one month is 1 Mar.
+		["2026-01-31T23:30:00", 1, "2026-02-28T23:30:00"],
+		["2026-01-15T10:00:45.500", 1, "2026-02-15T10:00:45.500"],
+	])("addMonthsInTZ(%sZ, %i) is %sZ", (from, months, expected) => {
+		expect(addMonthsInTZ(utc(from), months)).toEqual(utc(expected));
 	});
 });

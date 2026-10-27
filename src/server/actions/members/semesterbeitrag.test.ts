@@ -25,6 +25,7 @@ import {
 	type TestUser,
 	tenantDb,
 } from "../../../../test/harness";
+import { useServerTimeZone } from "../../../../test/server-tz";
 import {
 	createBeitragRun,
 	deleteBeitragRun,
@@ -852,6 +853,33 @@ describe("downloadChargePdf", () => {
 
 		expect(openText).toContain("Gesamtbetrag: 33,00");
 		expect(remindedText).toContain("Gesamtbetrag: 35,00");
+	});
+
+	test("prints today and the due date as Berlin days on a UTC server (#15)", async () => {
+		useServerTimeZone("UTC");
+		// Tuesday 27 Oct, 00:30 in Berlin.
+		vi.setSystemTime(new Date("2026-10-26T23:30:00Z"));
+		const { kp } = await setup();
+		await createKonto();
+		// The date picker sends the picked day at Berlin midnight.
+		const run = await seedRun(kp, {
+			dueDate: new Date("2026-11-14T23:00:00Z"),
+		});
+		const charge = await createCharge(run.id, await createMember());
+		const pdfText = async (isMahnung: boolean) => {
+			const pdf = await downloadChargePdf(charge.id, { isMahnung });
+			if (!pdf.success) {
+				throw new Error(pdf.error);
+			}
+			return Buffer.from(pdf.base64, "base64").toString("latin1");
+		};
+
+		const invoice = await pdfText(false);
+		const reminder = await pdfText(true);
+
+		expect(invoice).toContain("den 27.10.2026");
+		expect(invoice).toContain("bis 15.11.2026");
+		expect(reminder).toContain("am 15.11.2026 noch offen.");
 	});
 
 	test("explains a missing CC-Kasse account or charge", async () => {

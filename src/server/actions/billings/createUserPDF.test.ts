@@ -17,6 +17,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
+import { useServerTimeZone } from "../../../../test/server-tz";
 import { generateUserBillPDF } from "./createUserPDF";
 import { saveUserBillPDF } from "./saveUserBillPDF";
 
@@ -200,6 +201,30 @@ describe("generateUserBillPDF", () => {
 		);
 		expect(deferredText).toContain("GESTUNDET");
 		expect(deferredText).not.toContain("BEZAHLT");
+	});
+
+	test("dates the letter and the payment by the Berlin day on a UTC server (#15)", async () => {
+		useServerTimeZone("UTC");
+		await createTenant();
+		await setUpGetraenkeBilling();
+		const member = await createUser({ name: "Max Muster" });
+		// Thursday 22 Oct and Friday 6 Nov, both at 00:30 in Berlin.
+		const period = await createBillPeriodRow({
+			createdAt: new Date("2026-10-21T22:30:00Z"),
+		});
+		const bill = await createBillRow({
+			periodId: period.id,
+			user: member,
+			status: "Bezahlt",
+			paidAt: new Date("2026-11-05T23:30:00Z"),
+		});
+
+		const text = pdfText(
+			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
+		);
+
+		expect(text).toContain("Stuttgart den 22.10.26");
+		expect(text).toContain("am 06.11.26");
 	});
 
 	test("prints the bill's Umlage, so the lines add up to the total (#11)", async () => {

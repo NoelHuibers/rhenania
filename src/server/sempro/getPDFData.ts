@@ -1,5 +1,5 @@
 import { and, asc, eq, gte, inArray, lt } from "drizzle-orm";
-import { dayKeyInTZ, wallClockToUTC } from "~/lib/time";
+import { addDaysInTZ } from "~/lib/time";
 import { db } from "~/server/db";
 import {
 	events,
@@ -54,13 +54,11 @@ const RECURRENCE_LABELS: Record<string, string> = {
 };
 
 /**
- * Berlin midnight of the calendar day after `date`. Goes through the date key
+ * Berlin midnight of the calendar day after `date`. Steps the calendar day
  * instead of adding 24 hours, so DST days (23 or 25 hours) land correctly.
  */
 function startOfNextBerlinDay(date: Date): Date {
-	const next = new Date(`${dayKeyInTZ(date)}T00:00:00Z`);
-	next.setUTCDate(next.getUTCDate() + 1);
-	return wallClockToUTC(next.toISOString().slice(0, 10));
+	return addDaysInTZ(date, 1);
 }
 
 export async function getPDFData(): Promise<PDFData | null> {

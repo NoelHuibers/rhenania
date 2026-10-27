@@ -1,12 +1,14 @@
 "use server";
 
-import { and, eq, gte, lt, sql } from "drizzle-orm";
+import { and, eq, gte, lt, type SQL, sql } from "drizzle-orm";
+import { formatDateWith } from "~/lib/format";
+import { startOfMonthInTZ } from "~/lib/time";
 import { db } from "~/server/db";
 import { drinks, orders } from "~/server/db/schema";
 
 export type ConsumptionLinePoint = {
-	monthStart: number; // unix seconds at UTC month start
-	label: string; // e.g. "Aug 2025" (rendered in UTC to avoid drift)
+	monthStart: number; // unix seconds at the Berlin month start
+	label: string; // e.g. "Aug. 2025", the Berlin month in German
 	total: number;
 	[key: string]: string | number;
 };
@@ -14,35 +16,37 @@ export type ConsumptionLinePoint = {
 export type ChartConfigEntry = { label: string; color?: string };
 export type ChartConfig = Record<string, ChartConfigEntry>;
 
-// ---- UTC month axis (current month + previous 5), ascending
-function monthRangeLast6(): number[] {
-	const now = new Date();
-	const y = now.getUTCFullYear();
-	const m = now.getUTCMonth();
-	const starts: number[] = [];
-	for (let i = 5; i >= 0; i--) {
-		const ts = Date.UTC(y, m - i, 1, 0, 0, 0);
-		starts.push(Math.floor(ts / 1000));
+/**
+ * Berlin month starts in unix seconds: the previous five months and the
+ * current one, ascending, then the start of next month as the exclusive end.
+ * Berlin months, not UTC ones, so a beer at 00:30 on the 1st counts in the
+ * month it was drunk in.
+ */
+function monthBoundsLast6(now: Date): number[] {
+	const bounds: number[] = [];
+	for (let i = -5; i <= 1; i++) {
+		bounds.push(Math.floor(startOfMonthInTZ(now, i).getTime() / 1000));
 	}
-	return starts;
+	return bounds;
 }
 
 export async function getConsumptionLast6MonthsByDrink(): Promise<{
 	data: ConsumptionLinePoint[];
 	config: ChartConfig;
 }> {
-	// Bounds: UTC month starts
-	const lowerBound = sql<number>`
-    CAST(strftime('%s', datetime('now','start of month','-5 months')) AS INTEGER)
-  `;
-	const upperBound = sql<number>`
-    CAST(strftime('%s', datetime('now','start of month','+1 month')) AS INTEGER)
-  `;
+	const bounds = monthBoundsLast6(new Date());
+	const months = bounds.slice(0, -1);
+	const lowerBound = bounds[0] ?? 0;
+	const upperBound = bounds[bounds.length - 1] ?? 0;
 
-	// Bucket by UTC month start
-	const monthStartExpr = sql<number>`
-    CAST(strftime('%s', datetime(${orders.createdAt}, 'unixepoch','start of month')) AS INTEGER)
-  `;
+	// Bucket each order by its Berlin month. SQLite only knows UTC and the
+	// server's own zone, so the month starts come from JS.
+	const whens: SQL[] = months
+		.slice(1)
+		.map((end, i) => sql`WHEN ${orders.createdAt} < ${end} THEN ${months[i]}`);
+	const monthStartExpr = sql<number>`CASE ${sql.join(whens, sql` `)} ELSE ${
+		months[months.length - 1]
+	} END`;
 
 	const rows = await db
 		.select({
@@ -58,7 +62,10 @@ export async function getConsumptionLast6MonthsByDrink(): Promise<{
 		.from(orders)
 		.leftJoin(drinks, eq(orders.drinkId, drinks.id))
 		.where(
-			and(gte(orders.createdAt, lowerBound), lt(orders.createdAt, upperBound)),
+			and(
+				gte(orders.createdAt, new Date(lowerBound * 1000)),
+				lt(orders.createdAt, new Date(upperBound * 1000)),
+			),
 		)
 		.groupBy(monthStartExpr, orders.drinkId, orders.drinkName)
 		.having(sql`liters > 0`)
@@ -73,21 +80,16 @@ export async function getConsumptionLast6MonthsByDrink(): Promise<{
 	}
 
 	// Axis + lookup
-	const months = monthRangeLast6();
 	const monthIndex = new Map(months.map((t, i) => [t, i]));
-
-	// Label *in UTC* so labels match buckets exactly
-	const fmt = new Intl.DateTimeFormat(undefined, {
-		month: "short",
-		year: "numeric",
-		timeZone: "UTC",
-	});
 	const keyFor = (id: string) => `drink_${id}` as const;
 
 	const data: ConsumptionLinePoint[] = months.map((mStart) => {
 		const point: ConsumptionLinePoint = {
 			monthStart: mStart,
-			label: fmt.format(new Date(mStart * 1000)),
+			label: formatDateWith(new Date(mStart * 1000), {
+				month: "short",
+				year: "numeric",
+			}),
 			total: 0,
 		};
 		for (const id of drinkMap.keys()) {
