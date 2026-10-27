@@ -225,6 +225,35 @@ describe("getUserAchievements", () => {
 		});
 	});
 
+	test("hides the Gründungstag while the tenant has no founding day (#36)", async () => {
+		await createTenant();
+		const member = await createUser();
+		const founder = await createUser();
+		const grundungstag = await createAchievement("grundungstag", {
+			isSecret: true,
+		});
+		await unlock(founder.id, grundungstag.id);
+
+		signInAs(member);
+		expect((await getUserAchievements()).map((a) => a.key)).toEqual([]);
+
+		// Already unlocked stays visible.
+		signInAs(founder);
+		expect((await getUserAchievements()).map((a) => a.key)).toEqual([
+			"grundungstag",
+		]);
+	});
+
+	test("shows the Gründungstag when the tenant has a founding day (#36)", async () => {
+		await createTenant({ branding: { foundingDay: "02-21" } });
+		await createAchievement("grundungstag", { isSecret: true });
+		signInAs(await createUser());
+
+		expect((await getUserAchievements()).map((a) => a.key)).toEqual([
+			"grundungstag",
+		]);
+	});
+
 	test("requires a signed-in member", async () => {
 		await createTenant();
 		await expect(getUserAchievements()).rejects.toThrow("Nicht angemeldet");

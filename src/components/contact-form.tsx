@@ -22,10 +22,25 @@ import {
 	contactFormSchema,
 } from "~/types/contactformschema";
 
-const fieldClass =
-	"bg-white border-black/10 focus-visible:border-[#2f86d4] focus-visible:ring-[#2f86d4]/30";
+/** Tenant styling; the defaults use the theme tokens. */
+export type ContactFormAppearance = {
+	field: string;
+	label: string;
+	submit: string;
+};
 
-const ContactForm = () => {
+const NEUTRAL: ContactFormAppearance = {
+	field: "bg-background",
+	label: "text-foreground",
+	submit: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90",
+};
+
+export const ContactForm = ({
+	appearance = NEUTRAL,
+}: {
+	appearance?: ContactFormAppearance;
+}) => {
+	const fieldClass = appearance.field;
 	const [formLoadTime, setFormLoadTime] = useState(0);
 
 	const [state, formAction, pending] = useActionState(onSubmitAction, {
@@ -90,7 +105,7 @@ const ContactForm = () => {
 					name="name"
 					render={({ field }) => (
 						<FormItem className="w-full">
-							<FormLabel className="text-[#2c2630]">Name</FormLabel>
+							<FormLabel className={appearance.label}>Name</FormLabel>
 							<FormControl>
 								<Input
 									placeholder="Max Mustermann"
@@ -108,7 +123,7 @@ const ContactForm = () => {
 					name="email"
 					render={({ field }) => (
 						<FormItem className="w-full">
-							<FormLabel className="text-[#2c2630]">E-Mail</FormLabel>
+							<FormLabel className={appearance.label}>E-Mail</FormLabel>
 							<FormControl>
 								<Input
 									type="email"
@@ -127,7 +142,9 @@ const ContactForm = () => {
 					name="message"
 					render={({ field }) => (
 						<FormItem className="w-full">
-							<FormLabel className="text-[#2c2630]">Deine Nachricht</FormLabel>
+							<FormLabel className={appearance.label}>
+								Deine Nachricht
+							</FormLabel>
 							<FormControl>
 								<Textarea
 									rows={6}
@@ -158,7 +175,7 @@ const ContactForm = () => {
 				<button
 					type="submit"
 					disabled={pending}
-					className="group relative mt-1 inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-[#d98aa6] to-[#2f86d4] px-8 py-3 font-semibold text-white shadow-[0_14px_40px_-12px_rgba(47,134,212,0.7)] transition-transform duration-300 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
+					className={`group relative mt-1 inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full px-8 py-3 font-semibold transition-transform duration-300 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60 ${appearance.submit}`}
 				>
 					<span
 						aria-hidden
@@ -173,5 +190,3 @@ const ContactForm = () => {
 		</Form>
 	);
 };
-
-export default ContactForm;

@@ -30,7 +30,7 @@ import { exportEtaplanXlsx, importEtaplanXlsx } from "./excel";
 setupTestDatabases();
 
 async function setup() {
-	await createTenant();
+	await createTenant({ displayName: "Corps Hassia Darmstadt" });
 	signInAs(await createUser({ roles: ["Senior"] }));
 }
 
@@ -52,7 +52,7 @@ async function toBase64(wb: ExcelJS.Workbook) {
 async function sheet(rows: (string | number | null)[][]) {
 	const wb = new ExcelJS.Workbook();
 	const ws = wb.addWorksheet(SHEET_NAME);
-	ws.getCell(1, 1).value = titleText("SS");
+	ws.getCell(1, 1).value = titleText("Corps Hassia Darmstadt", "SS");
 	ws.getRow(2).values = ["Kostenpunkt:", "Datum:", "Bemerkung:"];
 	rows.forEach((r, i) => {
 		r.forEach((v, c) => {
@@ -157,7 +157,8 @@ describe("exportEtaplanXlsx", () => {
 			throw new Error("sheet missing");
 		}
 		const cell = (addr: string) => ws.getCell(addr).value;
-		expect(cell("A1")).toBe("Corps Rhenania Stuttgart Etatplan SS");
+		// The title carries the tenant's own name (#36).
+		expect(cell("A1")).toBe("Corps Hassia Darmstadt Etatplan SS");
 		expect(cell("E1")).toBe(2026);
 		expect(ws.getRow(2).values).toEqual([
 			undefined,

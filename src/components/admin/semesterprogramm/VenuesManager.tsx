@@ -66,7 +66,7 @@ function VenueForm({
 								id="v-short"
 								value={shortName}
 								onChange={(e) => setShortName(e.target.value)}
-								placeholder="z.B. adH Rhenania"
+								placeholder="z.B. Corpshaus"
 							/>
 						</div>
 						<div className="space-y-2">
@@ -75,7 +75,7 @@ function VenueForm({
 								id="v-address"
 								value={fullAddress}
 								onChange={(e) => setFullAddress(e.target.value)}
-								placeholder="z.B. Relenbergstraße 8, 70174 Stuttgart"
+								placeholder="z.B. Musterstraße 1, 12345 Musterstadt"
 							/>
 						</div>
 					</div>

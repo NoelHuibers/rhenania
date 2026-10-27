@@ -59,6 +59,13 @@ export function createRhenaniaMetadata({
 	};
 }
 
+export const RHENANIA_HOME_METADATA: Metadata = createRhenaniaMetadata({
+	title: "Corps Rhenania – Studentenverbindung in Stuttgart",
+	description:
+		"Corps Rhenania Stuttgart: studentische Gemeinschaft, Netzwerk und Wohnen im Corpshaus – zentral nahe Universität und Hauptbahnhof.",
+	path: "/",
+});
+
 export const RHENANIA_ORGANIZATION_JSON_LD = {
 	"@type": "Organization",
 	"@id": `${RHENANIA_SITE_URL}/#organization`,

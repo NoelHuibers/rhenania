@@ -22,9 +22,43 @@ export type TenantBranding = {
 	// Used in bill PDFs / payment instructions.
 	paypalUrl?: string;
 	billingWebsite?: string;
-	// Where the public contact form delivers (fallback: env TOMAIL).
+	// Where the public contact form delivers (fallback: env TOMAIL). Also
+	// shown in the public header, footer, Impressum and Datenschutz.
 	contactEmail?: string;
-	// Future: logo URL, primary color, social links.
+
+	// Public identity (Impressum, Datenschutz, header, footer, SemPro PDF).
+	// All optional: a missing value leaves its line out, it is never filled
+	// with another Corps' data. Read through `tenant-profile.ts`.
+	/** Full name for the Impressum and documents. Fallback: displayName. */
+	legalName?: string;
+	street?: string;
+	/** Postcode and city in one line ("PLZ Ort"). */
+	city?: string;
+	phone?: string;
+	/** Who runs the website, e.g. the Altherrenverein e.V. */
+	operator?: string;
+	/** Vertretungsberechtigte Person(en) of the operator. */
+	representative?: string;
+	instagramUrl?: string;
+	wikipediaUrl?: string;
+	/** Founding day as "MM-DD" (Gründungstag achievement). None hides it. */
+	foundingDay?: string;
+	sempro?: TenantSemproBranding;
+	// Future: logo URL, primary color.
+};
+
+/** The printed semester programme (SemPro PDF). */
+export type TenantSemproBranding = {
+	/** Short name in the letterhead. Fallback: displayName. */
+	name?: string;
+	/** Cover text; "{semester}" is replaced, "\n" breaks lines. */
+	intro?: string;
+	/** Letterhead lines. Fallback: street, city, phone, contactEmail. */
+	contactLines?: string[];
+	/** Name of the regular Stammtisch. Fallback: "Stammtisch". */
+	stammtischName?: string;
+	/** Coat of arms, a PNG file name in `public/sempro/`. None: no image. */
+	logoFile?: string;
 };
 
 export const tenants = createControlTable("tenant", (d) => ({

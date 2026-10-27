@@ -109,14 +109,14 @@ export function FuchsenBillingSettings({ onSaved }: { onSaved?: () => void }) {
 						<Input
 							value={form.senderCity}
 							onChange={(e) => set("senderCity", e.target.value)}
-							placeholder="70173 Stuttgart"
+							placeholder="12345 Musterstadt"
 						/>
 					</Field>
 					<Field label="Ort (Datumszeile)">
 						<Input
 							value={form.location}
 							onChange={(e) => set("location", e.target.value)}
-							placeholder="Stuttgart"
+							placeholder="Musterstadt"
 						/>
 					</Field>
 					<Field label="Zahlungsziel (Tage)">

@@ -9,10 +9,11 @@ import {
 } from "~/components/bilder/ImageSection";
 import { LoadingSpinner } from "~/components/bilder/LoadingSpinner";
 import { UploadProgress } from "~/components/bilder/UploadProgress";
+import { useTenant } from "~/components/TenantProvider";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { useImageManager } from "~/hooks/useImageManager";
 
-// Local stricter type — this page hardcodes the four Rhenania sections.
+// Local stricter type — this page hardcodes the four default sections.
 // The schema-level type is `string` for cross-tenant flexibility; this page
 // will be refactored to dynamic rendering in a later step.
 type HomepageSection = "header" | "aktive" | "haus" | "footer";
@@ -33,6 +34,7 @@ const ImageSectionSkeleton = () => (
 );
 
 export function AdminImageManager() {
+	const { displayName } = useTenant();
 	const {
 		images,
 		loading,
@@ -103,7 +105,7 @@ export function AdminImageManager() {
 					<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 						<div className="flex-1 text-center sm:text-left">
 							<p className="mb-2 text-muted-foreground">
-								Verwalte die Bilder für die Rhenania Website
+								Verwalte die Bilder für die Website von {displayName}
 							</p>
 							<div className="flex justify-center gap-4 text-muted-foreground text-sm sm:justify-start">
 								<span>{statistics.totalImages} Bilder gesamt</span>

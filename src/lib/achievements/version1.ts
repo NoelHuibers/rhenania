@@ -411,8 +411,10 @@ export const defaultAchievements = [
 	},
 	{
 		key: "grundungstag",
-		name: "Auf ein ewiges vivat crescat floreat Rhenania!",
-		description: "Streiche 10 Bier am 21.02. ab",
+		// Tracked on the Corps' own founding day (branding.foundingDay). Rows
+		// already seeded keep their stored name and description.
+		name: "Auf ein ewiges vivat, crescat, floreat!",
+		description: "Streiche 10 Bier am Gründungstag ab",
 		category: "drinking" as const,
 		icon: "🌈",
 		targetValue: 10,

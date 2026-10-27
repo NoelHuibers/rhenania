@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { achievementProgress } from "~/server/db/schema";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import { getTenantById, requireTenantId } from "~/server/lib/tenant-context";
 import {
 	createDrinkWith,
 	freezeClock,
@@ -33,7 +33,10 @@ type Drink = Awaited<ReturnType<typeof createDrinkWith>>;
 // A Saturday afternoon, so the weekend rule loads its statistic as well.
 async function setup(at = "2026-10-24T14:00:00Z") {
 	freezeClock(at);
-	await createTenant();
+	const tenant = await createTenant();
+	// A request has loaded its tenant's config (the founding day) already;
+	// the budget below is the tracking's own cost.
+	await getTenantById(tenant.id);
 	await seedAchievementDefinitions();
 	const user = await createUser({ name: "Fuchs" });
 	const pils = await createDrinkWith({ name: "Pils", price: 1.5 });

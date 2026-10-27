@@ -15,6 +15,7 @@ import {
 	formatEventWeekdayShort,
 	getZonedParts,
 } from "~/lib/time";
+import type { SemproProfile } from "~/server/lib/tenant-profile";
 import type { PDFData, PDFEvent } from "./getPDFData";
 import { RANK_MAP } from "./getPDFData";
 
@@ -185,9 +186,11 @@ function MonthHeader({ label }: { label: string }) {
 function P1Left({
 	qrDataUrl,
 	semesterName,
+	sempro,
 }: {
 	qrDataUrl: string | null;
 	semesterName: string;
+	sempro: SemproProfile;
 }) {
 	const QR = 56.5 * MM; // ~160pt — matches Scribus QR frame width
 	return (
@@ -212,7 +215,7 @@ function P1Left({
 						color: "#000",
 					}}
 				>
-					{`Zum ${semesterName} erlaubt\nsich der CC der Rhenania sein\nSemesterprogramm zu überreichen\nund zu allen Veranstaltungen herzlich\neinzuladen.`}
+					{sempro.intro(semesterName)}
 				</Text>
 			</View>
 		</View>
@@ -221,7 +224,7 @@ function P1Left({
 
 // ─── PAGE 1 — MIDDLE PANEL: Corps info + leadership + bank ────────────────────
 
-function P1Middle({ data }: { data: PDFData }) {
+function P1Middle({ data, sempro }: { data: PDFData; sempro: SemproProfile }) {
 	const cbLeaders = data.leaders.filter((l) =>
 		["Senior", "Consenior", "Subsenior"].includes(l.role),
 	);
@@ -243,15 +246,9 @@ function P1Middle({ data }: { data: PDFData }) {
 						marginBottom: 2,
 					}}
 				>
-					Corps Rhenania
+					{sempro.name}
 				</Text>
-				{[
-					"Relenbergstraße 8",
-					"70174 Stuttgart",
-					"Tel.: +49 (0) 711 29 73 08",
-					"Fax: +49 (0) 711 29 53 66",
-					"cc@rhenania-stuttgart.de",
-				].map((line) => (
+				{sempro.contactLines.map((line) => (
 					<Text
 						key={line}
 						style={{ fontSize: 10, textAlign: "center", lineHeight: 1.2 }}
@@ -338,7 +335,13 @@ function P1Middle({ data }: { data: PDFData }) {
 
 // ─── PAGE 1 — RIGHT PANEL: Cover ─────────────────────────────────────────────
 
-function P1Right({ data, wappenPath }: { data: PDFData; wappenPath: string }) {
+function P1Right({
+	data,
+	wappenPath,
+}: {
+	data: PDFData;
+	wappenPath: string | null;
+}) {
 	return (
 		<View style={[s.panelRight, { alignItems: "center" }]}>
 			{/* Coat of arms — fills top ~85%, centered */}
@@ -349,10 +352,12 @@ function P1Right({ data, wappenPath }: { data: PDFData; wappenPath: string }) {
 					justifyContent: "center",
 				}}
 			>
-				<Image
-					src={wappenPath}
-					style={{ width: 54 * MM, height: 72 * MM, objectFit: "contain" }}
-				/>
+				{wappenPath && (
+					<Image
+						src={wappenPath}
+						style={{ width: 54 * MM, height: 72 * MM, objectFit: "contain" }}
+					/>
+				)}
 			</View>
 
 			{/* Title block — anchored to bottom */}
@@ -392,7 +397,7 @@ function P1Right({ data, wappenPath }: { data: PDFData; wappenPath: string }) {
 
 // ─── PAGE 2 — LEFT PANEL: Title + Jour Fixe section + oCC list ───────────────
 
-function P2Left({ data }: { data: PDFData }) {
+function P2Left({ data, sempro }: { data: PDFData; sempro: SemproProfile }) {
 	const anCC = data.events.find(
 		(e) => e.title.toLowerCase().includes("ancc") && !e.isCancelled,
 	);
@@ -431,7 +436,7 @@ function P2Left({ data }: { data: PDFData }) {
 				{data.semesterName}
 			</Text>
 
-			{/* FIX: Jour Fixe und Rhenanenstammtisch section — hardcoded text */}
+			{/* Jour Fixe and Stammtisch — the schedule text is still fixed (#62) */}
 			<View style={{ marginBottom: 1.5 * MM }}>
 				<Text
 					style={{
@@ -442,12 +447,10 @@ function P2Left({ data }: { data: PDFData }) {
 						marginBottom: 2,
 					}}
 				>
-					Jour Fixe und Rhenanenstammtisch
+					{`Jour Fixe und ${sempro.stammtischName}`}
 				</Text>
 				<Text style={{ fontSize: 10, lineHeight: 1.2, textAlign: "center" }}>
-					{
-						"Der Rhenanenstammtisch findet in der Regel jeden 1. Mittwoch im Monat statt."
-					}
+					{`Der ${sempro.stammtischName} findet in der Regel jeden 1. Mittwoch im Monat statt.`}
 					<Sup n={3} />
 				</Text>
 				<Text style={{ fontSize: 10, lineHeight: 1.2, textAlign: "center" }}>
@@ -648,21 +651,28 @@ export function SemProPDFDocument({
 	data,
 	wappenPath,
 	qrDataUrl,
+	sempro,
 }: {
 	data: PDFData;
-	wappenPath: string;
+	/** Data URL of the tenant's coat of arms, or null for none. */
+	wappenPath: string | null;
 	qrDataUrl: string | null;
+	sempro: SemproProfile;
 }) {
 	return (
 		<Document
 			title={`Semesterprogramm ${data.semesterName}`}
-			author="Corps Rhenania zu Stuttgart"
+			author={sempro.author}
 		>
 			{/* Page 1 — Outside cover */}
 			<Page size={[PAGE_W, PAGE_H]}>
 				<View style={[s.row, { marginLeft: BLEED, marginTop: BLEED }]}>
-					<P1Left qrDataUrl={qrDataUrl} semesterName={data.semesterName} />
-					<P1Middle data={data} />
+					<P1Left
+						qrDataUrl={qrDataUrl}
+						semesterName={data.semesterName}
+						sempro={sempro}
+					/>
+					<P1Middle data={data} sempro={sempro} />
 					<P1Right data={data} wappenPath={wappenPath} />
 				</View>
 			</Page>
@@ -670,7 +680,7 @@ export function SemProPDFDocument({
 			{/* Page 2 — Inside */}
 			<Page size={[PAGE_W, PAGE_H]}>
 				<View style={[s.row, { marginLeft: BLEED, marginTop: BLEED }]}>
-					<P2Left data={data} />
+					<P2Left data={data} sempro={sempro} />
 					<P2Middle data={data} />
 					<P2Right data={data} />
 				</View>

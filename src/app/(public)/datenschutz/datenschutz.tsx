@@ -1,6 +1,10 @@
 import Link from "next/link";
+import { addressLine, type TenantProfile } from "~/server/lib/tenant-profile";
 
-const Datenschutzerklaerung = () => {
+// The controller is the tenant's own (branding: operator, address,
+// representative); nothing is filled in from another Corps.
+const Datenschutzerklaerung = ({ profile }: { profile: TenantProfile }) => {
+	const address = addressLine(profile);
 	return (
 		<div className="flex max-w-2xl flex-col items-center justify-center px-4 text-center md:px-6">
 			<div className="flex flex-col space-y-2">
@@ -17,13 +21,19 @@ const Datenschutzerklaerung = () => {
 					Verantwortliche Stelle
 				</h3>
 				<p className="text-gray-500 dark:text-gray-400">
-					Verein Alter Herren des Corps Rhenania Stuttgart e.V.
-					<br />
-					Relenbergstraße 8, 70174 Stuttgart, Deutschland
+					{profile.operator ?? profile.legalName}
+					{address && (
+						<>
+							<br />
+							{address}, Deutschland
+						</>
+					)}
 				</p>
-				<p className="text-gray-500 dark:text-gray-400">
-					Vertretungsberechtigt: Adrian Sigg
-				</p>
+				{profile.representative && (
+					<p className="text-gray-500 dark:text-gray-400">
+						Vertretungsberechtigt: {profile.representative}
+					</p>
+				)}
 
 				<h3 className="mt-4 font-bold text-2xl tracking-tighter md:text-3xl">
 					Erhebung und Verarbeitung personenbezogener Daten
@@ -91,12 +101,14 @@ const Datenschutzerklaerung = () => {
 					dann die neue Datenschutzerklärung.
 				</p>
 
-				<Link
-					href="mailto:corps@rhenania-stuttgart.de"
-					className="inline-flex h-10 w-fit items-center justify-center self-center rounded-md border border-gray-200 bg-white px-8 font-medium text-sm shadow-sm transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-800 dark:bg-gray-950 dark:focus-visible:ring-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-50"
-				>
-					Kontaktieren Sie uns
-				</Link>
+				{profile.contactEmail && (
+					<Link
+						href={`mailto:${profile.contactEmail}`}
+						className="inline-flex h-10 w-fit items-center justify-center self-center rounded-md border border-gray-200 bg-white px-8 font-medium text-sm shadow-sm transition-colors hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-gray-950 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-800 dark:bg-gray-950 dark:focus-visible:ring-gray-300 dark:hover:bg-gray-800 dark:hover:text-gray-50"
+					>
+						Kontaktieren Sie uns
+					</Link>
+				)}
 			</div>
 		</div>
 	);

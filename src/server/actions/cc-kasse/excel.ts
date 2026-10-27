@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { db } from "~/server/db";
 import { kostenpunkte, kostenpunktPositionen } from "~/server/db/schema";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 import { EDIT_ROLES, requireRoles } from "./_guards";
 import {
 	BODY_START_ROW,
@@ -98,7 +99,11 @@ export async function exportEtaplanXlsx(etaplanId: string) {
 		// Title row + year cell.
 		ws.mergeCells(1, 1, 1, 4);
 		const titleCell = ws.getCell(1, 1);
-		titleCell.value = titleText(plan.semesterType);
+		const tenant = await getCurrentTenant();
+		titleCell.value = titleText(
+			tenant?.displayName ?? "Corps",
+			plan.semesterType,
+		);
 		titleCell.font = { bold: true, size: 16 };
 		titleCell.alignment = { horizontal: "center" };
 		const yearCell = ws.getCell(1, 5);

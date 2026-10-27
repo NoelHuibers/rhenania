@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import {
 	addDaysInTZ,
@@ -11,7 +11,7 @@ import {
 	wallClockToUTC,
 } from "~/lib/time";
 import { db } from "~/server/db";
-import { events, recurringEvents } from "~/server/db/schema";
+import { events, recurringEvents, venues } from "~/server/db/schema";
 import { ROLES, requireRole } from "~/server/lib/authz";
 
 export type RecurrenceType =
@@ -223,13 +223,24 @@ export async function getAllRecurringEvents() {
 	}
 }
 
+/** The tenant's first venue, or null when it has none yet. */
+async function firstVenueName(): Promise<string | null> {
+	const [venue] = await db
+		.select({ shortName: venues.shortName })
+		.from(venues)
+		.orderBy(asc(venues.createdAt), sql`rowid`)
+		.limit(1);
+	return venue?.shortName ?? null;
+}
+
 export async function createRecurringEvent(input: RecurringEventInput) {
 	await requireRole(ROLES.events);
 	try {
 		await db.insert(recurringEvents).values({
 			title: input.title,
 			description: input.description,
-			location: input.location ?? "adH Rhenania",
+			// Always explicit, so the column's legacy DB default never applies.
+			location: input.location ?? (await firstVenueName()),
 			type: input.type,
 			recurrenceType: input.recurrenceType,
 			dayOfWeek: input.dayOfWeek,

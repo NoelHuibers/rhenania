@@ -14,7 +14,7 @@ import {
 	updateImageOrder,
 } from "~/server/actions/bilder/homepageImages";
 
-// Local stricter type — this hook hardcodes the four Rhenania sections.
+// Local stricter type — this hook hardcodes the four default sections.
 // The schema-level `HomepageSection` is `string` for cross-tenant flexibility;
 // this hook will be refactored to dynamic rendering in a later step.
 type HomepageSection = "header" | "aktive" | "haus" | "footer";
@@ -92,7 +92,7 @@ export const useImageManager = () => {
 			if (!files || files.length === 0) {
 				return;
 			}
-			// Hardcoded for Rhenania today; runtime sections always match the
+			// The four default sections today; runtime sections always match the
 			// local literal type.
 			const section = sectionInput as HomepageSection;
 

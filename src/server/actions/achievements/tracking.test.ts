@@ -66,9 +66,12 @@ async function order(
 	});
 }
 
-async function setup(at = "2026-10-26T18:00:00Z") {
+async function setup(
+	at = "2026-10-26T18:00:00Z",
+	branding?: NonNullable<Parameters<typeof createTenant>[0]>["branding"],
+) {
 	freezeClock(at);
-	await createTenant();
+	await createTenant({ branding });
 	await seedAchievementDefinitions();
 	const user = await createUser({ name: "Fuchs" });
 	const pils = await createDrinkWith({ name: "Pils", price: 1.5 });
@@ -258,6 +261,55 @@ describe("order achievements", () => {
 
 		await order(user, pils);
 		expect(await unlockedKeys(user.id)).toContain("erstermai");
+	});
+
+	test("ten beers on the tenant's own founding day (#36)", async () => {
+		const { user, pils } = await setup("2026-11-03T12:00:00Z", {
+			foundingDay: "11-03",
+		});
+		await insertOrder({
+			user,
+			drink: pils,
+			amount: 9,
+			createdAt: new Date("2026-11-03T10:00:00Z"),
+		});
+
+		await order(user, pils);
+
+		expect(await progressOf(user.id, "grundungstag")).toBe(10);
+		expect(await unlockedKeys(user.id)).toContain("grundungstag");
+	});
+
+	test("without a founding day there is no Gründungstag, not even on 21.02. (#36)", async () => {
+		const { user, pils } = await setup("2027-02-21T12:00:00Z");
+		await insertOrder({
+			user,
+			drink: pils,
+			amount: 12,
+			createdAt: new Date("2027-02-21T10:00:00Z"),
+		});
+
+		await order(user, pils);
+		await recalculateAllAchievements(user.id);
+
+		expect(await progressOf(user.id, "grundungstag")).toBeUndefined();
+		expect(await unlockedKeys(user.id)).not.toContain("grundungstag");
+	});
+
+	test("recalculation counts the stored founding day (#36)", async () => {
+		const { user, pils } = await setup("2026-12-01T12:00:00Z", {
+			foundingDay: "02-21",
+		});
+		await insertOrder({
+			user,
+			drink: pils,
+			amount: 4,
+			createdAt: new Date("2026-02-21T18:00:00Z"),
+		});
+
+		await recalculateAllAchievements(user.id);
+
+		expect(await progressOf(user.id, "grundungstag")).toBe(4);
 	});
 
 	test("consecutive weekends with an order", async () => {
