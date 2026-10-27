@@ -9,11 +9,14 @@ import {
 	ChevronUp,
 	Download,
 	Euro,
+	FileCheck,
+	Landmark,
 	Loader2,
 	Package,
 	Pencil,
 	Plus,
 	Receipt,
+	ReceiptText,
 	Trash2,
 	Users,
 	Warehouse,
@@ -60,6 +63,7 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { EmptyState } from "~/components/ui/empty-state";
 import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -493,9 +497,12 @@ function BankLog({ entries }: { entries: BankEntry[] }) {
 			</CardHeader>
 			<CardContent className="p-0">
 				{entries.length === 0 ? (
-					<p className="p-4 text-muted-foreground text-sm">
-						Noch keine Einträge.
-					</p>
+					<EmptyState
+						variant="plain"
+						className="py-6"
+						icon={<Landmark />}
+						title="Noch keine Einträge"
+					/>
 				) : (
 					<Table>
 						<TableHeader>
@@ -713,9 +720,12 @@ function MemberBillsCard({ bills }: { bills: MemberBill[] }) {
 			}
 		>
 			{bills.length === 0 ? (
-				<p className="p-4 text-muted-foreground text-sm">
-					Keine offenen Rechnungen.
-				</p>
+				<EmptyState
+					variant="plain"
+					className="py-6"
+					icon={<ReceiptText />}
+					title="Keine offenen Rechnungen"
+				/>
 			) : (
 				<Table>
 					<TableHeader>
@@ -849,9 +859,12 @@ function EntityBillsCard({ bills }: { bills: EntityBill[] }) {
 			}
 		>
 			{bills.length === 0 ? (
-				<p className="p-4 text-muted-foreground text-sm">
-					Keine Gruppenrechnungen vorhanden.
-				</p>
+				<EmptyState
+					variant="plain"
+					className="py-6"
+					icon={<Users />}
+					title="Keine Gruppenrechnungen vorhanden"
+				/>
 			) : (
 				<Table>
 					<TableHeader>
@@ -1061,9 +1074,12 @@ function ExternalBillsCard({ bills }: { bills: ExternalBill[] }) {
 			}
 		>
 			{bills.length === 0 ? (
-				<p className="p-4 text-muted-foreground text-sm">
-					Keine Verbindlichkeiten.
-				</p>
+				<EmptyState
+					variant="plain"
+					className="py-6"
+					icon={<FileCheck />}
+					title="Keine Verbindlichkeiten"
+				/>
 			) : (
 				<Table>
 					<TableHeader>

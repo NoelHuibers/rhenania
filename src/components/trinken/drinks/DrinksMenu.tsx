@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, Coffee, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -8,6 +8,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "~/components/ui/collapsible";
+import { EmptyState } from "~/components/ui/empty-state";
 import { IconButton } from "~/components/ui/icon-button";
 import { statusClass } from "~/components/ui/status-badge";
 import {
@@ -23,7 +24,6 @@ import type { MenuItem } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
 import { type BillingOption, BillingSelector } from "./Billingselector";
 import { DrinkButton } from "./DrinkButton";
-import { EmptyState } from "./EmptyState";
 import { OrderDrawer, type OrderIntent } from "./OrderDrawer";
 
 interface DrinksMenuProps {
@@ -130,7 +130,10 @@ export function DrinksMenu({
 	if (drinks.length === 0) {
 		return (
 			<div className="container mx-auto p-4">
-				<EmptyState />
+				<EmptyState icon={<Coffee />} title="Keine Getränke verfügbar">
+					Die Getränkekarte ist noch leer. Bitte wende dich an den Getränkewart
+					oder Admin.
+				</EmptyState>
 			</div>
 		);
 	}

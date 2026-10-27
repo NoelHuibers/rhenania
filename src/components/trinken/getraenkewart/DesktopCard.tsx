@@ -1,6 +1,8 @@
 // DesktopCard.tsx
 "use client";
 
+import { Coffee } from "lucide-react";
+import { EmptyState } from "~/components/ui/empty-state";
 import {
 	Table,
 	TableBody,
@@ -71,12 +73,14 @@ export function DrinksTableDesktop({
 			<TableBody>
 				{drinks.length === 0 ? (
 					<TableRow>
-						<TableCell
-							colSpan={7}
-							className="py-8 text-center text-muted-foreground"
-						>
-							Noch keine Getränke hinzugefügt. Klicken Sie auf „Getränk
-							hinzufügen", um zu beginnen.
+						<TableCell colSpan={7} className="p-0">
+							<EmptyState
+								variant="plain"
+								icon={<Coffee />}
+								title="Noch keine Getränke hinzugefügt"
+							>
+								Klicken Sie auf „Getränk hinzufügen“, um zu beginnen.
+							</EmptyState>
 						</TableCell>
 					</TableRow>
 				) : (

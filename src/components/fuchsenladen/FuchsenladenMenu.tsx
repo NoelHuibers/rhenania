@@ -1,10 +1,12 @@
 "use client";
 
-import { CheckCircle, Clock } from "lucide-react";
+import { CheckCircle, Clock, Store } from "lucide-react";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Badge } from "~/components/ui/badge";
+import { EmptyState } from "~/components/ui/empty-state";
+import { ErrorState } from "~/components/ui/error-state";
+import { CardGridSkeleton } from "~/components/ui/page-skeleton";
 import {
 	type FuchsenItem,
 	getFuchsenItemsForMenu,
@@ -15,24 +17,28 @@ import { FuchsenOrderDrawer } from "./FuchsenOrderDrawer";
 export function FuchsenladenMenu() {
 	const [items, setItems] = useState<FuchsenItem[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
+	const [loadFailed, setLoadFailed] = useState(false);
+	const [attempt, setAttempt] = useState(0);
 	const [selectedItem, setSelectedItem] = useState<FuchsenItem | null>(null);
 	const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` re-runs the load on retry
 	useEffect(() => {
 		const load = async () => {
 			try {
 				setIsLoading(true);
+				setLoadFailed(false);
 				const fetched = await getFuchsenItemsForMenu();
 				setItems(fetched);
 			} catch (error) {
 				console.error("Error loading fuchsen items:", error);
-				toast.error("Fehler beim Laden des Fuchsenladens");
+				setLoadFailed(true);
 			} finally {
 				setIsLoading(false);
 			}
 		};
 		load();
-	}, []);
+	}, [attempt]);
 
 	const handleOrderClick = (item: FuchsenItem) => {
 		setSelectedItem(item);
@@ -52,17 +58,18 @@ export function FuchsenladenMenu() {
 			<SiteHeader title="Fuchsenladen" />
 			<div className="container mx-auto space-y-6 p-4">
 				{isLoading ? (
-					<div className="flex items-center justify-center py-16">
-						<div className="text-muted-foreground">Laden…</div>
-					</div>
+					<CardGridSkeleton label="Fuchsenladen wird geladen…" />
+				) : loadFailed ? (
+					<ErrorState
+						title="Fuchsenladen nicht geladen"
+						onRetry={() => setAttempt((n) => n + 1)}
+					>
+						Die Artikel konnten nicht geladen werden. Versuche es noch einmal.
+					</ErrorState>
 				) : items.length === 0 ? (
-					<div className="flex items-center justify-center py-16">
-						<div className="text-center">
-							<p className="text-muted-foreground">
-								Aktuell sind keine Artikel im Fuchsenladen.
-							</p>
-						</div>
-					</div>
+					<EmptyState icon={<Store />} title="Keine Artikel im Fuchsenladen">
+						Sobald der Fuchsenwart Artikel anlegt, kannst du sie hier bestellen.
+					</EmptyState>
 				) : (
 					<div className="space-y-8">
 						{available.length > 0 && (

@@ -16,7 +16,9 @@ test.describe("public pages per tenant", () => {
 	test("unknown hosts get the tenant-not-found page", async ({ page }) => {
 		const res = await page.goto("http://unknown.localhost:3000/");
 		expect(res?.status()).toBe(404);
-		await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
+		await expect(
+			page.getByRole("heading", { name: "Seite nicht gefunden" }),
+		).toBeVisible();
 	});
 
 	test("sign-in page renders the email form @mobile", async ({ page }) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Swords } from "lucide-react";
+import { History, Inbox, Swords } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -10,6 +10,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "~/components/ui/dialog";
+import { EmptyState } from "~/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
 	type CrossChallengeFeed,
@@ -111,7 +112,12 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 				<TabsContent value="incoming" className="space-y-3">
 					{feed.incomingPending.length === 0 &&
 					crossFeed.incomingPending.length === 0 ? (
-						<Empty>Keine eingehenden Herausforderungen</Empty>
+						<EmptyState
+							icon={<Inbox />}
+							title="Keine eingehenden Herausforderungen"
+						>
+							Wenn dich jemand fordert, siehst du es hier.
+						</EmptyState>
 					) : (
 						<>
 							{feed.incomingPending.map((c) => (
@@ -137,7 +143,9 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 
 				<TabsContent value="active" className="space-y-3">
 					{activeCount === 0 ? (
-						<Empty>Keine aktiven Spiele</Empty>
+						<EmptyState icon={<Swords />} title="Keine aktiven Spiele">
+							Fordere jemanden mit „Intern fordern“ heraus.
+						</EmptyState>
 					) : (
 						<>
 							{feed.active.map((c) => {
@@ -224,7 +232,9 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 
 				<TabsContent value="history" className="space-y-3">
 					{feed.history.length === 0 && crossFeed.history.length === 0 ? (
-						<Empty>Noch kein Verlauf</Empty>
+						<EmptyState icon={<History />} title="Noch kein Verlauf">
+							Abgeschlossene Spiele erscheinen hier.
+						</EmptyState>
 					) : (
 						<>
 							{feed.history.map((c) => (
@@ -248,14 +258,6 @@ export function ChallengesClient({ currentUserId }: ChallengesClientProps) {
 					)}
 				</TabsContent>
 			</Tabs>
-		</div>
-	);
-}
-
-function Empty({ children }: { children: React.ReactNode }) {
-	return (
-		<div className="rounded-lg border border-dashed p-8 text-center text-muted-foreground text-sm">
-			{children}
 		</div>
 	);
 }

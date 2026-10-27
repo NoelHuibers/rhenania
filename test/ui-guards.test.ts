@@ -295,9 +295,12 @@ describe("one document root, one toaster, one theme (#86)", () => {
 	const APP_FILES = sourceFiles("src/app");
 	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
 
-	test("only the root layout renders <html> and <body>", () => {
+	test("only the root layout (and global-error) render <html> and <body>", () => {
 		const roots = APP_FILES.filter((f) => /<(html|body)[\s>]/.test(read(f)));
-		expect(roots).toEqual([ROOT_LAYOUT]);
+		// global-error replaces the failed root layout, so it needs its own.
+		expect(roots.sort()).toEqual(
+			[path.join("src", "app", "global-error.tsx"), ROOT_LAYOUT].sort(),
+		);
 	});
 
 	test("the toaster is mounted once, in the root layout", () => {
@@ -313,5 +316,87 @@ describe("one document root, one toaster, one theme (#86)", () => {
 			(f) => f !== ROOT_LAYOUT && /ThemeProvider/.test(read(f)),
 		);
 		expect(others).toEqual([]);
+	});
+});
+
+describe("loading, error and empty states (#85, #34)", () => {
+	const APP = path.join("src", "app");
+	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
+	const exists = (f: string) => sourceFiles(path.dirname(f)).includes(f);
+
+	/** Top-level route groups and segments that hold more than one page. */
+	function sections(): string[] {
+		return readdirSync(path.join(ROOT, APP), { withFileTypes: true })
+			.filter((e) => e.isDirectory() && e.name !== "api")
+			.map((e) => path.join(APP, e.name))
+			.filter(
+				(dir) =>
+					/\(.+\)$/.test(dir) ||
+					sourceFiles(dir).filter((f) => /[\\/]page\.tsx$/.test(f)).length > 1,
+			);
+	}
+
+	test("the app has a root error boundary, global-error and a 404 page", () => {
+		for (const file of ["error.tsx", "global-error.tsx", "not-found.tsx"]) {
+			expect(exists(path.join(APP, file)), file).toBe(true);
+		}
+	});
+
+	test("every route group and multi-page section has its own error.tsx", () => {
+		const found = sections();
+		expect(found).toEqual(
+			expect.arrayContaining([
+				path.join(APP, "(protected)"),
+				path.join(APP, "(public)"),
+				path.join(APP, "auth"),
+				path.join(APP, "superadmin"),
+			]),
+		);
+		const missing = found.filter((dir) => !exists(path.join(dir, "error.tsx")));
+		expect(missing).toEqual([]);
+	});
+
+	test("the protected app shows a skeleton while a page loads", () => {
+		expect(exists(path.join(APP, "(protected)", "loading.tsx"))).toBe(true);
+		expect(read(path.join(APP, "(protected)", "loading.tsx"))).toMatch(
+			/<PageSkeleton[\s/>]/,
+		);
+	});
+
+	const BOUNDARIES = sourceFiles(APP).filter((f) =>
+		/(^|[\\/])(global-)?error\.tsx$/.test(f),
+	);
+
+	test("error boundaries are client components that report the error", () => {
+		const bad = BOUNDARIES.filter(
+			(f) =>
+				!/^"use client";/.test(read(f)) ||
+				!/<RouteError[\s/>]|reportBoundaryError\(/.test(read(f)),
+		);
+		expect(BOUNDARIES.length).toBeGreaterThanOrEqual(5);
+		expect(bad).toEqual([]);
+	});
+
+	test("error screens never render the error's message or stack", () => {
+		const screens = [
+			...BOUNDARIES,
+			path.join("src", "components", "errors", "RouteError.tsx"),
+			path.join("src", "components", "ui", "error-state.tsx"),
+		];
+		expect(offending(screens, /\.(message|stack)\b/)).toEqual([]);
+	});
+
+	test("there is exactly one EmptyState implementation", () => {
+		const all = [
+			...UI_FILES,
+			...sourceFiles(path.join("src", "components", "ui")),
+		];
+		const impls = offending(
+			all,
+			/(function|const|class)\s+(EmptyState|Empty|LoadingState)\b/,
+		);
+		expect(impls).toEqual([
+			expect.stringMatching(/^src[\\/]components[\\/]ui[\\/]empty-state\.tsx:/),
+		]);
 	});
 });

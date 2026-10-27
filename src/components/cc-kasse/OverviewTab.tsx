@@ -17,6 +17,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "~/components/ui/collapsible";
+import { EmptyState } from "~/components/ui/empty-state";
 import { Progress } from "~/components/ui/progress";
 import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import { formatDate, formatEUR } from "~/lib/format";
@@ -27,7 +28,7 @@ import type {
 	EtaplanOverview,
 	KostenpunktOverview,
 } from "~/server/actions/cc-kasse/overview";
-import { BarLegend, BudgetBar, EmptyState } from "./KasseUi";
+import { BarLegend, BudgetBar } from "./KasseUi";
 
 const STATUS_META: Record<BudgetStatus, { label: string; cls: string }> = {
 	"on-track": {

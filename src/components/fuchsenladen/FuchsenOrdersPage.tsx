@@ -1,11 +1,13 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
+import { EmptyState } from "~/components/ui/empty-state";
+import { TableSkeleton } from "~/components/ui/page-skeleton";
 import { StatusBadge } from "~/components/ui/status-badge";
 import {
 	Table,
@@ -69,13 +71,15 @@ export function FuchsenOrdersPage() {
 					</CardHeader>
 					<CardContent>
 						{loading ? (
-							<div className="flex items-center justify-center py-8">
-								<Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-							</div>
+							<TableSkeleton columns={4} label="Bestellungen werden geladen…" />
 						) : orders.length === 0 ? (
-							<p className="py-8 text-center text-muted-foreground text-sm">
+							<EmptyState
+								variant="plain"
+								icon={<ShoppingBag />}
+								title="Noch keine Bestellungen"
+							>
 								Du hast noch nichts im Fuchsenladen bestellt.
-							</p>
+							</EmptyState>
 						) : (
 							<div className="overflow-x-auto">
 								<Table>

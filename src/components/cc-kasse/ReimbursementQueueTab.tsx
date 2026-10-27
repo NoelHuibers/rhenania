@@ -26,6 +26,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import { EmptyState } from "~/components/ui/empty-state";
 import { Label } from "~/components/ui/label";
 import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import {
@@ -45,7 +46,7 @@ import {
 	type QueueReimbursement,
 	rejectReimbursement,
 } from "~/server/actions/cc-kasse/kostenerstattungen";
-import { EmptyState, FilterChips } from "./KasseUi";
+import { FilterChips } from "./KasseUi";
 import { ReceiptLinks } from "./ReceiptLinks";
 import {
 	type EditingReimbursement,

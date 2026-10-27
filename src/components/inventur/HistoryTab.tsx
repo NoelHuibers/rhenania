@@ -17,6 +17,7 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from "~/components/ui/collapsible";
+import { EmptyState } from "~/components/ui/empty-state";
 import {
 	Table,
 	TableBody,
@@ -76,15 +77,12 @@ export function HistoryTab({ history }: HistoryTabProps) {
 
 	if (history.length === 0) {
 		return (
-			<div className="py-16 text-center">
-				<Package className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-				<p className="text-muted-foreground">
-					Noch keine Inventur-Aufzeichnungen vorhanden.
-				</p>
-				<p className="mt-1 text-muted-foreground text-sm">
-					Speichern Sie Ihre erste Inventur, um die Historie zu sehen.
-				</p>
-			</div>
+			<EmptyState
+				icon={<Package />}
+				title="Noch keine Inventur-Aufzeichnungen vorhanden"
+			>
+				Speichern Sie Ihre erste Inventur, um die Historie zu sehen.
+			</EmptyState>
 		);
 	}
 

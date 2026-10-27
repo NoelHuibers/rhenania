@@ -1,8 +1,11 @@
 "use client";
 
-import { ArrowUpDown, Loader2 } from "lucide-react";
+import { ArrowUpDown, ReceiptText } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
+import { EmptyState } from "~/components/ui/empty-state";
+import { ErrorState } from "~/components/ui/error-state";
+import { TableSkeleton } from "~/components/ui/page-skeleton";
 import { BillStatusBadge } from "~/components/ui/status-badge";
 import { formatEUR } from "~/lib/format";
 import { Button } from "../ui/button";
@@ -78,23 +81,27 @@ export const BillingTable = ({
 	);
 
 	if (isLoading) {
-		return (
-			<div className="flex items-center justify-center py-8">
-				<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-				Lädt...
-			</div>
-		);
+		return <TableSkeleton columns={showStatus ? 4 : 3} />;
 	}
 
 	if (error) {
-		return <div className="py-8 text-center text-destructive">{error}</div>;
+		// `error` is a German sentence set by the dashboard, never a server
+		// message. The data is fetched on the client, so a reload retries.
+		return (
+			<ErrorState
+				title="Laden fehlgeschlagen"
+				retryLabel="Neu laden"
+				onRetry={() => window.location.reload()}
+				className="py-8"
+			>
+				{error}
+			</ErrorState>
+		);
 	}
 
 	if (entries.length === 0) {
 		return (
-			<div className="py-8 text-center text-muted-foreground">
-				{emptyMessage}
-			</div>
+			<EmptyState variant="plain" icon={<ReceiptText />} title={emptyMessage} />
 		);
 	}
 

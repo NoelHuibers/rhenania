@@ -40,6 +40,11 @@ export function useTenantSlug(): string {
 	return useTenant().slug;
 }
 
+/** The tenant slug, or null outside the protected app (error screens). */
+export function useOptionalTenantSlug(): string | null {
+	return useContext(Ctx)?.slug || null;
+}
+
 /**
  * Whether a feature is switched on for this tenant. Presentation only — the
  * server action behind the UI must check `hasFeature()` itself.

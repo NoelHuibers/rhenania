@@ -1,8 +1,10 @@
 "use client";
 
+import { History } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { TabContent } from "~/components/rechnungen/TabContent";
+import { EmptyState } from "~/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { formatDate, formatEUR } from "~/lib/format";
 import { getUserRoles } from "~/server/actions/admin/userRoles";
@@ -453,11 +455,13 @@ export function BillingDashboard() {
 								);
 							})}
 							{olderPeriods.length === 0 && (
-								<div className="py-8 text-center">
-									<p className="text-muted-foreground">
-										Keine älteren Rechnungen vorhanden
-									</p>
-								</div>
+								<EmptyState
+									icon={<History />}
+									title="Keine älteren Rechnungen vorhanden"
+								>
+									Ältere Abrechnungen erscheinen hier, sobald mehr als zwei
+									Abrechnungen erstellt wurden.
+								</EmptyState>
 							)}
 						</div>
 					</TabsContent>

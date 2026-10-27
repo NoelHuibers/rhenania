@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
@@ -20,13 +20,16 @@ export function GetraenkewartPage({
 	buchungTab,
 }: Props) {
 	const searchParams = useSearchParams();
-	const router = useRouter();
 	const activeTab = searchParams.get("tab") ?? "getraenke";
 
+	// Every tab's data is already in the page (each streams in its own
+	// Suspense boundary), so switching only updates the URL. The native
+	// History API keeps useSearchParams in sync without a server round trip;
+	// router.replace would re-run all tabs' queries.
 	function handleTabChange(value: string) {
 		const params = new URLSearchParams(searchParams.toString());
 		params.set("tab", value);
-		router.replace(`/getraenkewart?${params.toString()}`);
+		window.history.replaceState(null, "", `?${params.toString()}`);
 	}
 
 	return (

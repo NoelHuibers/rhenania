@@ -156,27 +156,3 @@ export function BarLegend({
 		</div>
 	);
 }
-
-export function EmptyState({
-	icon,
-	title,
-	children,
-}: {
-	icon?: React.ReactNode;
-	title: string;
-	children?: React.ReactNode;
-}) {
-	return (
-		<div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-10 text-center">
-			{icon && (
-				<div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-					{icon}
-				</div>
-			)}
-			<p className="font-medium text-sm">{title}</p>
-			{children && (
-				<div className="max-w-sm text-muted-foreground text-sm">{children}</div>
-			)}
-		</div>
-	);
-}
