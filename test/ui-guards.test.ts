@@ -319,7 +319,7 @@ describe("one document root, one toaster, one theme (#86)", () => {
 	});
 });
 
-describe("loading, error and empty states (#85)", () => {
+describe("loading, error and empty states (#85, #34)", () => {
 	const APP = path.join("src", "app");
 	const read = (f: string) => readFileSync(path.join(ROOT, f), "utf8");
 	const exists = (f: string) => sourceFiles(path.dirname(f)).includes(f);
@@ -367,11 +367,11 @@ describe("loading, error and empty states (#85)", () => {
 		/(^|[\\/])(global-)?error\.tsx$/.test(f),
 	);
 
-	test("error boundaries are client components with the shared screen", () => {
+	test("error boundaries are client components that report the error", () => {
 		const bad = BOUNDARIES.filter(
 			(f) =>
 				!/^"use client";/.test(read(f)) ||
-				!/<(RouteError|ErrorState)[\s/>]/.test(read(f)),
+				!/<RouteError[\s/>]|reportBoundaryError\(/.test(read(f)),
 		);
 		expect(BOUNDARIES.length).toBeGreaterThanOrEqual(5);
 		expect(bad).toEqual([]);

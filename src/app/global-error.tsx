@@ -7,7 +7,7 @@ import { useEffect } from "react";
 
 import { buttonVariants } from "~/components/ui/button";
 import { ErrorState } from "~/components/ui/error-state";
-import { errorDigest } from "~/lib/error-reporting";
+import { errorDigest, reportBoundaryError } from "~/lib/error-reporting";
 
 /** next-themes' stored choice, else the OS setting. */
 function prefersDark(): boolean {
@@ -26,6 +26,14 @@ function prefersDark(): boolean {
 // document, so it brings its own <html>, <body>, styles and theme (the
 // theme provider lives in the layout that just failed).
 export default function GlobalError({ error, retry }: ErrorInfo) {
+	useEffect(() => {
+		reportBoundaryError(error, {
+			boundary: "global",
+			global: true,
+			path: window.location.pathname,
+		});
+	}, [error]);
+
 	useEffect(() => {
 		document.documentElement.classList.toggle("dark", prefersDark());
 	}, []);
