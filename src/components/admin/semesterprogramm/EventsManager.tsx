@@ -25,11 +25,7 @@ import { toggleEventCancelled } from "~/server/actions/events/recurring";
 import type { Venue } from "~/server/actions/venues";
 import { EventFormCard } from "./EventFormCard";
 import { EventRow } from "./EventRow";
-import {
-	type Event,
-	emptyForm,
-	type FormState,
-} from "./event-constants";
+import { type Event, emptyForm, type FormState } from "./event-constants";
 import { RsvpResponsesDialog } from "./RsvpResponsesDialog";
 
 export { TYPE_COLORS } from "./event-constants";
