@@ -14,6 +14,7 @@ import {
 	setupTestDatabases,
 	tenantDb,
 } from "../../../../test/harness";
+import { useServerTimeZone } from "../../../../test/server-tz";
 import { generateBillPeriodCSV } from "./createCSV";
 import { saveBillPeriodCSV } from "./saveBillCSV";
 
@@ -49,13 +50,13 @@ function euro(cell: string | undefined) {
 	return Number((cell ?? "").replace(" EUR", "").replace(",", "."));
 }
 
-async function periodWithBills() {
+async function periodWithBills(createdAt = new Date("2026-10-21T12:00:00Z")) {
 	await createDrink({ name: "Pils", price: 1.5 });
 	await createDrink({ name: "Wasser", price: 1 });
 	await createDrink({ name: "Helles", price: 1.8 });
 	const period = await createBillPeriodRow({
 		billNumber: "KW-43-26",
-		createdAt: new Date("2026-10-21T12:00:00Z"),
+		createdAt,
 	});
 	await createBillRow({
 		periodId: period.id,
@@ -307,6 +308,19 @@ describe("saveBillPeriodCSV", () => {
 			delimiter: ";",
 			fileSize: Buffer.byteLength(String(content)),
 		});
+	});
+
+	test("names the file after the Berlin day of the run on a UTC server (#15)", async () => {
+		useServerTimeZone("UTC");
+		const tenant = await createTenant();
+		// Sunday 1 Nov 2026, 00:30 in Berlin; still 31 Oct in UTC.
+		const period = await periodWithBills(new Date("2026-10-31T23:30:00Z"));
+
+		const result = await saveBillPeriodCSV(period.id);
+
+		expect(result.fileName).toBe(
+			`tenants/${tenant.slug}/bills/Rechnung_01_Nov_2026.csv`,
+		);
 	});
 
 	test("returns the stored CSV while its blob exists and regenerates once it is gone", async () => {

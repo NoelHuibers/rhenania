@@ -25,7 +25,9 @@ test.describe("authentication", () => {
 		await page.getByRole("button", { name: "Mit E-Mail anmelden" }).click();
 
 		await expect(page).toHaveURL(/\/trinken/);
-		await expect(page.getByText("Pils", { exact: true })).toBeVisible();
+		// "Pils" can be listed twice once it was ordered: in the "Zuletzt
+		// bestellt" shortcuts and in the menu.
+		await expect(page.getByText("Pils", { exact: true }).first()).toBeVisible();
 	});
 
 	test("a wrong password keeps the user on the sign-in page", async ({

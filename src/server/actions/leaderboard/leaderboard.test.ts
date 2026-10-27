@@ -1,7 +1,7 @@
 // The leaderboard windows are computed by SQLite (`unixepoch('now', …)`), so
 // these tests place orders relative to the real clock instead of faking it.
 
-import { beforeEach, describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { drinks } from "~/server/db/schema";
 import { createOrderRow, daysAgo } from "../../../../test/factories/inventory";
@@ -14,6 +14,7 @@ import {
 	type TestUser,
 	tenantDb,
 } from "../../../../test/harness";
+import { useServerTimeZone } from "../../../../test/server-tz";
 import { getConsumptionLast6MonthsByDrink } from "./consumption";
 import {
 	getLeaderboardLast6Months,
@@ -173,21 +174,72 @@ describe("leaderboard", () => {
 	});
 });
 
+// The month axis is computed from the JS clock, so these tests fake it.
 describe("getConsumptionLast6MonthsByDrink", () => {
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-10-27T10:00:00Z"));
+	});
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	// Berlin midnight on the 1st of May … October 2026 (CEST, UTC+2).
+	const MONTH_STARTS = [
+		"2026-04-30T22:00:00Z",
+		"2026-05-31T22:00:00Z",
+		"2026-06-30T22:00:00Z",
+		"2026-07-31T22:00:00Z",
+		"2026-08-31T22:00:00Z",
+		"2026-09-30T22:00:00Z",
+	];
 	function midMonth(monthsBack: number) {
-		const now = new Date();
-		return new Date(
-			Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsBack, 15, 12),
-		);
+		return new Date(Date.UTC(2026, 9 - monthsBack, 15, 12));
 	}
 	function monthStart(monthsBack: number) {
-		const now = new Date();
-		return (
-			Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthsBack, 1) / 1000
-		);
+		return Date.parse(MONTH_STARTS[5 - monthsBack] ?? "") / 1000;
 	}
 
-	test("buckets liters per drink into the last six UTC months", async () => {
+	test("buckets orders by their Berlin month, also on a UTC server (#15)", async () => {
+		useServerTimeZone("UTC");
+		const pils = await drinkWithVolume("Pils", 0.5);
+		// 00:30 on 1 May and 1 Oct in Berlin, still April / September in UTC.
+		await createOrderRow({
+			drink: pils,
+			amount: 2,
+			createdAt: new Date("2026-04-30T22:30:00Z"),
+		});
+		await createOrderRow({
+			drink: pils,
+			amount: 4,
+			createdAt: new Date("2026-09-30T22:30:00Z"),
+		});
+		// 23:30 on 30 April in Berlin: before the six months.
+		await createOrderRow({
+			drink: pils,
+			amount: 8,
+			createdAt: new Date("2026-04-30T21:30:00Z"),
+		});
+		// 23:30 on 31 October in Berlin, already November in UTC.
+		await createOrderRow({
+			drink: pils,
+			amount: 6,
+			createdAt: new Date("2026-10-31T22:30:00Z"),
+		});
+
+		const { data } = await getConsumptionLast6MonthsByDrink();
+
+		expect(data.map((d) => [d.label, d.monthStart, d.total])).toEqual([
+			["Mai 2026", monthStart(5), 1],
+			["Juni 2026", monthStart(4), 0],
+			["Juli 2026", monthStart(3), 0],
+			["Aug. 2026", monthStart(2), 0],
+			["Sept. 2026", monthStart(1), 0],
+			["Okt. 2026", monthStart(0), 5],
+		]);
+	});
+
+	test("buckets liters per drink into the last six months", async () => {
 		const pils = await drinkWithVolume("Pils", 0.5);
 		const wein = await drinkWithVolume("Wein", 0.75);
 		const snack = await drinkWithVolume("Erdnüsse", null);

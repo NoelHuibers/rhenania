@@ -5,7 +5,14 @@
 
 import { expect, type Page, test } from "@playwright/test";
 
-import { HASSIA, RHENANIA, signIn, USERS } from "./support";
+import {
+	confirmButton,
+	drinkCard,
+	HASSIA,
+	RHENANIA,
+	signIn,
+	USERS,
+} from "./support";
 
 const VIEWPORTS = {
 	phone: { width: 390, height: 844 },
@@ -28,12 +35,10 @@ const SCREENS: Array<{
 		url: `${RHENANIA}/trinken`,
 		user: USERS.rhMember,
 		prepare: async (page) => {
-			const card = page
-				.locator('[data-slot="card"]')
-				.filter({ has: page.getByText("Pils", { exact: true }) });
-			const confirm = page.getByRole("button", { name: "Bestätigen" });
+			const card = drinkCard(page, "Pils");
+			const confirm = confirmButton(page);
 			await expect(async () => {
-				await card.getByRole("button", { name: "Bestellen" }).click();
+				await card.click();
 				await expect(confirm).toBeVisible({ timeout: 2_000 });
 			}).toPass({ timeout: 20_000 });
 		},

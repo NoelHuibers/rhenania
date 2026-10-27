@@ -192,3 +192,44 @@ export function startOfWeekInTZ(d: Date, tz: string = APP_TZ): Date {
 	const diff = (weekday + 6) % 7;
 	return addDaysInTZ(start, -diff, tz);
 }
+
+/** `YYYY-MM-DD` for a year, a 0-based month that may overflow, and a day. */
+function calendarKey(year: number, monthIndex: number, day: number): string {
+	return new Date(Date.UTC(year, monthIndex, day)).toISOString().slice(0, 10);
+}
+
+/**
+ * Start of the calendar month `months` months after the one containing `d`
+ * (in `tz`); `0` is the current month, `-1` the previous one.
+ */
+export function startOfMonthInTZ(
+	d: Date,
+	months = 0,
+	tz: string = APP_TZ,
+): Date {
+	const p = getZonedParts(d, tz);
+	return wallClockToUTC(calendarKey(p.year, p.month - 1 + months, 1), tz);
+}
+
+/**
+ * The same wall-clock time in `tz`, `months` calendar months after `d`. A day
+ * the target month lacks is clamped to its last day (31 Aug + 6 months is
+ * 28 Feb), like date-fns `addMonths`.
+ */
+export function addMonthsInTZ(
+	d: Date,
+	months: number,
+	tz: string = APP_TZ,
+): Date {
+	const p = getZonedParts(d, tz);
+	const monthIndex = p.month - 1 + months;
+	const daysInTarget = new Date(
+		Date.UTC(p.year, monthIndex + 1, 0),
+	).getUTCDate();
+	const day = calendarKey(p.year, monthIndex, Math.min(p.day, daysInTarget));
+	const pad = (n: number) => String(n).padStart(2, "0");
+	const atMinute = wallClockToUTC(`${day}T${pad(p.hour)}:${pad(p.minute)}`, tz);
+	// getZonedParts stops at minutes; carry the seconds and milliseconds over.
+	const belowMinute = ((d.getTime() % 60_000) + 60_000) % 60_000;
+	return new Date(atMinute.getTime() + belowMinute);
+}
