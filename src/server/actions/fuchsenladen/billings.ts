@@ -17,14 +17,7 @@ import type { BatchItem } from "drizzle-orm/batch";
 import { z } from "zod";
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
 import { csvRow } from "~/lib/csv";
-import {
-	addMoney,
-	fromCents,
-	roundToCent,
-	sumMoney,
-	toCents,
-} from "~/lib/money";
-
+import { addMoney } from "~/lib/money";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import {
@@ -33,6 +26,7 @@ import {
 	fuchsenBills,
 	fuchsenOrders,
 } from "~/server/db/schema";
+import { FUCHSEN_RULES, planBillingRun } from "~/server/domain/billing/plan";
 import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
 import {
 	BILLING_CONFLICT_MESSAGE,
@@ -71,8 +65,6 @@ export interface FuchsenBillingEntry {
 	}[];
 }
 
-type FuchsenOrderRow = typeof fuchsenOrders.$inferSelect;
-
 /**
  * Orders the next billing run picks up: not on a bill yet and still open.
  * Orders already marked paid in the per-member view are settled and must
@@ -87,62 +79,6 @@ const isOutstanding = () =>
 		eq(fuchsenBills.status, "Unbezahlt"),
 		eq(fuchsenBills.status, "Gestundet"),
 	);
-
-/**
- * What each member still owes from ALL earlier periods, in whole cents. A
- * member without new orders is skipped by intermediate runs, so their debt
- * can sit several periods back.
- */
-function outstandingByUser(
-	rows: { userId: string; userName: string; total: number }[],
-) {
-	const byUser = new Map<string, { cents: number; userName: string }>();
-	for (const row of rows) {
-		const entry = byUser.get(row.userId) ?? {
-			cents: 0,
-			userName: row.userName,
-		};
-		entry.cents += toCents(Number(row.total) || 0);
-		byUser.set(row.userId, entry);
-	}
-	return byUser;
-}
-
-/** One bill line per item and price, consolidating repeated orders. */
-function billItemRows(
-	billId: string,
-	orders: FuchsenOrderRow[],
-	now: Date,
-): (typeof fuchsenBillItems.$inferInsert)[] {
-	const itemSummary = new Map<
-		string,
-		{ name: string; amount: number; price: number; total: number }
-	>();
-	for (const order of orders) {
-		const key = `${order.itemName}-${order.pricePerUnit}`;
-		const existing = itemSummary.get(key);
-		if (existing) {
-			existing.amount += order.amount;
-			existing.total = addMoney(existing.total, order.total);
-		} else {
-			itemSummary.set(key, {
-				name: order.itemName,
-				amount: order.amount,
-				price: order.pricePerUnit,
-				total: roundToCent(order.total),
-			});
-		}
-	}
-	return [...itemSummary.values()].map((info) => ({
-		id: crypto.randomUUID(),
-		billId,
-		itemName: info.name,
-		amount: info.amount,
-		pricePerItem: info.price,
-		totalPrice: info.total,
-		createdAt: now,
-	}));
-}
 
 /**
  * Run a new fuchsen billing period, like the drinks billing: every open,
@@ -206,69 +142,50 @@ export const createNewFuchsenBilling = defineAction(
 			base,
 			numbered.map((p) => p.billNumber),
 		);
-		const outstanding = outstandingByUser(outstandingRows);
 		const billPeriodId = crypto.randomUUID();
 
-		// 4. Group the new orders by member.
-		const userOrderMap = new Map<string, FuchsenOrderRow[]>();
-		for (const order of unbilledOrders) {
-			const list = userOrderMap.get(order.userId) ?? [];
-			list.push(order);
-			userOrderMap.set(order.userId, list);
-		}
-
-		// Every member who gets a bill: new orders and/or carried debt.
-		const billedUsers = new Map<string, string>();
-		for (const [userId, userOrders] of userOrderMap) {
-			billedUsers.set(userId, userOrders[0]?.userName ?? "");
-		}
-		for (const [userId, debt] of outstanding) {
-			if (debt.cents > 0 && !billedUsers.has(userId)) {
-				billedUsers.set(userId, debt.userName);
-			}
-		}
-
-		const billRows: (typeof fuchsenBills.$inferInsert)[] = [];
-		const itemRows: (typeof fuchsenBillItems.$inferInsert)[] = [];
-		// The carried bills of these members now live on in their new one.
-		const settledUserIds: string[] = [];
-		// The new orders of each bill.
-		const billedOrders: { billId: string; ids: string[] }[] = [];
-		let totalBillingCents = 0;
-		for (const [userId, userName] of billedUsers) {
-			const userOrders = userOrderMap.get(userId) ?? [];
-			const debtCents = Math.max(0, outstanding.get(userId)?.cents ?? 0);
-			const itemsTotal = sumMoney(userOrders.map((o) => o.total));
-			const oldBillingAmount = fromCents(debtCents);
-			const total = sumMoney([itemsTotal, oldBillingAmount]);
-
-			const billId = crypto.randomUUID();
-			billRows.push({
-				id: billId,
+		// 4. Plan the bills: new orders and carried debt per member.
+		const plan = planBillingRun({
+			unbilledOrders: unbilledOrders.map((o) => ({ ...o, name: o.itemName })),
+			outstandingBills: outstandingRows,
+			rules: FUCHSEN_RULES,
+		});
+		const billRows = plan.bills.map(
+			(bill): typeof fuchsenBills.$inferInsert => ({
+				id: bill.id,
 				billPeriodId,
-				userId,
-				userName,
+				userId: bill.userId,
+				userName: bill.userName,
 				status: "Unbezahlt",
-				oldBillingAmount,
-				itemsTotal,
-				total,
+				oldBillingAmount: bill.oldBillingAmount,
+				itemsTotal: bill.ordersTotal,
+				total: bill.total,
 				createdAt: now,
-			});
-			if (outstanding.has(userId)) {
-				settledUserIds.push(userId);
-			}
-			if (userOrders.length > 0) {
-				itemRows.push(...billItemRows(billId, userOrders, now));
-				billedOrders.push({ billId, ids: userOrders.map((o) => o.id) });
-			}
-			totalBillingCents += toCents(total);
-		}
-		const totalBillingAmount = fromCents(totalBillingCents);
+			}),
+		);
+		const itemRows = plan.items.map(
+			(line): typeof fuchsenBillItems.$inferInsert => ({
+				id: line.id,
+				billId: line.billId,
+				itemName: line.name,
+				amount: line.amount,
+				pricePerItem: line.pricePerUnit,
+				totalPrice: line.total,
+				createdAt: now,
+			}),
+		);
+		// The carried bills of these members now live on in their new one.
+		const settledUserIds = plan.settleUserIds;
+		// The new orders of each bill.
+		const billedOrders = plan.bills
+			.filter((bill) => bill.orders.length > 0)
+			.map((bill) => ({ billId: bill.id, ids: bill.orders.map((o) => o.id) }));
+		const totalBillingAmount = plan.periodTotal;
 
 		// 5. One atomic write. It is refused when another run took the bill
 		// number, or (a NULL bill number) when the debts or orders read above
 		// changed in the meantime.
-		const orderIds = unbilledOrders.map((o) => o.id);
+		const { orderIds } = plan;
 		try {
 			await writeBatch([
 				db.insert(fuchsenBillPeriods).values({
@@ -352,8 +269,8 @@ export const createNewFuchsenBilling = defineAction(
 		}
 
 		return {
-			message: `Erfolgreich ${billedUsers.size} Rechnung(en) erstellt`,
-			billsCreated: billedUsers.size,
+			message: `Erfolgreich ${plan.bills.length} Rechnung(en) erstellt`,
+			billsCreated: plan.bills.length,
 			totalAmount: totalBillingAmount,
 			billPeriod: { id: billPeriodId, billNumber },
 		};
