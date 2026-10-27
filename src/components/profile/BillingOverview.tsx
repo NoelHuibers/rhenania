@@ -1,7 +1,6 @@
 "use client";
 
-import { Check, Copy, Download, Eye, Loader2 } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { Download, Eye, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "~/components/ui/badge";
@@ -14,9 +13,9 @@ import {
 	DrawerTitle,
 	DrawerTrigger,
 } from "~/components/ui/drawer";
-import { IconButton } from "~/components/ui/icon-button";
 import { Separator } from "~/components/ui/separator";
-import { formatDate, formatDecimalInput, formatEUR } from "~/lib/format";
+import { paymentReference } from "~/lib/bill-payment";
+import { formatDate, formatEUR } from "~/lib/format";
 import { downloadUserBillPDF } from "~/server/actions/profile/downloadUserBill";
 import {
 	type BillData,
@@ -24,6 +23,7 @@ import {
 	type BillPayment,
 	getUserBillingData,
 } from "~/server/actions/profile/getUserBill";
+import { PAYMENT_DATA_MISSING, PayBillDrawer } from "./PayBillDrawer";
 
 export function BillingOverview() {
 	const [billData, setBillData] = useState<BillData | null>(null);
@@ -32,10 +32,6 @@ export function BillingOverview() {
 	const [loading, setLoading] = useState(true);
 	const [downloadingPDF, setDownloadingPDF] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [selectedPayment, setSelectedPayment] = useState<
-		"paypal" | "iban" | null
-	>(null);
-	const [copiedField, setCopiedField] = useState<string | null>(null);
 
 	useEffect(() => {
 		async function fetchBillingData() {
@@ -57,29 +53,6 @@ export function BillingOverview() {
 
 		fetchBillingData();
 	}, []);
-
-	const paypalNote = billData
-		? `${billData.userName} - Rechnung ${billData.billNumber}`
-		: "";
-
-	const copyToClipboard = (text: string, field: string) => {
-		navigator.clipboard.writeText(text).then(() => {
-			setCopiedField(field);
-			toast.success(`${field} kopiert`);
-			setTimeout(() => setCopiedField(null), 2000);
-		});
-	};
-
-	const handlePayWithPayPal = () => {
-		if (!billData || !payment?.paypalBaseUrl) {
-			return;
-		}
-		window.open(
-			`${payment.paypalBaseUrl}/${billData.total.toFixed(2)}EUR`,
-			"_blank",
-			"noopener,noreferrer",
-		);
-	};
 
 	const handleDownloadPDF = async () => {
 		if (!billData?.billId) {
@@ -189,49 +162,6 @@ export function BillingOverview() {
 			</Card>
 		);
 	}
-
-	// Payment target comes from the server (same source as the bill PDF) so the
-	// profile can never show a different account than the invoice.
-	const epcData = [
-		"BCD",
-		"002",
-		"1",
-		"SCT",
-		"",
-		payment?.accountHolder ?? "",
-		payment?.ibanRaw ?? "",
-		`EUR${billData.total.toFixed(2)}`,
-		"",
-		"",
-		paypalNote,
-	].join("\n");
-
-	const ibanRows = [
-		{
-			label: "Kontoinhaber",
-			value: payment?.accountHolder ?? "",
-			copy: payment?.accountHolder ?? "",
-			mono: false,
-		},
-		{
-			label: "IBAN",
-			value: payment?.iban ?? "",
-			copy: payment?.ibanRaw ?? "",
-			mono: true,
-		},
-		{
-			label: "Betrag",
-			value: formatEUR(billData.total),
-			copy: formatDecimalInput(billData.total),
-			mono: false,
-		},
-		{
-			label: "Verwendungszweck",
-			value: paypalNote,
-			copy: paypalNote,
-			mono: false,
-		},
-	] as const;
 
 	return (
 		<Card>
@@ -372,169 +302,30 @@ export function BillingOverview() {
 					<div className="space-y-2">
 						<Separator />
 						<p className="text-muted-foreground text-sm">
-							Zahlungsdaten nicht hinterlegt. Bitte wende dich an den
-							Getränkewart.
+							{PAYMENT_DATA_MISSING}
 						</p>
 					</div>
 				)}
 
+				{/* Same sheet as the open-bill banner on /trinken (#80). The
+				    payment target comes from the server, the same source as the
+				    bill PDF, so the profile never shows a different account. */}
 				{billData.status === "Unbezahlt" && payment && (
 					<div className="space-y-2">
 						<Separator />
-						<p className="font-medium text-muted-foreground text-xs uppercase tracking-wider">
-							Bezahlen
-						</p>
-
-						{/* Method selector */}
-						<div className="grid grid-cols-3 gap-2">
-							{payment.paypalBaseUrl && (
-								<Button
-									variant="outline"
-									onClick={() =>
-										setSelectedPayment(
-											selectedPayment === "paypal" ? null : "paypal",
-										)
-									}
-									className={`h-auto flex-col items-start gap-0 px-3 py-2 ${
-										selectedPayment === "paypal"
-											? "border-[#0070ba] bg-[#0070ba]/10 hover:bg-[#0070ba]/15"
-											: ""
-									}`}
-								>
-									<span className="font-semibold text-[#0070ba] text-xs">
-										PayPal
-									</span>
-									<span className="text-[10px] text-muted-foreground">
-										Freunde &amp; Familie
-									</span>
-								</Button>
+						<PayBillDrawer
+							total={billData.total}
+							billNumber={billData.billNumber}
+							reference={paymentReference(
+								billData.userName,
+								billData.billNumber,
 							)}
-
-							<Button
-								variant="outline"
-								onClick={() =>
-									setSelectedPayment(selectedPayment === "iban" ? null : "iban")
-								}
-								className={`h-auto flex-col items-start gap-0 px-3 py-2 ${
-									selectedPayment === "iban"
-										? "border-foreground bg-foreground/5 hover:bg-foreground/10"
-										: ""
-								}`}
-							>
-								<span className="font-semibold text-xs">Überweisung</span>
-								<span className="text-[10px] text-muted-foreground">IBAN</span>
+							payment={payment}
+						>
+							<Button type="button" className="h-12 w-full text-base">
+								Bezahlen · {formatEUR(billData.total)}
 							</Button>
-
-							{/* Wero — coming soon */}
-							<Button
-								variant="outline"
-								disabled
-								className="relative h-auto flex-col items-start gap-0 px-3 py-2 opacity-40"
-							>
-								<span className="font-semibold text-xs">Wero</span>
-								<span className="text-[10px] text-muted-foreground">
-									Demnächst
-								</span>
-								<Badge
-									variant="secondary"
-									className="absolute top-1.5 right-1.5 px-1 py-0 text-[9px] leading-tight"
-								>
-									bald
-								</Badge>
-							</Button>
-						</div>
-
-						{/* PayPal detail panel */}
-						{selectedPayment === "paypal" && payment.paypalBaseUrl && (
-							<div className="space-y-2 rounded-lg border border-[#0070ba]/25 bg-[#0070ba]/5 p-3">
-								<div className="flex items-center justify-between">
-									<span className="text-muted-foreground text-xs">Betrag</span>
-									<span className="font-semibold text-xs">
-										{formatEUR(billData.total)}
-									</span>
-								</div>
-								<Separator />
-								<div className="flex items-center justify-between gap-2">
-									<span className="shrink-0 text-muted-foreground text-xs">
-										Notiz
-									</span>
-									<div className="flex min-w-0 items-center gap-1">
-										<span className="wrap-break-word text-right font-mono text-[11px] leading-snug">
-											{paypalNote}
-										</span>
-										<IconButton
-											size="icon-sm"
-											label="Notiz kopieren"
-											className="shrink-0"
-											onClick={() => copyToClipboard(paypalNote, "Notiz")}
-										>
-											{copiedField === "Notiz" ? (
-												<Check className="h-3 w-3 text-success" />
-											) : (
-												<Copy className="h-3 w-3" />
-											)}
-										</IconButton>
-									</div>
-								</div>
-								<Button
-									onClick={handlePayWithPayPal}
-									className="h-8 w-full bg-[#0070ba] text-white text-xs hover:bg-[#005ea6]"
-								>
-									Jetzt mit PayPal bezahlen
-								</Button>
-							</div>
-						)}
-
-						{/* IBAN detail panel */}
-						{selectedPayment === "iban" && (
-							<div className="flex overflow-hidden rounded-lg border">
-								{/* Copy fields */}
-								<div className="min-w-0 flex-1 divide-y">
-									{ibanRows.map(({ label, value, copy, mono }) => (
-										<div
-											key={label}
-											className="flex items-center justify-between px-3 py-2"
-										>
-											<div className="min-w-0">
-												<p className="text-[10px] text-muted-foreground">
-													{label}
-												</p>
-												<p
-													className={`wrap-break-word text-xs ${mono ? "font-mono" : "font-medium"}`}
-												>
-													{value}
-												</p>
-											</div>
-											<IconButton
-												size="icon-sm"
-												label={`${label} kopieren`}
-												className="ml-2 shrink-0"
-												onClick={() => copyToClipboard(copy, label)}
-											>
-												{copiedField === label ? (
-													<Check className="h-3 w-3 text-success" />
-												) : (
-													<Copy className="h-3 w-3" />
-												)}
-											</IconButton>
-										</div>
-									))}
-								</div>
-
-								{/* QR code */}
-								<div className="flex shrink-0 flex-col items-center justify-center gap-1.5 border-l bg-white px-3 py-3 dark:bg-white">
-									<QRCodeSVG
-										value={epcData}
-										size={96}
-										level="M"
-										className="rounded"
-									/>
-									<p className="text-center text-[9px] text-muted-foreground">
-										GiroCode
-									</p>
-								</div>
-							</div>
-						)}
+						</PayBillDrawer>
 					</div>
 				)}
 			</CardContent>

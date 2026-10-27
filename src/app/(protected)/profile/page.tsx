@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { AccountSecurity } from "~/components/profile/AccountSecurity";
 import { Achievements } from "~/components/profile/Achievements";
 import { BillingOverview } from "~/components/profile/BillingOverview";
 import { FuchsenBillingOverview } from "~/components/profile/FuchsenBillingOverview";
 import { GamesEloContainerDetailed } from "~/components/profile/GamesEloContainer";
 import { MemberAddressCard } from "~/components/profile/MemberAddressCard";
+import { OpenBillSection } from "~/components/profile/OpenBillSection";
 import { PaymentInfo } from "~/components/profile/PaymentInfo";
 import { Preferences } from "~/components/profile/Preferences";
 import { ProfileIdentity } from "~/components/profile/ProfileCard";
@@ -16,6 +18,11 @@ export default function ProfilePage() {
 			<SiteHeader title="Nutzerprofil" />
 			<div className="flex-1 bg-background p-4 md:p-6">
 				<div className="mx-auto max-w-7xl">
+					{/* On a phone the open bill comes before the account cards (#80);
+					    on desktop BillingOverview already heads the right column. */}
+					<Suspense fallback={null}>
+						<OpenBillSection className="mb-6 lg:hidden" />
+					</Suspense>
 					<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 						<div className="space-y-6 lg:col-span-1">
 							<ProfileIdentity />
