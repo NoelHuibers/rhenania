@@ -36,6 +36,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec biome ci .
+      - name: Implicit tenant DB import count (#33)
+        run: pnpm proxy-db:check
       # Unused files, exports and dependencies; config and the second
       # (--production) pass for server actions are explained in knip.config.ts.
       - name: Dead code (knip)

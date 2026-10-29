@@ -58,3 +58,17 @@ if you ever need it again (`git show <commit>:scripts/<name>.ts`).
 | `apply-control-migration-0005.ts`, `migrate-userstats-to-control.ts` | `c69aed2a` (2026-05) | global ELO in the control DB |
 | `repair-hassia-journal.ts` | `0e39e7a6` (2026-07) | fix Hassia's migration journal |
 | `repair-orphaned-bill-carryover.ts` | `96650352` (2026-07) | close out bills orphaned by the old carry-over bug (pattern for the Fuchsenladen fix, #12) |
+
+## Implicit tenant DB imports (#33)
+
+`pnpm proxy-db:check` lists production source files and scripts importing the
+implicit `src/server/db` proxy and fails if their count exceeds the committed
+baseline. CI runs it in the lint job. Type-only imports and tests are excluded;
+static imports, re-exports, literal dynamic imports and `require` are parsed
+with TypeScript, including relative paths.
+
+After migrating callers to an explicit `TenantDb`, run
+`pnpm proxy-db:baseline` and commit the lower baseline. Do not raise it to
+accommodate new callers. This count guard does not enforce layering or detect
+computed module paths; page DB extraction and lazy client creation remain
+tracked in #33.
