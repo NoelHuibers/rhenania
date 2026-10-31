@@ -1,7 +1,10 @@
 "use server";
 
+// The Semesterbeitrag (CC-Kasse): runs, their charges, invoices and
+// reminders. The lists are read by the page loader; the mutations answer
+// with an ActionResult (#216).
+
 import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { roundToCent } from "~/lib/money";
 import {
@@ -15,6 +18,14 @@ import {
 	semesterbeitragCharges,
 	semesterbeitragRuns,
 } from "~/server/db/schema";
+import type { TenantDb } from "~/server/db/tenants";
+import { defineAction } from "~/server/lib/define-action";
+import {
+	ConflictError,
+	DomainError,
+	NotFoundError,
+	ValidationError,
+} from "~/server/lib/domain-error";
 import {
 	getTenantMemberStatuses,
 	makeBeitragspflichtigMatcher,
@@ -47,6 +58,7 @@ const createRunSchema = z.object({
 });
 
 async function insertCharges(
+	db: TenantDb,
 	runId: string,
 	baseAmount: number,
 ): Promise<number> {
@@ -81,96 +93,85 @@ async function insertCharges(
 	return beitragMembers.length;
 }
 
-export async function createBeitragRun(input: {
-	name: string;
-	etaplanId: string;
-	kostenpunktId: string;
-	amount: number;
-	mahnungFee: number;
-	dueDate: Date;
-}) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	try {
-		const parsed = createRunSchema.parse(input);
-		// Paid charges count as Ist-Einnahmen of the Kostenpunkt within the run's
-		// Etatplan; a Kostenpunkt of another plan would hide them from both.
-		const [kp] = await db
-			.select({ etaplanId: kostenpunkte.etaplanId })
-			.from(kostenpunkte)
-			.where(eq(kostenpunkte.id, parsed.kostenpunktId))
-			.limit(1);
-		if (!kp) {
-			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
-		}
-		if (kp.etaplanId !== parsed.etaplanId) {
-			return {
-				success: false as const,
-				error: "Der Kostenpunkt gehört nicht zum gewählten Etatplan.",
-			};
-		}
-		const runId = crypto.randomUUID();
-		await db.insert(semesterbeitragRuns).values({
-			id: runId,
-			name: parsed.name,
-			etaplanId: parsed.etaplanId,
-			kostenpunktId: parsed.kostenpunktId,
-			amount: roundToCent(parsed.amount),
-			mahnungFee: roundToCent(parsed.mahnungFee),
-			dueDate: parsed.dueDate,
-			createdBy: guard.userId,
-		});
-		const chargesCreated = await insertCharges(runId, parsed.amount);
-		revalidatePath("/cc-kasse");
-		return { success: true as const, data: { runId, chargesCreated } };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error creating Beitragslauf:", error);
-		return { success: false as const, error: "Fehler beim Erstellen" };
-	}
-}
+const RUN_NOT_FOUND = "Lauf nicht gefunden";
 
-// Add charges for beitragspflichtige members who don't yet have one (e.g. a
-// member became beitragspflichtig after the run was created).
-export async function regenerateCharges(runId: string) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
+async function findRun(db: TenantDb, runId: string) {
 	const run = await db.query.semesterbeitragRuns.findFirst({
 		where: (t, { eq }) => eq(t.id, runId),
 	});
 	if (!run) {
-		return { success: false as const, error: "Lauf nicht gefunden" };
+		throw new NotFoundError(RUN_NOT_FOUND);
 	}
-	const added = await insertCharges(runId, run.amount);
-	revalidatePath("/cc-kasse");
-	return { success: true as const, data: { checked: added } };
+	return run;
 }
+
+export const createBeitragRun = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([createRunSchema]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Fehler beim Erstellen",
+	},
+	async ([input], { tenant, user }) => {
+		// Paid charges count as Ist-Einnahmen of the Kostenpunkt within the run's
+		// Etatplan; a Kostenpunkt of another plan would hide them from both.
+		const [kp] = await tenant.db
+			.select({ etaplanId: kostenpunkte.etaplanId })
+			.from(kostenpunkte)
+			.where(eq(kostenpunkte.id, input.kostenpunktId))
+			.limit(1);
+		if (!kp) {
+			throw new NotFoundError("Kostenpunkt nicht gefunden");
+		}
+		if (kp.etaplanId !== input.etaplanId) {
+			throw new ValidationError(
+				"Der Kostenpunkt gehört nicht zum gewählten Etatplan.",
+			);
+		}
+		const runId = crypto.randomUUID();
+		await tenant.db.insert(semesterbeitragRuns).values({
+			id: runId,
+			name: input.name,
+			etaplanId: input.etaplanId,
+			kostenpunktId: input.kostenpunktId,
+			amount: roundToCent(input.amount),
+			mahnungFee: roundToCent(input.mahnungFee),
+			dueDate: input.dueDate,
+			createdBy: user.id,
+		});
+		const chargesCreated = await insertCharges(tenant.db, runId, input.amount);
+		return { runId, chargesCreated };
+	},
+);
+
+// Add charges for beitragspflichtige members who don't yet have one (e.g. a
+// member became beitragspflichtig after the run was created).
+export const regenerateCharges = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/cc-kasse"],
+	},
+	async ([runId], { tenant }) => {
+		const run = await findRun(tenant.db, runId);
+		const added = await insertCharges(tenant.db, runId, run.amount);
+		return { checked: added };
+	},
+);
 
 // Delete a run created by mistake. Blocked once any Beitrag is paid — paid
 // charges are financial records (they count as Ist-Einnahmen in the Etatplan
 // overview). Open/gemahnte charges are removed with the run.
-export async function deleteBeitragRun(runId: string) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	try {
-		const run = await db.query.semesterbeitragRuns.findFirst({
-			where: (t, { eq }) => eq(t.id, runId),
-		});
-		if (!run) {
-			return { success: false as const, error: "Lauf nicht gefunden" };
-		}
-		const [row] = await db
+export const deleteBeitragRun = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Fehler beim Löschen",
+	},
+	async ([runId], { tenant }) => {
+		await findRun(tenant.db, runId);
+		const [row] = await tenant.db
 			.select({ c: sql<number>`count(*)` })
 			.from(semesterbeitragCharges)
 			.where(
@@ -180,26 +181,19 @@ export async function deleteBeitragRun(runId: string) {
 				),
 			);
 		if (Number(row?.c ?? 0) > 0) {
-			return {
-				success: false as const,
-				error:
-					"Der Lauf hat bereits bezahlte Beiträge und kann nicht gelöscht werden.",
-			};
+			throw new ConflictError(
+				"Der Lauf hat bereits bezahlte Beiträge und kann nicht gelöscht werden.",
+			);
 		}
 		// Explicit charge delete first — don't rely on FK cascade being enforced.
-		await db
+		await tenant.db
 			.delete(semesterbeitragCharges)
 			.where(eq(semesterbeitragCharges.runId, runId));
-		await db
+		await tenant.db
 			.delete(semesterbeitragRuns)
 			.where(eq(semesterbeitragRuns.id, runId));
-		revalidatePath("/cc-kasse");
-		return { success: true as const };
-	} catch (error) {
-		console.error("Error deleting Beitragslauf:", error);
-		return { success: false as const, error: "Fehler beim Löschen" };
-	}
-}
+	},
+);
 
 // ─── Charges ──────────────────────────────────────────────────────────────────
 
@@ -239,228 +233,223 @@ export type ChargesForRun = NonNullable<
 >;
 export type ChargeListItem = ChargesForRun["charges"][number];
 
-export async function markChargePaid(chargeId: string) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	await db
-		.update(semesterbeitragCharges)
-		.set({ status: "Bezahlt", paidAt: new Date(), paidBy: guard.userId })
-		.where(eq(semesterbeitragCharges.id, chargeId));
-	revalidatePath("/cc-kasse");
-	return { success: true as const };
-}
+export const markChargePaid = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/cc-kasse"],
+	},
+	async ([chargeId], { tenant, user }) => {
+		await tenant.db
+			.update(semesterbeitragCharges)
+			.set({ status: "Bezahlt", paidAt: tenant.now(), paidBy: user.id })
+			.where(eq(semesterbeitragCharges.id, chargeId));
+	},
+);
 
-export async function markChargeDeferred(chargeId: string) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	await db
-		.update(semesterbeitragCharges)
-		.set({ status: "Gestundet", paidAt: null, paidBy: null })
-		.where(eq(semesterbeitragCharges.id, chargeId));
-	revalidatePath("/cc-kasse");
-	return { success: true as const };
-}
+export const markChargeDeferred = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/cc-kasse"],
+	},
+	async ([chargeId], { tenant }) => {
+		await tenant.db
+			.update(semesterbeitragCharges)
+			.set({ status: "Gestundet", paidAt: null, paidBy: null })
+			.where(eq(semesterbeitragCharges.id, chargeId));
+	},
+);
 
-export async function markChargeUnpaid(chargeId: string) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	const charge = await db.query.semesterbeitragCharges.findFirst({
-		where: (t, { eq }) => eq(t.id, chargeId),
-		columns: { id: true, mahnungSentAt: true },
-	});
-	if (!charge) {
-		return { success: false as const, error: "Nicht gefunden" };
-	}
-	await db
-		.update(semesterbeitragCharges)
-		.set({
-			status: charge.mahnungSentAt ? "Gemahnt" : "Offen",
-			paidAt: null,
-			paidBy: null,
-		})
-		.where(eq(semesterbeitragCharges.id, chargeId));
-	revalidatePath("/cc-kasse");
-	return { success: true as const };
-}
+export const markChargeUnpaid = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/cc-kasse"],
+	},
+	async ([chargeId], { tenant }) => {
+		const charge = await tenant.db.query.semesterbeitragCharges.findFirst({
+			where: (t, { eq }) => eq(t.id, chargeId),
+			columns: { id: true, mahnungSentAt: true },
+		});
+		if (!charge) {
+			throw new NotFoundError("Nicht gefunden");
+		}
+		await tenant.db
+			.update(semesterbeitragCharges)
+			.set({
+				status: charge.mahnungSentAt ? "Gemahnt" : "Offen",
+				paidAt: null,
+				paidBy: null,
+			})
+			.where(eq(semesterbeitragCharges.id, chargeId));
+	},
+);
 
 // ─── Email / Mahnung send loops ───────────────────────────────────────────────
 
-export async function sendBeitragEmails(
-	runId: string,
-	opts?: { onlyUnsent?: boolean },
-) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
+/** A charge that could not be sent; counted, and logged unless expected. */
+function logSendFailure(what: string, chargeId: string, err: unknown) {
+	// A missing CC-Kasse account or charge is the user's to fix, not a bug.
+	if (!(err instanceof DomainError)) {
+		console.error(`${what} send failed for charge`, chargeId, err);
 	}
-	const onlyUnsent = opts?.onlyUnsent ?? true;
-	const run = await db.query.semesterbeitragRuns.findFirst({
-		where: (t, { eq }) => eq(t.id, runId),
-	});
-	if (!run) {
-		return { success: false as const, error: "Lauf nicht gefunden" };
-	}
-
-	// Paid charges never get an invoice (again).
-	const charges = await db.query.semesterbeitragCharges.findMany({
-		where: and(
-			eq(semesterbeitragCharges.runId, runId),
-			ne(semesterbeitragCharges.status, "Bezahlt"),
-		),
-		with: { member: { columns: { email: true } } },
-	});
-
-	let emailed = 0;
-	let lettersPending = 0;
-	let failed = 0;
-	for (const c of charges) {
-		if (onlyUnsent && c.emailSentAt) {
-			continue;
-		}
-		try {
-			const pdf = await generateBeitragPDF(c.id, { isMahnung: false });
-			if (!pdf.success) {
-				failed++;
-				continue;
-			}
-			const email = c.member?.email;
-			if (email) {
-				await sendBeitragEmail(
-					email,
-					c.memberName,
-					run.name,
-					c.baseAmount + c.mahnungAmount,
-					pdf.pdfContent,
-					pdf.fileName,
-				);
-				await db
-					.update(semesterbeitragCharges)
-					.set({ emailSentAt: new Date(), deliveryMethod: "email" })
-					.where(eq(semesterbeitragCharges.id, c.id));
-				emailed++;
-			} else {
-				await db
-					.update(semesterbeitragCharges)
-					.set({ deliveryMethod: "letter" })
-					.where(eq(semesterbeitragCharges.id, c.id));
-				lettersPending++;
-			}
-		} catch (err) {
-			console.error("Beitrag send failed for charge", c.id, err);
-			failed++;
-		}
-	}
-	revalidatePath("/cc-kasse");
-	return { success: true as const, emailed, lettersPending, failed };
 }
 
-export async function sendMahnungen(runId: string) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	const run = await db.query.semesterbeitragRuns.findFirst({
-		where: (t, { eq }) => eq(t.id, runId),
-	});
-	if (!run) {
-		return { success: false as const, error: "Lauf nicht gefunden" };
-	}
-	if (run.dueDate.getTime() >= Date.now()) {
+export const sendBeitragEmails = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([
+			z.string(),
+			z.object({ onlyUnsent: z.boolean().optional() }).optional(),
+		]),
+		revalidate: ["/cc-kasse"],
+	},
+	async ([runId, opts], { tenant }) => {
+		const { db } = tenant;
+		const onlyUnsent = opts?.onlyUnsent ?? true;
+		const run = await findRun(db, runId);
+
+		// Paid charges never get an invoice (again).
+		const charges = await db.query.semesterbeitragCharges.findMany({
+			where: and(
+				eq(semesterbeitragCharges.runId, runId),
+				ne(semesterbeitragCharges.status, "Bezahlt"),
+			),
+			with: { member: { columns: { email: true } } },
+		});
+
+		let emailed = 0;
+		let lettersPending = 0;
+		let failed = 0;
+		for (const c of charges) {
+			if (onlyUnsent && c.emailSentAt) {
+				continue;
+			}
+			try {
+				const pdf = await generateBeitragPDF(db, c.id, { isMahnung: false });
+				const email = c.member?.email;
+				if (email) {
+					await sendBeitragEmail(
+						email,
+						c.memberName,
+						run.name,
+						c.baseAmount + c.mahnungAmount,
+						pdf.pdfContent,
+						pdf.fileName,
+					);
+					await db
+						.update(semesterbeitragCharges)
+						.set({ emailSentAt: tenant.now(), deliveryMethod: "email" })
+						.where(eq(semesterbeitragCharges.id, c.id));
+					emailed++;
+				} else {
+					await db
+						.update(semesterbeitragCharges)
+						.set({ deliveryMethod: "letter" })
+						.where(eq(semesterbeitragCharges.id, c.id));
+					lettersPending++;
+				}
+			} catch (err) {
+				logSendFailure("Beitrag", c.id, err);
+				failed++;
+			}
+		}
+		return { emailed, lettersPending, failed };
+	},
+);
+
+export const sendMahnungen = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/cc-kasse"],
+	},
+	async ([runId], { tenant }) => {
+		const { db } = tenant;
+		const run = await findRun(db, runId);
+		if (run.dueDate.getTime() >= tenant.now().getTime()) {
+			throw new ConflictError("Fälligkeitsdatum noch nicht erreicht.");
+		}
+
+		// Only open charges are reminded. Deferred charges are deliberately excluded.
+		const charges = await db.query.semesterbeitragCharges.findMany({
+			where: (t, { and, eq }) => and(eq(t.runId, runId), eq(t.status, "Offen")),
+			with: { member: { columns: { email: true } } },
+		});
+
+		let emailed = 0;
+		let lettersPending = 0;
+		let failed = 0;
+		let processed = 0;
+		for (const c of charges) {
+			if (c.mahnungSentAt) {
+				continue;
+			}
+			processed++;
+			try {
+				// Build and deliver first; the charge only becomes Gemahnt (with fee
+				// and mahnungSentAt) once that succeeded, so a failed reminder stays
+				// Offen and is retried on the next run.
+				const pdf = await generateBeitragPDF(db, c.id, { isMahnung: true });
+				const email = c.member?.email;
+				if (email) {
+					await sendMahnungEmail(
+						email,
+						c.memberName,
+						run.name,
+						c.baseAmount + run.mahnungFee,
+						pdf.pdfContent,
+						pdf.fileName,
+					);
+				}
+				// Guarded so a payment booked while the reminder was being sent is
+				// not overwritten.
+				await db
+					.update(semesterbeitragCharges)
+					.set({
+						status: "Gemahnt",
+						mahnungAmount: run.mahnungFee,
+						mahnungSentAt: tenant.now(),
+						deliveryMethod: email ? "email" : "letter",
+					})
+					.where(
+						and(
+							eq(semesterbeitragCharges.id, c.id),
+							eq(semesterbeitragCharges.status, "Offen"),
+							isNull(semesterbeitragCharges.mahnungSentAt),
+						),
+					);
+				if (email) {
+					emailed++;
+				} else {
+					lettersPending++;
+				}
+			} catch (err) {
+				logSendFailure("Mahnung", c.id, err);
+				failed++;
+			}
+		}
+		return { processed, emailed, lettersPending, failed };
+	},
+);
+
+export const downloadChargePdf = defineAction(
+	{
+		roles: BEITRAG_ROLES,
+		schema: z.tuple([
+			z.string(),
+			z.object({ isMahnung: z.boolean().optional() }).optional(),
+		]),
+		errorMessage: "PDF konnte nicht erstellt werden",
+	},
+	async ([chargeId, opts], { tenant }) => {
+		const pdf = await generateBeitragPDF(tenant.db, chargeId, {
+			isMahnung: opts?.isMahnung ?? false,
+		});
 		return {
-			success: false as const,
-			error: "Fälligkeitsdatum noch nicht erreicht.",
+			base64: pdf.pdfContent.toString("base64"),
+			fileName: pdf.fileName,
 		};
-	}
-
-	// Only open charges are reminded. Deferred charges are deliberately excluded.
-	const charges = await db.query.semesterbeitragCharges.findMany({
-		where: (t, { and, eq }) => and(eq(t.runId, runId), eq(t.status, "Offen")),
-		with: { member: { columns: { email: true } } },
-	});
-
-	let emailed = 0;
-	let lettersPending = 0;
-	let failed = 0;
-	let processed = 0;
-	for (const c of charges) {
-		if (c.mahnungSentAt) {
-			continue;
-		}
-		processed++;
-		try {
-			// Build and deliver first; the charge only becomes Gemahnt (with fee
-			// and mahnungSentAt) once that succeeded, so a failed reminder stays
-			// Offen and is retried on the next run.
-			const pdf = await generateBeitragPDF(c.id, { isMahnung: true });
-			if (!pdf.success) {
-				failed++;
-				continue;
-			}
-			const email = c.member?.email;
-			if (email) {
-				await sendMahnungEmail(
-					email,
-					c.memberName,
-					run.name,
-					c.baseAmount + run.mahnungFee,
-					pdf.pdfContent,
-					pdf.fileName,
-				);
-			}
-			// Guarded so a payment booked while the reminder was being sent is
-			// not overwritten.
-			await db
-				.update(semesterbeitragCharges)
-				.set({
-					status: "Gemahnt",
-					mahnungAmount: run.mahnungFee,
-					mahnungSentAt: new Date(),
-					deliveryMethod: email ? "email" : "letter",
-				})
-				.where(
-					and(
-						eq(semesterbeitragCharges.id, c.id),
-						eq(semesterbeitragCharges.status, "Offen"),
-						isNull(semesterbeitragCharges.mahnungSentAt),
-					),
-				);
-			if (email) {
-				emailed++;
-			} else {
-				lettersPending++;
-			}
-		} catch (err) {
-			console.error("Mahnung send failed for charge", c.id, err);
-			failed++;
-		}
-	}
-	revalidatePath("/cc-kasse");
-	return { success: true as const, processed, emailed, lettersPending, failed };
-}
-
-export async function downloadChargePdf(
-	chargeId: string,
-	opts?: { isMahnung?: boolean },
-) {
-	const guard = await requireRoles(BEITRAG_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	const pdf = await generateBeitragPDF(chargeId, {
-		isMahnung: opts?.isMahnung ?? false,
-	});
-	if (!pdf.success) {
-		return { success: false as const, error: pdf.error };
-	}
-	return {
-		success: true as const,
-		base64: pdf.pdfContent.toString("base64"),
-		fileName: pdf.fileName,
-	};
-}
+	},
+);
