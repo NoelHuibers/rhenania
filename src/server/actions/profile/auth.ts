@@ -1,13 +1,17 @@
 // ~/server/actions/auth.ts
 "use server";
 
+// The caller's sign-in methods: linked providers and the password. The
+// accounts live in the control DB (one login across all Corps). Every
+// action answers with an ActionResult (#216).
+
 import bcrypt from "bcryptjs";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { auth } from "~/server/auth";
+import { z } from "zod";
 import { controlDb } from "~/server/db/control";
 import { accounts } from "~/server/db/control-schema";
-import { requireMember } from "~/server/lib/authz";
+import { ActionError, defineAction } from "~/server/lib/define-action";
 import { getCurrentTenantAzureConfig } from "~/server/lib/tenant-azure-config";
 
 // Map a UI-facing provider name (e.g. "microsoft") to the per-tenant
@@ -21,35 +25,20 @@ async function resolveProviderId(uiName: string): Promise<string | null> {
 	return uiName;
 }
 
-type ActionResult<T = void> = {
-	success: boolean;
-	error?: string;
-	data?: T;
-};
+const PROVIDER_NOT_CONFIGURED =
+	"Dieser Anbieter ist für deine Verbindung nicht eingerichtet";
+const PASSWORD_TOO_SHORT =
+	"Das neue Passwort muss mindestens 8 Zeichen lang sein";
 
-export async function getConnectedAccountsAction(): Promise<
-	ActionResult<{
-		accounts: Array<{ provider: string }>;
-		hasPassword: boolean;
-	}>
-> {
-	await requireMember();
-	try {
-		const session = await auth();
-
-		if (!session?.user?.id) {
-			return { success: false, error: "Unauthorized" };
-		}
-
+export const getConnectedAccountsAction = defineAction(
+	{ errorMessage: "Verbundene Konten konnten nicht geladen werden" },
+	async ({ user }) => {
 		const userAccounts = await controlDb
 			.select({ provider: accounts.providerId })
 			.from(accounts)
-			.where(eq(accounts.userId, session.user.id));
+			.where(eq(accounts.userId, user.id));
 
-		const credentialAccount = userAccounts.find(
-			(a) => a.provider === "credential",
-		);
-		const hasPassword = credentialAccount !== undefined;
+		const hasPassword = userAccounts.some((a) => a.provider === "credential");
 
 		// Normalize per-tenant providerIds (microsoft-<slug>) back to the UI
 		// name "microsoft" for the current tenant; hide accounts belonging to
@@ -70,134 +59,104 @@ export async function getConnectedAccountsAction(): Promise<
 					a.provider === currentMicrosoftProviderId ? "microsoft" : a.provider,
 			}));
 
-		return {
-			success: true,
-			data: {
-				accounts: visible,
-				hasPassword,
-			},
-		};
-	} catch (error) {
-		console.error("Error fetching connected accounts:", error);
-		return { success: false, error: "Failed to fetch connected accounts" };
-	}
-}
+		return { accounts: visible, hasPassword };
+	},
+);
 
-export async function disconnectProviderAction(
-	provider: string,
-): Promise<ActionResult> {
-	try {
-		const session = await auth();
-
-		if (!session?.user?.id) {
-			return { success: false, error: "Unauthorized" };
-		}
-
-		if (!provider) {
-			return { success: false, error: "Provider is required" };
-		}
-
+export const disconnectProviderAction = defineAction(
+	{
+		schema: z.tuple([z.string().min(1, "Anbieter fehlt")]),
+		errorMessage: "Konto konnte nicht getrennt werden",
+	},
+	async ([provider], { user }) => {
 		const userAccounts = await controlDb
 			.select({ provider: accounts.providerId, id: accounts.id })
 			.from(accounts)
-			.where(eq(accounts.userId, session.user.id));
+			.where(eq(accounts.userId, user.id));
 
 		const hasPassword = userAccounts.some((a) => a.provider === "credential");
 		const providerId = await resolveProviderId(provider);
 		if (!providerId) {
-			return {
-				success: false,
-				error: "Provider not configured for this tenant",
-			};
+			throw new ActionError(PROVIDER_NOT_CONFIGURED, "NOT_CONFIGURED");
 		}
 
 		if (!hasPassword && userAccounts.length <= 1) {
-			return {
-				success: false,
-				error:
-					"Cannot disconnect your only login method. Set up a password first.",
-			};
+			throw new ActionError(
+				"Das ist deine einzige Anmeldemethode. Lege zuerst ein Passwort fest.",
+				"LAST_LOGIN_METHOD",
+			);
 		}
 
 		await controlDb
 			.delete(accounts)
 			.where(
-				and(
-					eq(accounts.userId, session.user.id),
-					eq(accounts.providerId, providerId),
-				),
+				and(eq(accounts.userId, user.id), eq(accounts.providerId, providerId)),
 			);
 
 		revalidatePath("/", "layout");
-		return { success: true };
-	} catch (error) {
-		console.error("Error disconnecting provider:", error);
-		return { success: false, error: "Failed to disconnect provider" };
-	}
-}
+	},
+);
 
-export async function changePasswordAction({
-	currentPassword,
-	newPassword,
-}: {
-	currentPassword?: string;
-	newPassword: string;
-}): Promise<ActionResult> {
-	try {
-		const session = await auth();
-
-		if (!session?.user?.id) {
-			return { success: false, error: "Unauthorized" };
-		}
-
-		if (!newPassword || newPassword.length < 8) {
-			return {
-				success: false,
-				error: "New password must be at least 8 characters long",
-			};
-		}
-
-		const credentialAccount = await controlDb
+export const changePasswordAction = defineAction(
+	{
+		schema: z.tuple([
+			z.object({
+				currentPassword: z.string().optional(),
+				newPassword: z
+					.string({ error: PASSWORD_TOO_SHORT })
+					.min(8, PASSWORD_TOO_SHORT),
+			}),
+		]),
+		errorMessage: "Passwort konnte nicht geändert werden",
+	},
+	async ([{ currentPassword, newPassword }], { user }) => {
+		const [credentialAccount] = await controlDb
 			.select()
 			.from(accounts)
 			.where(
 				and(
-					eq(accounts.userId, session.user.id),
+					eq(accounts.userId, user.id),
 					eq(accounts.providerId, "credential"),
 				),
 			)
 			.limit(1);
 
-		if (credentialAccount[0]?.password && currentPassword) {
+		if (credentialAccount?.password && currentPassword) {
 			const isValidPassword = await bcrypt.compare(
 				currentPassword,
-				credentialAccount[0].password,
+				credentialAccount.password,
 			);
 			if (!isValidPassword) {
-				return { success: false, error: "Current password is incorrect" };
+				throw new ActionError(
+					"Das aktuelle Passwort ist falsch",
+					"WRONG_PASSWORD",
+				);
 			}
-		} else if (credentialAccount[0]?.password && !currentPassword) {
-			return { success: false, error: "Current password is required" };
+		} else if (credentialAccount?.password && !currentPassword) {
+			throw new ActionError(
+				"Bitte gib dein aktuelles Passwort ein",
+				"INVALID_INPUT",
+			);
 		}
 
 		const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-		if (credentialAccount[0]) {
+		if (credentialAccount) {
 			await controlDb
 				.update(accounts)
 				.set({ password: hashedPassword, updatedAt: new Date() })
 				.where(
 					and(
-						eq(accounts.userId, session.user.id),
+						eq(accounts.userId, user.id),
 						eq(accounts.providerId, "credential"),
 					),
 				);
 		} else {
 			// No credential account yet — create one
 			await controlDb.insert(accounts).values({
-				accountId: session.user.email ?? session.user.id,
+				accountId: user.email ?? user.id,
 				providerId: "credential",
-				userId: session.user.id,
+				userId: user.id,
 				password: hashedPassword,
 				createdAt: new Date(),
 				updatedAt: new Date(),
@@ -205,38 +164,24 @@ export async function changePasswordAction({
 		}
 
 		revalidatePath("/", "layout");
-		return { success: true };
-	} catch (error) {
-		console.error("Error changing password:", error);
-		return { success: false, error: "Failed to change password" };
-	}
-}
+	},
+);
 
-export async function connectProviderAction(
-	provider: string,
-): Promise<ActionResult<{ providerId: string }>> {
-	await requireMember();
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			return { success: false, error: "Unauthorized" };
-		}
-
+export const connectProviderAction = defineAction(
+	{
+		schema: z.tuple([z.string()]),
+		errorMessage: "Konto konnte nicht verknüpft werden",
+	},
+	async ([provider]) => {
 		const providerId = await resolveProviderId(provider.toLowerCase());
 		if (!providerId) {
-			return {
-				success: false,
-				error: "Provider not configured for this tenant",
-			};
+			throw new ActionError(PROVIDER_NOT_CONFIGURED, "NOT_CONFIGURED");
 		}
 
 		// The client takes this providerId and calls
 		// `authClient.signIn.social({ provider: providerId, callbackURL })` —
 		// a redirect URL won't work because Better Auth's social sign-in is a
 		// POST endpoint.
-		return { success: true, data: { providerId } };
-	} catch (error) {
-		console.error("Error connecting provider:", error);
-		return { success: false, error: "Failed to connect provider" };
-	}
-}
+		return { providerId };
+	},
+);
