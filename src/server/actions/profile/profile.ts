@@ -5,12 +5,14 @@ import {
 	Client,
 } from "@microsoft/microsoft-graph-client";
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { auth } from "~/server/auth";
 import { getGraphAccessToken } from "~/server/auth/microsoft-tokens";
 import { db } from "~/server/db";
 import { roles, userRoles, users } from "~/server/db/schema";
+import { ActionError, defineAction } from "~/server/lib/define-action";
+import { NotFoundError, ValidationError } from "~/server/lib/domain-error";
 import { log } from "~/server/lib/log";
 import { updateUserIdentity } from "~/server/lib/user-mirror";
 
@@ -110,7 +112,7 @@ async function updateIdentityOrThrow(
 ): Promise<void> {
 	const updated = await updateUserIdentity(userId, patch);
 	if (!updated) {
-		throw new Error("User not found");
+		throw new NotFoundError("Benutzer nicht gefunden");
 	}
 }
 
@@ -157,84 +159,74 @@ export async function getUserProfile() {
 	}
 }
 
-// Update user name
-export async function updateUserName(formData: FormData) {
-	const session = await auth();
+const nameSchema = z
+	.string({ error: "Bitte gib einen Namen ein" })
+	.trim()
+	.min(1, "Bitte gib einen Namen ein")
+	.max(255, "Der Name darf höchstens 255 Zeichen lang sein");
 
-	if (!session?.user?.id) {
-		redirect("/auth/signin");
-	}
+/** Renames the caller (form field `name`), on the global identity. */
+export const updateUserName = defineAction(
+	{
+		schema: z.tuple([z.instanceof(FormData)]),
+		errorMessage: "Name konnte nicht geändert werden",
+		revalidate: ["/profile"],
+	},
+	async ([formData], { user }) => {
+		const name = nameSchema.safeParse(formData.get("name") ?? "");
+		if (!name.success) {
+			throw new ValidationError(
+				name.error.issues[0]?.message ?? "Ungültiger Name",
+			);
+		}
+		await updateIdentityOrThrow(user.id, { name: name.data });
+	},
+);
 
-	const name = formData.get("name") as string;
+const FIELD_LABELS = { name: "Name", image: "Profilbild" } as const;
 
-	if (!name || name.trim().length === 0) {
-		throw new Error("Name is required");
-	}
+/** Takes over the caller's Microsoft display name and photo. */
+export const syncFromMicrosoft = defineAction(
+	{
+		errorMessage: "Abgleich mit Microsoft fehlgeschlagen",
+		revalidate: ["/profile"],
+	},
+	async ({ user }) => {
+		const token = await getGraphAccessToken(user.id);
+		// Only members signed in with Microsoft have a token.
+		if (!token) {
+			throw new ActionError(
+				"Kein Microsoft-Zugang verfügbar. Melde dich mit Microsoft an, um dein Profil abzugleichen.",
+				"NO_MICROSOFT_TOKEN",
+			);
+		}
 
-	if (name.trim().length > 255) {
-		throw new Error("Name is too long");
-	}
-
-	try {
-		await updateIdentityOrThrow(session.user.id, { name: name.trim() });
-
-		revalidatePath("/profile");
-		return { success: true, message: "Name updated successfully" };
-	} catch (error) {
-		console.error("Error updating user name:", error);
-		throw new Error("Failed to update name");
-	}
-}
-
-// Sync profile from Microsoft Graph API
-export async function syncFromMicrosoft() {
-	const session = await auth();
-
-	if (!session?.user?.id) {
-		redirect("/auth/signin");
-	}
-	const token = await getGraphAccessToken(session.user.id);
-
-	// Check if user has access token (logged in via Microsoft)
-	if (!token) {
-		throw new Error(
-			"Microsoft access token not available. Please sign in with Microsoft to sync profile.",
-		);
-	}
-
-	try {
-		// Fetch user profile from Microsoft Graph
 		const graphUser = await fetchUserProfile(token);
-
-		// Fetch user photo from Microsoft Graph
 		const photoUrl = await fetchUserPhoto(token);
 
-		// Prepare update data
 		const updateData: Partial<{
 			name: string | null;
 			image: string | null;
 		}> = {};
-
 		if (graphUser.displayName) {
 			updateData.name = graphUser.displayName;
 		}
-
 		if (photoUrl) {
 			updateData.image = photoUrl;
 		}
 
-		// Only update if we have data to update
-		if (Object.keys(updateData).length > 0) {
-			await updateIdentityOrThrow(session.user.id, updateData);
+		const updated = Object.keys(updateData) as (keyof typeof updateData)[];
+		if (updated.length > 0) {
+			await updateIdentityOrThrow(user.id, updateData);
 		}
 
-		revalidatePath("/profile");
-
 		return {
-			success: true,
-			message: `Profile synced from Microsoft successfully. Updated: ${Object.keys(
-				updateData,
-			).join(", ")}`,
+			message:
+				updated.length > 0
+					? `Profil mit Microsoft abgeglichen. Aktualisiert: ${updated
+							.map((key) => FIELD_LABELS[key])
+							.join(", ")}`
+					: "Profil mit Microsoft abgeglichen. Nichts zu aktualisieren.",
 			syncedData: {
 				name: graphUser.displayName,
 				hasPhoto: !!photoUrl,
@@ -246,30 +238,13 @@ export async function syncFromMicrosoft() {
 				businessPhones: graphUser.businessPhones,
 			},
 		};
-	} catch (error) {
-		console.error("Error syncing from Microsoft:", error);
-		throw new Error(
-			`Failed to sync from Microsoft: ${
-				error instanceof Error ? error.message : "Unknown error"
-			}`,
-		);
-	}
-}
+	},
+);
 
-// Refresh profile data (re-fetch from database)
-export async function refreshProfile() {
-	const session = await auth();
-
-	if (!session?.user?.id) {
-		redirect("/auth/signin");
-	}
-
-	try {
-		// Just revalidate the path to trigger a fresh data fetch
-		revalidatePath("/profile");
-		return { success: true, message: "Profile refreshed successfully" };
-	} catch (error) {
-		console.error("Error refreshing profile:", error);
-		throw new Error("Failed to refresh profile");
-	}
-}
+/** Re-renders /profile with fresh data. */
+export const refreshProfile = defineAction(
+	{ revalidate: ["/profile"] },
+	async () => {
+		// Nothing to do but the revalidation.
+	},
+);

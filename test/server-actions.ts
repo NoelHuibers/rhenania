@@ -157,7 +157,8 @@ const ZOD_KINDS: Record<string, string> = {
 
 /**
  * The parameter type a zod schema stands for, as far as the tests care:
- * "string", "number", "boolean", "unknown[]", "object" or "" (anything
+ * "string", "number", "boolean", "unknown[]", "object", the class of a
+ * `z.instanceof(…)` (e.g. "FormData") or "" (anything
  * else). Follows method chains (`z.string().min(1)`) and module constants.
  */
 function zodTypeOf(expr: TS.Expression, sf: TS.SourceFile, hops = 0): string {
@@ -175,7 +176,12 @@ function zodTypeOf(expr: TS.Expression, sf: TS.SourceFile, hops = 0): string {
 	}
 	const target = expr.expression.expression;
 	if (ts.isIdentifier(target) && target.text === "z") {
-		return ZOD_KINDS[expr.expression.name.text] ?? "";
+		const kind = expr.expression.name.text;
+		// `z.instanceof(FormData)` stands for a FormData parameter.
+		if (kind === "instanceof") {
+			return expr.arguments[0]?.getText(sf) ?? "";
+		}
+		return ZOD_KINDS[kind] ?? "";
 	}
 	// A method of another schema: `.min(1)`, `.optional()`, …
 	return zodTypeOf(target, sf, hops);
