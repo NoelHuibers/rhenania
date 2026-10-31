@@ -1,4 +1,4 @@
-// service.ts — the Fuchsenladen: bills and payment details (#33).
+// service.ts — the Fuchsenladen: bills, orders and payment details (#33).
 //
 // Domain rules on top of ./repo. Every function takes the TenantScope it
 // works in; failures the user should read are DomainErrors, anything else
@@ -7,18 +7,24 @@
 import "server-only";
 
 import { z } from "zod";
-import { addMoney } from "~/lib/money";
+import { isValidOrderAmount, MAX_ORDER_AMOUNT } from "~/lib/drink-order";
+import { addMoney, roundToCent, sumMoney } from "~/lib/money";
 import { renderFuchsenBillPdf } from "~/server/domain/fuchsenladen/bill-pdf";
 import { fuchsenPeriodCsv } from "~/server/domain/fuchsenladen/csv";
 import {
 	ConflictError,
 	DomainError,
 	NotFoundError,
+	ValidationError,
 } from "~/server/lib/domain-error";
 import type { TenantScope } from "~/server/lib/tenant-scope";
 import * as repo from "./repo";
 
-export type { FuchsenBillingConfig, FuchsenBillPeriod } from "./repo";
+export type {
+	FuchsenBillingConfig,
+	FuchsenBillPeriod,
+	FuchsenOrder,
+} from "./repo";
 
 // ─── Bills ───────────────────────────────────────────────────────────────────
 
@@ -259,4 +265,134 @@ export async function saveBillingConfig(
 	userId: string,
 ): Promise<void> {
 	await repo.saveConfig(db, input, { userId, now: now() });
+}
+
+// ─── Orders ──────────────────────────────────────────────────────────────────
+
+/**
+ * Books `amount` x the item to `member`. Name and price come from the item;
+ * whatever the client shows is display-only and never stored.
+ */
+export async function placeOrder(
+	{ db }: TenantScope,
+	member: { id: string },
+	{ itemId, amount }: { itemId: string; amount: number },
+): Promise<{ orderId: string | undefined }> {
+	if (!isValidOrderAmount(amount)) {
+		throw new ValidationError(
+			`Bitte eine ganze Anzahl zwischen 1 und ${MAX_ORDER_AMOUNT} wählen`,
+		);
+	}
+	const item = await repo.itemForOrder(db, itemId);
+	if (!item?.available) {
+		throw new ValidationError("Artikel nicht verfügbar", "UNAVAILABLE");
+	}
+	const userName = await repo.userNameOf(db, member.id);
+	if (!userName) {
+		throw new NotFoundError("Benutzername konnte nicht ermittelt werden");
+	}
+
+	const order = await repo.insertOrder(db, {
+		userId: member.id,
+		userName,
+		itemId: item.id,
+		itemName: item.name,
+		amount,
+		pricePerUnit: item.price,
+		total: roundToCent(item.price * amount),
+	});
+	return { orderId: order?.id };
+}
+
+/** The member's orders, newest first. */
+export async function memberOrders({ db }: TenantScope, userId: string) {
+	return repo.ordersOf(db, userId);
+}
+
+/** What the member has open and paid in the Fuchsenladen. */
+export async function memberSummary({ db }: TenantScope, userId: string) {
+	const orders = await repo.orderTotalsOf(db, userId);
+	const open = orders.filter((o) => o.status === "Offen");
+	return {
+		openTotal: sumMoney(open.map((o) => o.total)),
+		paidTotal: sumMoney(
+			orders.filter((o) => o.status === "Bezahlt").map((o) => o.total),
+		),
+		openCount: open.length,
+	};
+}
+
+/** One row per member with their totals (Fuchsenwart view). */
+export interface FuchsenUserBill {
+	userId: string;
+	userName: string;
+	openTotal: number;
+	paidTotal: number;
+	openCount: number;
+	totalCount: number;
+}
+
+/** Every member's order totals, highest open amount first. */
+export async function billsByMember({
+	db,
+}: TenantScope): Promise<FuchsenUserBill[]> {
+	const orders = await repo.allOrders(db);
+
+	const byUser = new Map<string, FuchsenUserBill>();
+	for (const order of orders) {
+		const existing = byUser.get(order.userId) ?? {
+			userId: order.userId,
+			userName: order.userName,
+			openTotal: 0,
+			paidTotal: 0,
+			openCount: 0,
+			totalCount: 0,
+		};
+		existing.totalCount += 1;
+		if (order.status === "Offen") {
+			existing.openTotal = addMoney(existing.openTotal, order.total);
+			existing.openCount += 1;
+		} else {
+			existing.paidTotal = addMoney(existing.paidTotal, order.total);
+		}
+		byUser.set(order.userId, existing);
+	}
+
+	return Array.from(byUser.values()).sort((a, b) => b.openTotal - a.openTotal);
+}
+
+/**
+ * Sets an unbilled order's status. A billed order is part of its bill's
+ * total; paying it alone would leave the bill open and the amount would be
+ * carried again (#143).
+ */
+export async function setOrderStatus(
+	{ db, now }: TenantScope,
+	orderId: string,
+	status: "Offen" | "Bezahlt",
+) {
+	const order = await repo.findOrderBill(db, orderId);
+	if (!order) {
+		throw new NotFoundError("Bestellung nicht gefunden");
+	}
+	if (order.billId) {
+		throw new ConflictError(
+			"Bestellung ist bereits abgerechnet. Bitte den Status der Rechnung ändern.",
+			"BILLED_ORDER",
+		);
+	}
+	return repo.setOrderStatus(db, orderId, status, now());
+}
+
+/**
+ * "Alle bezahlt" settles everything the member owes: every open order and
+ * every bill that is still open or was carried into a later one, so the
+ * next billing run carries nothing forward (#143).
+ */
+export async function payAllOf(
+	{ db, now }: TenantScope,
+	userId: string,
+): Promise<{ count: number }> {
+	const paid = await repo.payAllOf(db, userId, now());
+	return { count: paid.length };
 }

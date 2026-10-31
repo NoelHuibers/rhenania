@@ -136,7 +136,7 @@ async function seedForeignCorps(other: TestTenant) {
 	});
 	const konto = await createKonto({ description: `${FOREIGN} Konto` });
 	const item = await createFuchsenItem({ name: `${FOREIGN}artikel` });
-	const fuchsenOrder = await createFuchsenOrder({ user, item });
+	await createFuchsenOrder({ user, item });
 
 	// Arguments by parameter name; `id` depends on the module.
 	const byName: Record<string, string> = {
@@ -174,7 +174,6 @@ async function seedForeignCorps(other: TestTenant) {
 		"cc-kasse/einnahmen.ts": einnahme.id,
 		"cc-kasse/kostenerstattungen.ts": reimbursement.id,
 		"fuchsenladen/items.ts": item.id,
-		"fuchsenladen/orders.ts": fuchsenOrder.id,
 	};
 	return { user, byName, idByModule };
 }

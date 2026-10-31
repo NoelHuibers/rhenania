@@ -27,6 +27,7 @@ import {
 	fuchsenBillingConfig,
 	fuchsenBillPeriods,
 	fuchsenBills,
+	fuchsenItems,
 	fuchsenOrders,
 	users,
 } from "~/server/db/schema";
@@ -47,6 +48,8 @@ export type FuchsenBillPeriod = typeof fuchsenBillPeriods.$inferSelect;
 export type FuchsenBill = typeof fuchsenBills.$inferSelect;
 export type FuchsenBillStatus = FuchsenBill["status"];
 type FuchsenBillItem = typeof fuchsenBillItems.$inferSelect;
+export type FuchsenOrder = typeof fuchsenOrders.$inferSelect;
+type FuchsenOrderStatus = FuchsenOrder["status"];
 export type FuchsenBillingConfig = typeof fuchsenBillingConfig.$inferSelect;
 
 /**
@@ -442,6 +445,121 @@ export async function billableOrders(db: TenantDb) {
 		.from(fuchsenOrders)
 		.where(isBillable())
 		.orderBy(fuchsenOrders.userName, fuchsenOrders.createdAt);
+}
+
+/** A member's orders, newest first. */
+export async function ordersOf(db: TenantDb, userId: string) {
+	return db
+		.select()
+		.from(fuchsenOrders)
+		.where(eq(fuchsenOrders.userId, userId))
+		.orderBy(desc(fuchsenOrders.createdAt));
+}
+
+/** A member's orders, unordered (for sums). */
+export async function orderTotalsOf(db: TenantDb, userId: string) {
+	return db
+		.select()
+		.from(fuchsenOrders)
+		.where(eq(fuchsenOrders.userId, userId));
+}
+
+export async function allOrders(db: TenantDb) {
+	return db.select().from(fuchsenOrders);
+}
+
+/** What an order of `itemId` is booked at: its name, price and availability. */
+export async function itemForOrder(db: TenantDb, itemId: string) {
+	const [item] = await db
+		.select({
+			id: fuchsenItems.id,
+			name: fuchsenItems.name,
+			price: fuchsenItems.price,
+			available: fuchsenItems.isCurrentlyAvailable,
+		})
+		.from(fuchsenItems)
+		.where(eq(fuchsenItems.id, itemId))
+		.limit(1);
+	return item ?? null;
+}
+
+/** The member's name as the tenant DB has it, or null. */
+export async function userNameOf(db: TenantDb, userId: string) {
+	const [user] = await db
+		.select({ username: users.name })
+		.from(users)
+		.where(eq(users.id, userId))
+		.limit(1);
+	return user?.username ?? null;
+}
+
+export async function insertOrder(
+	db: TenantDb,
+	values: typeof fuchsenOrders.$inferInsert,
+) {
+	const [order] = await db.insert(fuchsenOrders).values(values).returning();
+	return order;
+}
+
+/** The bill an order is on (null while unbilled), or null if no such order. */
+export async function findOrderBill(db: TenantDb, orderId: string) {
+	const [order] = await db
+		.select({ billId: fuchsenOrders.billId })
+		.from(fuchsenOrders)
+		.where(eq(fuchsenOrders.id, orderId))
+		.limit(1);
+	return order ?? null;
+}
+
+export async function setOrderStatus(
+	db: TenantDb,
+	orderId: string,
+	status: FuchsenOrderStatus,
+	now: Date,
+) {
+	const [updated] = await db
+		.update(fuchsenOrders)
+		.set({
+			status,
+			paidAt: status === "Bezahlt" ? now : null,
+			updatedAt: now,
+		})
+		.where(eq(fuchsenOrders.id, orderId))
+		.returning();
+	return updated;
+}
+
+/**
+ * Pays every open order of the member and every bill of theirs that is
+ * open or carried, in one transaction. Returns the orders it paid.
+ */
+export async function payAllOf(db: TenantDb, userId: string, now: Date) {
+	return db.transaction(async (tx) => {
+		const paid = await tx
+			.update(fuchsenOrders)
+			.set({ status: "Bezahlt", paidAt: now, updatedAt: now })
+			.where(
+				and(
+					eq(fuchsenOrders.userId, userId),
+					eq(fuchsenOrders.status, "Offen"),
+				),
+			)
+			.returning({ id: fuchsenOrders.id });
+		await tx
+			.update(fuchsenBills)
+			.set({ status: "Bezahlt", paidAt: now, updatedAt: now })
+			.where(
+				and(
+					eq(fuchsenBills.userId, userId),
+					inArray(fuchsenBills.status, [
+						"Unbezahlt",
+						"Gestundet",
+						"Übertragen",
+					]),
+				),
+			);
+		return paid;
+	});
 }
 
 // ─── Payment details ─────────────────────────────────────────────────────────

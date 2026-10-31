@@ -18,7 +18,7 @@ import {
 import { IconButton } from "~/components/ui/icon-button";
 import { formatEUR } from "~/lib/format";
 import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
-import { createFuchsenOrder } from "~/server/actions/fuchsenladen/orders";
+import { createFuchsenOrder } from "~/server/modules/fuchsenladen/actions";
 
 interface FuchsenOrderDrawerProps {
 	item: FuchsenItem | null;
@@ -64,13 +64,13 @@ export function FuchsenOrderDrawer({
 					total: item.price * quantity,
 				});
 
-				if (result.success) {
+				if (result.ok) {
 					handleClose();
 					toast.success(
 						`${quantity}x ${item.name} bestellt (${formatEUR(item.price * quantity)})`,
 					);
 				} else {
-					toast.error(result.error || "Ein Fehler ist aufgetreten.");
+					toast.error(result.error);
 				}
 			} catch (error) {
 				console.error("Fuchsen order error:", error);

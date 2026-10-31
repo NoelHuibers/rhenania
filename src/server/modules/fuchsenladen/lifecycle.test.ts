@@ -7,10 +7,6 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { toCents } from "~/lib/money";
-import {
-	createFuchsenOrder,
-	getMyFuchsenSummary,
-} from "~/server/actions/fuchsenladen/orders";
 import { fuchsenBills, fuchsenOrders } from "~/server/db/schema";
 import { createFuchsenItem } from "../../../../test/factories/fuchsenladen";
 import {
@@ -22,10 +18,12 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import {
+	createFuchsenOrder,
 	createNewFuchsenBilling,
 	getFuchsenBillPeriodCSV,
 	getFuchsenBillsForPeriod,
 	getMyFuchsenBills,
+	getMyFuchsenSummary,
 	updateFuchsenBillStatus,
 } from "./actions";
 
@@ -72,7 +70,7 @@ async function bestellen(member: TestUser, item: Item, amount = 1) {
 		total: item.price * amount,
 	});
 	signInAs(fuchsenwart);
-	expect(result.success).toBe(true);
+	expect(result.ok).toBe(true);
 }
 
 async function abrechnen(date: Date) {

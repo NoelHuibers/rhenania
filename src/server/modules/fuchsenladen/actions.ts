@@ -17,6 +17,8 @@ export type {
 	FuchsenBillingConfigInput,
 	FuchsenBillingEntry,
 	FuchsenBillPeriod,
+	FuchsenOrder,
+	FuchsenUserBill,
 } from "./service";
 
 /** The caller's scope if they may run the Fuchsenladen; throws otherwise. */
@@ -111,4 +113,73 @@ export const updateFuchsenBillingConfig = defineAction(
 	},
 	async ([input], { tenant, user }) =>
 		fuchsen.saveBillingConfig(tenant, input, user.id),
+);
+
+// ─── Orders ──────────────────────────────────────────────────────────────────
+
+/**
+ * Books an order for the caller. Only `itemId` and `amount` count: name and
+ * price come from the item, the rest is what the client displays.
+ */
+export const createFuchsenOrder = defineAction(
+	{
+		schema: z.tuple([
+			z.object({
+				itemId: z.string(),
+				itemName: z.string(),
+				amount: z.number(),
+				pricePerUnit: z.number(),
+				total: z.number(),
+			}),
+		]),
+		revalidate: ["/fuchsenladen", "/fuchsenwart", "/profile"],
+		errorMessage:
+			"Bestellung konnte nicht erstellt werden. Bitte erneut versuchen.",
+	},
+	async ([order], { tenant, user }) => fuchsen.placeOrder(tenant, user, order),
+);
+
+/** The caller's orders, newest first. */
+export async function getMyFuchsenOrders() {
+	const { member, tenantId } = await requireCaller();
+	return fuchsen.memberOrders(await scopeOf(tenantId), member.id);
+}
+
+/** What the caller has open and paid. */
+export async function getMyFuchsenSummary() {
+	const { member, tenantId } = await requireCaller();
+	return fuchsen.memberSummary(await scopeOf(tenantId), member.id);
+}
+
+/** One row per member with their totals, highest open amount first. */
+export async function getFuchsenBillsByUser() {
+	return fuchsen.billsByMember(await requireFuchsenwart());
+}
+
+/** A member's orders, newest first. */
+export async function getFuchsenOrdersForUser(userId: string) {
+	return fuchsen.memberOrders(await requireFuchsenwart(), userId);
+}
+
+/** Pays or reopens an order that is on no bill yet. */
+export const updateFuchsenOrderStatus = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		schema: z.tuple([z.string(), z.enum(["Offen", "Bezahlt"])]),
+		revalidate: ["/fuchsenwart", "/profile"],
+		errorMessage: "Fehler beim Aktualisieren des Status",
+	},
+	async ([orderId, status], { tenant }) =>
+		fuchsen.setOrderStatus(tenant, orderId, status),
+);
+
+/** "Alle bezahlt": every open order and open or carried bill of the member. */
+export const markAllUserFuchsenOrdersPaid = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/fuchsenwart", "/profile"],
+		errorMessage: "Fehler beim Markieren als bezahlt",
+	},
+	async ([userId], { tenant }) => fuchsen.payAllOf(tenant, userId),
 );
