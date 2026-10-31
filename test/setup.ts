@@ -178,7 +178,7 @@ vi.mock("~/server/auth", async () => {
 			.from(userRoles)
 			.innerJoin(roles, eq(userRoles.roleId, roles.id))
 			.where(eq(userRoles.userId, user.id));
-		return { user: { ...user, roles: rows.map((r) => r.roleName) } };
+		return { user: { ...user, roles: rows.map((r) => r.roleName) }, tenantId };
 	}
 
 	async function getRequestContext() {
