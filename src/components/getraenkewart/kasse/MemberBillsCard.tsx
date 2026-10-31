@@ -35,8 +35,8 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { formatEUR } from "~/lib/format";
-import { markAllMemberBillsPaid } from "~/server/actions/getraenkewart/kasse";
 import { updateBillStatus } from "~/server/modules/billing/actions";
+import { markAllMemberBillsPaid } from "~/server/modules/getraenkekasse/actions";
 import { billStatusClass, CollapsibleCard } from "./shared";
 import type { BillStatus, MemberBill } from "./types";
 

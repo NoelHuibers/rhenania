@@ -8,16 +8,16 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 import { updateFuchsenBillStatus } from "~/server/actions/fuchsenladen/billings";
-import {
-	getOpenEntityBills,
-	markAllMemberBillsPaid,
-} from "~/server/actions/getraenkewart/kasse";
 import { getStockData } from "~/server/actions/inventur/inventur";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { fuchsenBills } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { getRecentDrinkIds } from "~/server/lib/recent-drinks";
 import { updateBillStatus } from "~/server/modules/billing/actions";
+import {
+	getOpenEntityBills,
+	markAllMemberBillsPaid,
+} from "~/server/modules/getraenkekasse/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,

@@ -13,6 +13,7 @@
 import "server-only";
 
 import { getTenantDb, type TenantDb } from "~/server/db/tenants";
+import { requireTenantId } from "~/server/lib/tenant-context";
 
 export type TenantScope = {
 	readonly tenantId: string;
@@ -36,4 +37,12 @@ export function tenantScope(
 /** The scope of `tenantId`, on its own database and the system clock. */
 export async function scopeOf(tenantId: string): Promise<TenantScope> {
 	return tenantScope(tenantId, await getTenantDb(tenantId));
+}
+
+/**
+ * The scope of the current request's tenant, resolved from the host. Code
+ * behind a guard takes the guard's tenant instead (`requireCaller`).
+ */
+export async function currentTenantScope(): Promise<TenantScope> {
+	return scopeOf(await requireTenantId());
 }

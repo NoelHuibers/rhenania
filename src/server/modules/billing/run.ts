@@ -33,16 +33,14 @@ import {
 	umlagePerMember,
 } from "~/server/domain/billing/plan";
 import {
+	type GetraenkeBillSender,
+	incompleteBillingMessage,
+} from "~/server/domain/getraenkekasse/payment";
+import {
 	BILLING_CONFLICT_MESSAGE,
 	isConstraintOn,
 } from "~/server/lib/billing-batch";
 import { ConflictError, DomainError } from "~/server/lib/domain-error";
-import { getBillRecipient } from "~/server/lib/getraenke-settings";
-import {
-	type GetraenkeBillSender,
-	incompleteBillingMessage,
-	resolveGetraenkeBillSender,
-} from "~/server/lib/getraenkekasse-payment";
 import { log } from "~/server/lib/log";
 import type { TenantScope } from "~/server/lib/tenant-scope";
 import { buildUserBillData } from "~/server/lib/user-bill-data";
@@ -50,6 +48,10 @@ import {
 	renderUserBillPDF,
 	userBillPdfFileName,
 } from "~/server/lib/user-bill-pdf";
+import {
+	billRecipient,
+	billSender,
+} from "~/server/modules/getraenkekasse/service";
 import * as repo from "./repo";
 
 /** The role whose members carry the inventory-loss Umlage. */
@@ -207,7 +209,7 @@ export async function runGetraenkeBilling(
 ): Promise<BillingRunResult> {
 	// Bills print the tenant's sender and account. Without them, refuse
 	// before any bill exists rather than mailing bills without a payee.
-	const sender = await resolveGetraenkeBillSender();
+	const sender = await billSender(scope);
 	if (!sender.ok) {
 		throw new DomainError(
 			incompleteBillingMessage(sender.missing),
@@ -227,14 +229,15 @@ export async function runGetraenkeBilling(
 }
 
 async function billAndMail(
-	{ db, tenantId, now: clock }: TenantScope,
+	scope: TenantScope,
 	actor: { id: string },
 	inventoryLoss: number,
 	sender: GetraenkeBillSender,
 ): Promise<BillingRunResult> {
+	const { db, tenantId } = scope;
 	// Whole seconds, as stored, so the mailed PDFs show what the database
 	// holds.
-	const now = new Date(Math.floor(clock().getTime() / 1000) * 1000);
+	const now = new Date(Math.floor(scope.now().getTime() / 1000) * 1000);
 	const base = billNumberBase(now);
 	const state = await repo.readRunState(db, {
 		billNumberPrefix: base,
@@ -308,7 +311,7 @@ async function billAndMail(
 
 	// Send the new bills by mail, now that they are committed.
 	try {
-		await mailBills(db, plan, period, sender);
+		await mailBills(scope, plan, period, sender);
 	} catch (notifyError) {
 		await log.error("billing run: mail phase failed", { err: notifyError });
 	}
@@ -363,13 +366,13 @@ type MailJob = {
  * no further reads per bill. A failed mail is logged and skipped.
  */
 async function mailBills(
-	db: TenantScope["db"],
+	scope: TenantScope,
 	plan: BillingPlan,
 	period: { billNumber: string; now: Date },
 	sender: GetraenkeBillSender,
 ) {
 	const { billNumber } = period;
-	const recipient = await getBillRecipient();
+	const recipient = await billRecipient(scope);
 	const jobs: MailJob[] = [];
 
 	if (recipient.mode === "treasurer") {
@@ -396,7 +399,7 @@ async function mailBills(
 	} else {
 		// Users without a preference row default to enabled.
 		const recipients = await repo.mailRecipients(
-			db,
+			scope.db,
 			plan.memberBills.map((b) => b.row.userId),
 		);
 		const byId = new Map(recipients.map((r) => [r.id, r]));

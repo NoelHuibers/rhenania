@@ -12,20 +12,15 @@ import { roundToCent } from "~/lib/money";
 import { addDaysInTZ, dayKeyInTZ, getZonedParts } from "~/lib/time";
 import { billPeriodCsv } from "~/server/domain/billing/csv";
 import {
+	type GetraenkekassePayment,
+	incompleteBillingMessage,
+} from "~/server/domain/getraenkekasse/payment";
+import {
 	ConflictError,
 	DomainError,
 	NotFoundError,
 	ValidationError,
 } from "~/server/lib/domain-error";
-import {
-	type GetraenkekassePayment,
-	getActiveGetraenkekasseKontos,
-	getGetraenkeBillingProfile,
-	getGetraenkekassePayment,
-	incompleteBillingMessage,
-	resolveGetraenkeBillSender,
-	resolveGetraenkekassePayment,
-} from "~/server/lib/getraenkekasse-payment";
 import { groupBy } from "~/server/lib/group-by";
 import { log } from "~/server/lib/log";
 import { getTenantById } from "~/server/lib/tenant-context";
@@ -35,6 +30,7 @@ import {
 	renderUserBillPDF,
 	userBillPdfFileName,
 } from "~/server/lib/user-bill-pdf";
+import * as kasse from "~/server/modules/getraenkekasse/service";
 import * as repo from "./repo";
 
 // ─── Periods and bills ───────────────────────────────────────────────────────
@@ -144,19 +140,15 @@ export function isOpenBill(
  * nothing to pay.
  */
 export async function openBillOf(
-	{ db, tenantId }: TenantScope,
+	scope: TenantScope,
 	userId: string,
 ): Promise<OpenBill | null> {
-	const latest = await repo.latestBillOf(db, userId);
+	const latest = await repo.latestBillOf(scope.db, userId);
 	if (!latest || !isOpenBill(latest)) {
 		return null;
 	}
 
-	const [tenant, activeKontos, profile] = await Promise.all([
-		getTenantById(tenantId),
-		getActiveGetraenkekasseKontos(),
-		getGetraenkeBillingProfile(),
-	]);
+	const { payment, paymentDueDays } = await kasse.paymentAndTerms(scope);
 	const billNumber = latest.billNumber ?? "N/A";
 	const billedAt = latest.periodCreatedAt ?? latest.createdAt;
 	return {
@@ -164,15 +156,11 @@ export async function openBillOf(
 		billNumber,
 		total: roundToCent(latest.total),
 		dueDate:
-			profile.paymentDueDays > 0
-				? dayKeyInTZ(addDaysInTZ(billedAt, profile.paymentDueDays))
+			paymentDueDays > 0
+				? dayKeyInTZ(addDaysInTZ(billedAt, paymentDueDays))
 				: null,
 		reference: paymentReference(latest.userName, billNumber),
-		payment: resolveGetraenkekassePayment(
-			activeKontos,
-			profile.accountHolder,
-			tenant?.branding?.paypalUrl,
-		),
+		payment,
 	};
 }
 
@@ -205,9 +193,10 @@ export type UserBillingData = {
 
 /** The member's latest bill for the profile, with its items. */
 export async function userBillingData(
-	{ db }: TenantScope,
+	scope: TenantScope,
 	userId: string,
 ): Promise<UserBillingData> {
+	const { db } = scope;
 	const latest = await repo.latestBillWithPeriod(db, userId);
 	if (!latest) {
 		return { billData: null, billItems: [], payment: null };
@@ -215,7 +204,7 @@ export async function userBillingData(
 	const { bill, billPeriod } = latest;
 	const [items, payment] = await Promise.all([
 		repo.itemsOf(db, bill.id),
-		getGetraenkekassePayment(),
+		kasse.payment(scope),
 	]);
 
 	const billItems: BillItem[] = items.map((item) => ({
@@ -261,10 +250,10 @@ const PDF_FAILED = "PDF_FAILED";
  * (the data the profile page shows; no fallback to anybody else's).
  */
 export async function billPdf(
-	{ db }: TenantScope,
+	scope: TenantScope,
 	billId: string,
 ): Promise<{ pdf: Buffer; fileName: string }> {
-	const stored = await repo.billWithPeriodAndItems(db, billId);
+	const stored = await repo.billWithPeriodAndItems(scope.db, billId);
 	if (!stored) {
 		throw new NotFoundError("Rechnung nicht gefunden", PDF_FAILED);
 	}
@@ -272,7 +261,7 @@ export async function billPdf(
 	if (!billPeriod) {
 		throw new NotFoundError("Abrechnung nicht gefunden", PDF_FAILED);
 	}
-	const resolved = await resolveGetraenkeBillSender();
+	const resolved = await kasse.billSender(scope);
 	if (!resolved.ok) {
 		throw new ValidationError(
 			incompleteBillingMessage(resolved.missing),
@@ -295,12 +284,12 @@ const CSV_UNAVAILABLE =
 
 /** A period's bills as the Kasse's CSV sheet. */
 export async function periodCsv(
-	{ db }: TenantScope,
+	scope: TenantScope,
 	billPeriodId: string,
 	options: { paypalBaseUrl?: string; delimiter?: string } = {},
 ) {
 	const { period, drinks, bills, items } = await repo.periodForCsv(
-		db,
+		scope.db,
 		billPeriodId,
 	);
 	// An unknown period, or one without bills, has nothing to export.
@@ -310,7 +299,7 @@ export async function periodCsv(
 	// The tenant's own PayPal (same as on the bill PDF); no link without one.
 	const paypalBaseUrl =
 		options.paypalBaseUrl ||
-		(await getGetraenkekassePayment())?.paypalBaseUrl ||
+		(await kasse.payment(scope))?.paypalBaseUrl ||
 		null;
 	const itemsByBill = groupBy(items, (item) => item.billId);
 	const sheet = billPeriodCsv({

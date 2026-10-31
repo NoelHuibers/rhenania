@@ -9,7 +9,7 @@ import { jsPDF } from "jspdf";
 import { isCredit } from "~/lib/bill-payment";
 import { formatDateWith } from "~/lib/format";
 import { lateFeeSentence } from "~/lib/late-fee";
-import type { GetraenkeBillSender } from "~/server/lib/getraenkekasse-payment";
+import type { GetraenkeBillSender } from "~/server/domain/getraenkekasse/payment";
 import type { UserBillData } from "~/server/lib/user-bill-data";
 
 /** Attachment name, e.g. `Rechnung_KW-43-26_Max_M_ller.pdf`. */

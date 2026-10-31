@@ -23,8 +23,8 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { formatDate, formatEUR } from "~/lib/format";
-import { downloadEntityBillPDF } from "~/server/actions/getraenkewart/kasse";
 import { updateBillStatus } from "~/server/modules/billing/actions";
+import { downloadEntityBillPDF } from "~/server/modules/getraenkekasse/actions";
 import { billStatusClass, CollapsibleCard } from "./shared";
 import type { BillStatus, EntityBill } from "./types";
 

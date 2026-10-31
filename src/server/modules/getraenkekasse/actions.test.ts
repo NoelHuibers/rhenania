@@ -49,7 +49,7 @@ import {
 	setMarkupPercent,
 	setPfandWert,
 	updateGetraenkeBillingProfile,
-} from "./kasse";
+} from "./actions";
 
 setupTestDatabases();
 

@@ -18,7 +18,7 @@ import {
 	type GetraenkeSettings,
 	setBillRecipient,
 	setMarkupPercent,
-} from "~/server/actions/getraenkewart/kasse";
+} from "~/server/modules/getraenkekasse/actions";
 
 // Settings behind the per-tenant features. Rendered only for tenants that
 // have at least one of them; each section shows only with its own flag.
