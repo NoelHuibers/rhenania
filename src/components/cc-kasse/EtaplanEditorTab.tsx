@@ -143,14 +143,14 @@ export function EtaplanEditorTab({
 	const onExport = () => {
 		startTransition(async () => {
 			const res = await exportEtaplanXlsx(etaplan.id);
-			if (res.success && res.base64 && res.fileName) {
+			if (res.ok) {
 				downloadBase64(
-					res.base64,
-					res.fileName,
+					res.data.base64,
+					res.data.fileName,
 					"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 				);
 			} else {
-				toast.error(res.error ?? "Export fehlgeschlagen");
+				toast.error(res.error);
 			}
 		});
 	};
@@ -164,15 +164,16 @@ export function EtaplanEditorTab({
 		const base64 = await fileToBase64(file);
 		startTransition(async () => {
 			const res = await importEtaplanXlsx({ etaplanId: etaplan.id, base64 });
-			if (res.success) {
+			if (res.ok) {
+				const { created, updated, unchanged, note, errors } = res.data;
 				toast.success(
-					`Import: ${res.created} neu, ${res.updated} aktualisiert, ${res.unchanged} unverändert`,
+					`Import: ${created} neu, ${updated} aktualisiert, ${unchanged} unverändert`,
 				);
-				if (res.note) {
-					toast.message(res.note);
+				if (note) {
+					toast.message(note);
 				}
-				if (res.errors.length) {
-					toast.warning(`${res.errors.length} Zeilen übersprungen`);
+				if (errors.length) {
+					toast.warning(`${errors.length} Zeilen übersprungen`);
 				}
 				router.refresh();
 			} else {
