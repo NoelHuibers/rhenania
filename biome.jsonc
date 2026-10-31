@@ -116,19 +116,34 @@
 			}
 		},
 		{
-			// UI components must not reach for the DB client; go through a
-			// server action or src/server/lib. Schema types are fine.
-			"includes": ["src/components/**", "src/hooks/**"],
+			// Pages, route handlers and UI never reach for a database client
+			// (#33): page data comes from a loader in src/server/loaders, a
+			// server action or src/server/lib. The schema modules are allowed:
+			// no connection sits behind them, and Biome can't limit an import
+			// to `import type`.
+			"includes": ["src/app/**", "src/components/**", "src/hooks/**"],
 			"linter": {
 				"rules": {
 					"style": {
 						"noRestrictedImports": {
 							"level": "error",
 							"options": {
+								"patterns": [
+									{
+										"group": [
+											"~/server/db",
+											"~/server/db/*",
+											"**/server/db",
+											"**/server/db/*",
+											"!~/server/db/schema",
+											"!~/server/db/control-schema",
+											"!**/server/db/schema",
+											"!**/server/db/control-schema"
+										],
+										"message": "No DB access in src/app or src/components: load the data in src/server/loaders, a server action or src/server/lib."
+									}
+								],
 								"paths": {
-									"~/server/db": "UI must not use the DB client directly; add a server action or a src/server/lib function.",
-									"~/server/db/index": "UI must not use the DB client directly; add a server action or a src/server/lib function.",
-									"~/server/db/control": "UI must not use the DB client directly; add a server action or a src/server/lib function.",
 									"@radix-ui/react-label": "Import from the \"radix-ui\" package instead.",
 									"@radix-ui/react-slot": "Import from the \"radix-ui\" package instead."
 								}

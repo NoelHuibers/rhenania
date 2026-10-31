@@ -1,9 +1,7 @@
-import { asc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { db } from "~/server/db";
-import { events, venues } from "~/server/db/schema";
 import { escapeICalText, foldLine, formatICalDate } from "~/server/lib/ical";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
+import { loadPublicCalendar } from "~/server/loaders/calendar";
 
 export async function GET() {
 	const tenant = await getCurrentTenant();
@@ -12,16 +10,9 @@ export async function GET() {
 	}
 
 	const now = new Date();
-	const [rows, venueRows] = await Promise.all([
-		// Public feed: public events only. Members get everything through
-		// their personal token feed (/api/calendar/[token]).
-		db
-			.select()
-			.from(events)
-			.where(eq(events.isPublic, true))
-			.orderBy(asc(events.date)),
-		db.select().from(venues),
-	]);
+	const { events: rows, venues: venueRows } = await loadPublicCalendar(
+		tenant.id,
+	);
 	const venueMap = new Map(venueRows.map((v) => [v.shortName, v.fullAddress]));
 
 	const vevents = rows
