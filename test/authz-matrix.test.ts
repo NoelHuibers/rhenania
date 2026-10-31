@@ -358,7 +358,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	},
 	"src/server/actions/profile/preferences.ts": {
 		getUserPreference: "member",
-		setUserPreference: "member",
 		setEloPreferenceAction: {
 			access: "member",
 			args: () => [{ enabled: true }],

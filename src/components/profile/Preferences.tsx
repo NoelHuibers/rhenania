@@ -66,14 +66,14 @@ export function Preferences({
 					onClick={() =>
 						startTransition(async () => {
 							const next = !eloEnabled;
-							const ok = await setEloPreferenceAction({ enabled: next });
-							if (ok) {
+							const result = await setEloPreferenceAction({ enabled: next });
+							if (result.ok) {
 								setEloEnabled(next);
 								toast.success(
 									next ? "Eloranking aktiviert" : "Eloranking deaktiviert",
 								);
 							} else {
-								toast.error("Aktion fehlgeschlagen");
+								toast.error(result.error);
 							}
 						})
 					}
@@ -105,10 +105,10 @@ export function Preferences({
 					onClick={() =>
 						startTransition(async () => {
 							const next = !publicProfileEnabled;
-							const ok = await setPublicProfilePreferenceAction({
+							const result = await setPublicProfilePreferenceAction({
 								enabled: next,
 							});
-							if (ok) {
+							if (result.ok) {
 								setPublicProfileEnabled(next);
 								toast.success(
 									next
@@ -116,7 +116,7 @@ export function Preferences({
 										: "Öffentliches Profil deaktiviert",
 								);
 							} else {
-								toast.error("Aktion fehlgeschlagen");
+								toast.error(result.error);
 							}
 						})
 					}
@@ -147,10 +147,10 @@ export function Preferences({
 					onClick={() =>
 						startTransition(async () => {
 							const next = !challengeNotifsEnabled;
-							const ok = await setChallengeNotificationPreferenceAction({
+							const result = await setChallengeNotificationPreferenceAction({
 								enabled: next,
 							});
-							if (ok) {
+							if (result.ok) {
 								setChallengeNotifsEnabled(next);
 								toast.success(
 									next
@@ -158,7 +158,7 @@ export function Preferences({
 										: "Herausforderungs-Benachrichtigungen deaktiviert",
 								);
 							} else {
-								toast.error("Aktion fehlgeschlagen");
+								toast.error(result.error);
 							}
 						})
 					}
@@ -190,10 +190,10 @@ export function Preferences({
 					onClick={() =>
 						startTransition(async () => {
 							const next = !emailEnabled;
-							const ok = await setEmailNotificationPreferenceAction({
+							const result = await setEmailNotificationPreferenceAction({
 								enabled: next,
 							});
-							if (ok) {
+							if (result.ok) {
 								setEmailEnabled(next);
 								toast.success(
 									next
@@ -201,7 +201,7 @@ export function Preferences({
 										: "E-Mail Benachrichtigungen deaktiviert",
 								);
 							} else {
-								toast.error("Aktion fehlgeschlagen");
+								toast.error(result.error);
 							}
 						})
 					}

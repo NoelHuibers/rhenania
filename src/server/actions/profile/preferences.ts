@@ -1,73 +1,39 @@
 // ~/server/actions/profile/preferences.ts
 "use server";
 
+// The caller's own preferences (switches on the profile page, the
+// Semesterprogramm filter). The setters answer with an ActionResult (#216);
+// the getters are read by server components and fall back to the default
+// for anonymous callers or a corrupt stored value.
+
 import { sql } from "drizzle-orm";
+import { z } from "zod";
 import { auth } from "~/server/auth";
-import { db } from "~/server/db";
 import { userPreferences } from "~/server/db/schema";
+import type { TenantDb } from "~/server/db/tenants";
+import { defineAction } from "~/server/lib/define-action";
 import { ELO_PREFERENCE_KEY } from "~/server/lib/elo-preference";
 import {
 	type EventTypeName,
+	HIDDEN_EVENT_TYPES_KEY,
+	PUBLIC_PROFILE_KEY,
 	sanitizeHiddenTypes,
 } from "~/server/lib/preferences";
+import { scopeOf } from "~/server/lib/tenant-scope";
 
 type ValueType = "boolean" | "number" | "string" | "json";
 
-function encodeValue(value: unknown, _valueType: ValueType): string {
-	// Always JSON-encode so we can safely store anything in TEXT
-	return JSON.stringify(value);
-}
+const SAVE_FAILED = "Einstellung konnte nicht gespeichert werden";
 
-function decodeValue<T>(raw: string, _valueType: ValueType): T {
-	// We JSON.parse first, then assert type based on valueType
-	const parsed = JSON.parse(raw);
-	return parsed as T;
-}
-
-// --- Generic getters/setters ---
-
-export async function getUserPreference<T>(
-	key: string,
-	fallback: T,
-	valueType: ValueType,
-): Promise<T> {
-	const session = await auth();
-	const userId = session?.user?.id;
-	if (!userId) {
-		return fallback;
-	}
-
-	const row = await db.query.userPreferences.findFirst({
-		where: (t, { and, eq }) => and(eq(t.userId, userId), eq(t.key, key)),
-		columns: { value: true, valueType: true },
-	});
-
-	if (!row) {
-		return fallback;
-	}
-	try {
-		return decodeValue<T>(
-			row.value,
-			(row as { valueType: ValueType }).valueType ?? valueType,
-		);
-	} catch {
-		return fallback;
-	}
-}
-
-export async function setUserPreference(
+/** Stores `value` JSON-encoded, so anything fits the TEXT column. */
+async function savePreference(
+	db: TenantDb,
+	userId: string,
 	key: string,
 	value: unknown,
 	valueType: ValueType,
-): Promise<{ success: true } | { success: false; error: string }> {
-	const session = await auth();
-	const userId = session?.user?.id;
-	if (!userId) {
-		return { success: false, error: "Not authenticated" };
-	}
-
-	const encoded = encodeValue(value, valueType);
-
+): Promise<void> {
+	const encoded = JSON.stringify(value);
 	await db
 		.insert(userPreferences)
 		.values({
@@ -85,28 +51,54 @@ export async function setUserPreference(
 				updatedAt: sql`(unixepoch())`,
 			},
 		});
-
-	return { success: true };
 }
+
+// --- Generic getter ---
+
+/** The caller's value for `key`; `fallback` when unset, corrupt or anonymous. */
+export async function getUserPreference<T>(
+	key: string,
+	fallback: T,
+	_valueType: ValueType,
+): Promise<T> {
+	const session = await auth();
+	if (!session) {
+		return fallback;
+	}
+	const { db } = await scopeOf(session.tenantId);
+	const row = await db.query.userPreferences.findFirst({
+		where: (t, { and, eq }) =>
+			and(eq(t.userId, session.user.id), eq(t.key, key)),
+		columns: { value: true },
+	});
+	if (!row) {
+		return fallback;
+	}
+	try {
+		return JSON.parse(row.value) as T;
+	} catch {
+		return fallback;
+	}
+}
+
+// The on/off switches take `{ enabled }` and store it as a boolean.
+const switchArg = z.object({ enabled: z.boolean() });
 
 // --- Elo-specific sugar ---
 
-const ELO_KEY = ELO_PREFERENCE_KEY;
-
-export async function setEloPreferenceAction(opts: { enabled: boolean }) {
-	const res = await setUserPreference(ELO_KEY, opts.enabled, "boolean");
-	return res;
-}
+export const setEloPreferenceAction = defineAction(
+	{ schema: z.tuple([switchArg]), errorMessage: SAVE_FAILED },
+	async ([{ enabled }], { tenant, user }) =>
+		savePreference(tenant.db, user.id, ELO_PREFERENCE_KEY, enabled, "boolean"),
+);
 
 // --- Public profile sugar ---
 
-const PUBLIC_PROFILE_KEY = "privacy.publicProfileEnabled";
-
-export async function setPublicProfilePreferenceAction(opts: {
-	enabled: boolean;
-}) {
-	return await setUserPreference(PUBLIC_PROFILE_KEY, opts.enabled, "boolean");
-}
+export const setPublicProfilePreferenceAction = defineAction(
+	{ schema: z.tuple([switchArg]), errorMessage: SAVE_FAILED },
+	async ([{ enabled }], { tenant, user }) =>
+		savePreference(tenant.db, user.id, PUBLIC_PROFILE_KEY, enabled, "boolean"),
+);
 
 // --- Challenge notification sugar ---
 
@@ -121,29 +113,29 @@ export async function getChallengeNotificationPreferenceAction() {
 	return { enabled };
 }
 
-export async function setChallengeNotificationPreferenceAction(opts: {
-	enabled: boolean;
-}) {
-	return await setUserPreference(CHALLENGE_NOTIF_KEY, opts.enabled, "boolean");
-}
+export const setChallengeNotificationPreferenceAction = defineAction(
+	{ schema: z.tuple([switchArg]), errorMessage: SAVE_FAILED },
+	async ([{ enabled }], { tenant, user }) =>
+		savePreference(tenant.db, user.id, CHALLENGE_NOTIF_KEY, enabled, "boolean"),
+);
 
 // --- Email notification sugar ---
 
 const EMAIL_NOTIFICATION_KEY = "notifications.emailEnabled";
 
-export async function setEmailNotificationPreferenceAction(opts: {
-	enabled: boolean;
-}) {
-	return await setUserPreference(
-		EMAIL_NOTIFICATION_KEY,
-		opts.enabled,
-		"boolean",
-	);
-}
+export const setEmailNotificationPreferenceAction = defineAction(
+	{ schema: z.tuple([switchArg]), errorMessage: SAVE_FAILED },
+	async ([{ enabled }], { tenant, user }) =>
+		savePreference(
+			tenant.db,
+			user.id,
+			EMAIL_NOTIFICATION_KEY,
+			enabled,
+			"boolean",
+		),
+);
 
 // --- Semesterprogramm filter (hidden event types) sugar ---
-
-const HIDDEN_EVENT_TYPES_KEY = "semesterprogramm.hiddenTypes";
 
 export type { EventTypeName };
 
@@ -156,14 +148,18 @@ export async function getHiddenEventTypes(): Promise<EventTypeName[]> {
 	return sanitizeHiddenTypes(raw);
 }
 
-export async function setHiddenEventTypes(types: EventTypeName[]) {
-	const sanitized = sanitizeHiddenTypes(types);
-	const result = await setUserPreference(
-		HIDDEN_EVENT_TYPES_KEY,
-		sanitized,
-		"json",
-	);
-	return result;
-}
-
-// --- (Optional) Fetch all preferences to render a generic card ---
+/** Saves the hidden event types; unknown types are dropped. */
+export const setHiddenEventTypes = defineAction(
+	{
+		schema: z.tuple([z.array(z.string())]),
+		errorMessage: "Filter konnte nicht gespeichert werden",
+	},
+	async ([types], { tenant, user }) =>
+		savePreference(
+			tenant.db,
+			user.id,
+			HIDDEN_EVENT_TYPES_KEY,
+			sanitizeHiddenTypes(types),
+			"json",
+		),
+);

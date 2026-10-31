@@ -22,7 +22,6 @@ import {
 	setEmailNotificationPreferenceAction,
 	setHiddenEventTypes,
 	setPublicProfilePreferenceAction,
-	setUserPreference,
 } from "./preferences";
 
 setupTestDatabases();
@@ -34,34 +33,37 @@ async function signedInMember() {
 	return member;
 }
 
-describe("generic preferences", () => {
-	test("round-trips JSON values and overwrites on second save", async () => {
-		await signedInMember();
+describe("reading a preference", () => {
+	test("decodes the stored JSON value", async () => {
+		const member = await signedInMember();
+		await tenantDb()
+			.insert(userPreferences)
+			.values([
+				{
+					userId: member.id,
+					key: "ui.density",
+					value: '{"compact":true}',
+					valueType: "json",
+				},
+				{ userId: member.id, key: "ui.size", value: "3", valueType: "number" },
+			]);
 
-		await setUserPreference("ui.density", { compact: true }, "json");
 		expect(await getUserPreference("ui.density", null, "json")).toEqual({
 			compact: true,
 		});
-
-		await setUserPreference("ui.density", 3, "number");
-		expect(await getUserPreference("ui.density", 0, "number")).toBe(3);
-		expect(await tenantDb().select().from(userPreferences)).toEqual([
-			expect.objectContaining({
-				key: "ui.density",
-				value: "3",
-				valueType: "number",
-			}),
-		]);
+		expect(await getUserPreference("ui.size", 0, "number")).toBe(3);
 	});
 
 	test("anonymous callers get the fallback and cannot save", async () => {
 		await createTenant();
 
 		expect(await getUserPreference("x", "fallback", "string")).toBe("fallback");
-		expect(await setUserPreference("x", 1, "number")).toEqual({
-			success: false,
-			error: "Not authenticated",
+		expect(await setEloPreferenceAction({ enabled: false })).toEqual({
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
 		});
+		expect(await tenantDb().select().from(userPreferences)).toEqual([]);
 	});
 
 	test("corrupt stored values fall back instead of throwing", async () => {
@@ -80,10 +82,12 @@ describe("generic preferences", () => {
 
 	test("preferences are per member", async () => {
 		await signedInMember();
-		await setUserPreference("k", "mine", "string");
+		await setEloPreferenceAction({ enabled: false });
 
 		signInAs(await createUser());
-		expect(await getUserPreference("k", "default", "string")).toBe("default");
+		expect(
+			await getUserPreference("gamification.eloEnabled", true, "boolean"),
+		).toBe(true);
 	});
 });
 
@@ -105,7 +109,7 @@ describe("boolean switches", () => {
 		});
 
 		for (const [key, set] of switches) {
-			expect(await set({ enabled: false })).toEqual({ success: true });
+			expect(await set({ enabled: false })).toEqual({ ok: true });
 			expect((await getProfilePreferencesForUser(member.id))[key]).toBe(false);
 		}
 	});
