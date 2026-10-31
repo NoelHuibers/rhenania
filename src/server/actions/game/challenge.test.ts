@@ -68,6 +68,14 @@ async function challengeRow(id: string) {
 	return row;
 }
 
+/** The id of a challenge that was created; fails the test otherwise. */
+function idOf(result: Awaited<ReturnType<typeof createChallenge>>): string {
+	if (!result.ok) {
+		throw new Error(result.error);
+	}
+	return result.data.challengeId;
+}
+
 async function setup(opts: { features?: "drinks.markup"[] } = {}) {
 	const tenant = await createTenant({ features: opts.features });
 	const [anna, bert] = await createPlayers(2);
@@ -86,8 +94,8 @@ describe("createChallenge", () => {
 			payment: "loser",
 		});
 
-		expect(result.success).toBe(true);
-		expect(await challengeRow(result.challengeId as string)).toMatchObject({
+		expect(result.ok).toBe(true);
+		expect(await challengeRow(idOf(result))).toMatchObject({
 			challengerId: anna.id,
 			opponentId: bert.id,
 			drinkId: drink.id,
@@ -111,24 +119,38 @@ describe("createChallenge", () => {
 
 		expect(
 			await createChallenge({ ...input, opponentId: anna.id }),
-		).toMatchObject({ success: false, error: expect.stringMatching(/selbst/) });
+		).toMatchObject({
+			ok: false,
+			error: expect.stringMatching(/selbst/),
+			code: "INVALID_INPUT",
+		});
 		expect(
 			await createChallenge({ ...input, drinkId: "missing" }),
-		).toMatchObject({ success: false, error: "Getränk nicht gefunden" });
+		).toMatchObject({
+			ok: false,
+			error: "Getränk nicht gefunden",
+			code: "NOT_FOUND",
+		});
 		expect(
 			await createChallenge({ ...input, drinkId: empty.id }),
-		).toMatchObject({ success: false, error: "Getränk ist nicht verfügbar" });
+		).toMatchObject({
+			ok: false,
+			error: "Getränk ist nicht verfügbar",
+			code: "CONFLICT",
+		});
 
 		await setEloEnabled(bert.id, false);
 		expect(await createChallenge(input)).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Dieser Spieler nimmt nicht am Eloranking teil",
+			code: "ELO_DISABLED",
 		});
 		await setEloEnabled(bert.id, true);
 		await setEloEnabled(anna.id, false);
 		expect(await createChallenge(input)).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Aktiviere Eloranking in deinen Einstellungen",
+			code: "ELO_DISABLED",
 		});
 
 		expect(await tenantDb().select().from(challenges)).toHaveLength(0);
@@ -139,20 +161,21 @@ describe("createChallenge", () => {
 		const input = { drinkId: drink.id, payment: "split" } as const;
 
 		signInAs(anna);
-		expect(
-			(await createChallenge({ ...input, opponentId: bert.id })).success,
-		).toBe(true);
+		expect((await createChallenge({ ...input, opponentId: bert.id })).ok).toBe(
+			true,
+		);
 		expect(
 			await createChallenge({ ...input, opponentId: bert.id }),
 		).toMatchObject({
-			success: false,
+			ok: false,
 			error: expect.stringMatching(/bereits eine offene/),
+			code: "CONFLICT",
 		});
 
 		signInAs(bert);
-		expect(
-			(await createChallenge({ ...input, opponentId: anna.id })).success,
-		).toBe(true);
+		expect((await createChallenge({ ...input, opponentId: anna.id })).ok).toBe(
+			true,
+		);
 	});
 
 	test("an expired challenge no longer blocks a new one", async () => {
@@ -168,10 +191,8 @@ describe("createChallenge", () => {
 		advanceClock(31 * MINUTE);
 		const second = await createChallenge(input);
 
-		expect(second.success).toBe(true);
-		expect((await challengeRow(first.challengeId as string))?.status).toBe(
-			"expired",
-		);
+		expect(second.ok).toBe(true);
+		expect((await challengeRow(idOf(first)))?.status).toBe("expired");
 	});
 
 	test("after a decline the challenger has to wait an hour", async () => {
@@ -182,22 +203,23 @@ describe("createChallenge", () => {
 			payment: "loser",
 		} as const;
 		signInAs(anna);
-		const { challengeId } = await createChallenge(input);
+		const challengeId = idOf(await createChallenge(input));
 		signInAs(bert);
 		await respondToChallenge({
-			challengeId: challengeId as string,
+			challengeId,
 			response: "decline",
 		});
 
 		signInAs(anna);
 		advanceClock(59 * MINUTE);
 		expect(await createChallenge(input)).toMatchObject({
-			success: false,
+			ok: false,
 			error: expect.stringMatching(/warte eine Stunde/),
+			code: "COOLDOWN",
 		});
 
 		advanceClock(2 * MINUTE);
-		expect((await createChallenge(input)).success).toBe(true);
+		expect((await createChallenge(input)).ok).toBe(true);
 	});
 });
 
@@ -205,93 +227,97 @@ describe("respond, propose, confirm", () => {
 	test("accepting starts a 6 h play window", async () => {
 		const { anna, bert, drink } = await setup();
 		signInAs(anna);
-		const { challengeId } = await createChallenge({
-			opponentId: bert.id,
-			drinkId: drink.id,
-			payment: "loser",
-		});
-		const id = challengeId as string;
+		const challengeId = idOf(
+			await createChallenge({
+				opponentId: bert.id,
+				drinkId: drink.id,
+				payment: "loser",
+			}),
+		);
 
 		signInAs(anna);
 		expect(
-			await respondToChallenge({ challengeId: id, response: "accept" }),
+			await respondToChallenge({ challengeId, response: "accept" }),
 		).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Nur der Herausgeforderte kann antworten",
+			code: "FORBIDDEN",
 		});
 
 		advanceClock(10 * MINUTE);
 		signInAs(bert);
 		expect(
-			await respondToChallenge({ challengeId: id, response: "accept" }),
-		).toEqual({
-			success: true,
-		});
-		expect(await challengeRow(id)).toMatchObject({
+			await respondToChallenge({ challengeId, response: "accept" }),
+		).toEqual({ ok: true });
+		expect(await challengeRow(challengeId)).toMatchObject({
 			status: "accepted",
 			acceptedAt: new Date("2026-10-26T20:10:00Z"),
 			playDeadline: new Date("2026-10-27T02:10:00Z"),
 		});
 		expect(
-			(await respondToChallenge({ challengeId: id, response: "decline" }))
-				.success,
+			(await respondToChallenge({ challengeId, response: "decline" })).ok,
 		).toBe(false);
 	});
 
 	test("a late reply expires the challenge", async () => {
 		const { anna, bert, drink } = await setup();
 		signInAs(anna);
-		const { challengeId } = await createChallenge({
-			opponentId: bert.id,
-			drinkId: drink.id,
-			payment: "loser",
-		});
+		const challengeId = idOf(
+			await createChallenge({
+				opponentId: bert.id,
+				drinkId: drink.id,
+				payment: "loser",
+			}),
+		);
 
 		advanceClock(31 * MINUTE);
 		signInAs(bert);
 		const result = await respondToChallenge({
-			challengeId: challengeId as string,
+			challengeId,
 			response: "accept",
 		});
 
 		expect(result).toEqual({
-			success: false,
+			ok: false,
 			error: "Herausforderung ist abgelaufen",
+			code: "EXPIRED",
 		});
-		expect((await challengeRow(challengeId as string))?.status).toBe("expired");
+		expect((await challengeRow(challengeId))?.status).toBe("expired");
 	});
 
 	test("a result can only be proposed for an accepted game with a valid winner", async () => {
 		const { anna, bert, drink } = await setup();
 		const [carl] = await createPlayers(1);
 		signInAs(anna);
-		const { challengeId } = await createChallenge({
-			opponentId: bert.id,
-			drinkId: drink.id,
-			payment: "loser",
-		});
-		const id = challengeId as string;
+		const challengeId = idOf(
+			await createChallenge({
+				opponentId: bert.id,
+				drinkId: drink.id,
+				payment: "loser",
+			}),
+		);
 
 		expect(
-			await proposeResult({ challengeId: id, winnerId: anna.id }),
+			await proposeResult({ challengeId, winnerId: anna.id }),
 		).toMatchObject({
-			success: false,
+			ok: false,
 			error: expect.stringMatching(/laufenden Spielen/),
+			code: "CONFLICT",
 		});
 
 		signInAs(bert);
-		await respondToChallenge({ challengeId: id, response: "accept" });
-		expect(await proposeResult({ challengeId: id, winnerId: carl.id })).toEqual(
-			{ success: false, error: "Ungültiger Gewinner" },
-		);
+		await respondToChallenge({ challengeId, response: "accept" });
+		expect(await proposeResult({ challengeId, winnerId: carl.id })).toEqual({
+			ok: false,
+			error: "Ungültiger Gewinner",
+			code: "INVALID_INPUT",
+		});
 
 		advanceClock(MINUTE);
-		expect(await proposeResult({ challengeId: id, winnerId: bert.id })).toEqual(
-			{
-				success: true,
-			},
-		);
-		expect(await challengeRow(id)).toMatchObject({
+		expect(await proposeResult({ challengeId, winnerId: bert.id })).toEqual({
+			ok: true,
+		});
+		expect(await challengeRow(challengeId)).toMatchObject({
 			status: "result_proposed",
 			proposedWinnerId: bert.id,
 			proposedById: bert.id,
@@ -309,8 +335,8 @@ describe("respond, propose, confirm", () => {
 		});
 
 		signInAs(anna);
-		expect((await confirmResult(challengeId)).success).toBe(false);
-		expect((await disputeResult(challengeId)).success).toBe(false);
+		expect((await confirmResult(challengeId)).ok).toBe(false);
+		expect((await disputeResult(challengeId)).ok).toBe(false);
 		expect((await challengeRow(challengeId))?.status).toBe("result_proposed");
 		expect(await tenantDb().select().from(games)).toHaveLength(0);
 	});
@@ -333,10 +359,14 @@ describe("respond, propose, confirm", () => {
 		});
 		const result = await confirmResult(challengeId);
 
-		expect(result).toMatchObject({ success: true, gameId: expect.any(String) });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { gameId: expect.any(String) },
+		});
+		const gameId = result.ok ? result.data.gameId : undefined;
 		const [game] = await tenantDb().select().from(games);
 		expect(game).toMatchObject({
-			id: result.gameId,
+			id: gameId,
 			challengeId,
 			player1Id: anna.id,
 			player2Id: bert.id,
@@ -348,7 +378,7 @@ describe("respond, propose, confirm", () => {
 		});
 		expect(await challengeRow(challengeId)).toMatchObject({
 			status: "settled",
-			gameId: result.gameId,
+			gameId,
 		});
 		expect(await getUserStatsRow(anna.id)).toMatchObject({
 			currentElo: 1376,
@@ -474,10 +504,10 @@ describe("respond, propose, confirm", () => {
 			winner: anna,
 		});
 
-		expect(await disputeResult(challengeId)).toEqual({ success: true });
+		expect(await disputeResult(challengeId)).toEqual({ ok: true });
 
 		expect((await challengeRow(challengeId))?.status).toBe("disputed");
-		expect((await confirmResult(challengeId)).success).toBe(false);
+		expect((await confirmResult(challengeId)).ok).toBe(false);
 		expect(await tenantDb().select().from(games)).toHaveLength(0);
 		expect(await tenantDb().select().from(orders)).toHaveLength(0);
 	});
@@ -485,18 +515,16 @@ describe("respond, propose, confirm", () => {
 	test("either player can cancel an open challenge, but not a settled one", async () => {
 		const { anna, bert, drink } = await setup();
 		signInAs(anna);
-		const { challengeId } = await createChallenge({
-			opponentId: bert.id,
-			drinkId: drink.id,
-			payment: "loser",
-		});
-		signInAs(bert);
-		expect(await cancelChallenge(challengeId as string)).toEqual({
-			success: true,
-		});
-		expect((await challengeRow(challengeId as string))?.status).toBe(
-			"cancelled",
+		const challengeId = idOf(
+			await createChallenge({
+				opponentId: bert.id,
+				drinkId: drink.id,
+				payment: "loser",
+			}),
 		);
+		signInAs(bert);
+		expect(await cancelChallenge(challengeId)).toEqual({ ok: true });
+		expect((await challengeRow(challengeId))?.status).toBe("cancelled");
 
 		const settled = await playChallenge({
 			challenger: anna,
@@ -507,8 +535,9 @@ describe("respond, propose, confirm", () => {
 		});
 		signInAs(anna);
 		expect(await cancelChallenge(settled.challengeId)).toEqual({
-			success: false,
+			ok: false,
 			error: "Kann nicht mehr abgebrochen werden",
+			code: "CONFLICT",
 		});
 	});
 
@@ -521,8 +550,9 @@ describe("respond, propose, confirm", () => {
 			winner: anna,
 		});
 		const refused = {
-			success: false,
+			ok: false,
 			error: "Ein Ergebnis wurde gemeldet: bestätigen oder anfechten",
+			code: "CONFLICT",
 		};
 
 		// bert, the reported loser, must not dodge the drinks by cancelling.
@@ -533,7 +563,7 @@ describe("respond, propose, confirm", () => {
 		expect((await challengeRow(challengeId))?.status).toBe("result_proposed");
 
 		signInAs(bert);
-		expect(await confirmResult(challengeId)).toMatchObject({ success: true });
+		expect(await confirmResult(challengeId)).toMatchObject({ ok: true });
 		expect((await challengeRow(challengeId))?.status).toBe("settled");
 		expect(await tenantDb().select().from(games)).toHaveLength(1);
 	});
@@ -556,24 +586,18 @@ describe("sweepExpiredChallenges (via getMyChallenges)", () => {
 		});
 		signInAs(carl);
 		await respondToChallenge({
-			challengeId: unplayed.challengeId as string,
+			challengeId: idOf(unplayed),
 			response: "accept",
 		});
 
 		advanceClock(HOUR);
 		await getMyChallenges();
-		expect((await challengeRow(unanswered.challengeId as string))?.status).toBe(
-			"expired",
-		);
-		expect((await challengeRow(unplayed.challengeId as string))?.status).toBe(
-			"accepted",
-		);
+		expect((await challengeRow(idOf(unanswered)))?.status).toBe("expired");
+		expect((await challengeRow(idOf(unplayed)))?.status).toBe("accepted");
 
 		advanceClock(5 * HOUR + MINUTE);
 		await getMyChallenges();
-		expect((await challengeRow(unplayed.challengeId as string))?.status).toBe(
-			"expired",
-		);
+		expect((await challengeRow(idOf(unplayed)))?.status).toBe("expired");
 	});
 
 	test("auto-settles a proposed result once the 10 min confirm window has passed", async () => {
@@ -637,12 +661,8 @@ describe("getMyChallenges", () => {
 		signInAs(anna);
 		const feed = await getMyChallenges();
 
-		expect(feed.outgoingPending.map((c) => c.id)).toEqual([
-			outgoing.challengeId,
-		]);
-		expect(feed.incomingPending.map((c) => c.id)).toEqual([
-			incoming.challengeId,
-		]);
+		expect(feed.outgoingPending.map((c) => c.id)).toEqual([idOf(outgoing)]);
+		expect(feed.incomingPending.map((c) => c.id)).toEqual([idOf(incoming)]);
 		expect(feed.awaitingMyConfirm.map((c) => c.id)).toEqual([
 			toConfirm.challengeId,
 		]);
@@ -754,10 +774,10 @@ describe("settlement races", () => {
 			confirmResult(challengeId),
 		]);
 
-		expect(results.filter((r) => r.success)).toHaveLength(1);
-		expect(results.filter((r) => !r.success)).toEqual([
-			{ success: false, error: "Kein Ergebnis zum Bestätigen" },
-			{ success: false, error: "Kein Ergebnis zum Bestätigen" },
+		expect(results.filter((r) => r.ok)).toHaveLength(1);
+		expect(results.filter((r) => !r.ok)).toEqual([
+			{ ok: false, error: "Kein Ergebnis zum Bestätigen", code: "CONFLICT" },
+			{ ok: false, error: "Kein Ergebnis zum Bestätigen", code: "CONFLICT" },
 		]);
 		expect(await getUserStatsRow(bert.id)).toMatchObject({
 			totalGames: 1,
@@ -768,25 +788,27 @@ describe("settlement races", () => {
 	test("a proposal racing a cancel either proposes or cancels, never both (#142)", async () => {
 		const { anna, bert, drink } = await setup();
 		signInAs(anna);
-		const { challengeId } = await createChallenge({
-			opponentId: bert.id,
-			drinkId: drink.id,
-			payment: "loser",
-		});
+		const challengeId = idOf(
+			await createChallenge({
+				opponentId: bert.id,
+				drinkId: drink.id,
+				payment: "loser",
+			}),
+		);
 		signInAs(bert);
 		await respondToChallenge({
-			challengeId: challengeId as string,
+			challengeId,
 			response: "accept",
 		});
 
 		const [proposed, cancelled] = await Promise.all([
-			proposeResult({ challengeId: challengeId as string, winnerId: anna.id }),
-			cancelChallenge(challengeId as string),
+			proposeResult({ challengeId, winnerId: anna.id }),
+			cancelChallenge(challengeId),
 		]);
 
-		expect(proposed.success).not.toBe(cancelled.success);
-		expect((await challengeRow(challengeId as string))?.status).toBe(
-			proposed.success ? "result_proposed" : "cancelled",
+		expect(proposed.ok).not.toBe(cancelled.ok);
+		expect((await challengeRow(challengeId))?.status).toBe(
+			proposed.ok ? "result_proposed" : "cancelled",
 		);
 	});
 
@@ -804,9 +826,9 @@ describe("settlement races", () => {
 			disputeResult(challengeId),
 		]);
 
-		expect(confirmed.success).not.toBe(disputed.success);
+		expect(confirmed.ok).not.toBe(disputed.ok);
 		expect((await challengeRow(challengeId))?.status).toBe(
-			confirmed.success ? "settled" : "disputed",
+			confirmed.ok ? "settled" : "disputed",
 		);
 	});
 
@@ -823,9 +845,18 @@ describe("settlement races", () => {
 			.spyOn(tenantDb(), "batch")
 			.mockRejectedValueOnce(new Error("connection reset"));
 
-		await expect(confirmResult(challengeId)).rejects.toThrow(
-			"connection reset",
+		const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(await confirmResult(challengeId)).toEqual({
+			ok: false,
+			error:
+				"Das Ergebnis konnte nicht gebucht werden. Bitte versuche es erneut.",
+			code: "INTERNAL",
+		});
+		expect(logged).toHaveBeenCalledWith(
+			expect.stringContaining("connection reset"),
 		);
+		logged.mockRestore();
 
 		expect((await challengeRow(challengeId))?.status).toBe("result_proposed");
 		expect(await tenantDb().select().from(games)).toHaveLength(0);
@@ -842,7 +873,7 @@ describe("settlement races", () => {
 		expect(afterTasks).toHaveLength(0);
 
 		batch.mockRestore();
-		expect((await confirmResult(challengeId)).success).toBe(true);
+		expect((await confirmResult(challengeId)).ok).toBe(true);
 		expect(await tenantDb().select().from(games)).toHaveLength(1);
 		expect((await getUserStatsRow(anna.id))?.totalGames).toBe(5);
 	});
@@ -878,7 +909,11 @@ describe("guards", () => {
 	test("signed-out visitors cannot act on challenges", async () => {
 		await setup();
 		signOut();
-		const notSignedIn = { success: false, error: "Nicht authentifiziert" };
+		const notSignedIn = {
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
+		};
 
 		expect(
 			await createChallenge({
@@ -902,8 +937,9 @@ describe("guards", () => {
 		const { anna } = await setup();
 		signInAs(anna);
 		const notFound = {
-			success: false,
+			ok: false,
 			error: "Herausforderung nicht gefunden",
+			code: "NOT_FOUND",
 		};
 
 		expect(
@@ -927,7 +963,11 @@ describe("guards", () => {
 			winner: anna,
 		});
 		signInAs(carl);
-		const denied = { success: false, error: "Keine Berechtigung" };
+		const denied = {
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		};
 
 		expect(await cancelChallenge(challengeId)).toEqual(denied);
 		expect(await confirmResult(challengeId)).toEqual(denied);
@@ -941,13 +981,13 @@ describe("guards", () => {
 		});
 		signInAs(anna);
 		await respondToChallenge({
-			challengeId: open.challengeId as string,
+			challengeId: idOf(open),
 			response: "accept",
 		});
 		signInAs(carl);
 		expect(
 			await proposeResult({
-				challengeId: open.challengeId as string,
+				challengeId: idOf(open),
 				winnerId: carl.id,
 			}),
 		).toEqual(denied);
@@ -956,15 +996,18 @@ describe("guards", () => {
 	test("only a proposed result can be disputed; disputes show up as active", async () => {
 		const { anna, bert, drink } = await setup();
 		signInAs(anna);
-		const { challengeId } = await createChallenge({
-			opponentId: bert.id,
-			drinkId: drink.id,
-			payment: "loser",
-		});
+		const challengeId = idOf(
+			await createChallenge({
+				opponentId: bert.id,
+				drinkId: drink.id,
+				payment: "loser",
+			}),
+		);
 		signInAs(bert);
-		expect(await disputeResult(challengeId as string)).toEqual({
-			success: false,
+		expect(await disputeResult(challengeId)).toEqual({
+			ok: false,
 			error: "Nichts anzufechten",
+			code: "CONFLICT",
 		});
 
 		const played = await playChallenge({
@@ -974,7 +1017,7 @@ describe("guards", () => {
 			winner: bert,
 		});
 		signInAs(anna);
-		expect((await disputeResult(played.challengeId)).success).toBe(true);
+		expect((await disputeResult(played.challengeId)).ok).toBe(true);
 
 		const feed = await getMyChallenges();
 		expect(feed.disputed.map((c) => c.id)).toEqual([played.challengeId]);

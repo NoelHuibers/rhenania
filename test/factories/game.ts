@@ -282,17 +282,17 @@ export async function playChallenge(opts: {
 		drinkId: opts.drink.id,
 		payment: opts.payment ?? "loser",
 	});
-	if (!created.success || !created.challengeId) {
+	if (!created.ok) {
 		throw new Error(`createChallenge failed: ${created.error}`);
 	}
-	const challengeId = created.challengeId;
+	const { challengeId } = created.data;
 
 	signInAs(opts.opponent);
 	const accepted = await respondToChallenge({
 		challengeId,
 		response: "accept",
 	});
-	if (!accepted.success) {
+	if (!accepted.ok) {
 		throw new Error(`accept failed: ${accepted.error}`);
 	}
 
@@ -302,7 +302,7 @@ export async function playChallenge(opts: {
 		challengeId,
 		winnerId: opts.winner.id,
 	});
-	if (!proposed.success) {
+	if (!proposed.ok) {
 		throw new Error(`propose failed: ${proposed.error}`);
 	}
 
@@ -314,8 +314,8 @@ export async function playChallenge(opts: {
 	}
 
 	const confirmed = await confirmResult(challengeId);
-	if (!confirmed.success) {
+	if (!confirmed.ok) {
 		throw new Error(`confirm failed: ${confirmed.error}`);
 	}
-	return { challengeId, gameId: confirmed.gameId };
+	return { challengeId, gameId: confirmed.data.gameId };
 }
