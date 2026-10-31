@@ -9,9 +9,8 @@ const ALLOWED_ROLES = ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"];
 
 export async function loadKontenPage() {
 	const roleNames = await requirePageRoles(ALLOWED_ROLES);
-	const result = await getKontos();
 	return {
-		initialKontos: result.success ? result.kontos : [],
+		initialKontos: await getKontos(),
 		isAdmin: roleNames.includes("Admin"),
 	};
 }
