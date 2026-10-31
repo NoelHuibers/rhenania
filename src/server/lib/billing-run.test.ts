@@ -129,7 +129,8 @@ describe("billing run query budget (#23)", () => {
 		expect(small.writes).toBe(1);
 		expect(large.writes).toBe(1);
 		expect(large.log.filter((e) => e.kind === "transaction")).toEqual([]);
-	});
+		// Renders a PDF per mailed bill: over the 5 s default on CI runners.
+	}, 30_000);
 
 	test("mails to the treasurer: the round trips do not grow with the bills", async () => {
 		await createTenant({ features: ["billing.treasurerRecipient"] });
