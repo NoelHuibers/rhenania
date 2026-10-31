@@ -14,7 +14,6 @@ import "dotenv/config";
 import { eq, sql } from "drizzle-orm";
 
 import { env } from "~/env";
-import { db } from "~/server/db";
 import { controlDb } from "~/server/db/control";
 import {
 	tenantAuthConfig,
@@ -23,6 +22,7 @@ import {
 	tenants,
 } from "~/server/db/control-schema";
 import { users } from "~/server/db/schema";
+import { getScriptDb } from "~/server/db/script";
 import { guardOrExit } from "../lib/guard";
 
 const RHENANIA_SLUG = "rhenania";
@@ -150,6 +150,8 @@ async function upsertAuthConfig(tenantId: string) {
 }
 
 async function backfillMemberships(tenantId: string) {
+	// The Rhenania tenant DB is the one DATABASE_URL points at.
+	const { db } = getScriptDb();
 	const allUsers = await db.select({ id: users.id }).from(users);
 	console.log(`  → backfilling ${allUsers.length} memberships`);
 

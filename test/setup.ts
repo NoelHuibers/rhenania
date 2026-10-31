@@ -98,7 +98,6 @@ vi.mock("~/server/db", async () => {
 	return {
 		db: lazy(() => requireTenant().db),
 		client: lazy(() => requireTenant().client),
-		fallbackClient: lazy(() => requireTenant().client),
 	};
 });
 
