@@ -114,12 +114,12 @@ export function DrinksMenu({
 				total,
 				bookingFor: billing,
 			});
-			if (result.success) {
+			if (result.ok) {
 				toast.success(orderToastMessage(quantity, drink.name, total, billing), {
 					id: toastId,
 				});
 			} else {
-				rollback(result.error || "Ein Fehler ist aufgetreten.");
+				rollback(result.error);
 			}
 		} catch (error) {
 			console.error("Order error:", error);

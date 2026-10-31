@@ -95,7 +95,7 @@ export function BookingTab() {
 				targetUserName: selectedUser?.name ?? selectedUser?.email ?? undefined,
 			});
 
-			if (result.success) {
+			if (result.ok) {
 				toast.success(
 					`${quantity}x ${selectedDrink.name} für ${selectedUser?.name ?? selectedUser?.email} gebucht`,
 				);
@@ -105,7 +105,7 @@ export function BookingTab() {
 				setQuantity(1);
 				setBilling(null);
 			} else {
-				toast.error(result.error ?? "Fehler beim Buchen");
+				toast.error(result.error);
 			}
 		});
 	};
