@@ -10,7 +10,10 @@ import { removeSavedItemIds } from "../changed-items";
 import {
 	buildInventoryCount,
 	buildQuickAdjustments,
+	expectedWithPurchases,
 	findUncountedDrinks,
+	hasUnsavedChange,
+	initialCountState,
 	isBlockedByUncounted,
 } from "../inventory-count";
 import type { StockStatusWithDetails } from "../utils";
@@ -18,6 +21,18 @@ import { dashboardTotals } from "./dashboard-totals";
 
 function withId(ids: Set<string>, id: string): Set<string> {
 	return ids.has(id) ? ids : new Set(ids).add(id);
+}
+
+function toggledId(ids: Set<string>, id: string, on: boolean): Set<string> {
+	if (on) {
+		return withId(ids, id);
+	}
+	if (!ids.has(id)) {
+		return ids;
+	}
+	const next = new Set(ids);
+	next.delete(id);
+	return next;
 }
 
 /**
@@ -28,20 +43,15 @@ function withId(ids: Set<string>, id: string): Set<string> {
 export function useInventurDashboard(stockItems: StockStatusWithDetails[]) {
 	const router = useRouter();
 
-	const [purchases, setPurchases] = useState<{ [key: string]: number }>(() => {
-		const initial: { [key: string]: number } = {};
-		for (const item of stockItems) {
-			if (item.purchasedSince > 0) {
-				initial[item.drinkId] = item.purchasedSince;
-			}
-		}
-		return initial;
-	});
+	const [purchases, setPurchases] = useState<{ [key: string]: number }>(
+		() => initialCountState(stockItems).purchases,
+	);
 	const [countedStock, setCountedStock] = useState<{ [key: string]: number }>(
 		{},
 	);
 	const [changedItems, setChangedItems] = useState<Set<string>>(new Set());
-	// Drinks whose "Ist" was entered; the others only show a pre-filled value.
+	// Drinks whose "Ist" was entered (now or in an earlier quick save); the
+	// others only show their expected stock.
 	const [countedIds, setCountedIds] = useState<Set<string>>(new Set());
 	const [acceptUncounted, setAcceptUncounted] = useState(false);
 	const [isSaving, startSaving] = useTransition();
@@ -53,16 +63,10 @@ export function useInventurDashboard(stockItems: StockStatusWithDetails[]) {
 	const [isEventPending, startEventTransition] = useTransition();
 
 	useEffect(() => {
-		const initialStock: { [key: string]: number } = {};
-		const initialPurchases: { [key: string]: number } = {};
-		for (const item of stockItems) {
-			initialStock[item.drinkId] = item.countedStock ?? item.calculatedStock;
-			if (item.purchasedSince > 0) {
-				initialPurchases[item.drinkId] = item.purchasedSince;
-			}
-		}
-		setCountedStock(initialStock);
-		setPurchases(initialPurchases);
+		const initial = initialCountState(stockItems);
+		setCountedStock(initial.countedStock);
+		setPurchases(initial.purchases);
+		setCountedIds(initial.countedIds);
 	}, [stockItems]);
 
 	const handlePurchaseInput = (drinkId: string, value: number) => {
@@ -71,25 +75,20 @@ export function useInventurDashboard(stockItems: StockStatusWithDetails[]) {
 		if (!item) {
 			return;
 		}
-		const originalPurchase = item.purchasedSince || 0;
-		if (value !== originalPurchase) {
-			setChangedItems((prev) => new Set(prev).add(drinkId));
-		} else if (countedStock[drinkId] === item.calculatedStock) {
-			setChangedItems((prev) => {
-				const next = new Set(prev);
-				next.delete(drinkId);
-				return next;
-			});
-		}
-		if (
-			countedStock[drinkId] ===
-			item.calculatedStock + (purchases[drinkId] || 0)
-		) {
+		const counted = countedIds.has(drinkId);
+		if (!counted) {
+			// Not counted: the "Ist" follows the expected stock (#221).
 			setCountedStock((prev) => ({
 				...prev,
-				[drinkId]: item.calculatedStock + value,
+				[drinkId]: expectedWithPurchases(item, value),
 			}));
 		}
+		const changed = hasUnsavedChange(item, {
+			purchase: value,
+			count: countedStock[drinkId],
+			counted,
+		});
+		setChangedItems((prev) => toggledId(prev, drinkId, changed));
 	};
 
 	const handleCountedStockInput = (drinkId: string, value: number) => {
@@ -99,16 +98,12 @@ export function useInventurDashboard(stockItems: StockStatusWithDetails[]) {
 		if (!item) {
 			return;
 		}
-		const expected = item.calculatedStock + (purchases[drinkId] || 0);
-		if (value !== expected) {
-			setChangedItems((prev) => new Set(prev).add(drinkId));
-		} else if (!purchases[drinkId]) {
-			setChangedItems((prev) => {
-				const next = new Set(prev);
-				next.delete(drinkId);
-				return next;
-			});
-		}
+		const changed = hasUnsavedChange(item, {
+			purchase: purchases[drinkId] || 0,
+			count: value,
+			counted: true,
+		});
+		setChangedItems((prev) => toggledId(prev, drinkId, changed));
 	};
 
 	const handleQuickSave = () => {

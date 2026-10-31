@@ -39,6 +39,11 @@ export type StockStatusWithDetails = {
 	purchasedSince: number;
 	soldSince: number;
 	calculatedStock: number;
+	/**
+	 * The "Ist" counted for the latest inventory (a quick save in the running
+	 * one); absent while the drink is not counted.
+	 */
+	countedStock?: number;
 	currentPrice: number;
 	lastInventoryDate: Date | null;
 };
@@ -127,6 +132,7 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
 			previousStock: inventoryItems.previousStock,
 			purchasedSince: inventoryItems.purchasedSince,
 			countedStock: inventoryItems.countedStock,
+			isCounted: inventoryItems.isCounted,
 			inventoryCreatedAt: sql<number>`${inventories.createdAt}`.as(
 				"inventory_created_at",
 			),
@@ -155,6 +161,7 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
 				previousStock: ranked.previousStock,
 				purchasedSince: ranked.purchasedSince,
 				countedStock: ranked.countedStock,
+				isCounted: ranked.isCounted,
 				inventoryCreatedAt: ranked.inventoryCreatedAt,
 				soldSince: sql<number>`coalesce(sum(${orders.amount}), 0)`,
 			})
@@ -196,7 +203,8 @@ export async function getStockData(): Promise<StockStatusWithDetails[]> {
 				purchasedSince: item.purchasedSince,
 				soldSince: soldCount,
 			}),
-			countedStock: item.countedStock,
+			// Opening rows and purchase-only quick saves hold no count (#221).
+			countedStock: item.isCounted ? item.countedStock : undefined,
 			currentPrice: drink.price,
 			// Timestamps are stored in seconds.
 			lastInventoryDate: new Date(item.inventoryCreatedAt * 1000),
@@ -416,6 +424,7 @@ async function countInventory(
 						.update(inventoryItems)
 						.set({
 							countedStock: validatedCountedStock,
+							isCounted: true,
 							purchasedSince: validatedPurchasedSince,
 							soldSince: soldSinceFinal,
 							lossValue: loss,
@@ -450,6 +459,7 @@ async function countInventory(
 						drinkId: item.drinkId,
 						previousStock: Math.max(0, baselinePreviousStock),
 						countedStock: validatedCountedStock,
+						isCounted: true,
 						purchasedSince: validatedPurchasedSince,
 						soldSince: soldSinceFinal,
 						priceAtCount: drink.price,
@@ -486,7 +496,8 @@ async function countInventory(
 			throw new Error("Failed to create inventory");
 		}
 
-		// Each counted stock is the opening stock of the next inventory.
+		// Each counted stock is the opening stock of the next inventory, not
+		// yet a count of it.
 		const openingItems = items.flatMap((item) => {
 			const drink = drinksById.get(item.drinkId);
 			if (!drink) {
@@ -499,6 +510,7 @@ async function countInventory(
 					drinkId: item.drinkId,
 					previousStock: validatedCountedStock,
 					countedStock: validatedCountedStock,
+					isCounted: false,
 					purchasedSince: 0,
 					soldSince: 0,
 					priceAtCount: drink.price,
@@ -646,6 +658,7 @@ async function openInventoryWithBaselines(
 			inventoryId: newInventory.id,
 			drinkId: drink.id,
 			countedStock: baseline,
+			isCounted: false,
 			previousStock: baseline,
 			purchasedSince: 0,
 			soldSince: 0,
@@ -712,7 +725,9 @@ export const saveQuickAdjustments = defineAction(
 						await tx.insert(inventoryItems).values({
 							inventoryId: currentInventoryId,
 							drinkId: adjustment.drinkId,
-							countedStock: Math.max(0, adjustment.countedStock || 0),
+							countedStock: Math.max(0, adjustment.countedStock ?? 0),
+							// Purchases alone are no count (#221).
+							isCounted: adjustment.countedStock !== undefined,
 							previousStock: 0,
 							purchasedSince: Math.max(0, adjustment.purchasedQuantity || 0),
 							soldSince: 0,
@@ -721,10 +736,10 @@ export const saveQuickAdjustments = defineAction(
 						});
 					}
 				} else {
-					// biome-ignore lint/suspicious/noExplicitAny: partial update object built dynamically
-					const updates: any = {};
+					const updates: Partial<typeof inventoryItems.$inferInsert> = {};
 					if (adjustment.countedStock !== undefined) {
 						updates.countedStock = Math.max(0, adjustment.countedStock);
+						updates.isCounted = true;
 					}
 					if (adjustment.purchasedQuantity !== undefined) {
 						updates.purchasedSince = Math.max(0, adjustment.purchasedQuantity);
@@ -931,6 +946,7 @@ export const finishEventInventory = defineAction(
 						.update(inventoryItems)
 						.set({
 							countedStock: counted,
+							isCounted: true,
 							purchasedSince: purchased,
 							soldSince: sold,
 							lossValue: value,
@@ -942,6 +958,7 @@ export const finishEventInventory = defineAction(
 						drinkId: item.drinkId,
 						previousStock: Math.max(0, previousStock),
 						countedStock: counted,
+						isCounted: true,
 						purchasedSince: purchased,
 						soldSince: sold,
 						priceAtCount: drink.price,
@@ -983,6 +1000,7 @@ export const finishEventInventory = defineAction(
 					drinkId: item.drinkId,
 					previousStock: counted,
 					countedStock: counted,
+					isCounted: false,
 					purchasedSince: 0,
 					soldSince: 0,
 					priceAtCount: drink.price,

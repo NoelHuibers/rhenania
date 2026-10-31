@@ -99,6 +99,13 @@
       "when": 1793088804281,
       "tag": "0013_order_bill_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793138519721,
+      "tag": "0014_inventory_item_is_counted",
+      "breakpoints": true
     }
   ]
 }

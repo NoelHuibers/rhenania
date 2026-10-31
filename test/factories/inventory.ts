@@ -64,6 +64,8 @@ export async function createOrderRow(
 export type InventoryItemSeed = {
 	drink: DrinkRef;
 	countedStock: number;
+	/** A real count; defaults to closed inventories only, as the app writes it. */
+	isCounted?: boolean;
 	previousStock?: number;
 	purchasedSince?: number;
 	soldSince?: number;
@@ -110,6 +112,7 @@ export async function createInventory(
 			inventoryId: inventory.id,
 			drinkId: item.drink.id,
 			countedStock: item.countedStock,
+			isCounted: item.isCounted ?? inventory.status === "closed",
 			previousStock: item.previousStock ?? item.countedStock,
 			purchasedSince: item.purchasedSince ?? 0,
 			soldSince: item.soldSince ?? 0,
