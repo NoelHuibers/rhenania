@@ -4,10 +4,6 @@ import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { roundToCent } from "~/lib/money";
-import {
-	sendBeitragEmail,
-	sendMahnungEmail,
-} from "~/server/actions/newuser/email";
 import { db } from "~/server/db";
 import {
 	kostenpunkte,
@@ -19,6 +15,11 @@ import {
 	getTenantMemberStatuses,
 	makeBeitragspflichtigMatcher,
 } from "~/server/lib/member-statuses";
+import { currentTenantScope } from "~/server/lib/tenant-scope";
+import {
+	sendBeitragEmail,
+	sendMahnungEmail,
+} from "~/server/modules/mail/service";
 import { BEITRAG_ROLES, requireRoles } from "./_guards";
 import { generateBeitragPDF } from "./beitragPDF";
 
@@ -316,6 +317,7 @@ export async function sendBeitragEmails(
 		with: { member: { columns: { email: true } } },
 	});
 
+	const scope = await currentTenantScope();
 	let emailed = 0;
 	let lettersPending = 0;
 	let failed = 0;
@@ -332,6 +334,7 @@ export async function sendBeitragEmails(
 			const email = c.member?.email;
 			if (email) {
 				await sendBeitragEmail(
+					scope,
 					email,
 					c.memberName,
 					run.name,
@@ -384,6 +387,7 @@ export async function sendMahnungen(runId: string) {
 		with: { member: { columns: { email: true } } },
 	});
 
+	const scope = await currentTenantScope();
 	let emailed = 0;
 	let lettersPending = 0;
 	let failed = 0;
@@ -405,6 +409,7 @@ export async function sendMahnungen(runId: string) {
 			const email = c.member?.email;
 			if (email) {
 				await sendMahnungEmail(
+					scope,
 					email,
 					c.memberName,
 					run.name,

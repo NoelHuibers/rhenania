@@ -7,7 +7,6 @@ import { and, eq, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { env } from "~/env";
-import { sendPasswordResetEmail } from "~/server/actions/newuser/email";
 import { controlDb } from "~/server/db/control";
 import {
 	accounts,
@@ -31,6 +30,7 @@ import {
 	mirrorUserToAllMemberTenants,
 	mirrorUserToTenant,
 } from "~/server/lib/user-mirror";
+import { sendPasswordResetEmail } from "~/server/modules/mail/service";
 import { legacyCallbackPath } from "./legacy-callback";
 import { type TenantAuthSettings, tenantAuthSettings } from "./load-providers";
 import { getMicrosoftUserInfo, requestedProviderId } from "./microsoft-linking";

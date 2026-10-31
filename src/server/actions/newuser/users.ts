@@ -15,8 +15,8 @@ import { getTenantDb } from "~/server/db/tenants";
 import { ROLES, requireRole } from "~/server/lib/authz";
 import { forgetMembership, requireTenantId } from "~/server/lib/tenant-context";
 import { mirrorUserToTenant } from "~/server/lib/user-mirror";
+import { sendVerificationEmail } from "~/server/modules/mail/service";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
-import { sendVerificationEmail } from "./email";
 
 // Check if user has admin role
 async function checkAdminPermission() {
