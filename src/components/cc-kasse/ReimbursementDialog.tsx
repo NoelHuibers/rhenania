@@ -238,10 +238,14 @@ export function ReimbursementDialog({
 
 				if (res.success) {
 					if (mode === "member" && saveDefault) {
-						await setMyPaymentInfo({
+						// The request is in either way; only the default failed.
+						const saved = await setMyPaymentInfo({
 							accountHolder: recipientName.trim(),
 							iban: iban.trim(),
 						});
+						if (!saved.ok) {
+							toast.error(saved.error);
+						}
 					}
 					toast.success(
 						isEdit

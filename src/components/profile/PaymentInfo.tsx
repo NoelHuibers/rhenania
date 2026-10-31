@@ -27,7 +27,7 @@ export function PaymentInfo({ initial }: { initial?: MyPaymentInfo | null }) {
 	const save = () => {
 		startTransition(async () => {
 			const res = await setMyPaymentInfo({ accountHolder, iban });
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Zahlungsinformationen gespeichert");
 			} else {
 				toast.error(res.error);
