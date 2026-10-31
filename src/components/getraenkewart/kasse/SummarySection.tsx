@@ -21,7 +21,7 @@ import { StatusBadge } from "~/components/ui/status-badge";
 import { parseDecimalInput } from "~/lib/decimal";
 import { formatDate, formatDecimalInput, formatEUR } from "~/lib/format";
 import { billStatusStyle } from "~/lib/status";
-import { setPfandWert } from "~/server/actions/getraenkewart/kasse";
+import { setPfandWert } from "~/server/modules/getraenkekasse/actions";
 import type { Summary } from "./types";
 
 /** Gesamtvermögen hero plus the supporting Kasse figures and editable Pfand. */

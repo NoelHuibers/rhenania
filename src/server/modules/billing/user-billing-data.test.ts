@@ -12,7 +12,7 @@ import {
 	signInAs,
 } from "../../../../test/harness";
 import { requireTenant } from "../../../../test/state";
-import { getUserBillingData } from "./getUserBill";
+import { getUserBillingData } from "./actions";
 
 setupTestDatabases();
 
@@ -167,14 +167,14 @@ describe("getUserBillingData", () => {
 });
 
 describe("errors", () => {
-	test("reports database failures with a generic error", async () => {
+	// An outage must not look like "no bill" (#33); the profile's loader
+	// shows its own error card.
+	test("lets database failures through", async () => {
 		const { user } = await member();
 		await createBill({ userId: user.id });
 		vi.spyOn(console, "error").mockImplementation(() => {});
 		await requireTenant().client.execute("DROP TABLE bill_item");
 
-		await expect(getUserBillingData()).rejects.toThrow(
-			"Failed to fetch billing data",
-		);
+		await expect(getUserBillingData()).rejects.toThrow(/Failed query/);
 	});
 });

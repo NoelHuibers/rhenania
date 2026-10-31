@@ -14,7 +14,7 @@ import { instrumentClient, type QueryDb } from "./query-count";
 export type TenantTestDb = {
 	url: string;
 	client: Client;
-	db: LibSQLDatabase<typeof tenantSchema>;
+	db: LibSQLDatabase<typeof tenantSchema> & { $client: Client };
 	close: () => void;
 };
 

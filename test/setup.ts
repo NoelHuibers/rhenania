@@ -98,7 +98,6 @@ vi.mock("~/server/db", async () => {
 	return {
 		db: lazy(() => requireTenant().db),
 		client: lazy(() => requireTenant().client),
-		fallbackClient: lazy(() => requireTenant().client),
 	};
 });
 
@@ -179,7 +178,7 @@ vi.mock("~/server/auth", async () => {
 			.from(userRoles)
 			.innerJoin(roles, eq(userRoles.roleId, roles.id))
 			.where(eq(userRoles.userId, user.id));
-		return { user: { ...user, roles: rows.map((r) => r.roleName) } };
+		return { user: { ...user, roles: rows.map((r) => r.roleName) }, tenantId };
 	}
 
 	async function getRequestContext() {

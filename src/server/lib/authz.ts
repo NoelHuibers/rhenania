@@ -30,24 +30,33 @@ export const ROLES = {
 
 export type Member = NonNullable<Awaited<ReturnType<typeof auth>>>["user"];
 
-/** The caller, if they are an active member of the current tenant; throws otherwise. */
-export async function requireMember(): Promise<Member> {
+/**
+ * The caller and the tenant they are an active member of, if they hold one
+ * of `roles` there (any member when omitted); throws otherwise.
+ */
+export async function requireCaller(
+	roles?: readonly string[],
+): Promise<{ member: Member; tenantId: string }> {
 	const session = await auth();
 	if (!session) {
 		throw new AuthzError("UNAUTHENTICATED");
 	}
 	// Log lines written later in this request carry the caller's id.
 	await noteRequestUser(session.user.id);
-	return session.user;
+	if (roles && !roles.some((role) => session.user.roles.includes(role))) {
+		throw new AuthzError("FORBIDDEN");
+	}
+	return { member: session.user, tenantId: session.tenantId };
+}
+
+/** The caller, if they are an active member of the current tenant; throws otherwise. */
+export async function requireMember(): Promise<Member> {
+	return (await requireCaller()).member;
 }
 
 /** The caller, if they hold at least one of `roles` in the current tenant. */
 export async function requireRole(roles: readonly string[]): Promise<Member> {
-	const member = await requireMember();
-	if (!roles.some((role) => member.roles.includes(role))) {
-		throw new AuthzError("FORBIDDEN");
-	}
-	return member;
+	return (await requireCaller(roles)).member;
 }
 
 /** The caller, if they are `userId` themselves or hold one of `roles`. */

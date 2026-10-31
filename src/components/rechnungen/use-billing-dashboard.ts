@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import {
 	getBillsForPeriod,
 	updateBillStatus,
-} from "~/server/actions/billings/billings";
+} from "~/server/modules/billing/actions";
 import type { BillingEntry, BillPeriod } from "./billing-types";
 
 /** What the server loads for /rechnungen before the page is sent (#24). */

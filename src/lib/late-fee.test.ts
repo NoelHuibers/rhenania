@@ -14,6 +14,11 @@ describe("lateFeeFor", () => {
 		expect(lateFeeFor(0, false)).toBe(0);
 		expect(lateFeeFor(50, true)).toBe(0);
 	});
+
+	test("charges nothing on a carried credit (#220)", () => {
+		expect(lateFeeFor(-50, false)).toBe(0);
+		expect(lateFeeFor(-0.01, false)).toBe(0);
+	});
 });
 
 test("the letter states the same rule (#11)", () => {

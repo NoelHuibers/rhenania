@@ -13,15 +13,15 @@ import { getMyMember } from "~/server/actions/members/myMember";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { getUserAchievements } from "~/server/actions/profile/achievements";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
-import { getUserBillingData } from "~/server/actions/profile/getUserBill";
 import { getUserProfile } from "~/server/actions/profile/profile";
 import { auth } from "~/server/auth";
 import { getEloStatsForUser } from "~/server/lib/elo-stats";
-import { getOpenBill } from "~/server/lib/open-bill";
 import {
 	getProfilePreferencesForUser,
 	isEloEnabledForUser,
 } from "~/server/lib/preferences";
+import { loadOpenBill } from "~/server/loaders/open-bill";
+import { getUserBillingData } from "~/server/modules/billing/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -54,7 +54,7 @@ setupTestDatabases();
 async function loadProfilePage() {
 	const session = await auth();
 	const userId = session?.user?.id;
-	if (!userId) {
+	if (!session || !userId) {
 		throw new Error("not signed in");
 	}
 	const [
@@ -81,7 +81,7 @@ async function loadProfilePage() {
 		getMyFuchsenSummary(),
 		getMyOrdersPage(),
 		getUserAchievements(),
-		getOpenBill(userId),
+		loadOpenBill(session),
 		(async () => {
 			const s = await auth();
 			const id = s?.user?.id ?? "";

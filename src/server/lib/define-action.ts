@@ -2,16 +2,17 @@
 //
 //   export const deleteBankEntry = defineAction(
 //     { roles: ROLES.getraenke, schema: z.tuple([z.string()]) },
-//     async ([id], { user }) => { … },
+//     async ([id], { tenant, user }) => { … },
 //   );
 //
 // The wrapper checks the caller (any active member, or one of `roles`), the
 // feature flag and the arguments (`schema` describes the argument list as a
-// zod tuple), runs the body and answers with an ActionResult. The body
-// throws ActionError for a failure the user should read; anything else is
-// logged and answered with a generic German message, so no internals reach
-// the browser. Next's own control-flow errors (redirect, notFound) pass
-// through.
+// zod tuple), builds the request's TenantScope (#33) and runs the body with
+// it and the caller, then answers with an ActionResult. The body (or the
+// service it calls) throws a DomainError, e.g. ActionError, for a failure
+// the user should read; anything else is logged and answered with a generic
+// German message, so no internals reach the browser. Next's own
+// control-flow errors (redirect, notFound) pass through.
 
 import "server-only";
 
@@ -20,23 +21,16 @@ import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import { type ActionResult, fail, ok } from "~/lib/action-result";
 import type { FeatureKey } from "~/lib/features";
-import {
-	AuthzError,
-	type Member,
-	requireMember,
-	requireRole,
-} from "~/server/lib/authz";
+import { AuthzError, type Member, requireCaller } from "~/server/lib/authz";
+import { DomainError } from "~/server/lib/domain-error";
 import { FeatureDisabledError, requireFeature } from "~/server/lib/features";
 import { log } from "~/server/lib/log";
+import { scopeOf, type TenantScope } from "~/server/lib/tenant-scope";
 
 /** A failure the user should read, e.g. "Rechnung nicht gefunden". */
-export class ActionError extends Error {
-	constructor(
-		message: string,
-		readonly code = "ACTION_FAILED",
-	) {
-		super(message);
-		this.name = "ActionError";
+export class ActionError extends DomainError {
+	constructor(message: string, code = "ACTION_FAILED") {
+		super(message, code);
 	}
 }
 
@@ -57,7 +51,11 @@ type ActionOptions = {
 	errorMessage?: string;
 };
 
-export type ActionContext = { user: Member };
+export type ActionContext = {
+	/** The caller's tenant: its database and the clock. */
+	tenant: TenantScope;
+	user: Member;
+};
 
 type ArgsSchema = z.ZodType<unknown[], unknown[]>;
 
@@ -77,15 +75,12 @@ export function defineAction(
 ) {
 	return async (...args: unknown[]): Promise<ActionResult<unknown>> => {
 		try {
-			const user = options.roles
-				? await requireRole(options.roles)
-				: await requireMember();
+			const { member: user, tenantId } = await requireCaller(options.roles);
 			if (options.feature) {
 				await requireFeature(options.feature);
 			}
-			const ctx: ActionContext = { user };
 
-			let data: unknown;
+			let parsedArgs: unknown[] | undefined;
 			if (options.schema) {
 				const parsed = options.schema.safeParse(args, {
 					error: germanErrors,
@@ -96,12 +91,16 @@ export function defineAction(
 						"INVALID_INPUT",
 					);
 				}
-				data = await (
-					handler as (args: unknown[], ctx: ActionContext) => Promise<unknown>
-				)(parsed.data, ctx);
-			} else {
-				data = await (handler as (ctx: ActionContext) => Promise<unknown>)(ctx);
+				parsedArgs = parsed.data;
 			}
+
+			// The tenant the guard checked the membership in.
+			const ctx: ActionContext = { tenant: await scopeOf(tenantId), user };
+			const data = await (parsedArgs
+				? (
+						handler as (args: unknown[], ctx: ActionContext) => Promise<unknown>
+					)(parsedArgs, ctx)
+				: (handler as (ctx: ActionContext) => Promise<unknown>)(ctx));
 
 			for (const path of options.revalidate ?? []) {
 				revalidatePath(path);
@@ -109,7 +108,7 @@ export function defineAction(
 			return ok(data);
 		} catch (error) {
 			unstable_rethrow(error);
-			if (error instanceof ActionError || error instanceof AuthzError) {
+			if (error instanceof DomainError || error instanceof AuthzError) {
 				return fail(error.message, error.code);
 			}
 			if (error instanceof FeatureDisabledError) {

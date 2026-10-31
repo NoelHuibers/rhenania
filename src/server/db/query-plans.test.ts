@@ -6,19 +6,18 @@
 
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
-
-import { updateBillStatus } from "~/server/actions/billings/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 import { updateFuchsenBillStatus } from "~/server/actions/fuchsenladen/billings";
-import {
-	getOpenEntityBills,
-	markAllMemberBillsPaid,
-} from "~/server/actions/getraenkewart/kasse";
 import { getStockData } from "~/server/actions/inventur/inventur";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { fuchsenBills } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { getRecentDrinkIds } from "~/server/lib/recent-drinks";
+import { updateBillStatus } from "~/server/modules/billing/actions";
+import {
+	getOpenEntityBills,
+	markAllMemberBillsPaid,
+} from "~/server/modules/getraenkekasse/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -259,11 +258,12 @@ describe("hot query plans use the composite indexes (#25)", () => {
 			markAllMemberBillsPaid,
 		);
 		// Only the carried bills, each checked against its member's own open
-		// bills; then only the open bills.
+		// bills (reading their total too, to skip credits, #220); then only
+		// the open bills.
 		expect(carried?.plan).toEqual([
 			"SEARCH bill USING INDEX bill_status_idx (status=?)",
 			"CORRELATED SCALAR SUBQUERY 1",
-			"SEARCH later USING COVERING INDEX bill_user_status_idx (userId=? AND status=? AND createdAt>?)",
+			"SEARCH later USING INDEX bill_user_status_idx (userId=? AND status=? AND createdAt>?)",
 		]);
 		expect(open?.plan).toEqual([
 			"SEARCH bill USING INDEX bill_status_idx (status=?)",

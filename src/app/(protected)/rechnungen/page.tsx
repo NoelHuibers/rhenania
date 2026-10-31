@@ -3,9 +3,9 @@ import { Suspense } from "react";
 import { BillingDashboard } from "~/components/rechnungen/BillingDashboard";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { TableSkeleton } from "~/components/ui/page-skeleton";
-import { getAllBillPeriods } from "~/server/actions/billings/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 import { auth } from "~/server/auth";
+import { getAllBillPeriods } from "~/server/modules/billing/actions";
 
 // The open orders and the list of bill periods load on the server, in
 // parallel (#24). A period's bills load in the browser when its tab is

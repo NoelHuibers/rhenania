@@ -18,7 +18,7 @@ import type {
 import type {
 	GetraenkeBillingSettings,
 	GetraenkeSettings,
-} from "~/server/actions/getraenkewart/kasse";
+} from "~/server/modules/getraenkekasse/actions";
 
 type Props = {
 	summary: Summary;

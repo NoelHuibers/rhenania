@@ -412,6 +412,8 @@ export const getRequestContext = cache(async (): Promise<RequestContext> => {
  * also checks membership. A thin view of `getRequestContext()`.
  */
 export const auth = cache(async () => {
-	const { member } = await getRequestContext();
-	return member ? { user: member } : null;
+	const { member, tenantId } = await getRequestContext();
+	// `tenantId` is the tenant the membership was checked in, so code that
+	// acts for this caller (a TenantScope, #33) uses exactly that one.
+	return member && tenantId ? { user: member, tenantId } : null;
 });

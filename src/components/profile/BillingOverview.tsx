@@ -14,10 +14,10 @@ import {
 	DrawerTrigger,
 } from "~/components/ui/drawer";
 import { Separator } from "~/components/ui/separator";
-import { paymentReference } from "~/lib/bill-payment";
+import { isCredit, paymentReference } from "~/lib/bill-payment";
 import { formatDate, formatEUR } from "~/lib/format";
-import { downloadUserBillPDF } from "~/server/actions/profile/downloadUserBill";
-import type { getUserBillingData } from "~/server/actions/profile/getUserBill";
+import type { getUserBillingData } from "~/server/modules/billing/actions";
+import { downloadUserBillPDF } from "~/server/modules/billing/actions";
 import { PAYMENT_DATA_MISSING, PayBillDrawer } from "./PayBillDrawer";
 
 type UserBillingData = Awaited<ReturnType<typeof getUserBillingData>>;
@@ -143,6 +143,9 @@ export function BillingOverview({
 			</Card>
 		);
 	}
+
+	// A credit (Guthaben) is never paid: the next bill settles it (#220).
+	const toPay = billData.status === "Unbezahlt" && !isCredit(billData.total);
 
 	return (
 		<Card>
@@ -279,7 +282,7 @@ export function BillingOverview({
 
 				{/* Payment section — only when unpaid */}
 				{/* The tenant has not set up its Getränkekasse: never guess a payee. */}
-				{billData.status === "Unbezahlt" && !payment && (
+				{toPay && !payment && (
 					<div className="space-y-2">
 						<Separator />
 						<p className="text-muted-foreground text-sm">
@@ -291,7 +294,7 @@ export function BillingOverview({
 				{/* Same sheet as the open-bill banner on /trinken (#80). The
 				    payment target comes from the server, the same source as the
 				    bill PDF, so the profile never shows a different account. */}
-				{billData.status === "Unbezahlt" && payment && (
+				{toPay && payment && (
 					<div className="space-y-2">
 						<Separator />
 						<PayBillDrawer

@@ -15,7 +15,8 @@ import { getTenantConfig } from "~/server/lib/tenant-config";
 import { createClient } from "./libsql";
 import * as schema from "./schema";
 
-export type TenantDb = LibSQLDatabase<typeof schema>;
+/** A tenant's drizzle instance; `$client` is its libSQL client (batches). */
+export type TenantDb = LibSQLDatabase<typeof schema> & { $client: Client };
 
 type TenantConnection = {
 	client: Client;

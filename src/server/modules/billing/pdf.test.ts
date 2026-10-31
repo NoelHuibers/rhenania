@@ -2,6 +2,7 @@ import { head, put } from "@vercel/blob";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { billPDFs } from "~/server/db/schema";
+import { billPdf, saveUserBillPdf } from "~/server/modules/billing/service";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -16,10 +17,9 @@ import {
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
 import { useServerTimeZone } from "../../../../test/server-tz";
-import { generateUserBillPDF } from "./createUserPDF";
-import { saveUserBillPDF } from "./saveUserBillPDF";
 
 vi.mock("@vercel/blob", () => ({ put: vi.fn(), head: vi.fn() }));
 
@@ -73,9 +73,9 @@ describe("generateUserBillPDF", () => {
 	test("reports unknown bills", async () => {
 		await createTenant();
 
-		expect(await generateUserBillPDF("missing")).toEqual({
-			success: false,
-			error: "Rechnung nicht gefunden",
+		await expect(billPdf(testScope(), "missing")).rejects.toMatchObject({
+			message: "Rechnung nicht gefunden",
+			code: "PDF_FAILED",
 		});
 	});
 
@@ -83,15 +83,13 @@ describe("generateUserBillPDF", () => {
 		await createTenant();
 		const { bill } = await memberBill();
 
-		expect(await generateUserBillPDF(bill.id)).toEqual({
-			success: false,
-			error:
-				"Bitte Absender und Konto in der Kasse hinterlegen (fehlt: Absender, Straße, PLZ und Ort, Kontoinhaber, Getränkekasse-Konto mit gültiger IBAN).",
-		});
+		await expect(billPdf(testScope(), bill.id)).rejects.toThrow(
+			"Bitte Absender und Konto in der Kasse hinterlegen (fehlt: Absender, Straße, PLZ und Ort, Kontoinhaber, Getränkekasse-Konto mit gültiger IBAN).",
+		);
 
 		// A konto alone is not enough either: the sender is missing.
 		await createKontoRow();
-		expect((await generateUserBillPDF(bill.id)).error).toBe(
+		await expect(billPdf(testScope(), bill.id)).rejects.toThrow(
 			"Bitte Absender und Konto in der Kasse hinterlegen (fehlt: Absender, Straße, PLZ und Ort, Kontoinhaber).",
 		);
 	});
@@ -110,9 +108,7 @@ describe("generateUserBillPDF", () => {
 		});
 		const { bill } = await memberBill();
 
-		const text = pdfText(
-			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
-		);
+		const text = pdfText((await billPdf(testScope(), bill.id)).pdf);
 
 		expect(text.slice(0, 4)).toEqual([
 			"Hans Hassia",
@@ -130,9 +126,7 @@ describe("generateUserBillPDF", () => {
 		await setUpGetraenkeBilling({ konto: { paypalLink: null } });
 		const { bill } = await memberBill();
 
-		const text = pdfText(
-			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
-		);
+		const text = pdfText((await billPdf(testScope(), bill.id)).pdf);
 
 		expect(text.some((t) => t.includes("paypal"))).toBe(false);
 		expect(text).toContain(
@@ -148,11 +142,10 @@ describe("generateUserBillPDF", () => {
 		await setUpGetraenkeBilling();
 		const { bill } = await memberBill();
 
-		const result = await generateUserBillPDF(bill.id);
+		const result = await billPdf(testScope(), bill.id);
 
-		expect(result.success).toBe(true);
 		expect(result.fileName).toBe("Rechnung_KW-43-26_Max_Muster.pdf");
-		const pdf = result.pdfContent as Buffer;
+		const { pdf } = result;
 		expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
 		const text = pdfText(pdf);
 		expect(text).toContain("Lieber Max Muster,");
@@ -176,6 +169,35 @@ describe("generateUserBillPDF", () => {
 		expect(pdfValueAfter(pdf, "Gesamtbetrag:")).toMatch(/^25,00/);
 	});
 
+	test("states a credit as Guthaben, asks for no payment and has no PayPal amount (#220)", async () => {
+		await createTenant();
+		await setUpGetraenkeBilling();
+		const { bill } = await memberBill({
+			drinksTotal: 1.5,
+			oldBillingAmount: -2.5,
+			fees: 0,
+			items: [{ drinkName: "Pils", amount: 1, pricePerDrink: 1.5 }],
+		});
+
+		const pdf = (await billPdf(testScope(), bill.id)).pdf;
+		const text = pdfText(pdf);
+
+		expect(
+			text.some((t) => t.startsWith("Du hast ein Guthaben von: 1,00")),
+		).toBe(true);
+		expect(text.some((t) => t.startsWith("in Höhe von"))).toBe(false);
+		expect(text.some((t) => t.includes("Bitte überweise"))).toBe(false);
+		expect(text.some((t) => t.includes("paypal"))).toBe(false);
+		expect(text.some((t) => t.startsWith("Du musst nichts überweisen"))).toBe(
+			true,
+		);
+		// The summary still adds up: 1,50 - 2,50 = a credit of 1,00.
+		expect(pdfValueAfter(pdf, "Rechnungsbetrag:")).toMatch(/^1,50/);
+		expect(pdfValueAfter(pdf, "Alte Rechnung:")).toMatch(/^-2,50/);
+		expect(pdfValueAfter(pdf, "Guthaben:")).toMatch(/^1,00/);
+		expect(text).not.toContain("Gesamtbetrag:");
+	});
+
 	test("marks paid and deferred bills", async () => {
 		await createTenant();
 		await setUpGetraenkeBilling();
@@ -189,12 +211,8 @@ describe("generateUserBillPDF", () => {
 			status: "Gestundet",
 		});
 
-		const paidText = pdfText(
-			(await generateUserBillPDF(paid.id)).pdfContent as Buffer,
-		);
-		const deferredText = pdfText(
-			(await generateUserBillPDF(deferred.id)).pdfContent as Buffer,
-		);
+		const paidText = pdfText((await billPdf(testScope(), paid.id)).pdf);
+		const deferredText = pdfText((await billPdf(testScope(), deferred.id)).pdf);
 
 		expect(paidText).toEqual(
 			expect.arrayContaining(["BEZAHLT", "am 05.11.26"]),
@@ -219,9 +237,7 @@ describe("generateUserBillPDF", () => {
 			paidAt: new Date("2026-11-05T23:30:00Z"),
 		});
 
-		const text = pdfText(
-			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
-		);
+		const text = pdfText((await billPdf(testScope(), bill.id)).pdf);
 
 		expect(text).toContain("Stuttgart den 22.10.26");
 		expect(text).toContain("am 06.11.26");
@@ -232,7 +248,7 @@ describe("generateUserBillPDF", () => {
 		await setUpGetraenkeBilling();
 		const { bill } = await memberBill({ umlage: 3.5 });
 
-		const pdf = (await generateUserBillPDF(bill.id)).pdfContent as Buffer;
+		const pdf = (await billPdf(testScope(), bill.id)).pdf;
 
 		expect(pdfValueAfter(pdf, "Umlage:")).toMatch(/^3,50/);
 		const cents = (label: string) =>
@@ -254,26 +270,23 @@ describe("generateUserBillPDF", () => {
 		await setUpGetraenkeBilling();
 		const { bill } = await memberBill();
 
-		const text = pdfText(
-			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
-		);
+		const text = pdfText((await billPdf(testScope(), bill.id)).pdf);
 
 		expect(text.some((t) => t.includes("Mahnung in Höhe von 10%"))).toBe(true);
 	});
 });
 
-describe("saveUserBillPDF", () => {
+describe("saveUserBillPdf", () => {
 	test("uploads the member's own bill once and records it", async () => {
 		const tenant = await createTenant();
 		await setUpGetraenkeBilling();
 		const { member, bill } = await memberBill();
 		signInAs(member);
 
-		const result = await saveUserBillPDF(bill.id);
+		const result = await saveUserBillPdf(testScope(), member, bill.id);
 
 		const path = `tenants/${tenant.slug}/bills/Max Muster/Rechnung_KW-43-26_Max_Muster.pdf`;
 		expect(result).toMatchObject({
-			success: true,
 			downloadUrl: `https://blob.test/${path}`,
 			fileName: "Rechnung_KW-43-26_Max_Muster.pdf",
 			wasExisting: false,
@@ -292,10 +305,9 @@ describe("saveUserBillPDF", () => {
 		});
 		expect(row?.fileSize).toBeGreaterThan(1000);
 
-		const again = await saveUserBillPDF(bill.id);
+		const again = await saveUserBillPdf(testScope(), member, bill.id);
 
 		expect(again).toMatchObject({
-			success: true,
 			wasExisting: true,
 			pdfId: row?.id,
 		});
@@ -307,13 +319,13 @@ describe("saveUserBillPDF", () => {
 		await setUpGetraenkeBilling();
 		const { member, bill } = await memberBill();
 		signInAs(member);
-		await saveUserBillPDF(bill.id);
+		await saveUserBillPdf(testScope(), member, bill.id);
 		const [first] = await tenantDb().select().from(billPDFs);
 		headMock.mockRejectedValueOnce(new Error("BlobNotFoundError"));
 
-		const result = await saveUserBillPDF(bill.id);
+		const result = await saveUserBillPdf(testScope(), member, bill.id);
 
-		expect(result).toMatchObject({ success: true, wasExisting: false });
+		expect(result).toMatchObject({ wasExisting: false });
 		expect(putMock).toHaveBeenCalledTimes(2);
 		const rows = await tenantDb().select().from(billPDFs);
 		expect(rows).toHaveLength(1);
@@ -323,16 +335,17 @@ describe("saveUserBillPDF", () => {
 	test("refuses bills of other members and unknown bills", async () => {
 		await createTenant();
 		const { bill } = await memberBill();
-		signInAs(await createUser({ name: "Someone Else" }));
+		const someoneElse = await createUser({ name: "Someone Else" });
 
-		expect(await saveUserBillPDF(bill.id)).toEqual({
-			success: false,
-			error: "Unauthorized: This bill does not belong to you",
+		await expect(
+			saveUserBillPdf(testScope(), someoneElse, bill.id),
+		).rejects.toMatchObject({
+			message: "Unauthorized: This bill does not belong to you",
+			code: "FORBIDDEN",
 		});
-		expect(await saveUserBillPDF("missing")).toEqual({
-			success: false,
-			error: "Bill not found",
-		});
+		await expect(
+			saveUserBillPdf(testScope(), someoneElse, "missing"),
+		).rejects.toMatchObject({ message: "Bill not found", code: "NOT_FOUND" });
 		expect(putMock).not.toHaveBeenCalled();
 		expect(await tenantDb().select().from(billPDFs)).toHaveLength(0);
 	});

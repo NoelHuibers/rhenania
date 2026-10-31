@@ -2,13 +2,14 @@
 //
 // Pure: renders what the bill shows (`UserBillData`) with the tenant's sender
 // and payment target, without touching the database. The billing run renders
-// the bills it has just written from memory (#23); `generateUserBillPDF`
-// renders a stored bill.
+// the bills it has just written from memory (#23); `billPdf` in the
+// billing service renders a stored bill.
 
 import { jsPDF } from "jspdf";
+import { isCredit } from "~/lib/bill-payment";
 import { formatDateWith } from "~/lib/format";
 import { lateFeeSentence } from "~/lib/late-fee";
-import type { GetraenkeBillSender } from "~/server/lib/getraenkekasse-payment";
+import type { GetraenkeBillSender } from "~/server/domain/getraenkekasse/payment";
 import type { UserBillData } from "~/server/lib/user-bill-data";
 
 /** Attachment name, e.g. `Rechnung_KW-43-26_Max_M_ller.pdf`. */
@@ -22,6 +23,8 @@ export function renderUserBillPDF(
 	senderInfo: GetraenkeBillSender,
 ): Buffer {
 	const { payment } = senderInfo;
+	// A credit is not a sum to pay: no payment request, no PayPal amount.
+	const credit = isCredit(data.bill.total);
 	const doc = new jsPDF({
 		orientation: "portrait",
 		unit: "mm",
@@ -49,10 +52,15 @@ export function renderUserBillPDF(
 	doc.text(`Lieber ${data.bill.userName},`, 20, 70);
 
 	// Main letter text
-	const letterText = [
-		"Auf der nächsten Seite findest du deine Getränkerechnung aufgeschlüsselt,",
-		`in Höhe von: ${formatCurrency(data.bill.total)}`,
-	];
+	const letterText = credit
+		? [
+				"Auf der nächsten Seite findest du deine Getränkerechnung aufgeschlüsselt.",
+				`Du hast ein Guthaben von: ${formatCurrency(-data.bill.total)}`,
+			]
+		: [
+				"Auf der nächsten Seite findest du deine Getränkerechnung aufgeschlüsselt,",
+				`in Höhe von: ${formatCurrency(data.bill.total)}`,
+			];
 
 	let yPos = 85;
 	for (const line of letterText) {
@@ -63,13 +71,18 @@ export function renderUserBillPDF(
 	yPos += 5;
 
 	// Payment instructions
-	const paymentText = [
-		payment.paypalBaseUrl
-			? `Bitte überweise mir den Betrag mit dem Paypal-Link oder auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`
-			: `Bitte überweise mir den Betrag auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`,
-		`Tagen. ${lateFeeSentence()}`,
-		"Rechnung.",
-	];
+	const paymentText = credit
+		? [
+				"Du musst nichts überweisen. Das Guthaben wird mit deiner nächsten",
+				"Rechnung verrechnet.",
+			]
+		: [
+				payment.paypalBaseUrl
+					? `Bitte überweise mir den Betrag mit dem Paypal-Link oder auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`
+					: `Bitte überweise mir den Betrag auf das genannte Konto innerhalb von ${senderInfo.paymentDueDays}`,
+				`Tagen. ${lateFeeSentence()}`,
+				"Rechnung.",
+			];
 
 	for (const line of paymentText) {
 		doc.text(line, 20, yPos);
@@ -83,9 +96,10 @@ export function renderUserBillPDF(
 	doc.text(senderInfo.name, 20, yPos);
 
 	// Payment details at bottom of first page
-	const paypalLink = payment.paypalBaseUrl
-		? `${payment.paypalBaseUrl}/${formatPayPalAmount(data.bill.total)}`
-		: null;
+	const paypalLink =
+		payment.paypalBaseUrl && !credit
+			? `${payment.paypalBaseUrl}/${formatPayPalAmount(data.bill.total)}`
+			: null;
 	yPos = paypalLink ? 250 : 257;
 	doc.setFontSize(11);
 	if (paypalLink) {
@@ -150,8 +164,10 @@ export function renderUserBillPDF(
 
 	doc.setFont("helvetica", "bold");
 	doc.setFontSize(14);
-	doc.text("Gesamtbetrag:", 20, yPosition);
-	doc.text(formatCurrency(data.total), 160, yPosition, { align: "right" });
+	doc.text(credit ? "Guthaben:" : "Gesamtbetrag:", 20, yPosition);
+	doc.text(formatCurrency(credit ? -data.total : data.total), 160, yPosition, {
+		align: "right",
+	});
 
 	// Payment status (if applicable)
 	yPosition += 15;

@@ -25,6 +25,7 @@ import {
 	fuchsenBillPeriods,
 	fuchsenBills,
 	fuchsenOrders,
+	users,
 } from "~/server/db/schema";
 import { FUCHSEN_RULES, planBillingRun } from "~/server/domain/billing/plan";
 import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
@@ -83,9 +84,10 @@ const isOutstanding = () =>
 /**
  * Run a new fuchsen billing period, like the drinks billing: every open,
  * not-yet-billed order goes onto one bill per member; whatever a member
- * still owes from ANY earlier period is carried into their new bill (members
- * with debt but no new orders get a carry-only bill), and the carried bills
- * are closed out as "Übertragen" so the debt is listed and counted once.
+ * still owes (or has as credit) from ANY earlier period is carried into
+ * their new bill (members with debt but no new orders get a carry-only
+ * bill), and the carried bills are closed out as "Übertragen" so the amount
+ * is listed and counted once.
  */
 export const createNewFuchsenBilling = defineAction(
 	{
@@ -115,17 +117,21 @@ export const createNewFuchsenBilling = defineAction(
 					.where(isNull(fuchsenBillPeriods.closedAt))
 					.orderBy(desc(fuchsenBillPeriods.createdAt))
 					.limit(1),
-				// 3. Debt from all earlier periods.
+				// 3. Debt (or credit) from all earlier periods, oldest first,
+				// with the member's current name for a carry-only bill.
 				db
 					.select({
 						id: fuchsenBills.id,
 						userId: fuchsenBills.userId,
 						userName: fuchsenBills.userName,
+						memberName: users.name,
 						total: fuchsenBills.total,
 						status: fuchsenBills.status,
 					})
 					.from(fuchsenBills)
-					.where(isOutstanding()),
+					.leftJoin(users, eq(users.id, fuchsenBills.userId))
+					.where(isOutstanding())
+					.orderBy(fuchsenBills.createdAt, sql`${fuchsenBills}.rowid`),
 			]);
 
 		if (unbilledOrders.length === 0) {
@@ -187,7 +193,7 @@ export const createNewFuchsenBilling = defineAction(
 		// changed in the meantime.
 		const { orderIds } = plan;
 		try {
-			await writeBatch([
+			await writeBatch(db, [
 				db.insert(fuchsenBillPeriods).values({
 					id: billPeriodId,
 					billNumber,
@@ -204,6 +210,7 @@ export const createNewFuchsenBilling = defineAction(
 							eq(fuchsenBillPeriods.id, billPeriodId),
 							not(
 								unchangedSince(
+									db,
 									{ billsTable: fuchsenBills, outstanding: outstandingRows },
 									{
 										table: fuchsenOrders,
@@ -427,7 +434,7 @@ export const updateFuchsenBillStatus = defineAction(
 		}
 		// A carried bill is settled (and reopened) through the bill it was
 		// rolled into.
-		const refusal = await carriedBillRefusal(fuchsenBills, bill);
+		const refusal = await carriedBillRefusal(db, fuchsenBills, bill);
 		if (refusal) {
 			throw new ActionError(refusal, "CARRIED_BILL");
 		}

@@ -3,12 +3,12 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { generateUserBillPDF } from "~/server/actions/billings/createUserPDF";
 import type { TenantBranding } from "~/server/db/control-schema";
 import { tenants } from "~/server/db/control-schema";
 import { getraenkeBillingConfig, kontos } from "~/server/db/schema";
-import { getGetraenkekassePayment } from "~/server/lib/getraenkekasse-payment";
 import { clearTenantCache } from "~/server/lib/tenant-context";
+import { billPdf } from "~/server/modules/billing/service";
+import { payment } from "~/server/modules/getraenkekasse/service";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -24,6 +24,7 @@ import {
 	createUser,
 	setupTestDatabases,
 	tenantDb,
+	testScope,
 } from "../../../test/harness";
 import {
 	applyBillingProfileBackfill,
@@ -83,7 +84,9 @@ describe("Rhenania backfill (#9)", () => {
 			],
 		});
 		// Without data the bill is refused instead of naming a stranger.
-		expect((await generateUserBillPDF(bill.id)).success).toBe(false);
+		await expect(billPdf(testScope(), bill.id)).rejects.toThrow(
+			/Absender und Konto/,
+		);
 
 		const plan = await backfill();
 
@@ -105,15 +108,13 @@ describe("Rhenania backfill (#9)", () => {
 		// what billing charges (#11). Sender, holder, IBAN and PayPal are as
 		// before.
 		const feeLine = legacyText.findIndex((t) => t.includes("Mahnung"));
-		const text = pdfText(
-			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
-		);
+		const text = pdfText((await billPdf(testScope(), bill.id)).pdf);
 		const withoutFee = (runs: string[]) => runs.filter((_, i) => i !== feeLine);
 		expect(withoutFee(text)).toEqual(withoutFee(legacyText));
 		expect(text).toHaveLength(legacyText.length);
 		expect(legacyText[feeLine]).toContain("Mahnung in Höhe von 20%");
 		expect(text[feeLine]).toContain("Mahnung in Höhe von 10% davon");
-		expect(await getGetraenkekassePayment()).toEqual(LEGACY);
+		expect(await payment(testScope())).toEqual(LEGACY);
 	});
 
 	test("is idempotent", async () => {
@@ -137,7 +138,7 @@ describe("Rhenania backfill (#9)", () => {
 			expect.stringContaining("create getraenke_billing_config"),
 			`set PayPal of konto ${konto.id} to https://paypal.me/CorpsRhenaniaBier`,
 		]);
-		expect(await getGetraenkekassePayment()).toEqual({
+		expect(await payment(testScope())).toEqual({
 			...LEGACY,
 			iban: "DE89 3704 0044 0532 0130 00",
 			ibanRaw: VALID_IBAN,
@@ -155,7 +156,7 @@ describe("Rhenania backfill (#9)", () => {
 		const plan = await backfill(branding);
 
 		expect(plan.steps.map((s) => s.kind)).toEqual(["insert-profile"]);
-		expect((await getGetraenkekassePayment())?.paypalBaseUrl).toBe(
+		expect((await payment(testScope()))?.paypalBaseUrl).toBe(
 			"https://paypal.me/RhenaniaBranding",
 		);
 		const [profile] = await tenantDb().select().from(getraenkeBillingConfig);
@@ -175,7 +176,7 @@ describe("Rhenania backfill (#9)", () => {
 		expect(plan.warnings).toEqual([
 			expect.stringContaining("has an invalid IBAN"),
 		]);
-		expect(await getGetraenkekassePayment()).toEqual({
+		expect(await payment(testScope())).toEqual({
 			...LEGACY,
 			paypalBaseUrl: "https://paypal.me/brokenkasse",
 		});

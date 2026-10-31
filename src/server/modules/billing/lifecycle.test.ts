@@ -18,8 +18,18 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { toCents } from "~/lib/money";
+import { closeInventoryAndBill } from "~/server/actions/inventur/inventur";
+import { createOrder } from "~/server/actions/orders";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
 import { sendTenantMail } from "~/server/lib/mailer";
+import { billPdf, periodCsv } from "~/server/modules/billing/service";
+import {
+	getKasseSummary,
+	getOpenMemberBills,
+	markAllMemberBillsPaid,
+	setBillRecipient,
+	setMarkupPercent,
+} from "~/server/modules/getraenkekasse/actions";
 import {
 	billsOf,
 	createBillPeriodRow,
@@ -42,26 +52,16 @@ import {
 	signInAs,
 	type TestUser,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
 import { requireTenant } from "../../../../test/state";
-import {
-	getKasseSummary,
-	getOpenMemberBills,
-	markAllMemberBillsPaid,
-	setBillRecipient,
-	setMarkupPercent,
-} from "../getraenkewart/kasse";
-import { closeInventoryAndBill } from "../inventur/inventur";
-import { createOrder } from "../orders";
 import {
 	createNewBilling,
 	getAllBillPeriods,
 	getBillsForPeriod,
+	saveBillPeriodCSV,
 	updateBillStatus,
-} from "./billings";
-import { generateBillPeriodCSV } from "./createCSV";
-import { generateUserBillPDF } from "./createUserPDF";
-import { saveBillPeriodCSV } from "./saveBillCSV";
+} from "./actions";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 vi.mock("~/server/actions/achievements/tracking", () => ({
@@ -284,11 +284,7 @@ function euro(text: string | undefined): number {
 
 /** The summary lines of the bill PDF, read back from the rendered file. */
 async function pdfZeilen(billId: string) {
-	const result = await generateUserBillPDF(billId);
-	if (!result.success || !result.pdfContent) {
-		throw new Error(result.error);
-	}
-	const pdf = result.pdfContent;
+	const { pdf } = await billPdf(testScope(), billId);
 	const zeilen = {
 		rechnungsbetrag: euro(pdfValueAfter(pdf, "Rechnungsbetrag:")),
 		alteRechnung: euro(pdfValueAfter(pdf, "Alte Rechnung:")),
@@ -372,7 +368,7 @@ describe("Erste Abrechnung", () => {
 		await expectGeldInvarianten();
 
 		// CSV: group bills first, quantities per drink, money columns, GESAMT.
-		const csv = await generateBillPeriodCSV(run.billPeriod.id, {
+		const csv = await periodCsv(testScope(), run.billPeriod.id, {
 			delimiter: ";",
 		});
 		const table = csvZeilen(csv.csvContent);
@@ -594,7 +590,7 @@ describe("Übertrag und Mahnung über mehrere Perioden", () => {
 		expect((await pdfZeilen(neu[1]?.id ?? "")).mahnung).toBe(0.5);
 		// The CSV states the Mahnung as a factor of the Übertrag.
 		const table = csvZeilen(
-			(await generateBillPeriodCSV(run.billPeriod.id, { delimiter: ";" }))
+			(await periodCsv(testScope(), run.billPeriod.id, { delimiter: ";" }))
 				.csvContent,
 		);
 		expect(
@@ -1219,7 +1215,9 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 		expect((await neuesteRechnung(member.id)).status).toBe("Unbezahlt");
 	});
 
-	test("ist die Datenbank nicht erreichbar, liefern die Lesefunktionen leere Werte und Statuswechsel melden den Fehler", async () => {
+	// An outage must not look like "no bills" (#33): the reads fail instead
+	// of answering with an empty list.
+	test("ist die Datenbank nicht erreichbar, schlagen die Lesefunktionen fehl und Statuswechsel melden den Fehler", async () => {
 		await kasseEinrichten();
 		await bestellen(await createUser(), await createDrink());
 		const run = await abrechnenMitPeriode(woche(0));
@@ -1229,9 +1227,10 @@ describe("Randfälle der Abrechnungsaktionen", () => {
 			"PRAGMA foreign_keys = OFF; DROP TABLE bill_csv; DROP TABLE bill_pdf; DROP TABLE bill_item; DROP TABLE bill; DROP TABLE bill_period; DROP TABLE `order`;",
 		);
 
-		expect(await getAllBillPeriods()).toEqual([]);
-		expect(await getAllBillPeriods()).toEqual([]);
-		expect(await getBillsForPeriod(run.billPeriod.id)).toEqual([]);
+		await expect(getAllBillPeriods()).rejects.toThrow(/Failed query/);
+		await expect(getBillsForPeriod(run.billPeriod.id)).rejects.toThrow(
+			/no such table/,
+		);
 		expect(await updateBillStatus("egal", "Bezahlt")).toEqual({
 			ok: false,
 			error: "Fehler beim Aktualisieren des Status",

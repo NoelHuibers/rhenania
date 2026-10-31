@@ -1,10 +1,11 @@
 import "dotenv/config";
 import { seedAchievements } from "~/lib/achievements/version1";
 import { recalculateAllAchievements } from "~/server/actions/achievements/tracking";
-import { db } from "~/server/db";
 import { users } from "~/server/db/schema";
+import { getScriptDb, runWithScriptDb } from "~/server/db/script";
 
 async function main() {
+	const { db } = getScriptDb();
 	await seedAchievements();
 
 	const allUsers = await db
@@ -21,7 +22,8 @@ async function main() {
 	process.exit(0);
 }
 
-main().catch((e) => {
+// The achievement code still uses the proxy db; bind it to DATABASE_URL.
+runWithScriptDb(main).catch((e) => {
 	console.error(e);
 	process.exit(1);
 });

@@ -1,15 +1,17 @@
 // plan.ts — what a billing run charges, computed without the database.
 //
-// Shared by the Getränke run (server/lib/billing-run.ts) and the
+// Shared by the Getränke run (server/modules/billing/run.ts) and the
 // Fuchsenladen run (actions/fuchsenladen/billings.ts). Both load the unbilled
 // orders and the open bills, plan here and write the plan in one batch, so
 // the bill maths lives in one place and is tested without a database.
 //
-// A run gives every member with new orders one bill, carries whatever they
-// still owe from earlier periods into it (members with debt but no new
-// orders get a carry-only bill) and settles the carried bills as
-// "Übertragen". Getränke adds the late fee on carried amounts, group bills
-// for orders booked for a group (bookingFor) and the inventory-loss Umlage.
+// A run gives every member with new orders one bill, carries the sum of
+// their open bills from earlier periods into it, debt or credit, and settles
+// the carried bills as "Übertragen", so every amount is carried exactly once
+// (#220). Members with debt but no new orders get a carry-only bill; a
+// credit stays on the open bills until the member is billed again.
+// Getränke adds the late fee on carried debt, group bills for orders booked
+// for a group (bookingFor) and the inventory-loss Umlage.
 //
 // All amounts are euros rounded to whole cents and added in integer cents,
 // so a bill's parts always add up to its total.
@@ -36,50 +38,29 @@ export type BillableOrder = {
 	bookingFor?: string | null;
 };
 
-/** An earlier bill that is still owed (Unbezahlt or Gestundet). */
+/**
+ * An earlier bill that is still open (Unbezahlt or Gestundet). Its total is
+ * negative for a credit. The runs read them oldest first.
+ */
 export type OutstandingBill = {
 	userId: string;
+	/** The name printed on the bill. */
 	userName: string;
+	/** The member's current name; null for a deleted or unnamed member. */
+	memberName?: string | null;
 	total: number;
 	status: string;
 };
 
-/**
- * Where the two runs still differ (#58). Kept apart here so the refactor
- * changes no bill; which behaviour is right is decided separately.
- */
+/** Where the two runs differ. */
 export type BillingRules = {
-	/** The Mahnung on carried amounts (LATE_FEE), Getränke only. */
+	/** The Mahnung on carried debt (LATE_FEE), Getränke only. */
 	lateFee: boolean;
-	/**
-	 * What happens when a member's open bills add up to zero or less (a
-	 * credit). Both runs carry and settle a positive debt alike.
-	 * - "keep-open" (Getränke): the sum is carried as is, a credit lowers the
-	 *   new bill, but the old bills stay open, so the next run counts the
-	 *   credit again.
-	 * - "settle" (Fuchsenladen): nothing is carried (a credit is dropped) and
-	 *   the old bills are settled as "Übertragen" if the member is billed.
-	 */
-	nonPositiveCarry: "keep-open" | "settle";
-	/**
-	 * Whose name a carry-only bill gets when a member's open bills disagree
-	 * (a renamed member): the last open bill read (Getränke) or the first
-	 * (Fuchsenladen). The open bills are read in no particular order.
-	 */
-	carryOnlyName: "last" | "first";
 };
 
-export const GETRAENKE_RULES: BillingRules = {
-	lateFee: true,
-	nonPositiveCarry: "keep-open",
-	carryOnlyName: "last",
-};
+export const GETRAENKE_RULES: BillingRules = { lateFee: true };
 
-export const FUCHSEN_RULES: BillingRules = {
-	lateFee: false,
-	nonPositiveCarry: "settle",
-	carryOnlyName: "first",
-};
+export const FUCHSEN_RULES: BillingRules = { lateFee: false };
 
 /** One bill line: the orders of one drink or item at one price. */
 export type PlannedLine = {
@@ -168,14 +149,13 @@ function consolidateLines(
 type Debt = { cents: number; userName: string; deferred: boolean };
 
 /**
- * What each member owes from ALL earlier periods, in whole cents so legacy
- * sub-cent totals can't add up to drift, and whether any of it is deferred.
- * Group bills are settled directly and never carried.
+ * What each member owes from ALL earlier periods (negative for a credit), in
+ * whole cents so legacy sub-cent totals can't add up to drift, whether any of
+ * it is deferred, and the name for a carry-only bill: the member's current
+ * name, else the name on their newest open bill. Group bills are settled
+ * directly and never carried.
  */
-function debtsByUser(
-	outstanding: OutstandingBill[],
-	carryOnlyName: BillingRules["carryOnlyName"],
-): Map<string, Debt> {
+function debtsByUser(outstanding: OutstandingBill[]): Map<string, Debt> {
 	const debts = new Map<string, Debt>();
 	for (const bill of outstanding) {
 		if (bill.userId.startsWith(GROUP_PREFIX)) {
@@ -187,9 +167,7 @@ function debtsByUser(
 			deferred: false,
 		};
 		debt.cents += toCents(Number(bill.total) || 0);
-		if (carryOnlyName === "last") {
-			debt.userName = bill.userName;
-		}
+		debt.userName = bill.memberName || bill.userName;
 		if (bill.status === "Gestundet") {
 			debt.deferred = true;
 		}
@@ -232,6 +210,8 @@ function billedMembers(
 		// Named after their first order; a member's orders are never empty.
 		billed.set(userId, (orders[0] as BillableOrder).userName);
 	}
+	// A credit alone gets no bill: it stays open and is carried once the
+	// member is billed again.
 	for (const [userId, debt] of debts) {
 		if (debt.cents > 0 && !billed.has(userId)) {
 			billed.set(userId, debt.userName);
@@ -248,19 +228,18 @@ function billedMembers(
 }
 
 /**
- * A billed member's carried amount, its late fee and whether their open
- * bills are settled (so the member isn't listed and counted twice).
+ * A billed member's carried amount (debt, credit or zero), its late fee and
+ * whether their open bills are settled. Whatever is carried is settled, so
+ * it is listed and counted once (#220). The fee applies to debt only.
  */
 function carryOver(debt: Debt | undefined, rules: BillingRules) {
-	const cents = debt?.cents ?? 0;
-	const keepOpen = rules.nonPositiveCarry === "keep-open";
-	const oldBillingAmount = fromCents(keepOpen ? cents : Math.max(0, cents));
+	const oldBillingAmount = fromCents(debt?.cents ?? 0);
 	return {
 		oldBillingAmount,
 		fees: rules.lateFee
 			? lateFeeFor(oldBillingAmount, debt?.deferred ?? false)
 			: 0,
-		settles: keepOpen ? cents > 0 : debt !== undefined,
+		settles: debt !== undefined,
 	};
 }
 
@@ -282,7 +261,7 @@ export function planBillingRun<O extends BillableOrder>({
 	umlage?: Umlage;
 	newId?: () => string;
 }): BillingPlan<O> {
-	const debts = debtsByUser(outstandingBills, rules.carryOnlyName);
+	const debts = debtsByUser(outstandingBills);
 	const { byMember, byGroup } = splitOrders(unbilledOrders);
 	const bills: PlannedBill<O>[] = [];
 	const settleUserIds: string[] = [];

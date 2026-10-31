@@ -107,6 +107,42 @@ describe("generateFuchsenBillPDF", () => {
 		expect(text).toContain("BEZAHLT am 06.11.26");
 	});
 
+	test("states a credit as Guthaben with the carried credit and no PayPal amount (#220)", async () => {
+		await createTenant();
+		signInAs(await createUser({ roles: ["Fuchs"] }));
+		await updateFuchsenBillingConfig({
+			senderName: "Fuchsenwart",
+			senderStreet: "",
+			senderCity: "",
+			location: "Stuttgart",
+			iban: "DE89370400440532013000",
+			accountHolder: "Max Fux",
+			paypalBaseUrl: "https://paypal.me/maxfux/",
+			paymentDueDays: 14,
+		});
+		const { bills } = await createFuchsenBillPeriod({
+			billNumber: "KW-44-26",
+			bills: [
+				{ user: await createUser(), itemsTotal: 1.2, oldBillingAmount: -2.5 },
+			],
+		});
+
+		const result = await generateFuchsenBillPDF(bills[0]?.id ?? "");
+
+		const text = pdfText(result.base64);
+		expect(text).toContain("Du hast ein Guthaben von: 1,30");
+		expect(text).toContain("Du musst nichts zahlen.");
+		expect(text).toContain("Alter Saldo:");
+		expect(text).toContain("-2,50");
+		expect(text).toContain("Guthaben:");
+		expect(text).not.toContain("Gesamtbetrag:");
+		expect(text).not.toContain("in H");
+		expect(text).not.toContain("Bitte zahle");
+		expect(text).not.toContain("paypal.me");
+		// The bank details stay, for the record.
+		expect(text).toContain("IBAN: DE89370400440532013000");
+	});
+
 	test("Fuchsenwart can download any member's bill", async () => {
 		await createTenant();
 		const bill = await billFor(await createUser());

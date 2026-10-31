@@ -47,6 +47,8 @@
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"test:mutation": "stryker run",
+		"proxy-db:check": "tsx scripts/ci/proxy-db-ratchet.ts",
+		"proxy-db:baseline": "tsx scripts/ci/proxy-db-ratchet.ts --update",
 		"coverage:check": "tsx scripts/ci/coverage-ratchet.ts",
 		"coverage:baseline": "tsx scripts/ci/coverage-ratchet.ts --update",
 		"test:e2e": "playwright test --project=desktop --project=mobile",
