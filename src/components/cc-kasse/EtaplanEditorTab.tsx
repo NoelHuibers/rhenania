@@ -116,7 +116,7 @@ export function EtaplanEditorTab({
 		setDeleteEinnahmeId(null);
 		startTransition(async () => {
 			const res = await deleteEinnahme(id);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Einnahme gelöscht");
 				router.refresh();
 			} else {

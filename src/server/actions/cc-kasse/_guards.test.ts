@@ -66,11 +66,15 @@ describe("requireAuth", () => {
 		});
 	});
 
-	test("returns the signed-in user id", async () => {
-		await createTenant();
+	test("returns the signed-in user id and their tenant", async () => {
+		const tenant = await createTenant();
 		const user = await createUser();
 		signInAs(user);
-		expect(await requireAuth()).toEqual({ ok: true, userId: user.id });
+		expect(await requireAuth()).toEqual({
+			ok: true,
+			userId: user.id,
+			tenantId: tenant.id,
+		});
 	});
 });
 
