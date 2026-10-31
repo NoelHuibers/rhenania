@@ -141,7 +141,11 @@ export function EventsManager({
 	}
 
 	async function handleToggleCancel(id: string) {
-		await toggleEventCancelled(id);
+		const result = await toggleEventCancelled(id);
+		if (!result.ok) {
+			toast.error(result.error);
+			return;
+		}
 		router.refresh();
 	}
 

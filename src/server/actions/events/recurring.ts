@@ -1,7 +1,7 @@
 "use server";
 
 import { asc, eq, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import {
 	addDaysInTZ,
 	addMonthsInTZ,
@@ -12,29 +12,35 @@ import {
 } from "~/lib/time";
 import { db } from "~/server/db";
 import { events, recurringEvents, venues } from "~/server/db/schema";
+import type { TenantDb } from "~/server/db/tenants";
 import { ROLES, requireRole } from "~/server/lib/authz";
+import { defineAction } from "~/server/lib/define-action";
+import { NotFoundError } from "~/server/lib/domain-error";
 
-export type RecurrenceType =
-	| "biweekly"
-	| "monthly_1st_wednesday"
-	| "monthly_1st_3rd_wednesday"
-	| "occ_semester";
+const recurrenceTypeSchema = z.enum([
+	"biweekly",
+	"monthly_1st_wednesday",
+	"monthly_1st_3rd_wednesday",
+	"occ_semester",
+]);
 
-export type RecurringEventInput = {
-	title: string;
-	description?: string;
-	location?: string;
+export type RecurrenceType = z.infer<typeof recurrenceTypeSchema>;
+
+const recurringEventInputSchema = z.object({
+	title: z.string(),
+	description: z.string().optional(),
+	location: z.string().optional(),
 	// Per-tenant configurable; valid values come from the `event_type` table.
-	type: string;
-	recurrenceType: RecurrenceType;
-	dayOfWeek?: number;
-	time: string;
-	isPublic?: boolean;
-	meetingUrl?: string | null;
-	startDate?: Date;
-	endDate?: Date;
-	createdBy?: string;
-};
+	type: z.string(),
+	recurrenceType: recurrenceTypeSchema,
+	dayOfWeek: z.number().int().optional(),
+	time: z.string(),
+	isPublic: z.boolean().optional(),
+	meetingUrl: z.string().nullable().optional(),
+	startDate: z.date().optional(),
+	endDate: z.date().optional(),
+	createdBy: z.string().optional(),
+});
 
 // --- Date helpers ---
 //
@@ -224,7 +230,7 @@ export async function getAllRecurringEvents() {
 }
 
 /** The tenant's first venue, or null when it has none yet. */
-async function firstVenueName(): Promise<string | null> {
+async function firstVenueName(db: TenantDb): Promise<string | null> {
 	const [venue] = await db
 		.select({ shortName: venues.shortName })
 		.from(venues)
@@ -233,14 +239,21 @@ async function firstVenueName(): Promise<string | null> {
 	return venue?.shortName ?? null;
 }
 
-export async function createRecurringEvent(input: RecurringEventInput) {
-	await requireRole(ROLES.events);
-	try {
-		await db.insert(recurringEvents).values({
+const EVENT_PAGES = ["/", "/semesterprogramm", "/admin/semesterprogramm"];
+
+export const createRecurringEvent = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([recurringEventInputSchema]),
+		revalidate: ["/admin/semesterprogramm"],
+		errorMessage: "Konnte nicht erstellt werden",
+	},
+	async ([input], { tenant }) => {
+		await tenant.db.insert(recurringEvents).values({
 			title: input.title,
 			description: input.description,
 			// Always explicit, so the column's legacy DB default never applies.
-			location: input.location ?? (await firstVenueName()),
+			location: input.location ?? (await firstVenueName(tenant.db)),
 			type: input.type,
 			recurrenceType: input.recurrenceType,
 			dayOfWeek: input.dayOfWeek,
@@ -251,21 +264,18 @@ export async function createRecurringEvent(input: RecurringEventInput) {
 			endDate: input.endDate,
 			createdBy: input.createdBy,
 		});
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error creating recurring event:", error);
-		return { success: false, error: "Konnte nicht erstellt werden" };
-	}
-}
+	},
+);
 
-export async function updateRecurringEvent(
-	id: string,
-	input: Partial<RecurringEventInput>,
-) {
-	await requireRole(ROLES.events);
-	try {
-		await db
+export const updateRecurringEvent = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([z.string(), recurringEventInputSchema.partial()]),
+		revalidate: ["/admin/semesterprogramm"],
+		errorMessage: "Konnte nicht aktualisiert werden",
+	},
+	async ([id, input], { tenant }) => {
+		await tenant.db
 			.update(recurringEvents)
 			.set({
 				...(input.title !== undefined && { title: input.title }),
@@ -287,52 +297,56 @@ export async function updateRecurringEvent(
 				...(input.endDate !== undefined && { endDate: input.endDate }),
 			})
 			.where(eq(recurringEvents.id, id));
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error updating recurring event:", error);
-		return { success: false, error: "Konnte nicht aktualisiert werden" };
-	}
-}
+	},
+);
 
-export async function toggleRecurringEventActive(id: string) {
-	await requireRole(ROLES.events);
-	try {
-		const [current] = await db
+const TEMPLATE_NOT_FOUND = "Vorlage nicht gefunden";
+
+export const toggleRecurringEventActive = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/admin/semesterprogramm"],
+		errorMessage: "Fehler aufgetreten",
+	},
+	async ([id], { tenant }) => {
+		const [current] = await tenant.db
 			.select({ isActive: recurringEvents.isActive })
 			.from(recurringEvents)
 			.where(eq(recurringEvents.id, id))
 			.limit(1);
 		if (!current) {
-			return { success: false, error: "Nicht gefunden" };
+			throw new NotFoundError(TEMPLATE_NOT_FOUND);
 		}
-		await db
+		await tenant.db
 			.update(recurringEvents)
 			.set({ isActive: !current.isActive })
 			.where(eq(recurringEvents.id, id));
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error toggling recurring event:", error);
-		return { success: false, error: "Fehler aufgetreten" };
-	}
-}
+	},
+);
 
-export async function deleteRecurringEvent(id: string) {
-	await requireRole(ROLES.events);
-	try {
-		await db.delete(recurringEvents).where(eq(recurringEvents.id, id));
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error deleting recurring event:", error);
-		return { success: false, error: "Konnte nicht gelöscht werden" };
-	}
-}
+export const deleteRecurringEvent = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/admin/semesterprogramm"],
+		errorMessage: "Konnte nicht gelöscht werden",
+	},
+	async ([id], { tenant }) => {
+		await tenant.db.delete(recurringEvents).where(eq(recurringEvents.id, id));
+	},
+);
 
-export async function generateInstances(recurringEventId: string) {
-	await requireRole(ROLES.events);
-	try {
+/** Adds the template's missing occurrences; answers how many it created. */
+export const generateInstances = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([z.string()]),
+		revalidate: EVENT_PAGES,
+		errorMessage: "Fehler beim Generieren",
+	},
+	async ([recurringEventId], { tenant }) => {
+		const { db } = tenant;
 		const [template] = await db
 			.select()
 			.from(recurringEvents)
@@ -340,7 +354,7 @@ export async function generateInstances(recurringEventId: string) {
 			.limit(1);
 
 		if (!template) {
-			return { success: false, error: "Vorlage nicht gefunden" };
+			throw new NotFoundError(TEMPLATE_NOT_FOUND);
 		}
 
 		const existing = await db
@@ -352,7 +366,7 @@ export async function generateInstances(recurringEventId: string) {
 		const existingDays = new Set(existing.map((e) => dayKeyInTZ(e.date)));
 
 		// Default range: today → +6 months (fallback if no startDate/endDate)
-		const now = new Date();
+		const now = tenant.now();
 		const defaultFrom = startOfDayInTZ(now);
 		// Same Berlin wall-clock time six months on, also across a DST switch.
 		const defaultTo = addMonthsInTZ(now, 6);
@@ -364,7 +378,7 @@ export async function generateInstances(recurringEventId: string) {
 		);
 
 		if (newItems.length === 0) {
-			return { success: true, created: 0 };
+			return { created: 0 };
 		}
 
 		await db.insert(events).values(
@@ -382,37 +396,29 @@ export async function generateInstances(recurringEventId: string) {
 			})),
 		);
 
-		revalidatePath("/");
-		revalidatePath("/semesterprogramm");
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true, created: newItems.length };
-	} catch (error) {
-		console.error("Error generating instances:", error);
-		return { success: false, error: "Fehler beim Generieren" };
-	}
-}
+		return { created: newItems.length };
+	},
+);
 
-export async function toggleEventCancelled(eventId: string) {
-	await requireRole(ROLES.events);
-	try {
-		const [current] = await db
+export const toggleEventCancelled = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([z.string()]),
+		revalidate: EVENT_PAGES,
+		errorMessage: "Fehler aufgetreten",
+	},
+	async ([eventId], { tenant }) => {
+		const [current] = await tenant.db
 			.select({ isCancelled: events.isCancelled })
 			.from(events)
 			.where(eq(events.id, eventId))
 			.limit(1);
 		if (!current) {
-			return { success: false, error: "Nicht gefunden" };
+			throw new NotFoundError("Veranstaltung nicht gefunden");
 		}
-		await db
+		await tenant.db
 			.update(events)
 			.set({ isCancelled: !current.isCancelled })
 			.where(eq(events.id, eventId));
-		revalidatePath("/");
-		revalidatePath("/semesterprogramm");
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error toggling cancelled:", error);
-		return { success: false, error: "Fehler aufgetreten" };
-	}
-}
+	},
+);

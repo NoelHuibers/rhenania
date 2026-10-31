@@ -16,7 +16,6 @@ import {
 	deleteRecurringEvent,
 	generateInstances,
 	getAllRecurringEvents,
-	type RecurringEventInput,
 	toggleEventCancelled,
 	toggleRecurringEventActive,
 	updateRecurringEvent,
@@ -54,6 +53,8 @@ const berlin = new Intl.DateTimeFormat("de-DE", {
 });
 /** e.g. "Mo., 13.04., 20:00" — what members see in the Semesterprogramm. */
 const shown = (d: Date) => berlin.format(d);
+
+type RecurringEventInput = Parameters<typeof createRecurringEvent>[0];
 
 const base: RecurringEventInput = {
 	title: "Stammtisch",
@@ -144,8 +145,9 @@ describe("recurring event templates", () => {
 		expect((await getAllRecurringEvents())[0]?.isActive).toBe(true);
 
 		expect(await toggleRecurringEventActive("missing")).toEqual({
-			success: false,
-			error: "Nicht gefunden",
+			ok: false,
+			error: "Vorlage nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 
@@ -158,7 +160,7 @@ describe("recurring event templates", () => {
 		});
 		await generateInstances(t.id);
 
-		expect(await deleteRecurringEvent(t.id)).toEqual({ success: true });
+		expect(await deleteRecurringEvent(t.id)).toEqual({ ok: true });
 
 		expect(await tenantDb().select().from(recurringEvents)).toHaveLength(0);
 		const left = await tenantDb().select().from(events);
@@ -181,8 +183,8 @@ describe("generateInstances", () => {
 		});
 
 		expect(await generateInstances(t.id)).toEqual({
-			success: true,
-			created: 8,
+			ok: true,
+			data: { created: 8 },
 		});
 
 		const rows = await instances(t.id);
@@ -299,8 +301,8 @@ describe("generateInstances", () => {
 		});
 
 		expect(await generateInstances(t.id)).toEqual({
-			success: true,
-			created: 0,
+			ok: true,
+			data: { created: 0 },
 		});
 	});
 
@@ -325,12 +327,12 @@ describe("generateInstances", () => {
 			.where(eq(events.id, third?.id ?? ""));
 
 		expect(await generateInstances(t.id)).toEqual({
-			success: true,
-			created: 1,
+			ok: true,
+			data: { created: 1 },
 		});
 		expect(await generateInstances(t.id)).toEqual({
-			success: true,
-			created: 0,
+			ok: true,
+			data: { created: 0 },
 		});
 
 		const rows = await instances(t.id);
@@ -347,8 +349,9 @@ describe("generateInstances", () => {
 		await setup();
 
 		expect(await generateInstances("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Vorlage nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 
@@ -570,12 +573,12 @@ describe("generateInstances", () => {
 			});
 
 		expect(await generateInstances(t.id)).toEqual({
-			success: true,
-			created: 1,
+			ok: true,
+			data: { created: 1 },
 		});
 		expect(await generateInstances(t.id)).toEqual({
-			success: true,
-			created: 0,
+			ok: true,
+			data: { created: 0 },
 		});
 		expect((await instances(t.id)).map((e) => shown(e.date))).toEqual([
 			"Mo., 22.06., 22:00",
@@ -601,8 +604,9 @@ describe("toggleEventCancelled", () => {
 		expect((await instances(t.id))[0]?.isCancelled).toBe(false);
 
 		expect(await toggleEventCancelled("missing")).toEqual({
-			success: false,
-			error: "Nicht gefunden",
+			ok: false,
+			error: "Veranstaltung nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });
