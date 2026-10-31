@@ -132,7 +132,11 @@ describe("guards on the actions", () => {
 			year: 2026,
 		});
 
-		expect(result).toEqual({ success: false, error: "Keine Berechtigung" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 		expect(await tenantDb().select().from(etaplans)).toHaveLength(0);
 	});
 
