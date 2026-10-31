@@ -95,7 +95,11 @@ const DashboardSkeleton = () => (
 );
 
 async function AdminDashboardData() {
-	await initializeRoles();
+	const seeded = await initializeRoles();
+	if (!seeded.ok) {
+		// The route's error boundary shows it, as before.
+		throw new Error(seeded.error);
+	}
 
 	const [users, roles] = await Promise.all([
 		getUsersWithRoles(),

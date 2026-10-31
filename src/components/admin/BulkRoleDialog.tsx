@@ -108,7 +108,11 @@ export function BulkRoleDialog({
 		startTransition(async () => {
 			try {
 				const userIds = [...selected];
-				await bulkSetRoleUsers(role.id, userIds);
+				const result = await bulkSetRoleUsers(role.id, userIds);
+				if (!result.ok) {
+					toast.error("Fehler beim Speichern", { description: result.error });
+					return;
+				}
 				onSaved(role.id, userIds);
 				toast.success("Rolle aktualisiert");
 				onOpenChange(false);

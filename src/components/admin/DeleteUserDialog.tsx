@@ -35,7 +35,11 @@ export function DeleteUserDialog({
 	const handleDelete = () => {
 		startTransition(async () => {
 			try {
-				await deleteUser(user.id);
+				const result = await deleteUser(user.id);
+				if (!result.ok) {
+					toast.error("Fehler", { description: result.error });
+					return;
+				}
 				onUserDeleted(user.id);
 				onOpenChange(false);
 				toast.success("Benutzer gelöscht", {

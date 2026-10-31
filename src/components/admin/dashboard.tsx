@@ -87,7 +87,11 @@ export function AdminDashboard({
 	const handleRoleToggle = (userId: string, roleId: string) => {
 		startTransition(async () => {
 			try {
-				await toggleUserRole(userId, roleId);
+				const result = await toggleUserRole(userId, roleId);
+				if (!result.ok) {
+					toast.error("Fehler", { description: result.error });
+					return;
+				}
 
 				const applyToggle = <
 					T extends { id: string; roles: UserWithRoles["roles"] },
