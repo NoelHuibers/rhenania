@@ -64,7 +64,7 @@ describe("createEvent / updateEvent / deleteEvent", () => {
 			createdBy: admin.id,
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await tenantDb().select().from(events)).toEqual([
 			expect.objectContaining({
 				title: "Stiftungsfest",
@@ -102,7 +102,7 @@ describe("createEvent / updateEvent / deleteEvent", () => {
 		const event = await createEvent();
 		await createRsvp({ event, user: await createUser(), status: "yes" });
 
-		expect(await deleteEvent(event.id)).toEqual({ success: true });
+		expect(await deleteEvent(event.id)).toEqual({ ok: true });
 
 		expect(await storedEvent(event.id)).toBeNull();
 		expect(await tenantDb().select().from(eventRsvps)).toHaveLength(0);

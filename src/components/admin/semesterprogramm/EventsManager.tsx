@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -118,8 +119,8 @@ export function EventsManager({
 			: await createEvent(input);
 
 		setLoading(false);
-		if (!result.success) {
-			setError(result.error ?? "Fehler aufgetreten");
+		if (!result.ok) {
+			setError(result.error);
 			return;
 		}
 		closeForm();
@@ -132,9 +133,11 @@ export function EventsManager({
 		}
 		const result = await deleteEvent(deleteId);
 		setDeleteId(null);
-		if (result.success) {
-			router.refresh();
+		if (!result.ok) {
+			toast.error(result.error);
+			return;
 		}
+		router.refresh();
 	}
 
 	async function handleToggleCancel(id: string) {
