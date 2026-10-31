@@ -149,7 +149,11 @@ describe("guards on the actions", () => {
 
 		const result = await approveReimbursement(request.id);
 
-		expect(result).toEqual({ success: false, error: "Keine Berechtigung" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 		const [row] = await tenantDb().select().from(kostenerstattungen);
 		expect(row).toMatchObject({ status: "Eingereicht", approvedBy: null });
 	});
