@@ -1,8 +1,10 @@
 "use client";
 
 import type { BillingEntry } from "~/components/rechnungen/BillingDashboard";
-import type { FuchsenBillingConfig } from "~/server/actions/fuchsenladen/billingConfig";
-import type { FuchsenBillingEntry } from "~/server/actions/fuchsenladen/billings";
+import type {
+	FuchsenBillingConfig,
+	FuchsenBillingEntry,
+} from "~/server/modules/fuchsenladen/actions";
 import { FuchsenBillDetailsDialog } from "./FuchsenBillDetailsDialog";
 
 /** Factory: a details dialog bound to the current billing config. */

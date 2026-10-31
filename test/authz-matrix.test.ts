@@ -207,23 +207,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getYesAttendeePreviewForEvents: "member",
 		getEventAttendees: "member",
 	},
-	"src/server/actions/fuchsenladen/billingConfig.ts": {
-		getFuchsenBillingConfig: "member",
-		updateFuchsenBillingConfig: FUCHSEN,
-	},
-	// Own bills only, unless Fuchs/Admin (checked per bill).
-	"src/server/actions/fuchsenladen/billingPdf.ts": {
-		generateFuchsenBillPDF: "member",
-	},
-	"src/server/actions/fuchsenladen/billings.ts": {
-		createNewFuchsenBilling: FUCHSEN,
-		getAllFuchsenBillPeriods: FUCHSEN,
-		getFuchsenBillsForPeriod: FUCHSEN,
-		getUnbilledFuchsenOrdersGrouped: FUCHSEN,
-		updateFuchsenBillStatus: FUCHSEN,
-		getMyFuchsenBills: "member",
-		getFuchsenBillPeriodCSV: FUCHSEN,
-	},
 	"src/server/actions/fuchsenladen/items.ts": {
 		addFuchsenItem: FUCHSEN,
 		updateFuchsenItem: FUCHSEN,
@@ -423,6 +406,19 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		saveBillPeriodCSV: "member",
 		getUserBillingData: "member",
 		downloadUserBillPDF: "member",
+	},
+	"src/server/modules/fuchsenladen/actions.ts": {
+		createNewFuchsenBilling: FUCHSEN,
+		getAllFuchsenBillPeriods: FUCHSEN,
+		getFuchsenBillsForPeriod: FUCHSEN,
+		getUnbilledFuchsenOrdersGrouped: FUCHSEN,
+		updateFuchsenBillStatus: FUCHSEN,
+		getMyFuchsenBills: "member",
+		getFuchsenBillPeriodCSV: FUCHSEN,
+		// Own bills only, unless Fuchs/Admin (checked per bill).
+		generateFuchsenBillPDF: "member",
+		getFuchsenBillingConfig: "member",
+		updateFuchsenBillingConfig: FUCHSEN,
 	},
 	"src/server/modules/getraenkekasse/actions.ts": {
 		getKasseSummary: GETRAENKE,

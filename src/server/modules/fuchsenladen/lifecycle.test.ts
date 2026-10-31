@@ -7,6 +7,10 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { toCents } from "~/lib/money";
+import {
+	createFuchsenOrder,
+	getMyFuchsenSummary,
+} from "~/server/actions/fuchsenladen/orders";
 import { fuchsenBills, fuchsenOrders } from "~/server/db/schema";
 import { createFuchsenItem } from "../../../../test/factories/fuchsenladen";
 import {
@@ -23,8 +27,7 @@ import {
 	getFuchsenBillsForPeriod,
 	getMyFuchsenBills,
 	updateFuchsenBillStatus,
-} from "./billings";
-import { createFuchsenOrder, getMyFuchsenSummary } from "./orders";
+} from "./actions";
 
 setupTestDatabases();
 
