@@ -189,7 +189,7 @@ export function EtaplanEditorTab({
 		setDeleteId(null);
 		startTransition(async () => {
 			const res = await deleteKostenpunkt(id);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Kostenpunkt gelöscht");
 				router.refresh();
 			} else {
