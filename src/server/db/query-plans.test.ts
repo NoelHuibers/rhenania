@@ -6,8 +6,6 @@
 
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
-
-import { updateBillStatus } from "~/server/actions/billings/billings";
 import { getCurrentOrders } from "~/server/actions/currentOrders";
 import { updateFuchsenBillStatus } from "~/server/actions/fuchsenladen/billings";
 import {
@@ -19,6 +17,7 @@ import { getMyOrdersPage } from "~/server/actions/orders";
 import { fuchsenBills } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { getRecentDrinkIds } from "~/server/lib/recent-drinks";
+import { updateBillStatus } from "~/server/modules/billing/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,

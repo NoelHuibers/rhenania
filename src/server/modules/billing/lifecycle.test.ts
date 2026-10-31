@@ -18,6 +18,15 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { toCents } from "~/lib/money";
+import {
+	getKasseSummary,
+	getOpenMemberBills,
+	markAllMemberBillsPaid,
+	setBillRecipient,
+	setMarkupPercent,
+} from "~/server/actions/getraenkewart/kasse";
+import { closeInventoryAndBill } from "~/server/actions/inventur/inventur";
+import { createOrder } from "~/server/actions/orders";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
 import { sendTenantMail } from "~/server/lib/mailer";
 import { billPdf, periodCsv } from "~/server/modules/billing/service";
@@ -47,21 +56,12 @@ import {
 } from "../../../../test/harness";
 import { requireTenant } from "../../../../test/state";
 import {
-	getKasseSummary,
-	getOpenMemberBills,
-	markAllMemberBillsPaid,
-	setBillRecipient,
-	setMarkupPercent,
-} from "../getraenkewart/kasse";
-import { closeInventoryAndBill } from "../inventur/inventur";
-import { createOrder } from "../orders";
-import {
 	createNewBilling,
 	getAllBillPeriods,
 	getBillsForPeriod,
+	saveBillPeriodCSV,
 	updateBillStatus,
-} from "./billings";
-import { saveBillPeriodCSV } from "./saveBillCSV";
+} from "./actions";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 vi.mock("~/server/actions/achievements/tracking", () => ({

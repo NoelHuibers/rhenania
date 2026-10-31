@@ -19,7 +19,7 @@ import {
 	testScope,
 } from "../../../../test/harness";
 import { useServerTimeZone } from "../../../../test/server-tz";
-import { saveBillPeriodCSV } from "./saveBillCSV";
+import { saveBillPeriodCSV } from "./actions";
 
 vi.mock("@vercel/blob", () => ({ put: vi.fn(), head: vi.fn() }));
 

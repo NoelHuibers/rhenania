@@ -12,7 +12,7 @@ import {
 	signInAs,
 } from "../../../../test/harness";
 import { requireTenant } from "../../../../test/state";
-import { getUserBillingData } from "./getUserBill";
+import { getUserBillingData } from "./actions";
 
 setupTestDatabases();
 

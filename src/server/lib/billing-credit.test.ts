@@ -5,11 +5,10 @@
 
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-
-import { createNewBilling } from "~/server/actions/billings/billings";
 import { createNewFuchsenBilling } from "~/server/actions/fuchsenladen/billings";
 import { fuchsenBills, users } from "~/server/db/schema";
 import { sendTenantMail } from "~/server/lib/mailer";
+import { createNewBilling } from "~/server/modules/billing/actions";
 import {
 	billsOf,
 	createBillPeriodRow,

@@ -13,7 +13,6 @@ import { getMyMember } from "~/server/actions/members/myMember";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { getUserAchievements } from "~/server/actions/profile/achievements";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
-import { getUserBillingData } from "~/server/actions/profile/getUserBill";
 import { getUserProfile } from "~/server/actions/profile/profile";
 import { auth } from "~/server/auth";
 import { getEloStatsForUser } from "~/server/lib/elo-stats";
@@ -22,6 +21,7 @@ import {
 	isEloEnabledForUser,
 } from "~/server/lib/preferences";
 import { loadOpenBill } from "~/server/loaders/open-bill";
+import { getUserBillingData } from "~/server/modules/billing/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,

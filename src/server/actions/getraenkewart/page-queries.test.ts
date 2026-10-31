@@ -3,8 +3,6 @@
 // inventories and bills there are.
 
 import { describe, expect, test } from "vitest";
-
-import { getBillsForPeriod } from "~/server/actions/billings/billings";
 import {
 	getFuchsenBillsForPeriod,
 	getMyFuchsenBills,
@@ -27,6 +25,7 @@ import {
 	listInventurEvents,
 } from "~/server/actions/inventur/inventur";
 import { fuchsenBillItems } from "~/server/db/schema";
+import { getBillsForPeriod } from "~/server/modules/billing/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,

@@ -9,7 +9,7 @@ import {
 	setupTestDatabases,
 	signInAs,
 } from "../../../../test/harness";
-import { downloadUserBillPDF } from "./downloadUserBill";
+import { downloadUserBillPDF } from "./actions";
 
 // PDF rendering and blob storage are covered with the billing actions.
 vi.mock("~/server/modules/billing/service", () => ({

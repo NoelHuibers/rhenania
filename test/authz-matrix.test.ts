@@ -123,13 +123,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getActiveImageBySection: "public",
 		getAllActiveImagesBySection: "public",
 	},
-	"src/server/actions/billings/billings.ts": {
-		createNewBilling: GETRAENKE,
-		getAllBillPeriods: "member",
-		getBillsForPeriod: "member",
-		updateBillStatus: GETRAENKE,
-	},
-	"src/server/actions/billings/saveBillCSV.ts": { saveBillPeriodCSV: "member" },
 	"src/server/actions/cc-kasse/einnahmen.ts": {
 		createEinnahme: CC_TREASURY,
 		updateEinnahme: CC_TREASURY,
@@ -384,12 +377,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		updateUserAvatarUrl: "member",
 		deleteUserAvatar: "member",
 	},
-	"src/server/actions/profile/downloadUserBill.ts": {
-		downloadUserBillPDF: "member",
-	},
-	"src/server/actions/profile/getUserBill.ts": {
-		getUserBillingData: "member",
-	},
 	"src/server/actions/profile/preferences.ts": {
 		getUserPreference: "member",
 		setUserPreference: "member",
@@ -448,6 +435,15 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		createVenue: ADMIN,
 		updateVenue: ADMIN,
 		deleteVenue: ADMIN,
+	},
+	"src/server/modules/billing/actions.ts": {
+		createNewBilling: GETRAENKE,
+		getAllBillPeriods: "member",
+		getBillsForPeriod: "member",
+		updateBillStatus: GETRAENKE,
+		saveBillPeriodCSV: "member",
+		getUserBillingData: "member",
+		downloadUserBillPDF: "member",
 	},
 };
 

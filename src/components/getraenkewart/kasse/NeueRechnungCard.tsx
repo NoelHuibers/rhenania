@@ -15,7 +15,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "~/components/ui/dialog";
-import { createNewBilling } from "~/server/actions/billings/billings";
+import { createNewBilling } from "~/server/modules/billing/actions";
 
 /** Starts a new billing period for the current orders, after a confirmation. */
 export function NeueRechnungCard() {
