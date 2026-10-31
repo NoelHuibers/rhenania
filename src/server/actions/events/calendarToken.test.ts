@@ -30,8 +30,11 @@ describe("calendar tokens", () => {
 		signInAs(await createUser());
 		const old = await getOrCreateCalendarToken();
 
-		const rotated = await rotateCalendarToken();
+		const result = await rotateCalendarToken();
 
+		expect(result.ok).toBe(true);
+		const rotated = result.ok ? result.data : null;
+		expect(rotated).toMatch(/^[A-Za-z0-9_-]{32}$/);
 		expect(rotated).not.toBe(old);
 		expect(
 			(await tenantDb().select().from(calendarTokens)).map((t) => t.token),
@@ -42,7 +45,11 @@ describe("calendar tokens", () => {
 		await createTenant();
 
 		expect(await getOrCreateCalendarToken()).toBeNull();
-		expect(await rotateCalendarToken()).toBeNull();
+		expect(await rotateCalendarToken()).toEqual({
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
+		});
 		expect(await tenantDb().select().from(calendarTokens)).toHaveLength(0);
 	});
 });
