@@ -3,11 +3,13 @@
 // Cross-Corps challenge flow. Mirrors `challenge.ts` but operates on the
 // control DB's `crossTenantChallenges` + `crossTenantGames` tables. Settles
 // through the same unified `userStats` as intra-Corps games — there is one
-// ELO per user, period.
+// ELO per user, period. The mutations answer with an ActionResult (#216):
+// the caller's own Corps is the guard's; the opponent's Corps is opened
+// explicitly with `scopeOf`.
 
 import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { z } from "zod";
 
 import { auth } from "~/server/auth";
 import { controlDb } from "~/server/db/control";
@@ -18,8 +20,14 @@ import {
 	tenants,
 	users,
 } from "~/server/db/control-schema";
-import { getTenantDb } from "~/server/db/tenants";
+import { ActionError, defineAction } from "~/server/lib/define-action";
+import {
+	ConflictError,
+	NotFoundError,
+	ValidationError,
+} from "~/server/lib/domain-error";
 import { readEloEnabled } from "~/server/lib/elo-preference";
+import { scopeOf } from "~/server/lib/tenant-scope";
 import {
 	applyEloOutcome,
 	type EloOutcome,
@@ -83,6 +91,12 @@ export interface CrossChallengeFeed {
 
 // ---------- Helpers ----------
 
+/** Pages that show cross-Corps challenges; revalidated after every change. */
+const CROSS_CHALLENGE_PATHS = ["/eloranking"];
+
+const NOT_FOUND = "Herausforderung nicht gefunden";
+const NOT_A_PLAYER = "Keine Berechtigung";
+
 async function membershipExists(
 	userId: string,
 	tenantId: string,
@@ -101,427 +115,358 @@ async function membershipExists(
 	return Boolean(m);
 }
 
-async function challengerTenantId(
-	challengerId: string,
-): Promise<string | null> {
-	// A user could in principle be in multiple Corps; pick the first one we
-	// find. Real apps may want a "primary tenant" preference; punt that for v1.
-	const [m] = await controlDb
-		.select({ tenantId: tenantMemberships.tenantId })
-		.from(tenantMemberships)
-		.where(
-			and(
-				eq(tenantMemberships.userId, challengerId),
-				eq(tenantMemberships.status, "active"),
-			),
-		)
-		.limit(1);
-	return m?.tenantId ?? null;
-}
-
+/** The opponent's ELO switch, read from their own Corps' DB. */
 async function isEloEnabledInCorps(
 	userId: string,
 	tenantId: string,
 ): Promise<boolean> {
 	try {
-		return await readEloEnabled(await getTenantDb(tenantId), userId);
+		return await readEloEnabled((await scopeOf(tenantId)).db, userId);
 	} catch {
 		// Corps DB unavailable (e.g. suspended): no ranked games with it.
 		return false;
 	}
 }
 
+/** The challenge row; throws NotFoundError if there is none. */
+async function crossChallenge(challengeId: string) {
+	const [row] = await controlDb
+		.select()
+		.from(crossTenantChallenges)
+		.where(eq(crossTenantChallenges.id, challengeId))
+		.limit(1);
+	if (!row) {
+		throw new NotFoundError(NOT_FOUND);
+	}
+	return row;
+}
+
 // ---------- Create ----------
 
-export async function createCrossTenantChallenge(input: {
-	opponentId: string;
-	opponentTenantId: string;
-	payment?: CrossPaymentRule;
-	drinkName?: string | null;
-	quantity?: number;
-}): Promise<{ success: boolean; challengeId?: string; error?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const challengerId = session.user.id;
+const createCrossChallengeInput = z.object({
+	opponentId: z.string(),
+	opponentTenantId: z.string(),
+	payment: z.enum(["none", "challenger", "loser", "split"]).optional(),
+	drinkName: z.string().nullish(),
+	quantity: z.number().optional(),
+});
 
-	if (challengerId === input.opponentId) {
-		return {
-			success: false,
-			error: "Du kannst dich nicht selbst herausfordern",
-		};
-	}
+export const createCrossTenantChallenge = defineAction(
+	{
+		schema: z.tuple([createCrossChallengeInput]),
+		revalidate: CROSS_CHALLENGE_PATHS,
+		errorMessage: "Fehler beim Erstellen",
+	},
+	async ([input], { tenant, user }) => {
+		const challengerId = user.id;
 
-	// Determine challenger's tenant — must differ from opponent's.
-	const myTenantId = await challengerTenantId(challengerId);
-	if (!myTenantId) {
-		return { success: false, error: "Du gehörst keinem Corps an" };
-	}
-	if (myTenantId === input.opponentTenantId) {
-		return {
-			success: false,
-			error:
+		if (challengerId === input.opponentId) {
+			throw new ValidationError("Du kannst dich nicht selbst herausfordern");
+		}
+
+		// The challenger plays for the Corps they are signed in to.
+		const myTenantId = tenant.tenantId;
+		if (myTenantId === input.opponentTenantId) {
+			throw new ValidationError(
 				"Mitspieler aus deinem Corps werden über die normale Herausforderung gefordert",
-		};
-	}
+			);
+		}
 
-	// Opponent must actually be a member of the chosen tenant.
-	const opponentOk = await membershipExists(
-		input.opponentId,
-		input.opponentTenantId,
-	);
-	if (!opponentOk) {
-		return {
-			success: false,
-			error: "Spieler ist kein aktives Mitglied dieses Corps",
-		};
-	}
+		// Opponent must actually be a member of the chosen tenant.
+		const opponentOk = await membershipExists(
+			input.opponentId,
+			input.opponentTenantId,
+		);
+		if (!opponentOk) {
+			throw new ActionError(
+				"Spieler ist kein aktives Mitglied dieses Corps",
+				"NOT_A_MEMBER",
+			);
+		}
 
-	// Both players must have ELO enabled. The preference is per Corps, so
-	// each player's is read from their own Corps' DB.
-	const [challengerEnabled, opponentEnabled] = await Promise.all([
-		isEloEnabledInCorps(challengerId, myTenantId),
-		isEloEnabledInCorps(input.opponentId, input.opponentTenantId),
-	]);
-	if (!challengerEnabled) {
-		return {
-			success: false,
-			error: "Aktiviere Eloranking in deinen Einstellungen",
-		};
-	}
-	if (!opponentEnabled) {
-		return {
-			success: false,
-			error: "Dieser Spieler nimmt nicht am Eloranking teil",
-		};
-	}
+		// Both players must have ELO enabled. The preference is per Corps, so
+		// each player's is read from their own Corps' DB.
+		const [challengerEnabled, opponentEnabled] = await Promise.all([
+			readEloEnabled(tenant.db, challengerId),
+			isEloEnabledInCorps(input.opponentId, input.opponentTenantId),
+		]);
+		if (!challengerEnabled) {
+			throw new ActionError(
+				"Aktiviere Eloranking in deinen Einstellungen",
+				"ELO_DISABLED",
+			);
+		}
+		if (!opponentEnabled) {
+			throw new ActionError(
+				"Dieser Spieler nimmt nicht am Eloranking teil",
+				"ELO_DISABLED",
+			);
+		}
 
-	await sweepExpiredCrossTenantChallenges();
+		await sweepExpiredCrossTenantChallenges();
 
-	// Block if there's already an open cross-tenant challenge between these two.
-	const [existingOpen] = await controlDb
-		.select({ id: crossTenantChallenges.id })
-		.from(crossTenantChallenges)
-		.where(
-			and(
-				or(
-					and(
-						eq(crossTenantChallenges.challengerId, challengerId),
-						eq(crossTenantChallenges.opponentId, input.opponentId),
+		// Block if there's already an open cross-tenant challenge between these two.
+		const [existingOpen] = await controlDb
+			.select({ id: crossTenantChallenges.id })
+			.from(crossTenantChallenges)
+			.where(
+				and(
+					or(
+						and(
+							eq(crossTenantChallenges.challengerId, challengerId),
+							eq(crossTenantChallenges.opponentId, input.opponentId),
+						),
+						and(
+							eq(crossTenantChallenges.challengerId, input.opponentId),
+							eq(crossTenantChallenges.opponentId, challengerId),
+						),
 					),
-					and(
-						eq(crossTenantChallenges.challengerId, input.opponentId),
-						eq(crossTenantChallenges.opponentId, challengerId),
-					),
+					inArray(crossTenantChallenges.status, [...OPEN_STATUSES]),
 				),
-				inArray(crossTenantChallenges.status, [...OPEN_STATUSES]),
-			),
-		)
-		.limit(1);
-	if (existingOpen) {
-		return {
-			success: false,
-			error: "Es gibt bereits eine offene Herausforderung zwischen euch",
-		};
-	}
+			)
+			.limit(1);
+		if (existingOpen) {
+			throw new ConflictError(
+				"Es gibt bereits eine offene Herausforderung zwischen euch",
+			);
+		}
 
-	const payment: CrossPaymentRule = input.payment ?? "none";
-	const quantity = Math.max(1, Math.min(input.quantity ?? 2, 100));
+		const payment: CrossPaymentRule = input.payment ?? "none";
+		const quantity = Math.max(1, Math.min(input.quantity ?? 2, 100));
 
-	const [inserted] = await controlDb
-		.insert(crossTenantChallenges)
-		.values({
-			challengerId,
-			challengerTenantId: myTenantId,
-			opponentId: input.opponentId,
-			opponentTenantId: input.opponentTenantId,
-			status: "pending",
-			payment,
-			drinkName: input.drinkName ?? null,
-			quantity,
-			respondDeadline: new Date(Date.now() + RESPOND_WINDOW_MS),
-		})
-		.returning({ id: crossTenantChallenges.id });
-
-	revalidatePath("/eloranking");
-	return { success: true, challengeId: inserted?.id };
-}
+		const [inserted] = await controlDb
+			.insert(crossTenantChallenges)
+			.values({
+				challengerId,
+				challengerTenantId: myTenantId,
+				opponentId: input.opponentId,
+				opponentTenantId: input.opponentTenantId,
+				status: "pending",
+				payment,
+				drinkName: input.drinkName ?? null,
+				quantity,
+				respondDeadline: new Date(Date.now() + RESPOND_WINDOW_MS),
+			})
+			.returning({ id: crossTenantChallenges.id });
+		if (!inserted) {
+			throw new Error("cross-Corps challenge insert returned no row");
+		}
+		return { challengeId: inserted.id };
+	},
+);
 
 // ---------- Respond ----------
 
-export async function respondToCrossTenantChallenge(input: {
-	challengeId: string;
-	response: "accept" | "decline";
-}): Promise<{ success: boolean; error?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
+export const respondToCrossTenantChallenge = defineAction(
+	{
+		schema: z.tuple([
+			z.object({
+				challengeId: z.string(),
+				response: z.enum(["accept", "decline"]),
+			}),
+		]),
+		revalidate: CROSS_CHALLENGE_PATHS,
+	},
+	async ([input], { user }) => {
+		const row = await crossChallenge(input.challengeId);
+		if (row.opponentId !== user.id) {
+			throw new ActionError(
+				"Nur der Herausgeforderte kann antworten",
+				"FORBIDDEN",
+			);
+		}
+		if (row.status !== "pending") {
+			throw new ConflictError(
+				"Diese Herausforderung kann nicht mehr beantwortet werden",
+			);
+		}
+		if (row.respondDeadline.getTime() < Date.now()) {
+			await controlDb
+				.update(crossTenantChallenges)
+				.set({ status: "expired" })
+				.where(eq(crossTenantChallenges.id, row.id));
+			throw new ConflictError("Herausforderung ist abgelaufen", "EXPIRED");
+		}
 
-	const [row] = await controlDb
-		.select()
-		.from(crossTenantChallenges)
-		.where(eq(crossTenantChallenges.id, input.challengeId))
-		.limit(1);
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.opponentId !== userId) {
-		return { success: false, error: "Nur der Herausgeforderte kann antworten" };
-	}
-	if (row.status !== "pending") {
-		return {
-			success: false,
-			error: "Diese Herausforderung kann nicht mehr beantwortet werden",
-		};
-	}
-	if (row.respondDeadline.getTime() < Date.now()) {
-		await controlDb
-			.update(crossTenantChallenges)
-			.set({ status: "expired" })
-			.where(eq(crossTenantChallenges.id, row.id));
-		return { success: false, error: "Herausforderung ist abgelaufen" };
-	}
-
-	if (input.response === "accept") {
-		await controlDb
-			.update(crossTenantChallenges)
-			.set({
-				status: "accepted",
-				acceptedAt: new Date(),
-				playDeadline: new Date(Date.now() + PLAY_WINDOW_MS),
-			})
-			.where(eq(crossTenantChallenges.id, row.id));
-	} else {
-		await controlDb
-			.update(crossTenantChallenges)
-			.set({ status: "declined", declinedAt: new Date() })
-			.where(eq(crossTenantChallenges.id, row.id));
-	}
-
-	revalidatePath("/eloranking");
-	return { success: true };
-}
+		if (input.response === "accept") {
+			await controlDb
+				.update(crossTenantChallenges)
+				.set({
+					status: "accepted",
+					acceptedAt: new Date(),
+					playDeadline: new Date(Date.now() + PLAY_WINDOW_MS),
+				})
+				.where(eq(crossTenantChallenges.id, row.id));
+		} else {
+			await controlDb
+				.update(crossTenantChallenges)
+				.set({ status: "declined", declinedAt: new Date() })
+				.where(eq(crossTenantChallenges.id, row.id));
+		}
+	},
+);
 
 // ---------- Cancel ----------
 
-export async function cancelCrossTenantChallenge(
-	challengeId: string,
-): Promise<{ success: boolean; error?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
+const NOT_CANCELLABLE =
+	"Diese Herausforderung kann nicht mehr abgebrochen werden";
 
-	const [row] = await controlDb
-		.select({
-			id: crossTenantChallenges.id,
-			challengerId: crossTenantChallenges.challengerId,
-			opponentId: crossTenantChallenges.opponentId,
-			status: crossTenantChallenges.status,
-		})
-		.from(crossTenantChallenges)
-		.where(eq(crossTenantChallenges.id, challengeId))
-		.limit(1);
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.challengerId !== userId && row.opponentId !== userId) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
-	if (row.status !== "pending" && row.status !== "accepted") {
-		return {
-			success: false,
-			error: "Diese Herausforderung kann nicht mehr abgebrochen werden",
-		};
-	}
+export const cancelCrossTenantChallenge = defineAction(
+	{ schema: z.tuple([z.string()]), revalidate: CROSS_CHALLENGE_PATHS },
+	async ([challengeId], { user }) => {
+		const row = await crossChallenge(challengeId);
+		if (row.challengerId !== user.id && row.opponentId !== user.id) {
+			throw new ActionError(NOT_A_PLAYER, "FORBIDDEN");
+		}
+		if (row.status !== "pending" && row.status !== "accepted") {
+			throw new ConflictError(NOT_CANCELLABLE);
+		}
 
-	const [cancelled] = await controlDb
-		.update(crossTenantChallenges)
-		.set({ status: "cancelled" })
-		.where(
-			and(
-				eq(crossTenantChallenges.id, challengeId),
-				inArray(crossTenantChallenges.status, ["pending", "accepted"]),
-			),
-		)
-		.returning({ id: crossTenantChallenges.id });
-	if (!cancelled) {
-		return {
-			success: false,
-			error: "Diese Herausforderung kann nicht mehr abgebrochen werden",
-		};
-	}
-
-	revalidatePath("/eloranking");
-	return { success: true };
-}
+		const [cancelled] = await controlDb
+			.update(crossTenantChallenges)
+			.set({ status: "cancelled" })
+			.where(
+				and(
+					eq(crossTenantChallenges.id, challengeId),
+					inArray(crossTenantChallenges.status, ["pending", "accepted"]),
+				),
+			)
+			.returning({ id: crossTenantChallenges.id });
+		if (!cancelled) {
+			throw new ConflictError(NOT_CANCELLABLE);
+		}
+	},
+);
 
 // ---------- Propose result ----------
 
-export async function proposeCrossTenantResult(input: {
-	challengeId: string;
-	winnerId: string;
-}): Promise<{ success: boolean; error?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
+export const proposeCrossTenantResult = defineAction(
+	{
+		schema: z.tuple([
+			z.object({ challengeId: z.string(), winnerId: z.string() }),
+		]),
+		revalidate: CROSS_CHALLENGE_PATHS,
+	},
+	async ([input], { user }) => {
+		const row = await crossChallenge(input.challengeId);
+		if (row.challengerId !== user.id && row.opponentId !== user.id) {
+			throw new ActionError(NOT_A_PLAYER, "FORBIDDEN");
+		}
+		if (row.status !== "accepted") {
+			throw new ConflictError("Spielt erst, dann das Ergebnis melden");
+		}
+		if (
+			input.winnerId !== row.challengerId &&
+			input.winnerId !== row.opponentId
+		) {
+			throw new ValidationError("Ungültiger Gewinner");
+		}
 
-	const [row] = await controlDb
-		.select()
-		.from(crossTenantChallenges)
-		.where(eq(crossTenantChallenges.id, input.challengeId))
-		.limit(1);
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.challengerId !== userId && row.opponentId !== userId) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
-	if (row.status !== "accepted") {
-		return { success: false, error: "Spielt erst, dann das Ergebnis melden" };
-	}
-	if (
-		input.winnerId !== row.challengerId &&
-		input.winnerId !== row.opponentId
-	) {
-		return { success: false, error: "Ungültiger Gewinner" };
-	}
-
-	// Only from "accepted": a cancel or the sweep may have closed it meanwhile.
-	const [proposed] = await controlDb
-		.update(crossTenantChallenges)
-		.set({
-			status: "result_proposed",
-			proposedWinnerId: input.winnerId,
-			proposedById: userId,
-			proposedAt: new Date(),
-			confirmDeadline: new Date(Date.now() + CONFIRM_WINDOW_MS),
-		})
-		.where(
-			and(
-				eq(crossTenantChallenges.id, row.id),
-				eq(crossTenantChallenges.status, "accepted"),
-			),
-		)
-		.returning({ id: crossTenantChallenges.id });
-	if (!proposed) {
-		return {
-			success: false,
-			error: "Ergebnis kann nur in laufenden Spielen gemeldet werden",
-		};
-	}
-
-	revalidatePath("/eloranking");
-	return { success: true };
-}
-
-// ---------- Confirm result ----------
-
-export async function confirmCrossTenantResult(
-	challengeId: string,
-): Promise<{ success: boolean; error?: string; gameId?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
-
-	const [row] = await controlDb
-		.select()
-		.from(crossTenantChallenges)
-		.where(eq(crossTenantChallenges.id, challengeId))
-		.limit(1);
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.status !== "result_proposed") {
-		return {
-			success: false,
-			error: "Es liegt kein Ergebnisvorschlag vor",
-		};
-	}
-	if (row.proposedById === userId) {
-		return {
-			success: false,
-			error: "Der Gegner muss bestätigen, nicht der Vorschlagende",
-		};
-	}
-	if (row.challengerId !== userId && row.opponentId !== userId) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
-	if (row.confirmDeadline && row.confirmDeadline.getTime() < Date.now()) {
-		await controlDb
+		// Only from "accepted": a cancel or the sweep may have closed it
+		// meanwhile.
+		const [proposed] = await controlDb
 			.update(crossTenantChallenges)
-			.set({ status: "expired" })
+			.set({
+				status: "result_proposed",
+				proposedWinnerId: input.winnerId,
+				proposedById: user.id,
+				proposedAt: new Date(),
+				confirmDeadline: new Date(Date.now() + CONFIRM_WINDOW_MS),
+			})
 			.where(
 				and(
 					eq(crossTenantChallenges.id, row.id),
+					eq(crossTenantChallenges.status, "accepted"),
+				),
+			)
+			.returning({ id: crossTenantChallenges.id });
+		if (!proposed) {
+			throw new ConflictError(
+				"Ergebnis kann nur in laufenden Spielen gemeldet werden",
+			);
+		}
+	},
+);
+
+// ---------- Confirm result ----------
+
+const NO_PROPOSAL = "Es liegt kein Ergebnisvorschlag vor";
+
+export const confirmCrossTenantResult = defineAction(
+	{
+		schema: z.tuple([z.string()]),
+		revalidate: CROSS_CHALLENGE_PATHS,
+		errorMessage:
+			"Das Ergebnis konnte nicht gebucht werden. Bitte versuche es erneut.",
+	},
+	async ([challengeId], { user }) => {
+		const row = await crossChallenge(challengeId);
+		if (row.status !== "result_proposed") {
+			throw new ConflictError(NO_PROPOSAL);
+		}
+		if (row.proposedById === user.id) {
+			throw new ActionError(
+				"Der Gegner muss bestätigen, nicht der Vorschlagende",
+				"FORBIDDEN",
+			);
+		}
+		if (row.challengerId !== user.id && row.opponentId !== user.id) {
+			throw new ActionError(NOT_A_PLAYER, "FORBIDDEN");
+		}
+		if (row.confirmDeadline && row.confirmDeadline.getTime() < Date.now()) {
+			await controlDb
+				.update(crossTenantChallenges)
+				.set({ status: "expired" })
+				.where(
+					and(
+						eq(crossTenantChallenges.id, row.id),
+						eq(crossTenantChallenges.status, "result_proposed"),
+					),
+				);
+			throw new ConflictError("Bestätigungsfrist abgelaufen", "EXPIRED");
+		}
+
+		return await settleCrossTenantChallenge(challengeId);
+	},
+);
+
+// ---------- Dispute result ----------
+
+const NO_OPEN_PROPOSAL = "Kein Ergebnisvorschlag offen";
+
+export const disputeCrossTenantResult = defineAction(
+	{ schema: z.tuple([z.string()]), revalidate: CROSS_CHALLENGE_PATHS },
+	async ([challengeId], { user }) => {
+		const row = await crossChallenge(challengeId);
+		if (row.status !== "result_proposed") {
+			throw new ConflictError(NO_OPEN_PROPOSAL);
+		}
+		if (row.proposedById === user.id) {
+			throw new ActionError(
+				"Du hast den Vorschlag selbst gemacht",
+				"FORBIDDEN",
+			);
+		}
+		if (row.challengerId !== user.id && row.opponentId !== user.id) {
+			throw new ActionError(NOT_A_PLAYER, "FORBIDDEN");
+		}
+
+		// Only while still proposed: a confirm may claim it meanwhile.
+		const [disputed] = await controlDb
+			.update(crossTenantChallenges)
+			.set({ status: "disputed" })
+			.where(
+				and(
+					eq(crossTenantChallenges.id, challengeId),
 					eq(crossTenantChallenges.status, "result_proposed"),
 				),
-			);
-		return { success: false, error: "Bestätigungsfrist abgelaufen" };
-	}
-
-	return await settleCrossTenantChallenge(challengeId);
-}
-
-export async function disputeCrossTenantResult(
-	challengeId: string,
-): Promise<{ success: boolean; error?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
-
-	const [row] = await controlDb
-		.select({
-			id: crossTenantChallenges.id,
-			status: crossTenantChallenges.status,
-			challengerId: crossTenantChallenges.challengerId,
-			opponentId: crossTenantChallenges.opponentId,
-			proposedById: crossTenantChallenges.proposedById,
-		})
-		.from(crossTenantChallenges)
-		.where(eq(crossTenantChallenges.id, challengeId))
-		.limit(1);
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.status !== "result_proposed") {
-		return { success: false, error: "Kein Ergebnisvorschlag offen" };
-	}
-	if (row.proposedById === userId) {
-		return { success: false, error: "Du hast den Vorschlag selbst gemacht" };
-	}
-	if (row.challengerId !== userId && row.opponentId !== userId) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
-
-	// Only while still proposed: a confirm may claim it meanwhile.
-	const [disputed] = await controlDb
-		.update(crossTenantChallenges)
-		.set({ status: "disputed" })
-		.where(
-			and(
-				eq(crossTenantChallenges.id, challengeId),
-				eq(crossTenantChallenges.status, "result_proposed"),
-			),
-		)
-		.returning({ id: crossTenantChallenges.id });
-	if (!disputed) {
-		return { success: false, error: "Kein Ergebnisvorschlag offen" };
-	}
-
-	revalidatePath("/eloranking");
-	return { success: true };
-}
+			)
+			.returning({ id: crossTenantChallenges.id });
+		if (!disputed) {
+			throw new ConflictError(NO_OPEN_PROPOSAL);
+		}
+	},
+);
 
 // ---------- Settle ----------
 
@@ -538,9 +483,13 @@ async function releaseCrossClaim(challengeId: string) {
 		);
 }
 
+/**
+ * Books a proposed result: cross-Corps game row and unified ELO. Throws a
+ * ConflictError when there is nothing (left) to settle.
+ */
 async function settleCrossTenantChallenge(
 	challengeId: string,
-): Promise<{ success: boolean; error?: string; gameId?: string }> {
+): Promise<{ gameId: string }> {
 	// Claim the row atomically: of concurrent confirms exactly one continues.
 	const [row] = await controlDb
 		.update(crossTenantChallenges)
@@ -553,11 +502,11 @@ async function settleCrossTenantChallenge(
 		)
 		.returning();
 	if (!row) {
-		return { success: false, error: "Es liegt kein Ergebnisvorschlag vor" };
+		throw new ConflictError(NO_PROPOSAL);
 	}
 	if (row.proposedWinnerId == null) {
 		await releaseCrossClaim(row.id);
-		return { success: false, error: "Kein Gewinner vorgeschlagen" };
+		throw new ConflictError("Kein Gewinner vorgeschlagen");
 	}
 
 	const winnerId = row.proposedWinnerId;
@@ -652,8 +601,7 @@ async function settleCrossTenantChallenge(
 		]),
 	);
 
-	revalidatePath("/eloranking");
-	return { success: true, gameId };
+	return { gameId };
 }
 
 // ---------- Sweep expired ----------

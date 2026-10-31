@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import type { ActionResult } from "~/lib/action-result";
 import {
 	type CrossChallengeView,
 	cancelCrossTenantChallenge,
@@ -128,13 +129,13 @@ export function CrossChallengeCard({
 					: null;
 	const countdown = useCountdown(deadline);
 
-	const run = (fn: () => Promise<{ success: boolean; error?: string }>) => {
+	const run = (fn: () => Promise<ActionResult<unknown>>) => {
 		startTransition(async () => {
 			const res = await fn();
-			if (res.success) {
+			if (res.ok) {
 				onChanged();
 			} else {
-				toast.error(res.error || "Fehler");
+				toast.error(res.error);
 			}
 		});
 	};
