@@ -116,10 +116,8 @@ describe("createMember", () => {
 			country: "",
 		});
 
-		expect(result).toMatchObject({ success: true, linkedNow: false });
-		const row = await memberRow(
-			result.success && result.data ? result.data.id : "",
-		);
+		expect(result).toMatchObject({ ok: true, data: { linkedNow: false } });
+		const row = await memberRow(result.ok ? result.data.member.id : "");
 		expect(row).toMatchObject({
 			status: "Fuchs",
 			firstName: "Max",
@@ -147,10 +145,8 @@ describe("createMember", () => {
 			email2: "MAX@example.test",
 		});
 
-		expect(result).toMatchObject({ success: true, linkedNow: true });
-		const row = await memberRow(
-			result.success && result.data ? result.data.id : "",
-		);
+		expect(result).toMatchObject({ ok: true, data: { linkedNow: true } });
+		const row = await memberRow(result.ok ? result.data.member.id : "");
 		expect(row?.userId).toBe(account.id);
 	});
 
@@ -168,7 +164,7 @@ describe("createMember", () => {
 			...patch,
 		});
 
-		expect(result).toEqual({ success: false, error });
+		expect(result).toEqual({ ok: false, error, code: "INVALID_INPUT" });
 		expect(await tenantDb().select().from(members)).toHaveLength(0);
 	});
 
@@ -176,7 +172,7 @@ describe("createMember", () => {
 		await signInEditor("CC-Kasse");
 		expect(
 			await createMember({ status: "CB", firstName: "A", lastName: "B" }),
-		).toEqual({ success: false, error: "Keine Berechtigung" });
+		).toEqual({ ok: false, error: "Keine Berechtigung", code: "FORBIDDEN" });
 		expect(await tenantDb().select().from(members)).toHaveLength(0);
 	});
 });
@@ -194,7 +190,7 @@ describe("updateMember", () => {
 			email: "neu@example.test",
 		});
 
-		expect(result).toMatchObject({ success: true, linkedNow: true });
+		expect(result).toMatchObject({ ok: true, data: { linkedNow: true } });
 		expect(await memberRow(m.id)).toMatchObject({
 			status: "AH",
 			firstName: "Neu",
@@ -218,7 +214,7 @@ describe("updateMember", () => {
 			email: "other@example.test",
 		});
 
-		expect(result).toMatchObject({ success: true, linkedNow: false });
+		expect(result).toMatchObject({ ok: true, data: { linkedNow: false } });
 		expect((await memberRow(m.id))?.userId).toBe(linked.id);
 	});
 
@@ -230,7 +226,11 @@ describe("updateMember", () => {
 				firstName: "A",
 				lastName: "B",
 			}),
-		).toEqual({ success: false, error: "Mitglied nicht gefunden" });
+		).toEqual({
+			ok: false,
+			error: "Mitglied nicht gefunden",
+			code: "NOT_FOUND",
+		});
 	});
 });
 
@@ -250,7 +250,7 @@ describe("updateMemberFields", () => {
 			forwarding: true,
 		});
 
-		expect(result).toEqual({ success: true, linkedNow: false });
+		expect(result).toEqual({ ok: true, data: { linkedNow: false } });
 		expect(await memberRow(m.id)).toMatchObject({
 			firstName: "Max",
 			lastName: "Neu",
@@ -267,7 +267,11 @@ describe("updateMemberFields", () => {
 
 		expect(
 			await updateMemberFields(m.id, { lastName: " ", city: "Berlin" }),
-		).toEqual({ success: false, error: "Nachname erforderlich" });
+		).toEqual({
+			ok: false,
+			error: "Nachname erforderlich",
+			code: "INVALID_INPUT",
+		});
 		expect(await memberRow(m.id)).toMatchObject({
 			lastName: "Bleibt",
 			city: "Stuttgart",
@@ -279,8 +283,9 @@ describe("updateMemberFields", () => {
 		const m = await seedMember();
 
 		expect(await updateMemberFields(m.id, {})).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Änderungen",
+			code: "INVALID_INPUT",
 		});
 	});
 
@@ -292,7 +297,7 @@ describe("updateMemberFields", () => {
 			postalCode: "1".repeat(21),
 		});
 
-		expect(result.success).toBe(false);
+		expect(result.ok).toBe(false);
 		expect((await memberRow(m.id))?.postalCode).toBeNull();
 	});
 
@@ -303,7 +308,7 @@ describe("updateMemberFields", () => {
 
 		expect(
 			await updateMemberFields(m.id, { email3: "max@example.test" }),
-		).toEqual({ success: true, linkedNow: true });
+		).toEqual({ ok: true, data: { linkedNow: true } });
 		expect((await memberRow(m.id))?.userId).toBe(account.id);
 	});
 });
@@ -316,7 +321,7 @@ describe("deleteMember", () => {
 		const m = await seedMember();
 		await createCharge(run.id, m, { status: "Gemahnt" });
 
-		expect(await deleteMember(m.id)).toEqual({ success: true });
+		expect(await deleteMember(m.id)).toEqual({ ok: true, data: undefined });
 
 		expect(await memberRow(m.id)).toBeUndefined();
 		expect(await tenantDb().select().from(semesterbeitragCharges)).toHaveLength(
@@ -332,8 +337,9 @@ describe("deleteMember", () => {
 		await createCharge(run.id, m, { status: "Bezahlt" });
 
 		expect(await deleteMember(m.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Mitglied hat bezahlte Beiträge und kann nicht gelöscht werden.",
+			code: "CONFLICT",
 		});
 		expect(await memberRow(m.id)).toBeDefined();
 	});

@@ -1,11 +1,20 @@
 "use server";
 
+// The Adressliste: the member directory, for Admins and the AHV Vorstand.
+// The lists are read by the page loader; the mutations answer with an
+// ActionResult (#216).
+
 import { and, asc, eq, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
 import { members, semesterbeitragCharges } from "~/server/db/schema";
 import { requireMember } from "~/server/lib/authz";
+import { defineAction } from "~/server/lib/define-action";
+import {
+	ConflictError,
+	NotFoundError,
+	ValidationError,
+} from "~/server/lib/domain-error";
 import {
 	getTenantMemberStatuses,
 	makeBeitragspflichtigMatcher,
@@ -48,8 +57,6 @@ const memberInputSchema = z.object({
 	notes: z.string().max(1000).nullable().optional(),
 	externalId: z.string().max(100).nullable().optional(),
 });
-
-type MemberInput = z.input<typeof memberInputSchema>;
 
 function toValues(p: z.infer<typeof memberInputSchema>) {
 	return {
@@ -116,84 +123,70 @@ export async function listMemberStatusOptions(): Promise<
 
 export type MemberListItem = Awaited<ReturnType<typeof listMembers>>[number];
 
-export async function createMember(input: MemberInput) {
-	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	try {
-		const parsed = memberInputSchema.parse(input);
-		const [row] = await db
+export const createMember = defineAction(
+	{
+		roles: MEMBER_EDIT_ROLES,
+		schema: z.tuple([memberInputSchema]),
+		revalidate: ["/adressliste"],
+		errorMessage: "Fehler beim Erstellen",
+	},
+	async ([input], { tenant, user }) => {
+		const [row] = await tenant.db
 			.insert(members)
 			.values({
-				...toValues(parsed),
-				createdBy: guard.userId,
-				updatedBy: guard.userId,
+				...toValues(input),
+				createdBy: user.id,
+				updatedBy: user.id,
 			})
 			.returning();
-		// If one of the emails matches an existing account, link it right away.
-		const linkedNow = row ? await tryAutoLinkMember(row.id) : false;
-		revalidatePath("/adressliste");
-		return { success: true as const, data: row, linkedNow };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
+		if (!row) {
+			throw new Error("member insert returned no row");
 		}
-		console.error("Error creating member:", error);
-		return { success: false as const, error: "Fehler beim Erstellen" };
-	}
-}
+		// If one of the emails matches an existing account, link it right away.
+		const linkedNow = await tryAutoLinkMember(row.id);
+		return { member: row, linkedNow };
+	},
+);
 
-export async function updateMember(id: string, input: MemberInput) {
-	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	try {
-		const parsed = memberInputSchema.parse(input);
-		const [row] = await db
+export const updateMember = defineAction(
+	{
+		roles: MEMBER_EDIT_ROLES,
+		schema: z.tuple([z.string(), memberInputSchema]),
+		revalidate: ["/adressliste"],
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([id, input], { tenant, user }) => {
+		const [row] = await tenant.db
 			.update(members)
-			.set({ ...toValues(parsed), updatedBy: guard.userId })
+			.set({ ...toValues(input), updatedBy: user.id })
 			.where(eq(members.id, id))
 			.returning();
 		if (!row) {
-			return { success: false as const, error: "Mitglied nicht gefunden" };
+			throw new NotFoundError("Mitglied nicht gefunden");
 		}
 		// A corrected email may now match an existing account — link it right away.
 		const linkedNow = row.userId == null ? await tryAutoLinkMember(id) : false;
-		revalidatePath("/adressliste");
-		return { success: true as const, data: row, linkedNow };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error updating member:", error);
-		return { success: false as const, error: "Fehler beim Speichern" };
-	}
-}
+		return { member: row, linkedNow };
+	},
+);
 
 const REQUIRED_FIELDS = new Set(["firstName", "lastName", "status"]);
-const editableFieldsSchema = memberInputSchema.partial();
+// The table sends one or more cells as a loose record.
+const editableFieldsSchema = z
+	.record(z.string(), z.unknown())
+	.pipe(memberInputSchema.partial());
 
 // Partial update for in-place table editing (one or more fields).
-export async function updateMemberFields(
-	id: string,
-	patch: Record<string, unknown>,
-) {
-	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	try {
-		const parsed = editableFieldsSchema.parse(patch);
+export const updateMemberFields = defineAction(
+	{
+		roles: MEMBER_EDIT_ROLES,
+		schema: z.tuple([z.string(), editableFieldsSchema]),
+		revalidate: ["/adressliste"],
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([id, patch], { tenant, user }) => {
 		const set: Record<string, unknown> = {};
-		for (const [k, val] of Object.entries(parsed)) {
+		for (const [k, val] of Object.entries(patch)) {
 			if (val === undefined) {
 				continue;
 			}
@@ -212,48 +205,39 @@ export async function updateMemberFields(
 			}
 		}
 		if (Object.keys(set).length === 0) {
-			return { success: false as const, error: "Keine Änderungen" };
+			throw new ValidationError("Keine Änderungen");
 		}
-		set.updatedBy = guard.userId;
-		await db.update(members).set(set).where(eq(members.id, id));
+		set.updatedBy = user.id;
+		await tenant.db.update(members).set(set).where(eq(members.id, id));
 		// A corrected email may now match an existing account — link it right away.
 		const emailTouched = ["email", "email2", "email3"].some((k) => k in set);
 		const linkedNow = emailTouched ? await tryAutoLinkMember(id) : false;
-		revalidatePath("/adressliste");
-		return { success: true as const, linkedNow };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error updating member fields:", error);
-		return { success: false as const, error: "Fehler beim Speichern" };
-	}
-}
+		return { linkedNow };
+	},
+);
 
-export async function deleteMember(id: string) {
-	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-	const [row] = await db
-		.select({ c: sql<number>`count(*)` })
-		.from(semesterbeitragCharges)
-		.where(
-			and(
-				eq(semesterbeitragCharges.memberId, id),
-				eq(semesterbeitragCharges.status, "Bezahlt"),
-			),
-		);
-	if (Number(row?.c ?? 0) > 0) {
-		return {
-			success: false as const,
-			error: "Mitglied hat bezahlte Beiträge und kann nicht gelöscht werden.",
-		};
-	}
-	await db.delete(members).where(eq(members.id, id));
-	revalidatePath("/adressliste");
-	return { success: true as const };
-}
+export const deleteMember = defineAction(
+	{
+		roles: MEMBER_EDIT_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/adressliste"],
+		errorMessage: "Fehler beim Löschen",
+	},
+	async ([id], { tenant }) => {
+		const [row] = await tenant.db
+			.select({ c: sql<number>`count(*)` })
+			.from(semesterbeitragCharges)
+			.where(
+				and(
+					eq(semesterbeitragCharges.memberId, id),
+					eq(semesterbeitragCharges.status, "Bezahlt"),
+				),
+			);
+		if (Number(row?.c ?? 0) > 0) {
+			throw new ConflictError(
+				"Mitglied hat bezahlte Beiträge und kann nicht gelöscht werden.",
+			);
+		}
+		await tenant.db.delete(members).where(eq(members.id, id));
+	},
+);

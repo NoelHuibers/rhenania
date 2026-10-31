@@ -94,15 +94,15 @@ describe("exportMembersXlsx", () => {
 		const result = await exportMembersXlsx();
 
 		expect(result).toMatchObject({
-			success: true,
-			fileName: "Adressliste.xlsx",
+			ok: true,
+			data: { fileName: "Adressliste.xlsx" },
 		});
-		if (!result.success) {
+		if (!result.ok) {
 			return;
 		}
 		const wb = new ExcelJS.Workbook();
 		await wb.xlsx.load(
-			Buffer.from(result.base64, "base64") as unknown as Parameters<
+			Buffer.from(result.data.base64, "base64") as unknown as Parameters<
 				typeof wb.xlsx.load
 			>[0],
 		);
@@ -135,12 +135,12 @@ describe("exportMembersXlsx", () => {
 		});
 
 		const result = await exportMembersXlsx();
-		if (!result.success) {
+		if (!result.ok) {
 			throw new Error(result.error);
 		}
 		const wb = new ExcelJS.Workbook();
 		await wb.xlsx.load(
-			Buffer.from(result.base64, "base64") as unknown as Parameters<
+			Buffer.from(result.data.base64, "base64") as unknown as Parameters<
 				typeof wb.xlsx.load
 			>[0],
 		);
@@ -174,16 +174,16 @@ describe("exportMembersXlsx", () => {
 		await signInEditor();
 		await createMember({ firstName: "=1+1", mobile: "+49 170 1234567" });
 		const exported = await exportMembersXlsx();
-		if (!exported.success) {
+		if (!exported.ok) {
 			throw new Error(exported.error);
 		}
 		const target = await createTenant();
 		switchTenant(target);
 		signInAs(await createUser({ roles: ["Admin"], tenantId: target.id }));
 
-		const imported = await importMembersXlsx({ base64: exported.base64 });
+		const imported = await importMembersXlsx({ base64: exported.data.base64 });
 
-		expect(imported).toMatchObject({ success: true, created: 1 });
+		expect(imported).toMatchObject({ ok: true, data: { created: 1 } });
 		expect(await allMembers()).toMatchObject([
 			{ firstName: "=1+1", mobile: "+49 170 1234567" },
 		]);
@@ -196,7 +196,7 @@ describe("importMembersXlsx", () => {
 		await createMember({ ...fullMember });
 		await createMember({ firstName: "Anna", lastName: "Alt", status: "AH" });
 		const exported = await exportMembersXlsx();
-		if (!exported.success) {
+		if (!exported.ok) {
 			throw new Error(exported.error);
 		}
 		const source = (await allMembers()).map(portable);
@@ -205,14 +205,11 @@ describe("importMembersXlsx", () => {
 		switchTenant(target);
 		signInAs(await createUser({ roles: ["Admin"], tenantId: target.id }));
 
-		const result = await importMembersXlsx({ base64: exported.base64 });
+		const result = await importMembersXlsx({ base64: exported.data.base64 });
 
 		expect(result).toMatchObject({
-			success: true,
-			created: 2,
-			updated: 0,
-			skipped: 0,
-			errors: [],
+			ok: true,
+			data: { created: 2, updated: 0, skipped: 0, errors: [] },
 		});
 		expect((await allMembers()).map(portable)).toEqual(source);
 	});
@@ -221,14 +218,17 @@ describe("importMembersXlsx", () => {
 		const { user } = await signInEditor();
 		const m = await createMember({ ...fullMember });
 		const exported = await exportMembersXlsx();
-		if (!exported.success) {
+		if (!exported.ok) {
 			throw new Error(exported.error);
 		}
 		await tenantDb().update(members).set({ city: "Geändert" });
 
-		const result = await importMembersXlsx({ base64: exported.base64 });
+		const result = await importMembersXlsx({ base64: exported.data.base64 });
 
-		expect(result).toMatchObject({ success: true, created: 0, updated: 1 });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { created: 0, updated: 1 },
+		});
 		const rows = await allMembers();
 		expect(rows).toHaveLength(1);
 		expect(rows[0]).toMatchObject({
@@ -263,7 +263,10 @@ describe("importMembersXlsx", () => {
 
 		const result = await importMembersXlsx({ base64 });
 
-		expect(result).toMatchObject({ success: true, created: 1, updated: 3 });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { created: 1, updated: 3 },
+		});
 		const rows = await allMembers();
 		const byIdMap = new Map(
 			rows.map((r) => [r.id, [r.lastName, r.firstName, r.status]]),
@@ -296,7 +299,7 @@ describe("importMembersXlsx", () => {
 
 		const result = await importMembersXlsx({ base64 });
 
-		expect(result).toMatchObject({ success: true, created: 1 });
+		expect(result).toMatchObject({ ok: true, data: { created: 1 } });
 		const [row] = await allMembers();
 		expect(row).toMatchObject({
 			firstName: "Max",
@@ -325,10 +328,12 @@ describe("importMembersXlsx", () => {
 		const result = await importMembersXlsx({ base64 });
 
 		expect(result).toMatchObject({
-			success: true,
-			created: 1,
-			skipped: 2,
-			errors: ["Zeile 2: Name unvollständig", "Zeile 4: Name unvollständig"],
+			ok: true,
+			data: {
+				created: 1,
+				skipped: 2,
+				errors: ["Zeile 2: Name unvollständig", "Zeile 4: Name unvollständig"],
+			},
 		});
 		expect((await allMembers()).map((m) => m.lastName)).toEqual(["Ok"]);
 	});
@@ -343,7 +348,7 @@ describe("importMembersXlsx", () => {
 
 		const result = await importMembersXlsx({ base64 });
 
-		expect(result).toMatchObject({ success: true, created: 1, linked: 1 });
+		expect(result).toMatchObject({ ok: true, data: { created: 1, linked: 1 } });
 		expect((await allMembers())[0]?.userId).toBe(account.id);
 	});
 
@@ -353,7 +358,7 @@ describe("importMembersXlsx", () => {
 			await importMembersXlsx({
 				base64: Buffer.from("nope").toString("base64"),
 			}),
-		).toEqual({ success: false, error: "Import fehlgeschlagen" });
+		).toEqual({ ok: false, error: "Import fehlgeschlagen", code: "INTERNAL" });
 		expect(await allMembers()).toHaveLength(0);
 	});
 
@@ -366,11 +371,11 @@ describe("importMembersXlsx", () => {
 			extra: { ...fullMember.extra, Lieblingsbier: "Pils" },
 		});
 		const exported = await exportMembersXlsx();
-		if (!exported.success) {
+		if (!exported.ok) {
 			throw new Error(exported.error);
 		}
 
-		await importMembersXlsx({ base64: exported.base64 });
+		await importMembersXlsx({ base64: exported.data.base64 });
 
 		expect((await allMembers())[0]?.extra).toMatchObject({
 			Lieblingsbier: "Pils",
@@ -416,7 +421,10 @@ describe("importMembersXlsx", () => {
 
 		const result = await importMembersXlsx({ base64 });
 
-		expect(result).toMatchObject({ success: true, created: 0, updated: 1 });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { created: 0, updated: 1 },
+		});
 		const [row] = await allMembers();
 		expect(row).toEqual({
 			...m,
@@ -485,12 +493,12 @@ describe("importMembersXlsx", () => {
 		await createMember({ firstName: "Carl", lastName: "Clean" });
 
 		const exported = await exportMembersXlsx();
-		if (!exported.success) {
+		if (!exported.ok) {
 			throw new Error(exported.error);
 		}
 		const wb = new ExcelJS.Workbook();
 		await wb.xlsx.load(
-			Buffer.from(exported.base64, "base64") as unknown as Parameters<
+			Buffer.from(exported.data.base64, "base64") as unknown as Parameters<
 				typeof wb.xlsx.load
 			>[0],
 		);
