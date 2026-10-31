@@ -33,7 +33,7 @@ import {
 	addExternalBill,
 	deleteExternalBill,
 	markExternalBillPaid,
-} from "~/server/actions/getraenkewart/kasse";
+} from "~/server/modules/getraenkekasse/actions";
 import { CollapsibleCard } from "./shared";
 import type { ExternalBill } from "./types";
 

@@ -39,7 +39,7 @@ import { formatDate, formatEUR } from "~/lib/format";
 import {
 	addBankEntry,
 	deleteBankEntry,
-} from "~/server/actions/getraenkewart/kasse";
+} from "~/server/modules/getraenkekasse/actions";
 import type { BankEntry } from "./types";
 
 /** Kassenstandverlauf: bank balance history with add and delete. */

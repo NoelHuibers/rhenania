@@ -20,7 +20,7 @@ import type { TenantDb } from "~/server/db/tenants";
 import {
 	type GetraenkekassePayment,
 	resolveGetraenkekassePayment,
-} from "~/server/lib/getraenkekasse-payment";
+} from "~/server/domain/getraenkekasse/payment";
 
 /** The values the code used for Rhenania before #9. */
 export const RHENANIA_LEGACY_BILLING = {

@@ -17,7 +17,7 @@ import { IconButton } from "~/components/ui/icon-button";
 import { Separator } from "~/components/ui/separator";
 import { girocodePayload, paypalAmountUrl } from "~/lib/bill-payment";
 import { formatDecimalInput, formatEUR } from "~/lib/format";
-import type { GetraenkekassePayment } from "~/server/lib/getraenkekasse-payment";
+import type { GetraenkekassePayment } from "~/server/domain/getraenkekasse/payment";
 
 /** Shown wherever a pay button would be, when the Corps has no payment data. */
 export const PAYMENT_DATA_MISSING =

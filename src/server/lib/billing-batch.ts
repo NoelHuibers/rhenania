@@ -8,11 +8,12 @@
 // are still as read. The run turns a failed check into a constraint error
 // that rolls the batch back (see the runs), so a payment, a deferral or a
 // second run in between never leads to a bill computed from stale data.
+// Both helpers run on the database they are given (#33).
 
 import type { InArgs, InStatement } from "@libsql/client";
 import { and, eq, getTableName, inArray, or, type SQL, sql } from "drizzle-orm";
 import type { SQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
-import { client, db } from "~/server/db";
+import type { TenantDb } from "~/server/db/tenants";
 
 /** Rows per multi-row INSERT, well below SQLite's bound-parameter limit. */
 const INSERT_CHUNK = 200;
@@ -36,8 +37,11 @@ type Statement = { toSQL(): { sql: string; params: unknown[] } };
  * Runs drizzle statements as one libSQL batch in "write" mode (BEGIN
  * IMMEDIATE): a single round trip that commits all of them or none.
  */
-export async function writeBatch(statements: Statement[]): Promise<void> {
-	await client.batch(
+export async function writeBatch(
+	db: TenantDb,
+	statements: Statement[],
+): Promise<void> {
+	await db.$client.batch(
 		statements.map((statement): InStatement => {
 			const query = statement.toSQL();
 			return { sql: query.sql, args: query.params as InArgs };
@@ -57,6 +61,7 @@ type BillsTable = SQLiteTable & {
  * `orderIds`.
  */
 export function unchangedSince(
+	db: TenantDb,
 	read: {
 		billsTable: BillsTable;
 		outstanding: { id: string; status: string }[];

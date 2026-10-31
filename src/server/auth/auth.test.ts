@@ -65,7 +65,7 @@ async function setTenantStatus(id: string, status: "active" | "suspended") {
 
 describe("auth() (real)", () => {
 	test("returns the member with the roles of the request tenant", async () => {
-		await createTenant();
+		const tenant = await createTenant();
 		const user = await createUser({ roles: ["Getränkewart"] });
 		signInAs(user);
 		const { auth } = await realAuth();
@@ -78,6 +78,7 @@ describe("auth() (real)", () => {
 				image: null,
 				roles: ["Getränkewart"],
 			},
+			tenantId: tenant.id,
 		});
 	});
 

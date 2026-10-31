@@ -4,13 +4,12 @@
 // Rechnungen" tab requested every past period at once.
 
 import { describe, expect, test } from "vitest";
-
+import { getCurrentOrders } from "~/server/actions/currentOrders";
+import { auth } from "~/server/auth";
 import {
 	getAllBillPeriods,
 	getBillsForPeriod,
-} from "~/server/actions/billings/billings";
-import { getCurrentOrders } from "~/server/actions/currentOrders";
-import { auth } from "~/server/auth";
+} from "~/server/modules/billing/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,

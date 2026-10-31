@@ -16,8 +16,8 @@ import {
 import { Separator } from "~/components/ui/separator";
 import { isCredit, paymentReference } from "~/lib/bill-payment";
 import { formatDate, formatEUR } from "~/lib/format";
-import { downloadUserBillPDF } from "~/server/actions/profile/downloadUserBill";
-import type { getUserBillingData } from "~/server/actions/profile/getUserBill";
+import type { getUserBillingData } from "~/server/modules/billing/actions";
+import { downloadUserBillPDF } from "~/server/modules/billing/actions";
 import { PAYMENT_DATA_MISSING, PayBillDrawer } from "./PayBillDrawer";
 
 type UserBillingData = Awaited<ReturnType<typeof getUserBillingData>>;

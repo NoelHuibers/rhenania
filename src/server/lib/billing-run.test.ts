@@ -6,10 +6,10 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
-import { generateUserBillPDF } from "~/server/actions/billings/createUserPDF";
 import { billPeriods, bills, orders } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { sendTenantMail } from "~/server/lib/mailer";
+import { billPdf } from "~/server/modules/billing/service";
 import {
 	billsOf,
 	createBillPeriodRow,
@@ -29,6 +29,7 @@ import {
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
+	testScope,
 } from "../../../test/harness";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
@@ -303,10 +304,13 @@ describe("data changed between reading and writing the run (#23)", () => {
 			throw new Error("network down");
 		});
 
-		expect(await runGetraenkeBilling({ inventoryLoss: 0 })).toMatchObject({
+		// The cause is logged; the result carries the user's message only.
+		expect(await runGetraenkeBilling({ inventoryLoss: 0 })).toEqual({
 			success: false,
 			message: "Fehler beim Erstellen der Rechnungen",
-			error: "network down",
+			error: "Fehler beim Erstellen der Rechnungen",
+			billsCreated: 0,
+			totalAmount: 0,
 		});
 	});
 });
@@ -334,12 +338,10 @@ describe("mailed bills (#23)", () => {
 		const [sent] = mail.mock.calls;
 		const attachment = sent?.[0].attachments?.[0];
 		const [bill] = (await billsOf(hanna.id)).slice(-1);
-		const stored = await generateUserBillPDF(bill?.id ?? "");
+		const stored = await billPdf(testScope(), bill?.id ?? "");
 		expect(bill).toMatchObject({ umlage: 7, fees: 2, total: 34.85 });
 		expect(attachment?.filename).toBe(stored.fileName);
-		expect(pdfText(attachment?.content as Buffer)).toEqual(
-			pdfText(stored.pdfContent as Buffer),
-		);
+		expect(pdfText(attachment?.content as Buffer)).toEqual(pdfText(stored.pdf));
 	});
 
 	test("failed mails are logged and skipped, the others still go out", async () => {

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { z } from "zod";
 import { fail, ok } from "~/lib/action-result";
+import { users } from "~/server/db/schema";
 import {
 	createTenant,
 	createUser,
@@ -10,6 +11,8 @@ import {
 	setupTestDatabases,
 	signInAs,
 	signOut,
+	switchTenant,
+	tenantDb,
 } from "../../../test/harness";
 import {
 	ActionError,
@@ -17,6 +20,7 @@ import {
 	INVALID_INPUT,
 	UNEXPECTED_ERROR,
 } from "./define-action";
+import { ConflictError, NotFoundError, ValidationError } from "./domain-error";
 import { log } from "./log";
 
 setupTestDatabases();
@@ -214,6 +218,42 @@ describe("defineAction", () => {
 		await signInWith();
 
 		await expect(leave()).rejects.toThrow("NEXT_REDIRECT");
+		expect(logError).not.toHaveBeenCalled();
+	});
+
+	test("hands the body the scope of the request's tenant", async () => {
+		const countMembers = defineAction({}, async ({ tenant }) => ({
+			tenantId: tenant.tenantId,
+			members: await tenant.db.$count(users),
+			now: tenant.now() instanceof Date,
+		}));
+		await createTenant();
+		const other = await createTenant();
+		switchTenant(other);
+		signInAs(await createUser({ tenantId: other.id }));
+		await createUser({ tenantId: other.id });
+
+		expect(await countMembers()).toEqual({
+			ok: true,
+			data: {
+				tenantId: other.id,
+				members: await tenantDb(other.id).$count(users),
+				now: true,
+			},
+		});
+	});
+
+	test.each([
+		[new NotFoundError("Rechnung nicht gefunden"), "NOT_FOUND"],
+		[new ConflictError("Schon bezahlt", "PAID"), "PAID"],
+		[new ValidationError("Ungültiger Status"), "INVALID_INPUT"],
+	])("answers a thrown %s with its message and code", async (error, code) => {
+		const refuse = defineAction({}, async () => {
+			throw error;
+		});
+		await signInWith();
+
+		expect(await refuse()).toEqual({ ok: false, error: error.message, code });
 		expect(logError).not.toHaveBeenCalled();
 	});
 });

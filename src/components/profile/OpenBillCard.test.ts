@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import type { OpenBill } from "~/server/lib/open-bill";
+import type { OpenBill } from "~/server/modules/billing/service";
 import { OpenBillCard } from "./OpenBillCard";
 
 const BILL: OpenBill = {

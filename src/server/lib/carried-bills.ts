@@ -1,6 +1,6 @@
 import { and, eq, gt, lt, type SQL, sql } from "drizzle-orm";
-import { db } from "~/server/db";
 import { type bills, fuchsenBills } from "~/server/db/schema";
+import type { TenantDb } from "~/server/db/tenants";
 
 // A billing run carries a member's open bills into their new bill and marks
 // them "Übertragen". Paying that newer bill settles them in the same step,
@@ -58,6 +58,7 @@ export function paidAlongWith(
  * would make the next run carry its amount a second time.
  */
 export async function carriedBillRefusal(
+	db: TenantDb,
 	table: BillTable,
 	bill: {
 		userId: string;

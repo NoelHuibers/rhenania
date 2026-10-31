@@ -26,7 +26,7 @@ import {
 	type GetraenkeBillingProfileInput,
 	type GetraenkeBillingSettings,
 	updateGetraenkeBillingProfile,
-} from "~/server/actions/getraenkewart/kasse";
+} from "~/server/modules/getraenkekasse/actions";
 
 type TextField = Exclude<keyof GetraenkeBillingProfileInput, "paymentDueDays">;
 

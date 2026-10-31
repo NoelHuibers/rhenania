@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { saveUserBillPDF } from "~/server/actions/billings/saveUserBillPDF";
+import { DomainError } from "~/server/lib/domain-error";
+import { saveUserBillPdf } from "~/server/modules/billing/service";
 import { createBill } from "../../../../test/factories/platform";
 import {
 	createTenant,
@@ -8,11 +9,11 @@ import {
 	setupTestDatabases,
 	signInAs,
 } from "../../../../test/harness";
-import { downloadUserBillPDF } from "./downloadUserBill";
+import { downloadUserBillPDF } from "./actions";
 
 // PDF rendering and blob storage are covered with the billing actions.
-vi.mock("~/server/actions/billings/saveUserBillPDF", () => ({
-	saveUserBillPDF: vi.fn(),
+vi.mock("~/server/modules/billing/service", () => ({
+	saveUserBillPdf: vi.fn(),
 }));
 
 setupTestDatabases();
@@ -32,11 +33,11 @@ async function memberWithBill() {
 describe("downloadUserBillPDF", () => {
 	test("returns the download link of the member's bill PDF", async () => {
 		const bill = await memberWithBill();
-		vi.mocked(saveUserBillPDF).mockResolvedValueOnce({
-			success: true,
+		vi.mocked(saveUserBillPdf).mockResolvedValueOnce({
 			downloadUrl: "https://blob.example/bill.pdf",
 			fileName: "Rechnung.pdf",
 			pdfId: "pdf-1",
+			wasExisting: false,
 		});
 
 		expect(await downloadUserBillPDF(bill.id)).toEqual({
@@ -44,14 +45,18 @@ describe("downloadUserBillPDF", () => {
 			downloadUrl: "https://blob.example/bill.pdf",
 			fileName: "Rechnung.pdf",
 		});
-		expect(saveUserBillPDF).toHaveBeenCalledWith(bill.id);
+		expect(saveUserBillPdf).toHaveBeenCalledWith(
+			expect.objectContaining({ tenantId: expect.any(String) }),
+			expect.objectContaining({ id: bill.userId }),
+			bill.id,
+		);
 	});
 
 	test("passes on PDF errors, with a default message", async () => {
 		const bill = await memberWithBill();
-		vi.mocked(saveUserBillPDF)
-			.mockResolvedValueOnce({ success: false, error: "Bill not found" })
-			.mockResolvedValueOnce({ success: false })
+		vi.mocked(saveUserBillPdf)
+			.mockRejectedValueOnce(new DomainError("Bill not found", "NOT_FOUND"))
+			.mockRejectedValueOnce("no error object")
 			.mockRejectedValueOnce(new Error("blob down"));
 
 		expect(await downloadUserBillPDF(bill.id)).toEqual({
@@ -60,7 +65,7 @@ describe("downloadUserBillPDF", () => {
 		});
 		expect(await downloadUserBillPDF(bill.id)).toEqual({
 			success: false,
-			error: "Failed to generate PDF",
+			error: "Failed to download PDF",
 		});
 		expect(await downloadUserBillPDF(bill.id)).toEqual({
 			success: false,
@@ -75,6 +80,6 @@ describe("downloadUserBillPDF", () => {
 			success: false,
 			error: "User must be authenticated to download billing data",
 		});
-		expect(saveUserBillPDF).not.toHaveBeenCalled();
+		expect(saveUserBillPdf).not.toHaveBeenCalled();
 	});
 });

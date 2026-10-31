@@ -8,6 +8,7 @@ import {
 	inventoryItems,
 	kasseConfig,
 } from "~/server/db/schema";
+import { updateBillStatus } from "~/server/modules/billing/actions";
 import {
 	billsOf,
 	createBillPeriodRow,
@@ -28,7 +29,6 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
-import { updateBillStatus } from "../billings/billings";
 import {
 	addBankEntry,
 	addExternalBill,
@@ -49,7 +49,7 @@ import {
 	setMarkupPercent,
 	setPfandWert,
 	updateGetraenkeBillingProfile,
-} from "./kasse";
+} from "./actions";
 
 setupTestDatabases();
 

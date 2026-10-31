@@ -2,14 +2,14 @@
 //
 // Pure: renders what the bill shows (`UserBillData`) with the tenant's sender
 // and payment target, without touching the database. The billing run renders
-// the bills it has just written from memory (#23); `generateUserBillPDF`
-// renders a stored bill.
+// the bills it has just written from memory (#23); `billPdf` in the
+// billing service renders a stored bill.
 
 import { jsPDF } from "jspdf";
 import { isCredit } from "~/lib/bill-payment";
 import { formatDateWith } from "~/lib/format";
 import { lateFeeSentence } from "~/lib/late-fee";
-import type { GetraenkeBillSender } from "~/server/lib/getraenkekasse-payment";
+import type { GetraenkeBillSender } from "~/server/domain/getraenkekasse/payment";
 import type { UserBillData } from "~/server/lib/user-bill-data";
 
 /** Attachment name, e.g. `Rechnung_KW-43-26_Max_M_ller.pdf`. */

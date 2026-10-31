@@ -4,29 +4,32 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { tenants } from "~/server/db/control-schema";
 import { kontos } from "~/server/db/schema";
 import {
+	GETRAENKE_BILLING_INCOMPLETE,
+	incompleteBillingMessage,
+	resolveGetraenkekassePayment,
+} from "~/server/domain/getraenkekasse/payment";
+import { clearTenantCache } from "~/server/lib/tenant-context";
+import {
 	createKontoRow,
 	OTHER_VALID_IBAN,
 	setGetraenkeBillingProfile,
 	VALID_IBAN,
-} from "../../../test/factories/billing";
+} from "../../../../test/factories/billing";
 import {
 	controlDb,
 	createTenant,
 	setupTestDatabases,
 	type TestTenant,
 	tenantDb,
-} from "../../../test/harness";
-import { requireTenant } from "../../../test/state";
+	testScope,
+} from "../../../../test/harness";
+import { requireTenant } from "../../../../test/state";
 import {
-	GETRAENKE_BILLING_INCOMPLETE,
-	getGetraenkeBillingProfile,
-	getGetraenkekasseAccount,
-	getGetraenkekassePayment,
-	incompleteBillingMessage,
-	resolveGetraenkeBillSender,
-	resolveGetraenkekassePayment,
-} from "./getraenkekasse-payment";
-import { clearTenantCache } from "./tenant-context";
+	billingProfile,
+	billingSettings,
+	billSender,
+	payment,
+} from "./service";
 
 setupTestDatabases();
 
@@ -42,22 +45,22 @@ async function setBranding(tenant: TestTenant, paypalUrl: string) {
 	clearTenantCache(tenant.id);
 }
 
-describe("getGetraenkekassePayment", () => {
+describe("payment", () => {
 	test("is null without a konto, never someone else's account (#9)", async () => {
 		await createTenant();
 		await setGetraenkeBillingProfile();
 
-		expect(await getGetraenkekassePayment()).toBeNull();
-		expect(await getGetraenkekasseAccount()).toBeNull();
+		expect(await payment(testScope())).toBeNull();
+		expect((await billingSettings(testScope())).payment).toBeNull();
 	});
 
 	test("is null without an account holder (#9)", async () => {
 		await createTenant();
 		await createKontoRow();
 
-		expect(await getGetraenkekassePayment()).toBeNull();
-		expect(await getGetraenkekasseAccount()).toMatchObject({
-			ibanRaw: VALID_IBAN,
+		expect(await payment(testScope())).toBeNull();
+		expect((await billingSettings(testScope())).payment).toMatchObject({
+			iban: "DE89 3704 0044 0532 0130 00",
 		});
 	});
 
@@ -72,7 +75,7 @@ describe("getGetraenkekassePayment", () => {
 		});
 		await createKontoRow({ iban: VALID_IBAN, paypalLink: "@corpskasse/" });
 
-		expect(await getGetraenkekassePayment()).toEqual({
+		expect(await payment(testScope())).toEqual({
 			iban: "DE89 3704 0044 0532 0130 00",
 			ibanRaw: VALID_IBAN,
 			accountHolder: "Corps Hassia e.V.",
@@ -90,11 +93,11 @@ describe("getGetraenkekassePayment", () => {
 			.set({ iban: "DE89370400440532013001" })
 			.where(eq(kontos.id, konto.id));
 
-		expect(await getGetraenkekassePayment()).toBeNull();
+		expect(await payment(testScope())).toBeNull();
 
 		// A second, valid konto is used instead.
 		await createKontoRow({ iban: OTHER_VALID_IBAN });
-		expect((await getGetraenkekassePayment())?.ibanRaw).toBe(OTHER_VALID_IBAN);
+		expect((await payment(testScope()))?.ibanRaw).toBe(OTHER_VALID_IBAN);
 	});
 
 	test("takes PayPal from the tenant branding when the konto has none", async () => {
@@ -102,10 +105,10 @@ describe("getGetraenkekassePayment", () => {
 		await setGetraenkeBillingProfile();
 		await createKontoRow({ paypalLink: null });
 
-		expect((await getGetraenkekassePayment())?.paypalBaseUrl).toBeNull();
+		expect((await payment(testScope()))?.paypalBaseUrl).toBeNull();
 
 		await setBranding(tenant, "paypal.me/brandkasse");
-		expect((await getGetraenkekassePayment())?.paypalBaseUrl).toBe(
+		expect((await payment(testScope()))?.paypalBaseUrl).toBe(
 			"https://paypal.me/brandkasse",
 		);
 
@@ -114,7 +117,7 @@ describe("getGetraenkekassePayment", () => {
 			.update(kontos)
 			.set({ paypalLink: "@kontokasse" })
 			.where(eq(kontos.kasseType, "Getränkekasse"));
-		expect((await getGetraenkekassePayment())?.paypalBaseUrl).toBe(
+		expect((await payment(testScope()))?.paypalBaseUrl).toBe(
 			"https://paypal.me/kontokasse",
 		);
 	});
@@ -138,11 +141,11 @@ describe("resolveGetraenkekassePayment", () => {
 	});
 });
 
-describe("resolveGetraenkeBillSender", () => {
+describe("billSender", () => {
 	test("lists everything missing for a fresh tenant", async () => {
 		await createTenant();
 
-		expect(await resolveGetraenkeBillSender()).toEqual({
+		expect(await billSender(testScope())).toEqual({
 			ok: false,
 			missing: [
 				"Absender",
@@ -163,7 +166,7 @@ describe("resolveGetraenkeBillSender", () => {
 		});
 		await createKontoRow({ paypalLink: null });
 
-		expect(await resolveGetraenkeBillSender()).toEqual({
+		expect(await billSender(testScope())).toEqual({
 			ok: true,
 			sender: {
 				name: "Erika Kassenwart",
@@ -186,21 +189,28 @@ describe("resolveGetraenkeBillSender", () => {
 		await createTenant();
 		await setGetraenkeBillingProfile();
 
-		expect(await resolveGetraenkeBillSender()).toEqual({
+		expect(await billSender(testScope())).toEqual({
 			ok: false,
 			missing: ["Getränkekasse-Konto mit gültiger IBAN"],
 		});
 	});
 });
 
-describe("getGetraenkeBillingProfile", () => {
-	test("is empty before the migration created the table", async () => {
+describe("billingProfile", () => {
+	test("is empty while none is stored", async () => {
 		await createTenant();
-		vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect((await billingProfile(testScope())).senderName).toBe("");
+		expect((await billSender(testScope())).ok).toBe(false);
+	});
+
+	// A failed read must not look like "not set up yet" (#33).
+	test("a failed read is an error, not an empty profile", async () => {
+		await createTenant();
 		await requireTenant().client.execute("DROP TABLE getraenke_billing_config");
 
-		expect((await getGetraenkeBillingProfile()).senderName).toBe("");
-		expect((await resolveGetraenkeBillSender()).ok).toBe(false);
+		await expect(billingProfile(testScope())).rejects.toThrow(/Failed query/);
+		await expect(billSender(testScope())).rejects.toThrow(/Failed query/);
 	});
 });
 

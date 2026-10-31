@@ -16,6 +16,7 @@ import {
 /** Calls that establish the caller (all go through the tenant-scoped auth()). */
 const GUARDS = new Set([
 	"auth",
+	"requireCaller",
 	"requireMember",
 	"requireRole",
 	"requireSelfOrRole",
