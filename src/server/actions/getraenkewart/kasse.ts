@@ -36,7 +36,7 @@ import {
 	getGetraenkekasseAccount,
 	resolveGetraenkeBillSender,
 } from "~/server/lib/getraenkekasse-payment";
-import { generateUserBillPDF } from "../billings/createUserPDF";
+import { billPdf } from "~/server/modules/billing/service";
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
@@ -357,18 +357,9 @@ export const downloadEntityBillPDF = defineAction(
 		schema: z.tuple([z.string()]),
 		errorMessage: "PDF-Generierung fehlgeschlagen",
 	},
-	async ([billId]) => {
-		const result = await generateUserBillPDF(billId);
-		if (!result.success || !result.pdfContent || !result.fileName) {
-			throw new ActionError(
-				result.error ?? "PDF-Generierung fehlgeschlagen",
-				"PDF_FAILED",
-			);
-		}
-		return {
-			base64: result.pdfContent.toString("base64"),
-			fileName: result.fileName,
-		};
+	async ([billId], { tenant }) => {
+		const { pdf, fileName } = await billPdf(tenant, billId);
+		return { base64: pdf.toString("base64"), fileName };
 	},
 );
 

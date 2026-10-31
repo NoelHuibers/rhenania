@@ -5,7 +5,7 @@ import { Button } from "~/components/ui/button";
 import { BillStatusBadge } from "~/components/ui/status-badge";
 import { formatDate, formatEUR } from "~/lib/format";
 import { cn } from "~/lib/utils";
-import type { OpenBill } from "~/server/lib/open-bill";
+import type { OpenBill } from "~/server/modules/billing/service";
 import { PAYMENT_DATA_MISSING, PayBillDrawer } from "./PayBillDrawer";
 
 /**

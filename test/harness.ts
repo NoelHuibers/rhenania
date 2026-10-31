@@ -28,6 +28,7 @@ import {
 	users,
 } from "~/server/db/schema";
 import { clearTenantCache } from "~/server/lib/tenant-context";
+import { type TenantScope, tenantScope } from "~/server/lib/tenant-scope";
 import { createControlTestDb, createTenantTestDb } from "./db";
 import {
 	requireControl,
@@ -242,14 +243,15 @@ export async function flushAfter() {
  * tenant DB, e.g. to change data between a billing run's read and its write.
  */
 export function beforeNextWriteBatch(change: () => Promise<unknown>) {
-	const tenant = requireTenant();
-	const original = tenant.client;
-	tenant.client = new Proxy(original, {
+	// Write batches go through the drizzle instance's client (`$client`).
+	const { db } = requireTenant();
+	const original = db.$client;
+	db.$client = new Proxy(original, {
 		get(target, prop) {
 			if (prop === "batch") {
 				return async (...args: Parameters<Client["batch"]>) => {
 					if (args[1] === "write") {
-						tenant.client = original;
+						db.$client = original;
 						await change();
 					}
 					return target.batch(...args);
@@ -259,6 +261,25 @@ export function beforeNextWriteBatch(change: () => Promise<unknown>) {
 			return typeof value === "function" ? value.bind(target) : value;
 		},
 	});
+}
+
+/**
+ * A TenantScope over a tenant's test DB (the current one by default), for
+ * calling services directly. Pass `now` for a fixed clock.
+ */
+export function testScope(
+	opts: { now?: Date | (() => Date); tenantId?: string } = {},
+): TenantScope {
+	const tenantId = opts.tenantId ?? testState.tenantId;
+	if (!tenantId) {
+		throw new Error("No tenant. Call createTenant() first.");
+	}
+	const { now } = opts;
+	return tenantScope(
+		tenantId,
+		requireTenant(tenantId).db,
+		now instanceof Date ? () => new Date(now) : now,
+	);
 }
 
 /** Direct handle on the current tenant DB for assertions. */

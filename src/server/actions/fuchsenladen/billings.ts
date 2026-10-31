@@ -193,7 +193,7 @@ export const createNewFuchsenBilling = defineAction(
 		// changed in the meantime.
 		const { orderIds } = plan;
 		try {
-			await writeBatch([
+			await writeBatch(db, [
 				db.insert(fuchsenBillPeriods).values({
 					id: billPeriodId,
 					billNumber,
@@ -210,6 +210,7 @@ export const createNewFuchsenBilling = defineAction(
 							eq(fuchsenBillPeriods.id, billPeriodId),
 							not(
 								unchangedSince(
+									db,
 									{ billsTable: fuchsenBills, outstanding: outstandingRows },
 									{
 										table: fuchsenOrders,
@@ -433,7 +434,7 @@ export const updateFuchsenBillStatus = defineAction(
 		}
 		// A carried bill is settled (and reopened) through the bill it was
 		// rolled into.
-		const refusal = await carriedBillRefusal(fuchsenBills, bill);
+		const refusal = await carriedBillRefusal(db, fuchsenBills, bill);
 		if (refusal) {
 			throw new ActionError(refusal, "CARRIED_BILL");
 		}

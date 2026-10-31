@@ -1,9 +1,10 @@
 // server/actions/profile/downloadUserBillPDF.ts
 "use server";
 
-import { saveUserBillPDF } from "~/server/actions/billings/saveUserBillPDF";
 import { auth } from "~/server/auth";
 import { log } from "~/server/lib/log";
+import { scopeOf } from "~/server/lib/tenant-scope";
+import { saveUserBillPdf } from "~/server/modules/billing/service";
 
 export async function downloadUserBillPDF(billId: string): Promise<{
 	success: boolean;
@@ -18,21 +19,13 @@ export async function downloadUserBillPDF(billId: string): Promise<{
 			throw new Error("User must be authenticated to download billing data");
 		}
 
-		// Generate or retrieve the PDF directly using billId
-		const result = await saveUserBillPDF(billId);
-
-		if (!result.success) {
-			return {
-				success: false,
-				error: result.error || "Failed to generate PDF",
-			};
-		}
-
-		return {
-			success: true,
-			downloadUrl: result.downloadUrl,
-			fileName: result.fileName,
-		};
+		// Generate or retrieve the member's own bill PDF.
+		const { downloadUrl, fileName } = await saveUserBillPdf(
+			await scopeOf(session.tenantId),
+			session.user,
+			billId,
+		);
+		return { success: true, downloadUrl, fileName };
 	} catch (error) {
 		await log.error("Error downloading PDF", { err: error });
 		return {

@@ -5,6 +5,7 @@ import { billPeriods, bills, orders } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { sendTenantMail } from "~/server/lib/mailer";
 import { buildUserBillData, summaryTotal } from "~/server/lib/user-bill-data";
+import { billPdf, periodCsv } from "~/server/modules/billing/service";
 import {
 	billsOf,
 	createBillPeriodRow,
@@ -26,6 +27,7 @@ import {
 	signOut,
 	type TestUser,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
 import { getOpenMemberBills } from "../getraenkewart/kasse";
 import { createOrder } from "../orders";
@@ -36,8 +38,6 @@ import {
 	getBillsForPeriod,
 	updateBillStatus,
 } from "./billings";
-import { generateBillPeriodCSV } from "./createCSV";
-import { generateUserBillPDF } from "./createUserPDF";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 // Achievements run fire-and-forget after an order; they have their own tests.
@@ -794,11 +794,11 @@ describe("Umlage (#10)", () => {
 			([m]) => m.to === "hanna@example.test",
 		)?.[0];
 		expect(hannaMail?.text).toContain("Gesamtbetrag: 12,50€");
-		const pdf = (await generateUserBillPDF(bill.id)).pdfContent as Buffer;
+		const pdf = (await billPdf(testScope(), bill.id)).pdf;
 		expect(pdfValueAfter(pdf, "Umlage:")).toMatch(/^12,50/);
 		expect(pdfValueAfter(pdf, "Gesamtbetrag:")).toMatch(/^12,50/);
 		// CSV row of the period.
-		const csv = await generateBillPeriodCSV(run.billPeriod.id, {
+		const csv = await periodCsv(testScope(), run.billPeriod.id, {
 			delimiter: ";",
 		});
 		const row = csv.csvContent

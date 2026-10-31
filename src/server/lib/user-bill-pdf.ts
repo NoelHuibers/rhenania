@@ -2,8 +2,8 @@
 //
 // Pure: renders what the bill shows (`UserBillData`) with the tenant's sender
 // and payment target, without touching the database. The billing run renders
-// the bills it has just written from memory (#23); `generateUserBillPDF`
-// renders a stored bill.
+// the bills it has just written from memory (#23); `billPdf` in the
+// billing service renders a stored bill.
 
 import { jsPDF } from "jspdf";
 import { isCredit } from "~/lib/bill-payment";

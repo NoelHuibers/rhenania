@@ -1,17 +1,52 @@
-// createCSV.ts
-// Server-only helpers, deliberately NOT "use server": the functions here
-// must not be callable from the browser as server actions.
-import "server-only";
+// csv.ts — a bill period as the Kasse's CSV sheet.
+//
+// Pure: lays out the bills of one period (groups first, then members, by
+// name) with a quantity column per drink, the money columns, the PayPal
+// link and a price and a total row. The billing service reads the data.
 
-import { eq, sql } from "drizzle-orm";
 import { csvCell } from "~/lib/csv";
 import { sumMoney } from "~/lib/money";
-import { db } from "~/server/db/index";
-import { billItems, billPeriods, bills, drinks } from "~/server/db/schema";
-import { getGetraenkekassePayment } from "~/server/lib/getraenkekasse-payment";
-import { log } from "~/server/lib/log";
 
-interface BillWithItems {
+/**
+ * The period's sheet: a row per bill (groups first), a quantity column per
+ * drink in `drinks` (by name), then the price and the total row.
+ */
+export function billPeriodCsv({
+	bills,
+	drinks,
+	billNumber,
+	paypalBaseUrl,
+	delimiter,
+}: {
+	bills: BillWithItems[];
+	drinks: { name: string; price: number }[];
+	billNumber: string;
+	paypalBaseUrl: string | null;
+	delimiter: string;
+}) {
+	const drinkColumns = drinks.map((d) => d.name);
+	const drinkPrices: Record<string, number> = {};
+	for (const d of drinks) {
+		drinkPrices[d.name] = d.price;
+	}
+	const sorted = sortBillsWithEventsFirst(bills);
+	return {
+		csvContent: generateCSVContent(
+			sorted,
+			drinkColumns,
+			drinkPrices,
+			billNumber,
+			{
+				paypalBaseUrl,
+				delimiter,
+			},
+		),
+		billCount: sorted.length,
+		drinkColumns,
+	};
+}
+
+export interface BillWithItems {
 	id: string;
 	userId: string;
 	userName: string;
@@ -28,15 +63,6 @@ interface BillWithItems {
 		pricePerDrink: number;
 		totalPricePerDrink: number;
 	}>;
-}
-
-interface CSVGenerationResult {
-	success: boolean;
-	csvContent?: string;
-	fileName?: string;
-	error?: string;
-	billCount?: number;
-	drinkColumns?: string[];
 }
 
 /**
@@ -68,129 +94,6 @@ function sortBillsWithEventsFirst(bills: BillWithItems[]): BillWithItems[] {
 }
 
 /**
- * Generates a CSV for a specific bill period
- * @param billPeriodId - The ID of the bill period to generate CSV for
- * @param options - Optional configuration for CSV generation
- */
-export async function generateBillPeriodCSV(
-	billPeriodId: string,
-	options?: {
-		paypalBaseUrl?: string;
-		delimiter?: string; // '\t' for tab, ';' for semicolon, ',' for comma
-	},
-): Promise<CSVGenerationResult> {
-	try {
-		// The tenant's own PayPal (same as on the bill PDF); no link without one.
-		const paypalBaseUrl =
-			options?.paypalBaseUrl ||
-			(await getGetraenkekassePayment())?.paypalBaseUrl ||
-			null;
-		const delimiter = options?.delimiter || ",";
-
-		// 1. Get the bill period information
-		const [billPeriod] = await db
-			.select()
-			.from(billPeriods)
-			.where(eq(billPeriods.id, billPeriodId))
-			.limit(1);
-
-		if (!billPeriod) {
-			return {
-				success: false,
-				error: `Bill period with ID ${billPeriodId} not found`,
-			};
-		}
-
-		// 2. Get all available drinks from the database with their prices
-		const allDrinks = await db
-			.select({
-				name: drinks.name,
-				price: drinks.price,
-			})
-			.from(drinks)
-			.orderBy(drinks.name);
-
-		const drinkColumns = allDrinks.map((d) => d.name);
-		const drinkPrices: Record<string, number> = {};
-		for (const d of allDrinks) {
-			drinkPrices[d.name] = d.price;
-		}
-
-		const billsData = await db
-			.select()
-			.from(bills)
-			.where(eq(bills.billPeriodId, billPeriodId));
-		// Removed orderBy here since we'll sort later
-
-		if (billsData.length === 0) {
-			return {
-				success: false,
-				error: `No bills found for bill period ${billPeriodId}`,
-			};
-		}
-
-		// 4. Get all bill items for these bills
-		const billIds = billsData.map((b) => b.id);
-		const billItemsData = await db
-			.select()
-			.from(billItems)
-			.where(
-				sql`${billItems.billId} IN (${sql.join(
-					billIds.map((id) => sql`${id}`),
-					sql`, `,
-				)})`,
-			);
-
-		// 5. Group items by bill ID
-		const itemsByBillId: Record<string, typeof billItemsData> = {};
-		for (const item of billItemsData) {
-			if (!itemsByBillId[item.billId]) {
-				itemsByBillId[item.billId] = [];
-			}
-			itemsByBillId[item.billId]?.push(item);
-		}
-
-		// 6. Prepare bills with their items
-		const billsWithItems: BillWithItems[] = billsData.map((bill) => ({
-			...bill,
-			items: itemsByBillId[bill.id] || [],
-		}));
-
-		// 7. Sort bills with events first
-		const sortedBills = sortBillsWithEventsFirst(billsWithItems);
-
-		// 8. Generate CSV content
-		const csvContent = generateCSVContent(
-			sortedBills,
-			drinkColumns,
-			drinkPrices,
-			billPeriod.billNumber,
-			{
-				paypalBaseUrl,
-				delimiter,
-			},
-		);
-
-		const fileName = `Rechnung_${billPeriod.billNumber}.csv`;
-
-		return {
-			success: true,
-			csvContent,
-			fileName,
-			billCount: sortedBills.length,
-			drinkColumns,
-		};
-	} catch (error) {
-		await log.error("Error generating CSV", { err: error });
-		return {
-			success: false,
-			error:
-				error instanceof Error ? error.message : "Unknown error generating CSV",
-		};
-	}
-}
-
-/**
  * One CSV field: quoted when needed and guarded against formula injection
  * (names come from members and would otherwise run in Excel).
  */
@@ -198,9 +101,7 @@ function escapeCSVField(value: string, delimiter: string): string {
 	return csvCell(value, delimiter);
 }
 
-/**
- * Internal function to generate the actual CSV content
- */
+/** The CSV text of `bills`, in the order given. */
 function generateCSVContent(
 	bills: BillWithItems[],
 	drinkColumns: string[],

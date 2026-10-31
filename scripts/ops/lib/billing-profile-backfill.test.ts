@@ -3,12 +3,12 @@ import path from "node:path";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { generateUserBillPDF } from "~/server/actions/billings/createUserPDF";
 import type { TenantBranding } from "~/server/db/control-schema";
 import { tenants } from "~/server/db/control-schema";
 import { getraenkeBillingConfig, kontos } from "~/server/db/schema";
 import { getGetraenkekassePayment } from "~/server/lib/getraenkekasse-payment";
 import { clearTenantCache } from "~/server/lib/tenant-context";
+import { billPdf } from "~/server/modules/billing/service";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -24,6 +24,7 @@ import {
 	createUser,
 	setupTestDatabases,
 	tenantDb,
+	testScope,
 } from "../../../test/harness";
 import {
 	applyBillingProfileBackfill,
@@ -83,7 +84,9 @@ describe("Rhenania backfill (#9)", () => {
 			],
 		});
 		// Without data the bill is refused instead of naming a stranger.
-		expect((await generateUserBillPDF(bill.id)).success).toBe(false);
+		await expect(billPdf(testScope(), bill.id)).rejects.toThrow(
+			/Absender und Konto/,
+		);
 
 		const plan = await backfill();
 
@@ -105,9 +108,7 @@ describe("Rhenania backfill (#9)", () => {
 		// what billing charges (#11). Sender, holder, IBAN and PayPal are as
 		// before.
 		const feeLine = legacyText.findIndex((t) => t.includes("Mahnung"));
-		const text = pdfText(
-			(await generateUserBillPDF(bill.id)).pdfContent as Buffer,
-		);
+		const text = pdfText((await billPdf(testScope(), bill.id)).pdf);
 		const withoutFee = (runs: string[]) => runs.filter((_, i) => i !== feeLine);
 		expect(withoutFee(text)).toEqual(withoutFee(legacyText));
 		expect(text).toHaveLength(legacyText.length);

@@ -2,15 +2,16 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 
 import { billPeriods } from "~/server/db/schema";
-import { setGetraenkeBillingProfile } from "../../../test/factories/billing";
-import { createBill, createKonto } from "../../../test/factories/platform";
+import { setGetraenkeBillingProfile } from "../../../../test/factories/billing";
+import { createBill, createKonto } from "../../../../test/factories/platform";
 import {
 	createTenant,
 	createUser,
 	setupTestDatabases,
 	tenantDb,
-} from "../../../test/harness";
-import { getOpenBill, isOpenBill } from "./open-bill";
+	testScope,
+} from "../../../../test/harness";
+import { isOpenBill, openBillOf } from "./service";
 
 setupTestDatabases();
 
@@ -31,7 +32,7 @@ describe("isOpenBill (has the member something to pay?)", () => {
 	});
 });
 
-describe("getOpenBill", () => {
+describe("openBillOf", () => {
 	async function setUp() {
 		await createTenant();
 		return createUser({ name: "Max" });
@@ -61,7 +62,7 @@ describe("getOpenBill", () => {
 			.set({ createdAt: new Date("2026-10-22T10:00:00Z") })
 			.where(eq(billPeriods.id, period.id));
 
-		expect(await getOpenBill(max.id)).toEqual({
+		expect(await openBillOf(testScope(), max.id)).toEqual({
 			billId: bill.id,
 			billNumber: "KW-43-26",
 			total: 23.4,
@@ -80,7 +81,7 @@ describe("getOpenBill", () => {
 		const max = await setUp();
 		await createBill({ userId: max.id, drinksTotal: 5 });
 
-		const open = await getOpenBill(max.id);
+		const open = await openBillOf(testScope(), max.id);
 
 		expect(open?.total).toBe(5);
 		expect(open?.payment).toBeNull();
@@ -93,7 +94,7 @@ describe("getOpenBill", () => {
 		await setGetraenkeBillingProfile({ paymentDueDays: 0 });
 		await createBill({ userId: max.id, drinksTotal: 5 });
 
-		expect((await getOpenBill(max.id))?.dueDate).toBeNull();
+		expect((await openBillOf(testScope(), max.id))?.dueDate).toBeNull();
 	});
 
 	test("only the latest bill counts: paid up means nothing to show", async () => {
@@ -110,7 +111,7 @@ describe("getOpenBill", () => {
 			createdAt: new Date("2026-10-01T10:00:00Z"),
 		});
 
-		expect(await getOpenBill(max.id)).toBeNull();
+		expect(await openBillOf(testScope(), max.id)).toBeNull();
 	});
 
 	test("nothing for members without bills or with another member's bill", async () => {
@@ -118,7 +119,7 @@ describe("getOpenBill", () => {
 		const other = await createUser();
 		await createBill({ userId: other.id, drinksTotal: 7 });
 
-		expect(await getOpenBill(max.id)).toBeNull();
-		expect((await getOpenBill(other.id))?.total).toBe(7);
+		expect(await openBillOf(testScope(), max.id)).toBeNull();
+		expect((await openBillOf(testScope(), other.id))?.total).toBe(7);
 	});
 });

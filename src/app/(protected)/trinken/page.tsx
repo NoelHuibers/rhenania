@@ -6,8 +6,8 @@ import {
 	getDrinkMarkupPercent,
 } from "~/server/actions/menu";
 import { auth } from "~/server/auth";
-import { getOpenBill } from "~/server/lib/open-bill";
 import { getRecentDrinkIds } from "~/server/lib/recent-drinks";
+import { loadOpenBill } from "~/server/loaders/open-bill";
 
 // Loaded on the server so the menu is in the first HTML: no client fetch,
 // no spinner replacing the header (#74). loading.tsx covers navigation.
@@ -19,8 +19,8 @@ export default async function Page() {
 		getDrinkMarkupPercent(),
 		userId ? getRecentDrinkIds(userId).catch(() => []) : [],
 		// An unpaid bill is shown above the menu with its Bezahlen button (#80).
-		userId
-			? getOpenBill(userId).catch((error) => {
+		session
+			? loadOpenBill(session).catch((error) => {
 					console.error("Error loading the open bill:", error);
 					return null;
 				})

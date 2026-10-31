@@ -2,6 +2,7 @@ import { head, put } from "@vercel/blob";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { billCSVs } from "~/server/db/schema";
+import { periodCsv } from "~/server/modules/billing/service";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -15,9 +16,9 @@ import {
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
 import { useServerTimeZone } from "../../../../test/server-tz";
-import { generateBillPeriodCSV } from "./createCSV";
 import { saveBillPeriodCSV } from "./saveBillCSV";
 
 vi.mock("@vercel/blob", () => ({ put: vi.fn(), head: vi.fn() }));
@@ -88,18 +89,17 @@ async function periodWithBills(createdAt = new Date("2026-10-21T12:00:00Z")) {
 	return period;
 }
 
-describe("generateBillPeriodCSV", () => {
+describe("periodCsv", () => {
 	test("lays out one row per bill, groups first, with price and total rows", async () => {
 		await createTenant();
 		const period = await periodWithBills();
 
-		const result = await generateBillPeriodCSV(period.id, {
+		const result = await periodCsv(testScope(), period.id, {
 			delimiter: ";",
 			paypalBaseUrl: "https://paypal.me/kasse",
 		});
 
 		expect(result).toMatchObject({
-			success: true,
 			fileName: "Rechnung_KW-43-26.csv",
 			billCount: 4,
 			drinkColumns: ["Helles", "Pils", "Wasser"],
@@ -149,7 +149,7 @@ describe("generateBillPeriodCSV", () => {
 			drinksTotal: 4.5,
 		});
 
-		const result = await generateBillPeriodCSV(period.id);
+		const result = await periodCsv(testScope(), period.id);
 
 		const lines = (result.csvContent ?? "").split("\n");
 		expect(lines[0]?.startsWith("Name,Rechnungsbetrag,")).toBe(true);
@@ -169,7 +169,7 @@ describe("generateBillPeriodCSV", () => {
 			drinksTotal: 4.5,
 		});
 
-		const result = await generateBillPeriodCSV(period.id);
+		const result = await periodCsv(testScope(), period.id);
 
 		expect(result.csvContent?.split("\n")[1]).toMatch(
 			/,https:\/\/paypal\.me\/corpskasse\/4\.50EUR,$/,
@@ -191,7 +191,7 @@ describe("generateBillPeriodCSV", () => {
 			drinksTotal: 1,
 		});
 
-		const result = await generateBillPeriodCSV(period.id, { delimiter: ";" });
+		const result = await periodCsv(testScope(), period.id, { delimiter: ";" });
 
 		const rows = (result.csvContent ?? "").split("\n").map((l) => l.split(";"));
 		const hyperlink = rows.find((r) => r[0]?.includes("HYPERLINK"));
@@ -217,14 +217,12 @@ describe("generateBillPeriodCSV", () => {
 		await createTenant();
 		const empty = await createBillPeriodRow();
 
-		expect(await generateBillPeriodCSV("missing")).toEqual({
-			success: false,
-			error: "Bill period with ID missing not found",
-		});
-		expect(await generateBillPeriodCSV(empty.id)).toEqual({
-			success: false,
-			error: `No bills found for bill period ${empty.id}`,
-		});
+		for (const id of ["missing", empty.id]) {
+			await expect(periodCsv(testScope(), id)).rejects.toMatchObject({
+				message: "Für diese Abrechnung konnte keine CSV erstellt werden.",
+				code: "CSV_FAILED",
+			});
+		}
 	});
 
 	// Mahnfaktor is the fee relative to the carried-over amount it was
@@ -233,7 +231,7 @@ describe("generateBillPeriodCSV", () => {
 		await createTenant();
 		const period = await periodWithBills();
 
-		const result = await generateBillPeriodCSV(period.id, { delimiter: ";" });
+		const result = await periodCsv(testScope(), period.id, { delimiter: ";" });
 
 		const lines = (result.csvContent ?? "").split("\n");
 		const column = cells(lines[0]).indexOf("Mahnfaktor");
@@ -250,7 +248,7 @@ describe("generateBillPeriodCSV", () => {
 			drinksTotal: 3,
 		});
 
-		const result = await generateBillPeriodCSV(period.id, { delimiter: ";" });
+		const result = await periodCsv(testScope(), period.id, { delimiter: ";" });
 
 		const [header, row] = (result.csvContent ?? "").split("\n").map(cells);
 		expect(row?.[header?.indexOf("Mahnfaktor") ?? -1]).toBe("0,00 %");
@@ -267,7 +265,7 @@ describe("generateBillPeriodCSV", () => {
 			umlage: 5,
 		});
 
-		const result = await generateBillPeriodCSV(period.id, { delimiter: ";" });
+		const result = await periodCsv(testScope(), period.id, { delimiter: ";" });
 
 		const [header, row] = (result.csvContent ?? "").split("\n").map(cells);
 		const due = euro(row?.[header?.indexOf("Zu zahlender Betrag") ?? -1]);
