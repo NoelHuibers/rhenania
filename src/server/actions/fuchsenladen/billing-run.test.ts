@@ -170,6 +170,10 @@ describe("Fuchsenladen billing run (#23)", () => {
 		const anton = await createUser({ name: "Anton" });
 		await createFuchsenBillPeriod({
 			billNumber: "KW-40-26",
+			// Before the pinned clock: left to the database default it would
+			// take the real time, which is later than the clock once the real
+			// date passes it, and the order below would flip.
+			createdAt: new Date("2026-10-01T10:00:00Z"),
 			bills: [{ user: anton, itemsTotal: 5 }],
 		});
 		await createFuchsenOrder({
