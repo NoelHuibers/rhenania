@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
+import type { ActionResult } from "~/lib/action-result";
 
 import { defaultFeatureFlags } from "~/lib/features";
 import {
@@ -39,6 +40,9 @@ import {
 	updateTenantAuthConfigAction,
 	updateTenantDisplayNameAction,
 } from "./tenants";
+
+/** The data of a successful ActionResult (undefined if it failed). */
+const dataOf = <T>(r: ActionResult<T>) => (r.ok ? r.data : undefined);
 
 // Provisioning talks to Turso; it has its own test file.
 vi.mock("~/server/lib/tenant-provisioning", () => ({
@@ -83,7 +87,7 @@ describe("superadmin gate", () => {
 		];
 
 		for (const result of results) {
-			expect(result).toEqual({ success: false, error: "Superadmin required" });
+			expect(result).toEqual({ ok: false, error: "Superadmin required" });
 		}
 		const [row] = await controlDb()
 			.select()
@@ -100,7 +104,7 @@ describe("superadmin gate", () => {
 		vi.spyOn(console, "error").mockImplementation(() => {});
 
 		expect(await listTenantsAction()).toEqual({
-			success: false,
+			ok: false,
 			error: "Not authenticated",
 		});
 	});
@@ -118,8 +122,8 @@ describe("listTenantsAction", () => {
 
 		const result = await listTenantsAction();
 
-		expect(result.success).toBe(true);
-		const byId = new Map(result.data?.map((t) => [t.id, t]));
+		expect(result.ok).toBe(true);
+		const byId = new Map(dataOf(result)?.map((t) => [t.id, t]));
 		expect(byId.get(a.id)).toMatchObject({
 			slug: "alpha",
 			displayName: "Alpha",
@@ -145,7 +149,7 @@ describe("listTenantsAction", () => {
 			execute.mockClear();
 			batch.mockClear();
 			const result = await listTenantsAction();
-			expect(result.success).toBe(true);
+			expect(result.ok).toBe(true);
 			const batched = batch.mock.calls.reduce(
 				(sum, [statements]) => sum + statements.length,
 				0,
@@ -153,7 +157,7 @@ describe("listTenantsAction", () => {
 			return {
 				roundTrips: execute.mock.calls.length + batch.mock.calls.length,
 				batched,
-				rows: result.data?.length,
+				rows: dataOf(result)?.length,
 			};
 		};
 
@@ -187,8 +191,8 @@ describe("getTenantDetailAction", () => {
 
 		const result = await getTenantDetailAction(tenant.id);
 
-		expect(result.success).toBe(true);
-		expect(result.data).toMatchObject({
+		expect(result.ok).toBe(true);
+		expect(dataOf(result)).toMatchObject({
 			tenant: { id: tenant.id, slug: "hassia", status: "active" },
 			domains: [
 				{
@@ -216,11 +220,12 @@ describe("getTenantDetailAction", () => {
 		await signInAsSuperAdmin();
 
 		expect(await getTenantDetailAction("nope")).toEqual({
-			success: false,
+			ok: false,
 			error: "Tenant not found",
+			code: "NOT_FOUND",
 		});
 		expect(
-			(await getTenantDetailAction(tenant.id)).data?.authConfig,
+			dataOf(await getTenantDetailAction(tenant.id))?.authConfig,
 		).toBeNull();
 	});
 });
@@ -235,7 +240,7 @@ describe("setTenantFeatureAction", () => {
 
 		expect(
 			await setTenantFeatureAction(tenant.id, "drinks.markup", true),
-		).toEqual({ success: true });
+		).toEqual({ ok: true });
 		// Visible right away on this instance (the cached tenant is dropped).
 		expect((await getTenantById(tenant.id))?.features["drinks.markup"]).toBe(
 			true,
@@ -258,11 +263,12 @@ describe("setTenantFeatureAction", () => {
 		await signInAsSuperAdmin();
 
 		expect(await setTenantFeatureAction(tenant.id, "beer.free", true)).toEqual({
-			success: false,
+			ok: false,
 			error: "Unknown feature: beer.free",
+			code: "INVALID_INPUT",
 		});
 		expect(await setTenantFeatureAction("nope", "drinks.markup", true)).toEqual(
-			{ success: false, error: "Tenant not found" },
+			{ ok: false, error: "Tenant not found", code: "NOT_FOUND" },
 		);
 		expect(await controlDb().select().from(tenantFeatures)).toHaveLength(0);
 	});
@@ -302,10 +308,11 @@ describe("tenant status and name", () => {
 
 		expect(
 			await updateTenantDisplayNameAction(tenant.id, "  Corps Hassia  "),
-		).toEqual({ success: true });
+		).toEqual({ ok: true });
 		expect(await updateTenantDisplayNameAction(tenant.id, "   ")).toEqual({
-			success: false,
+			ok: false,
 			error: "Display name is required",
+			code: "INVALID_INPUT",
 		});
 		const [row] = await controlDb()
 			.select()
@@ -321,13 +328,13 @@ describe("domains", () => {
 		await signInAsSuperAdmin();
 
 		expect(await addTenantDomainAction(tenant.id, "  WWW.Hassia.DE ")).toEqual({
-			success: true,
+			ok: true,
 		});
 		expect(
 			await addTenantDomainAction(tenant.id, "hassia.localhost", {
 				isPrimary: true,
 			}),
-		).toEqual({ success: true });
+		).toEqual({ ok: true });
 
 		const domains = await domainsOf(tenant.id);
 		expect(domains.find((d) => d.hostname === "www.hassia.de")).toMatchObject({
@@ -347,22 +354,26 @@ describe("domains", () => {
 		await signInAsSuperAdmin();
 
 		expect(await addTenantDomainAction(a.id, "  ")).toEqual({
-			success: false,
+			ok: false,
 			error: "Hostname is required",
+			code: "INVALID_INPUT",
 		});
 		for (const host of ["https://alpha.de", "alpha.de/path", "al pha.de"]) {
 			expect(await addTenantDomainAction(a.id, host)).toEqual({
-				success: false,
+				ok: false,
 				error: "Invalid hostname characters",
+				code: "INVALID_INPUT",
 			});
 		}
 		expect(await addTenantDomainAction(a.id, "alpha.test.localhost")).toEqual({
-			success: false,
+			ok: false,
 			error: "Hostname already registered for this tenant",
+			code: "CONFLICT",
 		});
 		expect(await addTenantDomainAction(a.id, "Beta.Test.Localhost")).toEqual({
-			success: false,
+			ok: false,
 			error: "Hostname already registered to another tenant",
+			code: "CONFLICT",
 		});
 		expect(await domainsOf(a.id)).toHaveLength(1);
 		expect(await domainsOf(b.id)).toHaveLength(1);
@@ -388,7 +399,7 @@ describe("domains", () => {
 		expect(await domainsOf(a.id)).toHaveLength(2);
 
 		expect(await removeTenantDomainAction(a.id, domain.id)).toEqual({
-			success: true,
+			ok: true,
 		});
 		expect((await domainsOf(a.id)).map((d) => d.hostname)).toEqual([
 			`${a.slug}.test.localhost`,

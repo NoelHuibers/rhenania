@@ -34,10 +34,10 @@ export function NewTenantForm() {
 				primaryHostname: primaryHostname || null,
 				firstAdminEmail: firstAdminEmail || null,
 			});
-			if (!result.success || !result.data) {
+			if (!result.ok) {
 				// Progress is kept: submitting again resumes the run.
 				toast.error("Failed to create tenant", {
-					description: result.error ?? "Unknown error",
+					description: result.error,
 				});
 				router.refresh();
 				return;
