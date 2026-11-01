@@ -1,9 +1,8 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-
-import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
 import { auth } from "~/server/auth";
 import { challenges, games, orders } from "~/server/db/schema";
+import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
 import {
 	advanceClock,
 	createPlayers,
@@ -37,7 +36,7 @@ import {
 } from "./challenge";
 
 // Achievements run after the response; they have their own tests.
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
 
@@ -406,13 +405,13 @@ describe("respond, propose, confirm", () => {
 		]);
 
 		// Scheduled with `after()` and bound to this Corps explicitly
-		const inCorps = { tenantId: tenant.id };
+		const inCorps = expect.objectContaining({ tenantId: tenant.id });
 		expect(afterTasks).toHaveLength(1);
 		expect(vi.mocked(checkAndUnlockAchievements).mock.calls).toEqual([
-			[anna.id, "game_played", undefined, inCorps],
-			[bert.id, "game_played", undefined, inCorps],
-			[bert.id, "game_won", undefined, inCorps],
-			[anna.id, "game_lost", undefined, inCorps],
+			[inCorps, anna.id, "game_played"],
+			[inCorps, bert.id, "game_played"],
+			[inCorps, bert.id, "game_won"],
+			[inCorps, anna.id, "game_lost"],
 		]);
 	});
 

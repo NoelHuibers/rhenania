@@ -1,38 +1,43 @@
 import { describe, expect, test } from "vitest";
 
-import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
 import { achievements } from "~/server/db/schema";
 import {
 	createPlayers,
 	seedAchievementDefinitions,
-} from "../../../test/factories/game";
+} from "../../../../test/factories/game";
 import {
 	createTenant,
 	createUser,
 	setupTestDatabases,
 	tenantDb,
-} from "../../../test/harness";
-import { getAchievementUnlockPercentages } from "./achievement-stats";
+	testScope,
+} from "../../../../test/harness";
+import { unlockPercentages } from "./service";
+import { checkAndUnlockAchievements } from "./tracking";
 
 setupTestDatabases();
 
-describe("getAchievementUnlockPercentages", () => {
+describe("unlockPercentages", () => {
 	test("is relative to members with at least one unlock", async () => {
 		await createTenant();
 		await seedAchievementDefinitions();
 		const [anna, bert] = await createPlayers(2);
 		await createUser(); // dormant, never unlocked anything
 
-		expect(await getAchievementUnlockPercentages()).toEqual({});
+		expect(await unlockPercentages(testScope())).toEqual({});
 
-		await checkAndUnlockAchievements(anna.id, "account_created");
-		await checkAndUnlockAchievements(anna.id, "profile_picture_set");
-		await checkAndUnlockAchievements(bert.id, "account_created");
+		await checkAndUnlockAchievements(testScope(), anna.id, "account_created");
+		await checkAndUnlockAchievements(
+			testScope(),
+			anna.id,
+			"profile_picture_set",
+		);
+		await checkAndUnlockAchievements(testScope(), bert.id, "account_created");
 
 		const idByKey = Object.fromEntries(
 			(await tenantDb().select().from(achievements)).map((a) => [a.key, a.id]),
 		);
-		expect(await getAchievementUnlockPercentages()).toEqual({
+		expect(await unlockPercentages(testScope())).toEqual({
 			[idByKey.willkommen as string]: 100,
 			[idByKey.bild as string]: 50,
 		});

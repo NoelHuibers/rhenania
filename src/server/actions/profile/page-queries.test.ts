@@ -4,7 +4,6 @@
 
 import { describe, expect, test } from "vitest";
 import { getMyOrdersPage } from "~/server/actions/orders";
-import { getUserAchievements } from "~/server/actions/profile/achievements";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
 import { getUserProfile } from "~/server/actions/profile/profile";
 import { auth } from "~/server/auth";
@@ -14,6 +13,7 @@ import {
 	isEloEnabledForUser,
 } from "~/server/lib/preferences";
 import { loadOpenBill } from "~/server/loaders/open-bill";
+import { getUserAchievements } from "~/server/modules/achievements/actions";
 import { getUserBillingData } from "~/server/modules/billing/actions";
 import { getMyPaymentInfo } from "~/server/modules/cc-kasse/actions";
 import {

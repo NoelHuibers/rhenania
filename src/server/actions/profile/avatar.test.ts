@@ -2,9 +2,8 @@ import { del } from "@vercel/blob";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-
-import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
 import { users } from "~/server/db/schema";
+import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
 import {
 	createTenant,
 	createUser,
@@ -16,7 +15,7 @@ import { testState } from "../../../../test/state";
 import { deleteUserAvatar, updateUserAvatarUrl } from "./avatar";
 
 vi.mock("@vercel/blob", () => ({ del: vi.fn() }));
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
 
@@ -63,10 +62,9 @@ describe("updateUserAvatarUrl", () => {
 		expect(del).toHaveBeenCalledWith(`${own(member.id)}/old.png`);
 		expect(await imageOf(member.id)).toBe(`${own(member.id)}/new.png`);
 		expect(checkAndUnlockAchievements).toHaveBeenCalledWith(
+			expect.objectContaining({ tenantId: testState.tenantId }),
 			member.id,
 			"profile_picture_set",
-			undefined,
-			{ tenantId: testState.tenantId },
 		);
 		expect(revalidatePath).toHaveBeenCalledWith("/profile");
 	});

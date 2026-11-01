@@ -13,7 +13,6 @@ import {
 	userRoles,
 	users,
 } from "~/server/db/schema";
-import { getAchievementUnlockPercentages } from "~/server/lib/achievement-stats";
 import {
 	type EloHistoryPoint,
 	getEloStatsForUser,
@@ -22,6 +21,8 @@ import {
 	isEloEnabledForUser,
 	isPublicProfileEnabledForUser,
 } from "~/server/lib/preferences";
+import { scopeOf } from "~/server/lib/tenant-scope";
+import { unlockPercentages as unlockPercentagesOf } from "~/server/modules/achievements/service";
 
 export type PublicAchievement = {
 	id: string;
@@ -109,7 +110,7 @@ export async function getPublicProfile(
 						eq(achievements.isActive, true),
 					),
 				),
-			getAchievementUnlockPercentages(),
+			scopeOf(session.tenantId).then(unlockPercentagesOf),
 			isEloEnabledForUser(userId),
 			db
 				.select({

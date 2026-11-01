@@ -19,7 +19,7 @@
 		"db:migrate": "tsx scripts/ops/migrate-tenants.ts",
 		"db:migrate-tenants": "tsx scripts/ops/migrate-tenants.ts",
 		"db:migrate:deploy": "tsx scripts/ops/deploy-migrate.ts",
-		"db:seed": "tsx src/server/db/seed.ts",
+		"db:seed": "tsx --conditions=react-server src/server/db/seed.ts",
 		"db:studio": "drizzle-kit studio",
 		"db:control:generate": "drizzle-kit generate --config=drizzle.control.config.ts",
 		"db:control:migrate": "drizzle-kit migrate --config=drizzle.control.config.ts",

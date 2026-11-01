@@ -52,10 +52,10 @@ const tracking = vi.hoisted(() => ({
 	real: false,
 	pending: [] as Promise<unknown>[],
 }));
-vi.mock("~/server/actions/achievements/tracking", async (importOriginal) => {
+vi.mock("~/server/modules/achievements/tracking", async (importOriginal) => {
 	const actual =
 		await importOriginal<
-			typeof import("~/server/actions/achievements/tracking")
+			typeof import("~/server/modules/achievements/tracking")
 		>();
 	return {
 		...actual,

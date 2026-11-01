@@ -1,12 +1,11 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-
-import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
 import {
 	users as controlUsers,
 	tenantMemberships,
 } from "~/server/db/control-schema";
 import { users, verificationTokens } from "~/server/db/schema";
+import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
 import { sendVerificationEmail } from "~/server/modules/mail/service";
 import {
 	controlDb,
@@ -22,7 +21,7 @@ import { createUser } from "./users";
 vi.mock("~/server/modules/mail/service", () => ({
 	sendVerificationEmail: vi.fn(),
 }));
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
 
@@ -124,10 +123,9 @@ describe("createUser (invite)", () => {
 			token?.token,
 		);
 		expect(checkAndUnlockAchievements).toHaveBeenCalledWith(
+			expect.objectContaining({ tenantId: tenant.id }),
 			id,
 			"account_created",
-			undefined,
-			{ tenantId: tenant.id },
 		);
 	});
 

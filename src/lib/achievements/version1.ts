@@ -1,7 +1,7 @@
-// src/server/db/seeds/achievements.ts
+// version1.ts — the achievement catalogue, version 1 (`pnpm db:seed`).
 
-import { db } from "~/server/db/index";
 import { achievements } from "~/server/db/schema";
+import type { TenantDb } from "~/server/db/tenants";
 import { log } from "~/server/lib/log";
 
 export const defaultAchievements = [
@@ -456,7 +456,8 @@ export const defaultAchievements = [
 	},
 ];
 
-export async function seedAchievements() {
+/** Inserts the catalogue into a tenant DB; existing keys are kept. */
+export async function seedAchievements(db: TenantDb) {
 	await log.info("seeding achievements");
 
 	await db

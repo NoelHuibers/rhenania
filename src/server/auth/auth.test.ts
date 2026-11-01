@@ -27,7 +27,7 @@ vi.mock("~/server/modules/mail/service", async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	sendVerificationEmail: vi.fn(),
 }));
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
 

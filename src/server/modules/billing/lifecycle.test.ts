@@ -64,7 +64,7 @@ import {
 } from "./actions";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
 vi.mock("@vercel/blob", () => ({ put: vi.fn(), head: vi.fn() }));

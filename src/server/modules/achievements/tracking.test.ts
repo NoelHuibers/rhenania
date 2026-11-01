@@ -28,6 +28,7 @@ import {
 	setupTestDatabases,
 	type TestUser,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
 import { testState } from "../../../../test/state";
 import {
@@ -57,7 +58,7 @@ async function order(
 		bookingFor: opts.bookingFor,
 		createdAt: opts.at,
 	});
-	await checkAndUnlockAchievements(user.id, "order_created", {
+	await checkAndUnlockAchievements(testScope(), user.id, "order_created", {
 		drinkName: drink.name,
 		drinkId: drink.id,
 		amount,
@@ -83,8 +84,8 @@ describe("achievement catalogue (version 1)", () => {
 		await createTenant();
 		vi.spyOn(console, "log").mockImplementation(() => {});
 
-		await seedAchievements();
-		await seedAchievements();
+		await seedAchievements(tenantDb());
+		await seedAchievements(tenantDb());
 
 		const rows = await tenantDb().select().from(achievements);
 		expect(rows).toHaveLength(defaultAchievements.length);
@@ -213,7 +214,7 @@ describe("order achievements", () => {
 			});
 		}
 
-		await checkAndUnlockAchievements(user.id, "order_created");
+		await checkAndUnlockAchievements(testScope(), user.id, "order_created");
 		expect(await progressOf(user.id, "goldenestunde")).toBe(9);
 
 		await order(user, pils);
@@ -290,7 +291,7 @@ describe("order achievements", () => {
 		});
 
 		await order(user, pils);
-		await recalculateAllAchievements(user.id);
+		await recalculateAllAchievements(testScope(), user.id);
 
 		expect(await progressOf(user.id, "grundungstag")).toBeUndefined();
 		expect(await unlockedKeys(user.id)).not.toContain("grundungstag");
@@ -307,7 +308,7 @@ describe("order achievements", () => {
 			createdAt: new Date("2026-02-21T18:00:00Z"),
 		});
 
-		await recalculateAllAchievements(user.id);
+		await recalculateAllAchievements(testScope(), user.id);
 
 		expect(await progressOf(user.id, "grundungstag")).toBe(4);
 	});
@@ -386,8 +387,12 @@ describe("game achievements", () => {
 				player2Id: rival.id,
 				winnerId: won ? user.id : rival.id,
 			});
-			await checkAndUnlockAchievements(user.id, "game_played");
-			await checkAndUnlockAchievements(user.id, won ? "game_won" : "game_lost");
+			await checkAndUnlockAchievements(testScope(), user.id, "game_played");
+			await checkAndUnlockAchievements(
+				testScope(),
+				user.id,
+				won ? "game_won" : "game_lost",
+			);
 		};
 
 		await play(false);
@@ -422,7 +427,7 @@ describe("game achievements", () => {
 			});
 		}
 
-		await checkAndUnlockAchievements(user.id, "game_played");
+		await checkAndUnlockAchievements(testScope(), user.id, "game_played");
 
 		expect(await unlockedKeys(user.id)).toContain("perfektewoche");
 	});
@@ -430,12 +435,12 @@ describe("game achievements", () => {
 	test("playing on October 3rd defends Germany at the bar", async () => {
 		const { user } = await setup("2026-10-03T15:00:00Z");
 
-		await checkAndUnlockAchievements(user.id, "game_played");
+		await checkAndUnlockAchievements(testScope(), user.id, "game_played");
 		expect(await unlockedKeys(user.id)).toContain("deutschland");
 
 		const other = await createUser();
 		freezeClock("2026-10-04T15:00:00Z");
-		await checkAndUnlockAchievements(other.id, "game_played");
+		await checkAndUnlockAchievements(testScope(), other.id, "game_played");
 		expect(await unlockedKeys(other.id)).not.toContain("deutschland");
 	});
 });
@@ -482,12 +487,16 @@ describe("cross-Corps games (#141)", () => {
 		});
 
 		for (const tenantId of [home.id, second.id]) {
-			await checkAndUnlockAchievements(user.id, "game_played", undefined, {
-				tenantId,
-			});
-			await checkAndUnlockAchievements(user.id, "game_won", undefined, {
-				tenantId,
-			});
+			await checkAndUnlockAchievements(
+				testScope({ tenantId }),
+				user.id,
+				"game_played",
+			);
+			await checkAndUnlockAchievements(
+				testScope({ tenantId }),
+				user.id,
+				"game_won",
+			);
 		}
 
 		expect(await unlockedKeys(user.id, home.id)).toEqual([]);
@@ -524,8 +533,8 @@ describe("cross-Corps games (#141)", () => {
 			}
 		}
 
-		await checkAndUnlockAchievements(user.id, "game_played");
-		await checkAndUnlockAchievements(user.id, "game_won");
+		await checkAndUnlockAchievements(testScope(), user.id, "game_played");
+		await checkAndUnlockAchievements(testScope(), user.id, "game_won");
 
 		expect(await unlockedKeys(user.id)).toEqual(
 			expect.arrayContaining(["perfektewoche", "winning_streak_5"]),
@@ -548,7 +557,7 @@ describe("cross-Corps games (#141)", () => {
 			playedAt: new Date("2026-10-03T12:00:00Z"),
 		});
 
-		await recalculateAllAchievements(user.id);
+		await recalculateAllAchievements(testScope(), user.id);
 
 		expect(await unlockedKeys(user.id)).toEqual(
 			expect.arrayContaining(["deutschland", "erstersieg", "tierlunge"]),
@@ -560,8 +569,12 @@ describe("account achievements", () => {
 	test("account creation and profile picture", async () => {
 		const { user } = await setup();
 
-		await checkAndUnlockAchievements(user.id, "account_created");
-		await checkAndUnlockAchievements(user.id, "profile_picture_set");
+		await checkAndUnlockAchievements(testScope(), user.id, "account_created");
+		await checkAndUnlockAchievements(
+			testScope(),
+			user.id,
+			"profile_picture_set",
+		);
 
 		expect(await unlockedKeys(user.id)).toEqual(["bild", "willkommen"]);
 	});
@@ -572,7 +585,7 @@ describe("account achievements", () => {
 
 		// No tenant user row: the progress insert violates its foreign key
 		await expect(
-			checkAndUnlockAchievements("ghost", "account_created"),
+			checkAndUnlockAchievements(testScope(), "ghost", "account_created"),
 		).resolves.toBeUndefined();
 		expect(log).toHaveBeenCalled();
 	});
@@ -590,7 +603,7 @@ describe("recalculateAllAchievements", () => {
 		});
 
 		await order(user, pils);
-		await recalculateAllAchievements(user.id);
+		await recalculateAllAchievements(testScope(), user.id);
 
 		expect(await unlockedKeys(user.id)).not.toContain("custom");
 		expect(await progressOf(user.id, "custom")).toBeUndefined();
@@ -621,7 +634,7 @@ describe("recalculateAllAchievements", () => {
 			});
 		}
 
-		await recalculateAllAchievements(user.id);
+		await recalculateAllAchievements(testScope(), user.id);
 
 		expect(await unlockedKeys(user.id)).toEqual([
 			"deutschland",
@@ -649,7 +662,7 @@ describe("recalculateAllAchievements", () => {
 			.set({ image: "https://example.test/me.png" })
 			.where(eq(users.id, user.id));
 
-		await recalculateAllAchievements(user.id);
+		await recalculateAllAchievements(testScope(), user.id);
 
 		expect(await unlockedKeys(user.id)).toEqual([
 			"bild",
@@ -781,7 +794,7 @@ describe("server time zone (#15)", () => {
 		test("a game at 00:30 Berlin time on October 3rd defends Germany (#15)", async () => {
 			const { user } = await setup("2026-10-02T22:30:00Z");
 
-			await checkAndUnlockAchievements(user.id, "game_played");
+			await checkAndUnlockAchievements(testScope(), user.id, "game_played");
 
 			expect(await unlockedKeys(user.id)).toContain("deutschland");
 		});
@@ -808,7 +821,7 @@ describe("server time zone (#15)", () => {
 				playedAt: new Date("2026-10-02T22:30:00Z"), // 00:30 on October 3rd
 			});
 
-			await recalculateAllAchievements(user.id);
+			await recalculateAllAchievements(testScope(), user.id);
 
 			expect(await unlockedKeys(user.id)).toEqual(
 				expect.arrayContaining([
@@ -836,7 +849,7 @@ describe("server time zone (#15)", () => {
 			createdAt: new Date("2026-03-10T23:30:00Z"),
 		});
 
-		await checkAndUnlockAchievements(user.id, "order_created");
+		await checkAndUnlockAchievements(testScope(), user.id, "order_created");
 
 		expect(await progressOf(user.id, "dedication")).toBe(2);
 	});

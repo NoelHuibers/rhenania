@@ -54,7 +54,7 @@ vi.mock("@vercel/blob", () => ({
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 vi.mock("~/server/lib/turso-platform");
 vi.mock("~/server/lib/tenant-provisioning");
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 	recalculateAllAchievements: vi.fn(),
 }));
@@ -230,9 +230,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		createOrder: "member",
 		getMyOrdersPage: "member",
 	},
-	"src/server/actions/profile/achievements.ts": {
-		getUserAchievements: "member",
-	},
 	"src/server/actions/profile/auth.ts": {
 		getConnectedAccountsAction: "member",
 		disconnectProviderAction: "member",
@@ -303,6 +300,9 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		createVenue: ADMIN,
 		updateVenue: ADMIN,
 		deleteVenue: ADMIN,
+	},
+	"src/server/modules/achievements/actions.ts": {
+		getUserAchievements: "member",
 	},
 	"src/server/modules/billing/actions.ts": {
 		createNewBilling: GETRAENKE,

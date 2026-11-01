@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { ChipGroup } from "~/components/ui/chip-group";
-import type { UserAchievementData } from "~/server/actions/profile/achievements";
+import type { UserAchievementData } from "~/server/modules/achievements/actions";
 import { AchievementCard, CATEGORIES } from "./achievement-ui";
 
 /** Placeholder while the achievements stream in. */
