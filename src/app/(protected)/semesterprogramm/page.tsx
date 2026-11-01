@@ -12,15 +12,15 @@ import {
 	formatEventMonthLong,
 	formatEventWeekdayShort,
 } from "~/lib/time";
-import { getOrCreateCalendarToken } from "~/server/actions/events/calendarToken";
-import { getUpcomingEvents } from "~/server/actions/events/events";
-import {
-	getRsvpCountsForEvents,
-	getUserRsvpsForEvents,
-	getYesAttendeePreviewForEvents,
-} from "~/server/actions/events/rsvp";
 import { getHiddenEventTypes } from "~/server/actions/profile/preferences";
 import { protocolForHost } from "~/server/lib/local-host";
+import {
+	getOrCreateCalendarToken,
+	getRsvpCountsForEvents,
+	getUpcomingEvents,
+	getUserRsvpsForEvents,
+	getYesAttendeePreviewForEvents,
+} from "~/server/modules/events/actions";
 
 export const metadata = {
 	title: "Semesterprogramm",

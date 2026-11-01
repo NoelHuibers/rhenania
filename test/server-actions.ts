@@ -24,9 +24,9 @@ export const PUBLIC_ACTIONS: Record<string, string> = {
 		"images of the public website",
 	"src/server/actions/bilder/images.ts#getAllActiveImagesBySection":
 		"images of the public website",
-	"src/server/actions/events/events.ts#getPublicUpcomingEvents":
+	"src/server/modules/events/actions.ts#getPublicUpcomingEvents":
 		"public events on the website",
-	"src/server/actions/events/events.ts#getPublicPastEvents":
+	"src/server/modules/events/actions.ts#getPublicPastEvents":
 		"public events on the website",
 };
 

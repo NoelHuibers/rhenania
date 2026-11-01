@@ -16,8 +16,7 @@ import {
 } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
-import type { EventType } from "~/server/actions/events/events";
-import type { Venue } from "~/server/actions/venues";
+import type { EventType, Venue } from "~/server/modules/events/actions";
 import { EVENT_TYPES, type FormState } from "./event-constants";
 import { LocationCombobox } from "./LocationCombobox";
 

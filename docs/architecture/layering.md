@@ -5,7 +5,8 @@ which the existing code moves there. Phase 1 (this document, the lint rule,
 the explicit script DB), phase 2 (billing and the Getränkekasse), phase 3
 (the Fuchsenladen and the mails), phase 4 (the CC-Kasse and
 Mitglieder/Semesterbeitrag) and phase 5 (achievements and games) are done;
-the rest comes next.
+phase 6 (the rest, then the proxy goes) is under way: the Semesterprogramm
+has moved.
 
 ## Why
 
@@ -105,8 +106,9 @@ One domain per PR, each PR leaving behaviour, query counts (the
 3. **Fuchsenladen + mails** (done, see below).
 4. **CC-Kasse and Mitglieder/Semesterbeitrag** (done, see below).
 5. **Achievements/tracking and games** (done, see below).
-6. The rest (events, profile, drinks and the drink leaderboard, images,
-   venues), then delete the proxy and `getCurrentTenantDb`, leaving
+6. **The rest** (in progress, see below): the Semesterprogramm (done),
+   drinks, orders and the drink leaderboard, then profile, images, roles
+   and Konten; then delete the proxy and `getCurrentTenantDb`, leaving
    `TenantScope` as the only way in.
 
 ## Phase 2: billing and Getränkekasse (done)
@@ -326,3 +328,45 @@ src/server/loaders/elo-stats.ts         the ELO card of /profile
 - The drink leaderboard (`actions/leaderboard/`) is not a game: it ranks
   litres ordered and charts consumption per drink, from orders and drinks
   only. It moves with the drinks and orders in phase 6.
+
+## Phase 6: the rest (in progress)
+
+### Semesterprogramm
+
+```
+src/server/modules/events/
+  repo.ts        events, RSVPs (the capacity-checked yes as one
+                 statement), recurring templates, venues, the semester
+                 config, calendar feed tokens, what the PDF reads
+  service.ts     event lists and changes, the RSVP rules (cancelled,
+                 deadline, attendee limit), templates and their generated
+                 events, venues (unique short name), the semester config,
+                 the calendar feeds, the PDF's data
+  actions.ts     every Semesterprogramm action
+src/server/domain/events/recurrence.ts   the dates a template stands for
+src/server/domain/events/sempro.ts       the PDF's data, leaders by rank,
+                                         rule texts, the semester's end
+src/server/domain/events/sempro-pdf.tsx  the PDF layout
+src/server/loaders/sempro.ts             the PDF route's read
+```
+
+- `actions/events/`, `actions/semesterprogramm/`, `actions/venues.ts` and
+  `src/server/sempro/` are gone. Six of those files imported the proxy;
+  the baseline is 11.
+- The guarded reads use the guard's tenant (`requireCaller`), the public
+  website reads (`getPublicUpcomingEvents`, `getPublicPastEvents`) the
+  request host (`currentTenantScope`). `getOrCreateCalendarToken` and
+  `getUserRsvpsForEvents` take the session's tenant instead of the host.
+  The PDF route passes its session's tenant to `loadSemproPdf`; the
+  calendar feeds (`loaders/calendar.ts`) read through the service.
+- The reads keep their old answers: the event and template lists log a
+  failed query and answer `[]`, a signed-out caller gets no RSVPs and no
+  feed token, the public lists need no session. A duplicate venue short
+  name is a `ConflictError` with the old message and code.
+- The id parameters are named (`eventId`, `recurringEventId`, `venueId`),
+  so the tenant-isolation test passes each a foreign row of the right
+  kind.
+- "Now" (upcoming and past events, the RSVP deadline, the generated
+  range, a feed token's last use) is the scope's clock.
+- `rotateCalendarToken` has no UI yet; it is marked `@public` for knip
+  instead of the old file-wide ignore.

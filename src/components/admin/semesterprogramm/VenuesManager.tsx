@@ -24,7 +24,7 @@ import {
 	deleteVenue,
 	updateVenue,
 	type Venue,
-} from "~/server/actions/venues";
+} from "~/server/modules/events/actions";
 
 function VenueForm({
 	initial,

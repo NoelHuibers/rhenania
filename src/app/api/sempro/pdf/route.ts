@@ -7,10 +7,10 @@ import type { ReactElement } from "react";
 import { createElement } from "react";
 import { attachmentDisposition } from "~/lib/content-disposition";
 import { auth } from "~/server/auth";
+import { SemProPDFDocument } from "~/server/domain/events/sempro-pdf";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 import { semproProfile } from "~/server/lib/tenant-profile";
-import { getPDFData } from "~/server/sempro/getPDFData";
-import { SemProPDFDocument } from "~/server/sempro/SemProPDF";
+import { loadSemproPdf } from "~/server/loaders/sempro";
 
 /** The tenant's coat of arms from `public/sempro/` as a data URL, or null. */
 function readLogo(logoFile: string | null): string | null {
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
 		return new Response("Unauthorized", { status: 401 });
 	}
 
-	const data = await getPDFData();
+	const data = await loadSemproPdf(session.tenantId);
 	if (!data) {
 		return new Response(
 			"Semesterkonfiguration unvollständig. Bitte Semester und Datum prüfen.",

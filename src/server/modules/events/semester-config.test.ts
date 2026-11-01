@@ -10,8 +10,14 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
-import { createVenue, deleteVenue, getVenues, updateVenue } from "../venues";
-import { getSemesterConfig, upsertSemesterConfig } from "./semesterConfig";
+import {
+	createVenue,
+	deleteVenue,
+	getSemesterConfig,
+	getVenues,
+	updateVenue,
+	upsertSemesterConfig,
+} from "./actions";
 
 setupTestDatabases();
 

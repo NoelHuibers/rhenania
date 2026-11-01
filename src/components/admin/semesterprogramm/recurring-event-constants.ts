@@ -1,6 +1,6 @@
 // Types, defaults and labels of the recurring-event templates screen.
 
-import type { RecurrenceType } from "~/server/actions/events/recurring";
+import type { RecurrenceType } from "~/server/modules/events/actions";
 
 // Per-tenant configurable; valid values come from the `event_type` table.
 export type EventType = string;

@@ -26,14 +26,14 @@ import {
 import { useIsMobile } from "~/hooks/use-mobile";
 import { utcToDateInput, wallClockToUTC } from "~/lib/time";
 import { defaultVenueName } from "~/lib/venues";
+import type { Venue } from "~/server/modules/events/actions";
 import {
 	createRecurringEvent,
 	deleteRecurringEvent,
 	generateInstances,
 	toggleRecurringEventActive,
 	updateRecurringEvent,
-} from "~/server/actions/events/recurring";
-import type { Venue } from "~/server/actions/venues";
+} from "~/server/modules/events/actions";
 import { RecurringEventCard } from "./RecurringEventCard";
 import { RecurringEventForm } from "./RecurringEventForm";
 import {

@@ -18,7 +18,7 @@ import {
 	getYesAttendeePreviewForEvents,
 	removeRsvp,
 	setRsvp,
-} from "./rsvp";
+} from "./actions";
 
 setupTestDatabases();
 

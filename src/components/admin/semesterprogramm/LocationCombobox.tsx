@@ -17,7 +17,7 @@ import {
 	PopoverContent,
 } from "~/components/ui/popover";
 import { cn } from "~/lib/utils";
-import type { Venue } from "~/server/actions/venues";
+import type { Venue } from "~/server/modules/events/actions";
 
 export function LocationCombobox({
 	value,

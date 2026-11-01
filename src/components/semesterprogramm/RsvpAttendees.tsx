@@ -12,7 +12,7 @@ import {
 import {
 	type AttendeePreview,
 	getEventAttendees,
-} from "~/server/actions/events/rsvp";
+} from "~/server/modules/events/actions";
 
 type AttendeeRow = Awaited<ReturnType<typeof getEventAttendees>>[number];
 

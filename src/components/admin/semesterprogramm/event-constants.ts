@@ -1,6 +1,6 @@
 // Types, defaults and option lists of the event admin screen.
 
-import type { EventType } from "~/server/actions/events/events";
+import type { EventType } from "~/server/modules/events/actions";
 
 export type Event = {
 	id: string;

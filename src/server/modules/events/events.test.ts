@@ -19,7 +19,7 @@ import {
 	getPublicUpcomingEvents,
 	getUpcomingEvents,
 	updateEvent,
-} from "./events";
+} from "./actions";
 
 setupTestDatabases();
 

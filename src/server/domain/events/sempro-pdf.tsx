@@ -16,8 +16,8 @@ import {
 	getZonedParts,
 } from "~/lib/time";
 import type { SemproProfile } from "~/server/lib/tenant-profile";
-import type { PDFData, PDFEvent } from "./getPDFData";
-import { RANK_MAP } from "./getPDFData";
+import type { PDFData, PDFEvent } from "./sempro";
+import { RANK_MAP } from "./sempro";
 
 // ─── Font Registration ───────────────────────────────────────────────────────
 // Carlito is a metric-compatible open-source replacement for Calibri (OFL license).
