@@ -43,13 +43,9 @@ export async function hasAnyRole(
 	roleNames: string[],
 ): Promise<boolean> {
 	await requireSelfOrRole(userId, ROLES.admin);
-	try {
-		const userRoleData = await getUserRoles(userId);
-		const userRoleNames = userRoleData.map((role) => role.name);
-
-		return roleNames.some((roleName) => userRoleNames.includes(roleName));
-	} catch (error) {
-		console.error("Error checking user roles:", error);
-		return false;
-	}
+	// A failed read throws rather than answering "no": a database outage is
+	// not an access denial (#216).
+	const userRoleData = await getUserRoles(userId);
+	const userRoleNames = userRoleData.map((role) => role.name);
+	return roleNames.some((roleName) => userRoleNames.includes(roleName));
 }
