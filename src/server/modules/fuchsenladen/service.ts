@@ -1,4 +1,4 @@
-// service.ts — the Fuchsenladen: bills, orders and payment details (#33).
+// service.ts — the Fuchsenladen: items, orders, bills and payment details (#33).
 //
 // Domain rules on top of ./repo. Every function takes the TenantScope it
 // works in; failures the user should read are DomainErrors, anything else
@@ -6,23 +6,27 @@
 
 import "server-only";
 
+import { del } from "@vercel/blob";
 import { z } from "zod";
 import { isValidOrderAmount, MAX_ORDER_AMOUNT } from "~/lib/drink-order";
 import { addMoney, roundToCent, sumMoney } from "~/lib/money";
 import { renderFuchsenBillPdf } from "~/server/domain/fuchsenladen/bill-pdf";
 import { fuchsenPeriodCsv } from "~/server/domain/fuchsenladen/csv";
+import { isForeignKeyViolation } from "~/server/lib/db-errors";
 import {
 	ConflictError,
 	DomainError,
 	NotFoundError,
 	ValidationError,
 } from "~/server/lib/domain-error";
+import { log } from "~/server/lib/log";
 import type { TenantScope } from "~/server/lib/tenant-scope";
 import * as repo from "./repo";
 
 export type {
 	FuchsenBillingConfig,
 	FuchsenBillPeriod,
+	FuchsenItem,
 	FuchsenOrder,
 } from "./repo";
 
@@ -395,4 +399,134 @@ export async function payAllOf(
 ): Promise<{ count: number }> {
 	const paid = await repo.payAllOf(db, userId, now());
 	return { count: paid.length };
+}
+
+// ─── Items ───────────────────────────────────────────────────────────────────
+
+export const addItemSchema = z.object({
+	name: z.string().min(1, "Name ist erforderlich").max(255, "Name ist zu lang"),
+	price: z
+		.number()
+		.positive("Preis muss positiv sein")
+		.max(999.99, "Preis ist zu hoch"),
+	description: z.string().max(500).optional(),
+	pictureUrl: z.string().url().optional(),
+	isCurrentlyAvailable: z.boolean().default(true),
+});
+
+export const updateItemSchema = z.object({
+	name: z
+		.string()
+		.min(1, "Name ist erforderlich")
+		.max(255, "Name ist zu lang")
+		.optional(),
+	price: z
+		.number()
+		.positive("Preis muss positiv sein")
+		.max(999.99, "Preis ist zu hoch")
+		.optional(),
+	description: z.string().max(500).optional(),
+	isCurrentlyAvailable: z.boolean().optional(),
+	pictureUrl: z.string().url().optional(),
+});
+
+export type UpdateFuchsenItemInput = z.infer<typeof updateItemSchema>;
+
+const ITEM_NOT_FOUND = "Artikel nicht gefunden";
+
+const ITEM_IN_USE_ERROR =
+	"Der Artikel wurde schon bestellt und kann deshalb nicht gelöscht werden. Setze ihn stattdessen auf „Nicht verfügbar“.";
+
+/** Removes a picture from Blob storage; a failure only leaves an orphan. */
+async function deletePicture(url: string) {
+	try {
+		await del(url);
+	} catch (error) {
+		await log.warn("fuchsen item picture delete failed", { err: error });
+	}
+}
+
+/** Every item, newest first (the Fuchsenwart's list). */
+export async function listItems({ db }: TenantScope) {
+	return repo.listItems(db);
+}
+
+/** The shop's items, most ordered first. */
+export async function menuItems({ db }: TenantScope) {
+	return repo.menuItems(db);
+}
+
+export async function addItem(
+	{ db }: TenantScope,
+	input: z.output<typeof addItemSchema>,
+) {
+	return repo.insertItem(db, {
+		name: input.name,
+		price: input.price,
+		description: input.description || null,
+		picture: input.pictureUrl || null,
+		isCurrentlyAvailable: input.isCurrentlyAvailable,
+	});
+}
+
+/** Changes an item; a new picture replaces (and deletes) the old one. */
+export async function updateItem(
+	{ db, now }: TenantScope,
+	id: string,
+	input: UpdateFuchsenItemInput,
+) {
+	const { pictureUrl, ...fields } = input;
+	if (Object.keys(input).length === 0) {
+		throw new ValidationError("Keine Daten zum Aktualisieren angegeben");
+	}
+	if (pictureUrl) {
+		const current = await repo.findItem(db, id);
+		if (current?.picture && current.picture !== pictureUrl) {
+			await deletePicture(current.picture);
+		}
+	}
+	const updated = await repo.updateItem(db, id, {
+		...fields,
+		...("pictureUrl" in input && { picture: pictureUrl }),
+		updatedAt: now(),
+	});
+	if (!updated) {
+		throw new NotFoundError(ITEM_NOT_FOUND);
+	}
+	return updated;
+}
+
+/**
+ * Deletes an item that was never ordered, then its picture. Orders
+ * reference the item, so the database refuses the delete of an ordered
+ * one, and the picture survives.
+ */
+export async function deleteItem({ db }: TenantScope, id: string) {
+	let deleted: { picture: string | null } | null;
+	try {
+		deleted = await repo.deleteItem(db, id);
+	} catch (error) {
+		if (isForeignKeyViolation(error)) {
+			throw new ConflictError(ITEM_IN_USE_ERROR, "ITEM_IN_USE");
+		}
+		throw error;
+	}
+	if (deleted?.picture) {
+		await deletePicture(deleted.picture);
+	}
+}
+
+export async function toggleAvailability({ db, now }: TenantScope, id: string) {
+	const current = await repo.findItem(db, id);
+	if (!current) {
+		throw new NotFoundError(ITEM_NOT_FOUND);
+	}
+	const updated = await repo.updateItem(db, id, {
+		isCurrentlyAvailable: !current.isCurrentlyAvailable,
+		updatedAt: now(),
+	});
+	if (!updated) {
+		throw new NotFoundError(ITEM_NOT_FOUND);
+	}
+	return updated;
 }

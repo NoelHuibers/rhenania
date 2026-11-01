@@ -173,7 +173,8 @@ async function seedForeignCorps(other: TestTenant) {
 		"cc-kasse/kostenpunkte.ts": kp.id,
 		"cc-kasse/einnahmen.ts": einnahme.id,
 		"cc-kasse/kostenerstattungen.ts": reimbursement.id,
-		"fuchsenladen/items.ts": item.id,
+		// Every `id` of the Fuchsenladen module is an item id.
+		"src/server/modules/fuchsenladen/actions.ts": item.id,
 	};
 	return { user, byName, idByModule };
 }

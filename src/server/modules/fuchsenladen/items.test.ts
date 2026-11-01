@@ -21,7 +21,7 @@ import {
 	getFuchsenItemsForMenu,
 	toggleFuchsenItemAvailability,
 	updateFuchsenItem,
-} from "./items";
+} from "./actions";
 
 vi.mock("@vercel/blob", () => ({ del: vi.fn() }));
 
@@ -55,7 +55,7 @@ describe("addFuchsenItem", () => {
 			isCurrentlyAvailable: true,
 		});
 
-		expect(result).toMatchObject({ success: true });
+		expect(result).toMatchObject({ ok: true });
 		expect(await getFuchsenItems()).toEqual([
 			expect.objectContaining({
 				name: "Mars",
@@ -68,10 +68,10 @@ describe("addFuchsenItem", () => {
 	});
 
 	test.each([
-		{ name: "", price: 1 },
-		{ name: "Mars", price: 0 },
-		{ name: "Mars", price: 1000 },
-	])("rejects invalid input %o and writes nothing", async (input) => {
+		[{ name: "", price: 1 }, "Name ist erforderlich"],
+		[{ name: "Mars", price: 0 }, "Preis muss positiv sein"],
+		[{ name: "Mars", price: 1000 }, "Preis ist zu hoch"],
+	])("rejects invalid input %o and writes nothing", async (input, error) => {
 		await asFuchsenwart();
 
 		const result = await addFuchsenItem({
@@ -79,10 +79,7 @@ describe("addFuchsenItem", () => {
 			isCurrentlyAvailable: true,
 		});
 
-		expect(result).toMatchObject({
-			success: false,
-			error: "Validierungsfehler",
-		});
+		expect(result).toEqual({ ok: false, error, code: "INVALID_INPUT" });
 		expect(await tenantDb().select().from(fuchsenItems)).toHaveLength(0);
 	});
 });
@@ -98,7 +95,7 @@ describe("updateFuchsenItem", () => {
 
 		const result = await updateFuchsenItem(item.id, { price: 1.5 });
 
-		expect(result).toMatchObject({ success: true });
+		expect(result).toMatchObject({ ok: true });
 		expect(await itemRow(item.id)).toMatchObject({
 			name: "Mars",
 			price: 1.5,
@@ -137,7 +134,7 @@ describe("updateFuchsenItem", () => {
 
 		const result = await updateFuchsenItem(item.id, { pictureUrl: NEW_PIC });
 
-		expect(result.success).toBe(true);
+		expect(result.ok).toBe(true);
 		expect((await itemRow(item.id))?.picture).toBe(NEW_PIC);
 	});
 
@@ -145,11 +142,11 @@ describe("updateFuchsenItem", () => {
 		await asFuchsenwart();
 
 		expect(await updateFuchsenItem("missing", {})).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Keine Daten zum Aktualisieren angegeben",
 		});
 		expect(await updateFuchsenItem("missing", { price: 2 })).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Artikel nicht gefunden",
 		});
 	});
@@ -162,7 +159,7 @@ describe("deleteFuchsenItem", () => {
 
 		const result = await deleteFuchsenItem(item.id);
 
-		expect(result.success).toBe(true);
+		expect(result.ok).toBe(true);
 		expect(del).toHaveBeenCalledExactlyOnceWith(OLD_PIC);
 		expect(await itemRow(item.id)).toBeUndefined();
 	});
@@ -196,9 +193,10 @@ describe("deleteFuchsenItem", () => {
 		await createFuchsenOrder({ user: await createUser(), item });
 
 		expect(await deleteFuchsenItem(item.id)).toEqual({
-			success: false,
+			ok: false,
 			error:
 				"Der Artikel wurde schon bestellt und kann deshalb nicht gelöscht werden. Setze ihn stattdessen auf „Nicht verfügbar“.",
+			code: "ITEM_IN_USE",
 		});
 		expect((await itemRow(item.id))?.picture).toBe(OLD_PIC);
 	});
@@ -212,8 +210,9 @@ describe("deleteFuchsenItem", () => {
 		});
 
 		expect(await deleteFuchsenItem(item.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Fehler beim Löschen des Artikels",
+			code: "INTERNAL",
 		});
 		expect(del).not.toHaveBeenCalled();
 		expect(await itemRow(item.id)).toBeDefined();
@@ -236,7 +235,7 @@ describe("toggleFuchsenItemAvailability", () => {
 		await asFuchsenwart();
 
 		expect(await toggleFuchsenItemAvailability("missing")).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Artikel nicht gefunden",
 		});
 	});

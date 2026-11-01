@@ -17,6 +17,7 @@ export type {
 	FuchsenBillingConfigInput,
 	FuchsenBillingEntry,
 	FuchsenBillPeriod,
+	FuchsenItem,
 	FuchsenOrder,
 	FuchsenUserBill,
 } from "./service";
@@ -182,4 +183,60 @@ export const markAllUserFuchsenOrdersPaid = defineAction(
 		errorMessage: "Fehler beim Markieren als bezahlt",
 	},
 	async ([userId], { tenant }) => fuchsen.payAllOf(tenant, userId),
+);
+
+// ─── Items ───────────────────────────────────────────────────────────────────
+
+const ITEM_PAGES = ["/fuchsenwart", "/fuchsenladen"];
+
+/** Every item, newest first (the Fuchsenwart's list). */
+export async function getFuchsenItems() {
+	return fuchsen.listItems(await requireFuchsenwart());
+}
+
+/** The shop for members, most ordered first. */
+export async function getFuchsenItemsForMenu() {
+	const { tenantId } = await requireCaller();
+	return fuchsen.menuItems(await scopeOf(tenantId));
+}
+
+export const addFuchsenItem = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		schema: z.tuple([fuchsen.addItemSchema]),
+		revalidate: ITEM_PAGES,
+		errorMessage: "Fehler beim Hinzufügen des Artikels",
+	},
+	async ([input], { tenant }) => fuchsen.addItem(tenant, input),
+);
+
+export const updateFuchsenItem = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		schema: z.tuple([z.string(), fuchsen.updateItemSchema]),
+		revalidate: ITEM_PAGES,
+		errorMessage: "Fehler beim Aktualisieren des Artikels",
+	},
+	async ([id, input], { tenant }) => fuchsen.updateItem(tenant, id, input),
+);
+
+/** Deletes an item nobody ordered yet, and its picture. */
+export const deleteFuchsenItem = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		schema: z.tuple([z.string()]),
+		revalidate: ITEM_PAGES,
+		errorMessage: "Fehler beim Löschen des Artikels",
+	},
+	async ([id], { tenant }) => fuchsen.deleteItem(tenant, id),
+);
+
+export const toggleFuchsenItemAvailability = defineAction(
+	{
+		roles: ROLES.fuchsen,
+		schema: z.tuple([z.string()]),
+		revalidate: ITEM_PAGES,
+		errorMessage: "Fehler beim Ändern der Verfügbarkeit",
+	},
+	async ([id], { tenant }) => fuchsen.toggleAvailability(tenant, id),
 );

@@ -13,7 +13,7 @@ import {
 	getFuchsenItems,
 	toggleFuchsenItemAvailability,
 	updateFuchsenItem,
-} from "~/server/actions/fuchsenladen/items";
+} from "~/server/modules/fuchsenladen/actions";
 import { AddFuchsenItemDialog } from "./AddFuchsenItemDialog";
 import { type EditingData, FuchsenItemsTable } from "./FuchsenItemsTable";
 
@@ -53,11 +53,11 @@ export function FuchsenItemsManagement() {
 	const handleDelete = (id: string) => {
 		startTransition(async () => {
 			const result = await deleteFuchsenItem(id);
-			if (result.success) {
-				toast.success(result.message);
+			if (result.ok) {
+				toast.success("Artikel erfolgreich gelöscht");
 				setItems((prev) => prev.filter((i) => i.id !== id));
 			} else {
-				toast.error(result.error || "Fehler beim Löschen");
+				toast.error(result.error);
 			}
 		});
 	};
@@ -65,8 +65,8 @@ export function FuchsenItemsManagement() {
 	const handleToggleAvailability = (id: string) => {
 		startTransition(async () => {
 			const result = await toggleFuchsenItemAvailability(id);
-			if (result.success) {
-				toast.success(result.message);
+			if (result.ok) {
+				toast.success("Verfügbarkeit erfolgreich geändert");
 				setItems((prev) =>
 					prev.map((i) =>
 						i.id === id
@@ -75,7 +75,7 @@ export function FuchsenItemsManagement() {
 					),
 				);
 			} else {
-				toast.error(result.error || "Fehler");
+				toast.error(result.error);
 			}
 		});
 	};
@@ -93,13 +93,11 @@ export function FuchsenItemsManagement() {
 
 			startTransition(async () => {
 				const result = await updateFuchsenItem(id, { pictureUrl });
-				if (result.success && result.data) {
+				if (result.ok) {
 					toast.success("Bild erfolgreich aktualisiert");
-					setItems((prev) =>
-						prev.map((i) => (i.id === id ? (result.data as FuchsenItem) : i)),
-					);
+					setItems((prev) => prev.map((i) => (i.id === id ? result.data : i)));
 				} else {
-					toast.error(result.error || "Fehler beim Aktualisieren des Bildes");
+					toast.error(result.error);
 				}
 				setUploadingImage(null);
 				setUploadProgress(0);
@@ -147,8 +145,8 @@ export function FuchsenItemsManagement() {
 				price,
 				description: editingData.description.trim() || undefined,
 			});
-			if (result.success) {
-				toast.success(result.message);
+			if (result.ok) {
+				toast.success("Artikel erfolgreich aktualisiert");
 				setItems((prev) =>
 					prev.map((i) =>
 						i.id === id
@@ -163,7 +161,7 @@ export function FuchsenItemsManagement() {
 				);
 				cancelEditing();
 			} else {
-				toast.error(result.error || "Fehler beim Aktualisieren");
+				toast.error(result.error);
 			}
 		});
 	};

@@ -17,7 +17,7 @@ import {
 } from "~/components/ui/drawer";
 import { IconButton } from "~/components/ui/icon-button";
 import { formatEUR } from "~/lib/format";
-import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
+import type { FuchsenItem } from "~/server/modules/fuchsenladen/actions";
 import { createFuchsenOrder } from "~/server/modules/fuchsenladen/actions";
 
 interface FuchsenOrderDrawerProps {

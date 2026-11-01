@@ -207,14 +207,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getYesAttendeePreviewForEvents: "member",
 		getEventAttendees: "member",
 	},
-	"src/server/actions/fuchsenladen/items.ts": {
-		addFuchsenItem: FUCHSEN,
-		updateFuchsenItem: FUCHSEN,
-		deleteFuchsenItem: FUCHSEN,
-		toggleFuchsenItemAvailability: FUCHSEN,
-		getFuchsenItems: FUCHSEN,
-		getFuchsenItemsForMenu: "member",
-	},
 	"src/server/actions/game/challenge.ts": {
 		createChallenge: "member",
 		respondToChallenge: "member",
@@ -417,6 +409,12 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getFuchsenOrdersForUser: FUCHSEN,
 		updateFuchsenOrderStatus: FUCHSEN,
 		markAllUserFuchsenOrdersPaid: FUCHSEN,
+		addFuchsenItem: FUCHSEN,
+		updateFuchsenItem: FUCHSEN,
+		deleteFuchsenItem: FUCHSEN,
+		toggleFuchsenItemAvailability: FUCHSEN,
+		getFuchsenItems: FUCHSEN,
+		getFuchsenItemsForMenu: "member",
 	},
 	"src/server/modules/getraenkekasse/actions.ts": {
 		getKasseSummary: GETRAENKE,

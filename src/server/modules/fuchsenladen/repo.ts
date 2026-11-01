@@ -50,6 +50,7 @@ export type FuchsenBillStatus = FuchsenBill["status"];
 type FuchsenBillItem = typeof fuchsenBillItems.$inferSelect;
 export type FuchsenOrder = typeof fuchsenOrders.$inferSelect;
 type FuchsenOrderStatus = FuchsenOrder["status"];
+export type FuchsenItem = typeof fuchsenItems.$inferSelect;
 export type FuchsenBillingConfig = typeof fuchsenBillingConfig.$inferSelect;
 
 /**
@@ -560,6 +561,84 @@ export async function payAllOf(db: TenantDb, userId: string, now: Date) {
 			);
 		return paid;
 	});
+}
+
+// ─── Items ───────────────────────────────────────────────────────────────────
+
+/** Every item, newest first. */
+export async function listItems(db: TenantDb) {
+	return db.select().from(fuchsenItems).orderBy(desc(fuchsenItems.createdAt));
+}
+
+/** The shop's items, most ordered first (like the drinks menu). */
+export async function menuItems(db: TenantDb) {
+	return db
+		.select({
+			id: fuchsenItems.id,
+			name: fuchsenItems.name,
+			price: fuchsenItems.price,
+			description: fuchsenItems.description,
+			picture: fuchsenItems.picture,
+			isCurrentlyAvailable: fuchsenItems.isCurrentlyAvailable,
+			createdAt: fuchsenItems.createdAt,
+			updatedAt: fuchsenItems.updatedAt,
+		})
+		.from(fuchsenItems)
+		.leftJoin(fuchsenOrders, eq(fuchsenItems.id, fuchsenOrders.itemId))
+		.groupBy(
+			fuchsenItems.id,
+			fuchsenItems.name,
+			fuchsenItems.price,
+			fuchsenItems.description,
+			fuchsenItems.picture,
+			fuchsenItems.isCurrentlyAvailable,
+			fuchsenItems.createdAt,
+			fuchsenItems.updatedAt,
+		)
+		.orderBy(desc(sql`COALESCE(SUM(${fuchsenOrders.amount}), 0)`));
+}
+
+export async function findItem(
+	db: TenantDb,
+	id: string,
+): Promise<FuchsenItem | null> {
+	const [item] = await db
+		.select()
+		.from(fuchsenItems)
+		.where(eq(fuchsenItems.id, id))
+		.limit(1);
+	return item ?? null;
+}
+
+export async function insertItem(
+	db: TenantDb,
+	values: typeof fuchsenItems.$inferInsert,
+) {
+	const [created] = await db.insert(fuchsenItems).values(values).returning();
+	return created;
+}
+
+/** The updated item, or null if there is none with `id`. */
+export async function updateItem(
+	db: TenantDb,
+	id: string,
+	values: Partial<typeof fuchsenItems.$inferInsert>,
+): Promise<FuchsenItem | null> {
+	const [updated] = await db
+		.update(fuchsenItems)
+		.set(values)
+		.where(eq(fuchsenItems.id, id))
+		.returning();
+	return updated ?? null;
+}
+
+/** Deletes the item; returns its picture, or null if there was none. */
+export async function deleteItem(db: TenantDb, id: string) {
+	const [item] = await db
+		.delete(fuchsenItems)
+		.where(eq(fuchsenItems.id, id))
+		.returning({ picture: fuchsenItems.picture });
+	return item ?? null;
 }
 
 // ─── Payment details ─────────────────────────────────────────────────────────
