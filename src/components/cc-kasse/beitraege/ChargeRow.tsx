@@ -9,6 +9,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
+import type { ActionResult } from "~/lib/action-result";
 import { formatEUR } from "~/lib/format";
 import {
 	type ChargeListItem,
@@ -70,9 +71,7 @@ export function ChargeRow({
 }: {
 	c: ChargeListItem;
 	isPending: boolean;
-	runAction: (
-		action: () => Promise<{ success: boolean; error?: string }>,
-	) => void;
+	runAction: (action: () => Promise<ActionResult<unknown>>) => void;
 	dlPdf: (chargeId: string, isMahnung: boolean) => void;
 }) {
 	return (

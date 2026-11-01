@@ -1,7 +1,7 @@
 // plan.ts — what a billing run charges, computed without the database.
 //
 // Shared by the Getränke run (server/modules/billing/run.ts) and the
-// Fuchsenladen run (actions/fuchsenladen/billings.ts). Both load the unbilled
+// Fuchsenladen run (modules/fuchsenladen/run.ts). Both load the unbilled
 // orders and the open bills, plan here and write the plan in one batch, so
 // the bill maths lives in one place and is tested without a database.
 //

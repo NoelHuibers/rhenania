@@ -48,7 +48,7 @@ export function AuthConfigSection({
 		}
 		startTransition(async () => {
 			const r = await updateTenantAuthConfigAction(tenantId, patch);
-			if (r.success) {
+			if (r.ok) {
 				toast.success("Auth config updated", {
 					description:
 						"Takes effect on every server within a few seconds, no restart needed.",
@@ -56,7 +56,7 @@ export function AuthConfigSection({
 				setClientSecret("");
 				onDone();
 			} else {
-				toast.error(r.error ?? "Failed to update auth config");
+				toast.error(r.error);
 			}
 		});
 	};

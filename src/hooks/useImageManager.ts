@@ -59,7 +59,7 @@ export const useImageManager = () => {
 
 		try {
 			const result = await getAllHomepageImages();
-			if (result.success && result.data) {
+			if (result.ok) {
 				setState((prev) => ({
 					...prev,
 					images: {
@@ -77,7 +77,7 @@ export const useImageManager = () => {
 					},
 				}));
 			} else {
-				toast.error(result.error || "Fehler beim Laden der Bilder");
+				toast.error(result.error);
 			}
 		} catch (error) {
 			toast.error("Fehler beim Laden der Bilder");
@@ -153,14 +153,12 @@ export const useImageManager = () => {
 							mimeType: file.type,
 						});
 
-						if (result.success && result.data) {
+						if (result.ok) {
 							successCount++;
 							newImages.push(result.data as ImageItem);
 							toast.success(`${file.name} erfolgreich hochgeladen`);
 						} else {
-							toast.error(
-								result.error || `Fehler beim Speichern von ${file.name}`,
-							);
+							toast.error(result.error);
 						}
 					} catch (uploadError) {
 						console.error("Upload error:", uploadError);
@@ -252,11 +250,12 @@ export const useImageManager = () => {
 			try {
 				const result = await toggleImageActive(imageId);
 
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					const { image, deactivatedIds } = result.data;
+					toast.success(`Bild ${image.isActive ? "aktiviert" : "deaktiviert"}`);
 
 					// If other images were deactivated, update them
-					if (result.deactivatedIds && result.deactivatedIds.length > 0) {
+					if (deactivatedIds.length > 0) {
 						setState((prev) => {
 							const newImages = { ...prev.images };
 
@@ -264,7 +263,7 @@ export const useImageManager = () => {
 								newImages[section as HomepageSection] = newImages[
 									section as HomepageSection
 								].map((img) => {
-									if (result.deactivatedIds?.includes(img.id)) {
+									if (deactivatedIds.includes(img.id)) {
 										return { ...img, isActive: false };
 									}
 									return img;
@@ -276,7 +275,7 @@ export const useImageManager = () => {
 					}
 				} else {
 					// Revert optimistic update on error
-					toast.error(result.error || "Fehler beim Ändern des Status");
+					toast.error(result.error);
 					await loadImages();
 				}
 			} catch (error) {
@@ -315,11 +314,11 @@ export const useImageManager = () => {
 			try {
 				const result = await deleteHomepageImage(imageId);
 
-				if (result.success) {
+				if (result.ok) {
 					toast.success(`"${imageName}" wurde gelöscht`);
 				} else {
 					// Revert optimistic update on error
-					toast.error(result.error || "Fehler beim Löschen");
+					toast.error(result.error);
 					await loadImages();
 				}
 			} catch (error) {
@@ -377,13 +376,11 @@ export const useImageManager = () => {
 			try {
 				const result = await updateImageOrder(imageIds);
 
-				if (result.success) {
+				if (result.ok) {
 					toast.success("Reihenfolge aktualisiert");
 				} else {
 					// Revert optimistic update on error
-					toast.error(
-						result.error || "Fehler beim Aktualisieren der Reihenfolge",
-					);
+					toast.error(result.error);
 					await loadImages();
 				}
 			} catch (error) {

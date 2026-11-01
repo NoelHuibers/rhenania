@@ -5,10 +5,6 @@
 import { describe, expect, test } from "vitest";
 
 import { getMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
-import {
-	getMyFuchsenOrders,
-	getMyFuchsenSummary,
-} from "~/server/actions/fuchsenladen/orders";
 import { getMyMember } from "~/server/actions/members/myMember";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { getUserAchievements } from "~/server/actions/profile/achievements";
@@ -22,6 +18,10 @@ import {
 } from "~/server/lib/preferences";
 import { loadOpenBill } from "~/server/loaders/open-bill";
 import { getUserBillingData } from "~/server/modules/billing/actions";
+import {
+	getMyFuchsenOrders,
+	getMyFuchsenSummary,
+} from "~/server/modules/fuchsenladen/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -172,7 +172,7 @@ describe("profile page query budget (#24)", () => {
 });
 
 /**
- * 27 data queries plus 12 auth() calls (the page's and each guarded
+ * 27 data queries plus 11 auth() calls (the page's and each guarded
  * loader's) at 2 lookups each (membership, roles). The test mock of auth() is
  * not memoized; in production it is memoized per request (React cache), so
  * the session costs 2 lookups per page there. The four preference switches
@@ -180,4 +180,4 @@ describe("profile page query budget (#24)", () => {
  * auth config comes with its cached Better Auth instance (#27), not from a
  * query per request.
  */
-const PROFILE_PAGE_BUDGET = 27 + 2 * 12;
+const PROFILE_PAGE_BUDGET = 27 + 2 * 11;

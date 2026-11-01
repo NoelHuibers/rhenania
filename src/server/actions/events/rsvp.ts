@@ -1,11 +1,14 @@
 "use server";
 
 import { and, asc, count, eq, inArray, lt, ne, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { eventRsvps, events, users } from "~/server/db/schema";
+import type { TenantDb } from "~/server/db/tenants";
 import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
+import { defineAction } from "~/server/lib/define-action";
+import { ConflictError, NotFoundError } from "~/server/lib/domain-error";
 
 export type RsvpStatus = "yes" | "no" | "maybe";
 
@@ -15,37 +18,22 @@ export type RsvpCounts = {
 	maybe: number;
 };
 
-export type RsvpError =
-	| "unauthenticated"
-	| "event_not_found"
-	| "event_cancelled"
-	| "deadline_passed"
-	| "capacity_full"
-	| "db_error";
+const rsvpStatusSchema = z.enum(["yes", "no", "maybe"]);
 
-export type SetRsvpResult =
-	| { success: true }
-	| { success: false; error: RsvpError; message: string };
-
-const ERROR_MESSAGES: Record<RsvpError, string> = {
-	unauthenticated: "Du musst angemeldet sein, um zuzusagen.",
-	event_not_found: "Veranstaltung nicht gefunden.",
-	event_cancelled: "Die Veranstaltung wurde abgesagt.",
-	deadline_passed: "Die Antwortfrist ist abgelaufen.",
-	capacity_full: "Die Veranstaltung ist bereits voll.",
-	db_error: "Antwort konnte nicht gespeichert werden.",
-};
-
-function fail(error: RsvpError): SetRsvpResult {
-	return { success: false, error, message: ERROR_MESSAGES[error] };
-}
+const RSVP_PAGES = ["/semesterprogramm", "/admin/semesterprogramm"];
 
 /**
  * The row for a "yes" answer, selected from the event only while other
  * members' yes answers are still below its attendee limit. An existing yes
  * of the same member is not counted, so re-confirming always succeeds.
  */
-function capacityCheckedYes(eventId: string, userId: string, note?: string) {
+function capacityCheckedYes(
+	db: TenantDb,
+	now: Date,
+	eventId: string,
+	userId: string,
+	note?: string,
+) {
 	const othersYes = db
 		.select({ c: count() })
 		.from(eventRsvps)
@@ -64,25 +52,22 @@ function capacityCheckedYes(eventId: string, userId: string, note?: string) {
 			status: sql`'yes'`.as("status"),
 			note: sql`${note ?? null}`.as("note"),
 			createdAt: sql`(unixepoch())`.as("created_at"),
-			updatedAt: sql`${sql.param(new Date(), eventRsvps.updatedAt)}`.as(
-				"updated_at",
-			),
+			updatedAt: sql`${sql.param(now, eventRsvps.updatedAt)}`.as("updated_at"),
 		})
 		.from(events)
 		.where(and(eq(events.id, eventId), lt(othersYes, events.maxAttendees)));
 }
 
-export async function setRsvp(
-	eventId: string,
-	status: RsvpStatus,
-	note?: string,
-): Promise<SetRsvpResult> {
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			return fail("unauthenticated");
-		}
-		const userId = session.user.id;
+export const setRsvp = defineAction(
+	{
+		schema: z.tuple([z.string(), rsvpStatusSchema, z.string().optional()]),
+		revalidate: RSVP_PAGES,
+		errorMessage: "Antwort konnte nicht gespeichert werden.",
+	},
+	async ([eventId, status, note], { tenant, user }) => {
+		const { db } = tenant;
+		const userId = user.id;
+		const now = tenant.now();
 
 		const [event] = await db
 			.select({
@@ -96,14 +81,19 @@ export async function setRsvp(
 			.limit(1);
 
 		if (!event) {
-			return fail("event_not_found");
+			throw new NotFoundError("Veranstaltung nicht gefunden.");
 		}
 		if (event.isCancelled) {
-			return fail("event_cancelled");
+			throw new ConflictError(
+				"Die Veranstaltung wurde abgesagt.",
+				"EVENT_CANCELLED",
+			);
 		}
-
-		if (event.rsvpDeadline && event.rsvpDeadline.getTime() < Date.now()) {
-			return fail("deadline_passed");
+		if (event.rsvpDeadline && event.rsvpDeadline.getTime() < now.getTime()) {
+			throw new ConflictError(
+				"Die Antwortfrist ist abgelaufen.",
+				"DEADLINE_PASSED",
+			);
 		}
 
 		const onConflict = {
@@ -111,7 +101,7 @@ export async function setRsvp(
 			set: {
 				status,
 				note: note ?? null,
-				updatedAt: new Date(),
+				updatedAt: now,
 			},
 		};
 
@@ -120,11 +110,14 @@ export async function setRsvp(
 			// answers cannot both pass the check before either is stored.
 			const saved = await db
 				.insert(eventRsvps)
-				.select(capacityCheckedYes(eventId, userId, note))
+				.select(capacityCheckedYes(db, now, eventId, userId, note))
 				.onConflictDoUpdate(onConflict)
 				.returning({ id: eventRsvps.id });
 			if (saved.length === 0) {
-				return fail("capacity_full");
+				throw new ConflictError(
+					"Die Veranstaltung ist bereits voll.",
+					"CAPACITY_FULL",
+				);
 			}
 		} else {
 			await db
@@ -137,40 +130,23 @@ export async function setRsvp(
 				})
 				.onConflictDoUpdate(onConflict);
 		}
+	},
+);
 
-		revalidatePath("/semesterprogramm");
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error setting RSVP:", error);
-		return fail("db_error");
-	}
-}
-
-export async function removeRsvp(eventId: string): Promise<SetRsvpResult> {
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			return fail("unauthenticated");
-		}
-
-		await db
+export const removeRsvp = defineAction(
+	{
+		schema: z.tuple([z.string()]),
+		revalidate: RSVP_PAGES,
+		errorMessage: "Antwort konnte nicht gespeichert werden.",
+	},
+	async ([eventId], { tenant, user }) => {
+		await tenant.db
 			.delete(eventRsvps)
 			.where(
-				and(
-					eq(eventRsvps.eventId, eventId),
-					eq(eventRsvps.userId, session.user.id),
-				),
+				and(eq(eventRsvps.eventId, eventId), eq(eventRsvps.userId, user.id)),
 			);
-
-		revalidatePath("/semesterprogramm");
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error removing RSVP:", error);
-		return fail("db_error");
-	}
-}
+	},
+);
 
 export async function getUserRsvpsForEvents(eventIds: string[]) {
 	if (eventIds.length === 0) {

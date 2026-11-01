@@ -112,7 +112,7 @@ const sha256 = (text: string) =>
  * from a checkout with Windows line endings, so their rows hold the hash of
  * the CRLF copy of the same SQL.
  */
-function acceptedHashes(m: LocalMigration): Set<string> {
+export function acceptedHashes(m: LocalMigration): Set<string> {
 	return new Set([m.hash, sha256(m.sql.replace(/\r?\n/g, "\r\n"))]);
 }
 

@@ -13,8 +13,8 @@ import {
 	readEloEnabled,
 } from "~/server/lib/elo-preference";
 
-const PUBLIC_PROFILE_KEY = "privacy.publicProfileEnabled";
-const HIDDEN_EVENT_TYPES_KEY = "semesterprogramm.hiddenTypes";
+export const PUBLIC_PROFILE_KEY = "privacy.publicProfileEnabled";
+export const HIDDEN_EVENT_TYPES_KEY = "semesterprogramm.hiddenTypes";
 
 export const ALL_EVENT_TYPES = [
 	"Intern",

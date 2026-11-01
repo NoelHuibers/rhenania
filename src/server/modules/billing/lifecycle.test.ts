@@ -135,7 +135,7 @@ async function bestellen(
 		bookingFor,
 	});
 	signInAs(wart);
-	expect(result.success).toBe(true);
+	expect(result.ok).toBe(true);
 }
 
 /** "Neue Rechnung" in the Kasse at `date`; must not fail. */

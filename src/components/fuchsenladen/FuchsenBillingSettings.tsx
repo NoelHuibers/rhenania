@@ -11,7 +11,7 @@ import {
 	type FuchsenBillingConfigInput,
 	getFuchsenBillingConfig,
 	updateFuchsenBillingConfig,
-} from "~/server/actions/fuchsenladen/billingConfig";
+} from "~/server/modules/fuchsenladen/actions";
 
 const EMPTY: FuchsenBillingConfigInput = {
 	senderName: "",
@@ -54,11 +54,11 @@ export function FuchsenBillingSettings({ onSaved }: { onSaved?: () => void }) {
 		setSaving(true);
 		try {
 			const result = await updateFuchsenBillingConfig(form);
-			if (result.success) {
-				toast.success(result.message ?? "Gespeichert");
+			if (result.ok) {
+				toast.success("Zahlungsdaten gespeichert");
 				onSaved?.();
 			} else {
-				toast.error(result.error ?? "Fehler beim Speichern");
+				toast.error(result.error);
 			}
 		} finally {
 			setSaving(false);

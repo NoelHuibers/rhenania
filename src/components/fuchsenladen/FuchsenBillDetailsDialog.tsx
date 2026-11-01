@@ -20,9 +20,11 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { formatEUR } from "~/lib/format";
-import type { FuchsenBillingConfig } from "~/server/actions/fuchsenladen/billingConfig";
-import { generateFuchsenBillPDF } from "~/server/actions/fuchsenladen/billingPdf";
-import type { FuchsenBillingEntry } from "~/server/actions/fuchsenladen/billings";
+import {
+	type FuchsenBillingConfig,
+	type FuchsenBillingEntry,
+	generateFuchsenBillPDF,
+} from "~/server/modules/fuchsenladen/actions";
 
 function paypalLink(base: string, amount: number): string {
 	const normalized = base.endsWith("/") ? base : `${base}/`;
@@ -47,11 +49,11 @@ export function FuchsenBillDetailsDialog({
 		setDownloading(true);
 		try {
 			const result = await generateFuchsenBillPDF(entry.id);
-			if (!result.success || !result.base64) {
-				toast.error(result.error || "PDF konnte nicht erstellt werden");
+			if (!result.ok) {
+				toast.error(result.error);
 				return;
 			}
-			const bytes = Uint8Array.from(atob(result.base64), (c) =>
+			const bytes = Uint8Array.from(atob(result.data.base64), (c) =>
 				c.charCodeAt(0),
 			);
 			const url = URL.createObjectURL(
@@ -59,7 +61,7 @@ export function FuchsenBillDetailsDialog({
 			);
 			const link = document.createElement("a");
 			link.href = url;
-			link.download = result.fileName ?? "Fuchsenrechnung.pdf";
+			link.download = result.data.fileName;
 			document.body.appendChild(link);
 			link.click();
 			setTimeout(() => {

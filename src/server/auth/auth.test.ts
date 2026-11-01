@@ -23,7 +23,7 @@ import {
 import { requireControl, testState } from "../../../test/state";
 
 vi.unmock("~/server/auth");
-vi.mock("~/server/actions/newuser/email", async (importOriginal) => ({
+vi.mock("~/server/modules/mail/service", async (importOriginal) => ({
 	...(await importOriginal<object>()),
 	sendVerificationEmail: vi.fn(),
 }));
@@ -242,7 +242,7 @@ describe("membership revocation (#20)", () => {
 		);
 		expect(
 			await addUser({ email: outsider.email, name: "Outsider" }),
-		).toMatchObject({ success: true });
+		).toMatchObject({ ok: true });
 
 		signInAs(outsider);
 		expect(await auth()).not.toBeNull();

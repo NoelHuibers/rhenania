@@ -18,13 +18,14 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import {
+	createFuchsenOrder,
 	createNewFuchsenBilling,
 	getFuchsenBillPeriodCSV,
 	getFuchsenBillsForPeriod,
 	getMyFuchsenBills,
+	getMyFuchsenSummary,
 	updateFuchsenBillStatus,
-} from "./billings";
-import { createFuchsenOrder, getMyFuchsenSummary } from "./orders";
+} from "./actions";
 
 setupTestDatabases();
 
@@ -69,7 +70,7 @@ async function bestellen(member: TestUser, item: Item, amount = 1) {
 		total: item.price * amount,
 	});
 	signInAs(fuchsenwart);
-	expect(result.success).toBe(true);
+	expect(result.ok).toBe(true);
 }
 
 async function abrechnen(date: Date) {

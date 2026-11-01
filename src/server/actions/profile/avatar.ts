@@ -3,16 +3,14 @@
 
 import { del } from "@vercel/blob";
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { auth } from "~/server/auth";
-import { db } from "~/server/db";
+import { z } from "zod";
 import { users } from "~/server/db/schema";
 import { isTenantBlobUrl } from "~/server/lib/blob-url";
-import {
-	requireCurrentTenant,
-	requireTenantId,
-} from "~/server/lib/tenant-context";
+import { defineAction } from "~/server/lib/define-action";
+import { ValidationError } from "~/server/lib/domain-error";
+import { log } from "~/server/lib/log";
+import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
 
 /**
@@ -29,6 +27,15 @@ function isOwnAvatarBlob(
 	return isTenantBlobUrl(url, slug, `profile/${userId}/`);
 }
 
+/** Deletes an old avatar blob; the new avatar is saved even if this fails. */
+async function deleteBlob(url: string): Promise<void> {
+	try {
+		await del(url);
+	} catch (error) {
+		await log.warn("old avatar blob not deleted", { err: error });
+	}
+}
+
 function isHttpsUrl(url: string) {
 	try {
 		return new URL(url).protocol === "https:";
@@ -37,133 +44,73 @@ function isHttpsUrl(url: string) {
 	}
 }
 
-export async function updateUserAvatarUrl(formData: FormData) {
-	try {
-		const session = await auth();
+const AVATAR_PAGES = ["/profile", "/leaderboard", "/eloranking"];
 
-		if (!session?.user?.id) {
-			return {
-				success: false,
-				message: "Nicht authentifiziert",
-			};
-		}
-
-		const imageUrl = formData.get("imageUrl") as string;
-
-		if (!imageUrl) {
-			return {
-				success: false,
-				message: "Keine Bild-URL angegeben",
-			};
+/** Sets the caller's avatar (form field `imageUrl`, https only). */
+export const updateUserAvatarUrl = defineAction(
+	{
+		schema: z.tuple([z.instanceof(FormData)]),
+		errorMessage: "Update fehlgeschlagen",
+		revalidate: AVATAR_PAGES,
+	},
+	async ([formData], { tenant, user }) => {
+		const imageUrl = formData.get("imageUrl");
+		if (typeof imageUrl !== "string" || !imageUrl) {
+			throw new ValidationError("Keine Bild-URL angegeben");
 		}
 		if (!isHttpsUrl(imageUrl)) {
-			return { success: false, message: "Nur https-Bild-URLs sind erlaubt" };
+			throw new ValidationError("Nur https-Bild-URLs sind erlaubt");
 		}
 		const { slug } = await requireCurrentTenant();
+		const { db } = tenant;
 
-		// Get current user to check for existing Vercel Blob image
-		const currentUser = await db
+		const [currentUser] = await db
 			.select({ image: users.image })
 			.from(users)
-			.where(eq(users.id, session.user.id))
+			.where(eq(users.id, user.id))
 			.limit(1);
-
-		const oldImageUrl = currentUser[0]?.image;
+		const oldImageUrl = currentUser?.image;
 
 		// Delete the previous upload, but only if it is this user's own avatar.
 		if (
 			oldImageUrl !== imageUrl &&
-			isOwnAvatarBlob(oldImageUrl, slug, session.user.id)
+			isOwnAvatarBlob(oldImageUrl, slug, user.id)
 		) {
-			try {
-				await del(oldImageUrl);
-			} catch (error) {
-				console.error("Failed to delete old avatar:", error);
-				// Continue even if deletion fails
-			}
+			await deleteBlob(oldImageUrl);
 		}
 
-		// Update user avatar in database
 		await db
 			.update(users)
 			.set({ image: imageUrl })
-			.where(eq(users.id, session.user.id));
+			.where(eq(users.id, user.id));
 
-		const userId = session.user.id;
-		const tenantId = await requireTenantId();
 		after(() =>
-			checkAndUnlockAchievements(userId, "profile_picture_set", undefined, {
-				tenantId,
+			checkAndUnlockAchievements(user.id, "profile_picture_set", undefined, {
+				tenantId: tenant.tenantId,
 			}),
 		);
 
-		revalidatePath("/profile");
-		revalidatePath("/leaderboard");
-		revalidatePath("/eloranking");
+		return { imageUrl };
+	},
+);
 
-		return {
-			success: true,
-			message: "Profilbild erfolgreich aktualisiert",
-			imageUrl,
-		};
-	} catch (error) {
-		console.error("Avatar URL update error:", error);
-		return {
-			success: false,
-			message: error instanceof Error ? error.message : "Update fehlgeschlagen",
-		};
-	}
-}
-
-export async function deleteUserAvatar() {
-	try {
-		const session = await auth();
-
-		if (!session?.user?.id) {
-			return {
-				success: false,
-				message: "Nicht authentifiziert",
-			};
-		}
-
-		// Get current user image
-		const currentUser = await db
+/** Removes the caller's avatar (and its blob, if it is their own upload). */
+export const deleteUserAvatar = defineAction(
+	{ errorMessage: "Löschen fehlgeschlagen", revalidate: AVATAR_PAGES },
+	async ({ tenant, user }) => {
+		const { db } = tenant;
+		const [currentUser] = await db
 			.select({ image: users.image })
 			.from(users)
-			.where(eq(users.id, session.user.id))
+			.where(eq(users.id, user.id))
 			.limit(1);
-
-		const imageUrl = currentUser[0]?.image;
+		const imageUrl = currentUser?.image;
 		const { slug } = await requireCurrentTenant();
 
-		if (isOwnAvatarBlob(imageUrl, slug, session.user.id)) {
-			try {
-				await del(imageUrl);
-			} catch (error) {
-				console.error("Failed to delete avatar from blob storage:", error);
-			}
+		if (isOwnAvatarBlob(imageUrl, slug, user.id)) {
+			await deleteBlob(imageUrl);
 		}
 
-		// Set image to null in database
-		await db
-			.update(users)
-			.set({ image: null })
-			.where(eq(users.id, session.user.id));
-
-		revalidatePath("/profile");
-		revalidatePath("/leaderboard");
-		revalidatePath("/eloranking");
-
-		return {
-			success: true,
-			message: "Profilbild erfolgreich gelöscht",
-		};
-	} catch (error) {
-		console.error("Delete avatar error:", error);
-		return {
-			success: false,
-			message:
-				error instanceof Error ? error.message : "Löschen fehlgeschlagen",
-		};
-	}
-}
+		await db.update(users).set({ image: null }).where(eq(users.id, user.id));
+	},
+);

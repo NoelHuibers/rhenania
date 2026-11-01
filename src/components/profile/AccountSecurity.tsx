@@ -31,7 +31,7 @@ type ConnectedAccountsResult = Awaited<
 function toConnectedAccounts(
 	result: ConnectedAccountsResult | null,
 ): ConnectedAccount[] {
-	if (!result?.success || !result.data) {
+	if (!result?.ok) {
 		return [];
 	}
 	return [
@@ -64,14 +64,14 @@ export function AccountSecurity({
 		ConnectedAccount[]
 	>(() => toConnectedAccounts(initial));
 	const [hasLocalPassword, setHasLocalPassword] = useState(
-		initial?.success ? (initial.data?.hasPassword ?? false) : false,
+		initial?.ok ? initial.data.hasPassword : false,
 	);
 
 	// Loading failed on the server: say so once, as the mount fetch did.
 	useEffect(() => {
-		if (!initial?.success) {
+		if (!initial?.ok) {
 			toast.error(
-				initial?.error || "Verbundene Konten konnten nicht geladen werden",
+				initial?.error ?? "Verbundene Konten konnten nicht geladen werden",
 			);
 		}
 	}, [initial]);
@@ -92,7 +92,7 @@ export function AccountSecurity({
 						providerName.toLowerCase(),
 					);
 
-					if (result.success) {
+					if (result.ok) {
 						setConnectedAccounts((prev) =>
 							prev.map((acc) =>
 								acc.provider === providerName
@@ -106,7 +106,7 @@ export function AccountSecurity({
 						});
 					} else {
 						toast.error("Trennen fehlgeschlagen", {
-							description: result.error || "Konto konnte nicht getrennt werden",
+							description: result.error,
 						});
 					}
 				} else {
@@ -115,11 +115,9 @@ export function AccountSecurity({
 					const connectResult = await connectProviderAction(
 						providerName.toLowerCase(),
 					);
-					if (!connectResult.success || !connectResult.data) {
+					if (!connectResult.ok) {
 						toast.error("Verknüpfen fehlgeschlagen", {
-							description:
-								connectResult.error ||
-								"Anbieter ist für diese Verbindung nicht verfügbar.",
+							description: connectResult.error,
 						});
 						return;
 					}
@@ -158,7 +156,7 @@ export function AccountSecurity({
 					newPassword,
 				});
 
-				if (result.success) {
+				if (result.ok) {
 					toast.success("Passwort aktualisiert", {
 						description: "Dein Passwort wurde erfolgreich geändert.",
 					});
@@ -172,21 +170,19 @@ export function AccountSecurity({
 						setHasLocalPassword(true);
 						// Verknüpfte Konten neu laden, um canDisconnect zu aktualisieren
 						const accountsResult = await getConnectedAccountsAction();
-						if (accountsResult.success && accountsResult.data) {
+						if (accountsResult.ok) {
+							const { hasPassword, accounts } = accountsResult.data;
 							setConnectedAccounts((prev) =>
 								prev.map((acc) => ({
 									...acc,
-									canDisconnect:
-										(accountsResult.data?.hasPassword ?? false) ||
-										(accountsResult.data?.accounts.length ?? 0) > 1,
+									canDisconnect: hasPassword || accounts.length > 1,
 								})),
 							);
 						}
 					}
 				} else {
 					toast.error("Aktualisierung des Passworts fehlgeschlagen", {
-						description:
-							result.error || "Passwort konnte nicht geändert werden",
+						description: result.error,
 					});
 				}
 			} catch (_error) {

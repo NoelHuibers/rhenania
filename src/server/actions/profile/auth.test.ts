@@ -55,7 +55,7 @@ describe("getConnectedAccountsAction", () => {
 		await createAccount(member.id, "github");
 
 		expect(await getConnectedAccountsAction()).toEqual({
-			success: true,
+			ok: true,
 			data: {
 				accounts: [{ provider: "microsoft" }, { provider: "github" }],
 				hasPassword: true,
@@ -70,16 +70,18 @@ describe("getConnectedAccountsAction", () => {
 		await createAccount(member.id, "microsoft-hassia");
 
 		expect(await getConnectedAccountsAction()).toEqual({
-			success: true,
+			ok: true,
 			data: { accounts: [], hasPassword: false },
 		});
 	});
 
 	test("anonymous callers are rejected", async () => {
 		await createTenant();
-		await expect(getConnectedAccountsAction()).rejects.toThrow(
-			"Nicht angemeldet",
-		);
+		expect(await getConnectedAccountsAction()).toEqual({
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
+		});
 	});
 });
 
@@ -91,7 +93,7 @@ describe("disconnectProviderAction", () => {
 		await createAccount(member.id, "microsoft-rhenania");
 
 		expect(await disconnectProviderAction("microsoft")).toEqual({
-			success: true,
+			ok: true,
 		});
 		expect(await providersOf(member.id)).toEqual([
 			"credential",
@@ -104,9 +106,10 @@ describe("disconnectProviderAction", () => {
 		await createAccount(member.id, "microsoft-hassia");
 
 		expect(await disconnectProviderAction("microsoft")).toEqual({
-			success: false,
+			ok: false,
 			error:
-				"Cannot disconnect your only login method. Set up a password first.",
+				"Das ist deine einzige Anmeldemethode. Lege zuerst ein Passwort fest.",
+			code: "LAST_LOGIN_METHOD",
 		});
 		expect(await providersOf(member.id)).toEqual(["microsoft-hassia"]);
 	});
@@ -116,12 +119,14 @@ describe("disconnectProviderAction", () => {
 		signInAs(await createUser());
 
 		expect(await disconnectProviderAction("")).toEqual({
-			success: false,
-			error: "Provider is required",
+			ok: false,
+			error: "Anbieter fehlt",
+			code: "INVALID_INPUT",
 		});
 		expect(await disconnectProviderAction("microsoft")).toEqual({
-			success: false,
-			error: "Provider not configured for this tenant",
+			ok: false,
+			error: "Dieser Anbieter ist für deine Verbindung nicht eingerichtet",
+			code: "NOT_CONFIGURED",
 		});
 	});
 });
@@ -138,17 +143,22 @@ describe("changePasswordAction", () => {
 				currentPassword: "Falsch123",
 				newPassword: "Neu123456",
 			}),
-		).toEqual({ success: false, error: "Current password is incorrect" });
+		).toEqual({
+			ok: false,
+			error: "Das aktuelle Passwort ist falsch",
+			code: "WRONG_PASSWORD",
+		});
 		expect(await changePasswordAction({ newPassword: "Neu123456" })).toEqual({
-			success: false,
-			error: "Current password is required",
+			ok: false,
+			error: "Bitte gib dein aktuelles Passwort ein",
+			code: "INVALID_INPUT",
 		});
 		expect(
 			await changePasswordAction({
 				currentPassword: "Alt12345",
 				newPassword: "Neu123456",
 			}),
-		).toEqual({ success: true });
+		).toEqual({ ok: true });
 
 		const [account] = await controlDb()
 			.select()
@@ -164,7 +174,7 @@ describe("changePasswordAction", () => {
 		await createAccount(member.id, "microsoft-hassia");
 
 		expect(await changePasswordAction({ newPassword: "Erstes123" })).toEqual({
-			success: true,
+			ok: true,
 		});
 
 		const [credential] = await controlDb()
@@ -183,14 +193,16 @@ describe("changePasswordAction", () => {
 	test("rejects short passwords and anonymous callers", async () => {
 		await createTenant();
 		expect(await changePasswordAction({ newPassword: "Lang12345" })).toEqual({
-			success: false,
-			error: "Unauthorized",
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
 		});
 
 		signInAs(await createUser());
 		expect(await changePasswordAction({ newPassword: "kurz" })).toEqual({
-			success: false,
-			error: "New password must be at least 8 characters long",
+			ok: false,
+			error: "Das neue Passwort muss mindestens 8 Zeichen lang sein",
+			code: "INVALID_INPUT",
 		});
 		expect(await controlDb().select().from(accounts)).toHaveLength(0);
 	});
@@ -201,7 +213,7 @@ describe("connectProviderAction", () => {
 		await hassiaMember();
 
 		expect(await connectProviderAction("Microsoft")).toEqual({
-			success: true,
+			ok: true,
 			data: { providerId: "microsoft-hassia" },
 		});
 	});
@@ -211,8 +223,9 @@ describe("connectProviderAction", () => {
 		signInAs(await createUser());
 
 		expect(await connectProviderAction("microsoft")).toEqual({
-			success: false,
-			error: "Provider not configured for this tenant",
+			ok: false,
+			error: "Dieser Anbieter ist für deine Verbindung nicht eingerichtet",
+			code: "NOT_CONFIGURED",
 		});
 	});
 });

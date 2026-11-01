@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
+import type { ActionResult } from "~/lib/action-result";
 import { fuchsenBillItems, fuchsenBills } from "~/server/db/schema";
 import { createFuchsenBillPeriod } from "../../../../test/factories/fuchsenladen";
 import {
@@ -11,8 +12,7 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import { useServerTimeZone } from "../../../../test/server-tz";
-import { updateFuchsenBillingConfig } from "./billingConfig";
-import { generateFuchsenBillPDF } from "./billingPdf";
+import { generateFuchsenBillPDF, updateFuchsenBillingConfig } from "./actions";
 
 setupTestDatabases();
 
@@ -41,8 +41,11 @@ async function billFor(
 }
 
 /** jsPDF writes uncompressed content streams, so plain text is greppable. */
-function pdfText(base64: string | undefined) {
-	return Buffer.from(base64 ?? "", "base64").toString("latin1");
+function pdfText(result: ActionResult<{ base64: string }>) {
+	if (!result.ok) {
+		throw new Error(result.error);
+	}
+	return Buffer.from(result.data.base64, "base64").toString("latin1");
 }
 
 describe("generateFuchsenBillPDF", () => {
@@ -66,10 +69,10 @@ describe("generateFuchsenBillPDF", () => {
 		const result = await generateFuchsenBillPDF(bill.id);
 
 		expect(result).toMatchObject({
-			success: true,
-			fileName: "Fuchsenrechnung_KW-44-26_J_rg_M_ller.pdf",
+			ok: true,
+			data: { fileName: "Fuchsenrechnung_KW-44-26_J_rg_M_ller.pdf" },
 		});
-		const text = pdfText(result.base64);
+		const text = pdfText(result);
 		expect(text.startsWith("%PDF-")).toBe(true);
 		expect(text).toContain("https://paypal.me/maxfux/012,50");
 		expect(text).toContain("IBAN: DE89370400440532013000");
@@ -101,7 +104,7 @@ describe("generateFuchsenBillPDF", () => {
 			.set({ status: "Bezahlt", paidAt: new Date("2026-11-05T23:30:00Z") })
 			.where(eq(fuchsenBills.id, bill.id));
 
-		const text = pdfText((await generateFuchsenBillPDF(bill.id)).base64);
+		const text = pdfText(await generateFuchsenBillPDF(bill.id));
 
 		expect(text).toContain("Stuttgart, den 29.10.26");
 		expect(text).toContain("BEZAHLT am 06.11.26");
@@ -129,7 +132,7 @@ describe("generateFuchsenBillPDF", () => {
 
 		const result = await generateFuchsenBillPDF(bills[0]?.id ?? "");
 
-		const text = pdfText(result.base64);
+		const text = pdfText(result);
 		expect(text).toContain("Du hast ein Guthaben von: 1,30");
 		expect(text).toContain("Du musst nichts zahlen.");
 		expect(text).toContain("Alter Saldo:");
@@ -148,7 +151,7 @@ describe("generateFuchsenBillPDF", () => {
 		const bill = await billFor(await createUser());
 		signInAs(await createUser({ roles: ["Fuchs"] }));
 
-		expect((await generateFuchsenBillPDF(bill.id)).success).toBe(true);
+		expect((await generateFuchsenBillPDF(bill.id)).ok).toBe(true);
 	});
 
 	test("marks a carried-over bill as transferred (#12)", async () => {
@@ -162,7 +165,7 @@ describe("generateFuchsenBillPDF", () => {
 
 		const result = await generateFuchsenBillPDF(bill.id);
 
-		expect(pdfText(result.base64)).toContain("IN EINE SP");
+		expect(pdfText(result)).toContain("IN EINE SP");
 	});
 
 	test("refuses other members' bills, unknown bills and anonymous callers", async () => {
@@ -171,16 +174,19 @@ describe("generateFuchsenBillPDF", () => {
 		vi.spyOn(console, "error").mockImplementation(() => {});
 
 		expect(await generateFuchsenBillPDF(bill.id)).toMatchObject({
-			success: false,
+			ok: false,
+			code: "UNAUTHENTICATED",
 		});
 		signInAs(await createUser());
 		expect(await generateFuchsenBillPDF(bill.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect(await generateFuchsenBillPDF("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Rechnung nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });

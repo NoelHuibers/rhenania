@@ -16,6 +16,7 @@ import {
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Progress } from "~/components/ui/progress";
+import type { ActionResult } from "~/lib/action-result";
 import { formatDate, formatEUR } from "~/lib/format";
 import {
 	type ChargesForRun,
@@ -37,9 +38,7 @@ export function RunSummaryCard({
 	isPending: boolean;
 	sendEmails: () => void;
 	sendMahn: () => void;
-	runAction: (
-		action: () => Promise<{ success: boolean; error?: string }>,
-	) => void;
+	runAction: (action: () => Promise<ActionResult<unknown>>) => void;
 	onDelete: () => void;
 }) {
 	const paid = charges.filter((c) => c.status === "Bezahlt").length;

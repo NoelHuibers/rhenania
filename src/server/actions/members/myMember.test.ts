@@ -110,7 +110,7 @@ describe("updateMyMember", () => {
 			...({ status: "CB", addressNeedsUpdate: false } as object),
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true, data: undefined });
 		expect(await memberRow(m.id)).toMatchObject({
 			firstName: "Max",
 			street: "Hauptstr.",
@@ -130,10 +130,8 @@ describe("updateMyMember", () => {
 
 		const result = await updateMyMember({ firstName: "A", lastName: "B" });
 
-		expect(result.success).toBe(false);
-		expect(result.success === false && result.error).toMatch(
-			/Kein Mitgliedseintrag/,
-		);
+		expect(result).toMatchObject({ ok: false, code: "NOT_FOUND" });
+		expect(!result.ok && result.error).toMatch(/Kein Mitgliedseintrag/);
 	});
 
 	test("rejects a blank name", async () => {
@@ -143,8 +141,9 @@ describe("updateMyMember", () => {
 		signInAs(me);
 
 		expect(await updateMyMember({ firstName: "A", lastName: "  " })).toEqual({
-			success: false,
+			ok: false,
 			error: "Nachname erforderlich",
+			code: "INVALID_INPUT",
 		});
 		expect((await memberRow(m.id))?.lastName).toBe("Bleibt");
 	});

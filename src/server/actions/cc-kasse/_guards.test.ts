@@ -66,11 +66,15 @@ describe("requireAuth", () => {
 		});
 	});
 
-	test("returns the signed-in user id", async () => {
-		await createTenant();
+	test("returns the signed-in user id and their tenant", async () => {
+		const tenant = await createTenant();
 		const user = await createUser();
 		signInAs(user);
-		expect(await requireAuth()).toEqual({ ok: true, userId: user.id });
+		expect(await requireAuth()).toEqual({
+			ok: true,
+			userId: user.id,
+			tenantId: tenant.id,
+		});
 	});
 });
 
@@ -128,7 +132,11 @@ describe("guards on the actions", () => {
 			year: 2026,
 		});
 
-		expect(result).toEqual({ success: false, error: "Keine Berechtigung" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 		expect(await tenantDb().select().from(etaplans)).toHaveLength(0);
 	});
 
@@ -141,7 +149,11 @@ describe("guards on the actions", () => {
 
 		const result = await approveReimbursement(request.id);
 
-		expect(result).toEqual({ success: false, error: "Keine Berechtigung" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 		const [row] = await tenantDb().select().from(kostenerstattungen);
 		expect(row).toMatchObject({ status: "Eingereicht", approvedBy: null });
 	});

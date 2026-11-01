@@ -4,10 +4,6 @@
 
 import { describe, expect, test } from "vitest";
 import {
-	getFuchsenBillsForPeriod,
-	getMyFuchsenBills,
-} from "~/server/actions/fuchsenladen/billings";
-import {
 	getActiveEventInventory,
 	getInventoryHistory,
 	getInventoryProfit,
@@ -17,6 +13,10 @@ import {
 } from "~/server/actions/inventur/inventur";
 import { fuchsenBillItems } from "~/server/db/schema";
 import { getBillsForPeriod } from "~/server/modules/billing/actions";
+import {
+	getFuchsenBillsForPeriod,
+	getMyFuchsenBills,
+} from "~/server/modules/fuchsenladen/actions";
 import {
 	getBankEntries,
 	getExternalBills,
@@ -168,10 +168,10 @@ describe("Getränkewart page query budget (#25)", () => {
 			mine: await getMyFuchsenBills(),
 		}));
 
-		// Three loaders, one round trip each, plus the session lookup (2), plus
-		// each loader's guard (2 each in tests; memoized per request in
-		// production).
-		expect(small.total).toBe(5 + 6);
+		// Three loaders, one round trip each, plus each loader's guard (2 each
+		// in tests; memoized per request in production). getMyFuchsenBills
+		// takes the member from its guard, without a second session lookup.
+		expect(small.total).toBe(3 + 6);
 		expect(large.total).toBe(small.total);
 		expect(large.result.bills).toHaveLength(8);
 		expect(large.result.bills.every((b) => b.items.length === 1)).toBe(true);

@@ -23,6 +23,7 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { Textarea } from "~/components/ui/textarea";
+import type { ActionResult } from "~/lib/action-result";
 import { parseDecimalInput } from "~/lib/decimal";
 import { uploadReceipt } from "~/lib/receipt-upload";
 import {
@@ -135,6 +136,31 @@ export function ReimbursementDialog({
 
 	const isSubmitting = isUploading || isPending;
 
+	/** Creates or updates the entry, as a direct booking or a member request. */
+	const save = (
+		amt: number,
+		receipts: ReceiptFile[],
+	): Promise<ActionResult> => {
+		const fields = {
+			kostenpunktId,
+			description: description.trim(),
+			amount: amt,
+			recipientName: recipientName.trim(),
+			receipts,
+		};
+		if (mode === "direct") {
+			const booking = { ...fields, iban: iban.trim() || null };
+			return editing
+				? updateReimbursement(editing.id, { ...booking, expenseDate })
+				: // biome-ignore lint/style/noNonNullAssertion: checked in submit
+					createDirectBooking({ ...booking, expenseDate: expenseDate! });
+		}
+		const request = { ...fields, iban: iban.trim() };
+		return editing
+			? updateMyReimbursement(editing.id, request)
+			: submitReimbursement(request);
+	};
+
 	const submit = () => {
 		if (!kostenpunktId) {
 			toast.error("Bitte einen Kostenpunkt wählen");
@@ -193,55 +219,17 @@ export function ReimbursementDialog({
 			}
 
 			startTransition(async () => {
-				let res: { success: boolean; error?: string };
-				if (editing) {
-					res =
-						mode === "direct"
-							? await updateReimbursement(editing.id, {
-									kostenpunktId,
-									description: description.trim(),
-									amount: amt,
-									recipientName: recipientName.trim(),
-									iban: iban.trim() || null,
-									expenseDate,
-									receipts,
-								})
-							: await updateMyReimbursement(editing.id, {
-									kostenpunktId,
-									description: description.trim(),
-									amount: amt,
-									recipientName: recipientName.trim(),
-									iban: iban.trim(),
-									receipts,
-								});
-				} else if (mode === "direct") {
-					res = await createDirectBooking({
-						kostenpunktId,
-						description: description.trim(),
-						amount: amt,
-						recipientName: recipientName.trim(),
-						iban: iban.trim() || null,
-						receipts,
-						// biome-ignore lint/style/noNonNullAssertion: guarded above
-						expenseDate: expenseDate!,
-					});
-				} else {
-					res = await submitReimbursement({
-						kostenpunktId,
-						description: description.trim(),
-						amount: amt,
-						recipientName: recipientName.trim(),
-						iban: iban.trim(),
-						receipts,
-					});
-				}
-
-				if (res.success) {
+				const res = await save(amt, receipts);
+				if (res.ok) {
 					if (mode === "member" && saveDefault) {
-						await setMyPaymentInfo({
+						// The request is in either way; only the default failed.
+						const saved = await setMyPaymentInfo({
 							accountHolder: recipientName.trim(),
 							iban: iban.trim(),
 						});
+						if (!saved.ok) {
+							toast.error(saved.error);
+						}
 					}
 					toast.success(
 						isEdit

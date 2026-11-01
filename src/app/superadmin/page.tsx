@@ -15,10 +15,10 @@ export default async function SuperadminHomePage() {
 		listTenantProvisioningsAction(),
 	]);
 
-	if (!result.success || !result.data) {
+	if (!result.ok) {
 		return (
 			<div className="text-destructive">
-				Failed to load tenants: {result.error ?? "unknown"}
+				Failed to load tenants: {result.error}
 			</div>
 		);
 	}
@@ -91,7 +91,7 @@ export default async function SuperadminHomePage() {
 					</table>
 				</div>
 			)}
-			<ProvisioningRuns runs={provisionings.data ?? []} />
+			<ProvisioningRuns runs={provisionings.ok ? provisionings.data : []} />
 			<TenantHealthTable />
 		</div>
 	);

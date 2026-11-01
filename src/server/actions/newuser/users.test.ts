@@ -7,6 +7,7 @@ import {
 	tenantMemberships,
 } from "~/server/db/control-schema";
 import { users, verificationTokens } from "~/server/db/schema";
+import { sendVerificationEmail } from "~/server/modules/mail/service";
 import {
 	controlDb,
 	createTenant,
@@ -16,10 +17,11 @@ import {
 	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
-import { sendVerificationEmail } from "./email";
 import { createUser } from "./users";
 
-vi.mock("./email", () => ({ sendVerificationEmail: vi.fn() }));
+vi.mock("~/server/modules/mail/service", () => ({
+	sendVerificationEmail: vi.fn(),
+}));
 vi.mock("~/server/actions/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
@@ -51,13 +53,17 @@ describe("admin gate", () => {
 		await createTenant();
 		const member = await createTestUser({ roles: ["Getränkewart"] });
 
-		await expect(createUser({ email: "neu@example.test" })).rejects.toThrow(
-			"Nicht angemeldet",
-		);
+		expect(await createUser({ email: "neu@example.test" })).toEqual({
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
+		});
 		signInAs(member);
-		await expect(createUser({ email: "neu@example.test" })).rejects.toThrow(
-			"Keine Berechtigung",
-		);
+		expect(await createUser({ email: "neu@example.test" })).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 
 		expect(await controlDb().select().from(controlUsers)).toHaveLength(1);
 		expect(sendVerificationEmail).not.toHaveBeenCalled();
@@ -77,8 +83,8 @@ describe("createUser (invite)", () => {
 		});
 
 		expect(result).toEqual({
-			success: true,
-			user: {
+			ok: true,
+			data: {
 				id: expect.any(String),
 				email: "neu.mitglied@example.test",
 				name: "Neu Mitglied",
@@ -86,7 +92,7 @@ describe("createUser (invite)", () => {
 				emailVerified: false,
 			},
 		});
-		const id = result.user?.id ?? "";
+		const id = result.ok ? result.data.id : "";
 		const [identity] = await controlDb()
 			.select()
 			.from(controlUsers)
@@ -139,8 +145,8 @@ describe("createUser (invite)", () => {
 		const result = await createUser({ email: "BEKANNT@example.test" });
 
 		expect(result).toMatchObject({
-			success: true,
-			user: { id: known.id, name: "Bekannt", emailVerified: true },
+			ok: true,
+			data: { id: known.id, name: "Bekannt", emailVerified: true },
 		});
 		expect(
 			await controlDb()
@@ -170,8 +176,9 @@ describe("createUser (invite)", () => {
 		await createTestUser({ email: "dabei@example.test" });
 
 		expect(await createUser({ email: "Dabei@example.test" })).toEqual({
-			success: false,
+			ok: false,
 			error: "Ein Benutzer mit dieser E-Mail-Adresse ist bereits Mitglied.",
+			code: "ALREADY_MEMBER",
 		});
 		expect(await tokensFor("dabei@example.test")).toHaveLength(0);
 		expect(sendVerificationEmail).not.toHaveBeenCalled();
@@ -186,7 +193,7 @@ describe("createUser (invite)", () => {
 
 		const result = await createUser({ email: "neu@example.test" });
 
-		expect(result.success).toBe(true);
+		expect(result.ok).toBe(true);
 		expect(await tokensFor("neu@example.test")).toHaveLength(1);
 	});
 });

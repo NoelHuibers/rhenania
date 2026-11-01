@@ -22,10 +22,6 @@ import "server-only";
 
 import { billNumberBase, nextBillNumber } from "~/lib/bill-number";
 import { fromCents, toCents } from "~/lib/money";
-import {
-	sendBillNotificationEmail,
-	sendTreasurerBillEmail,
-} from "~/server/actions/newuser/email";
 import { billPeriods, type orders } from "~/server/db/schema";
 import {
 	GETRAENKE_RULES,
@@ -52,6 +48,10 @@ import {
 	billRecipient,
 	billSender,
 } from "~/server/modules/getraenkekasse/service";
+import {
+	sendBillNotificationEmail,
+	sendTreasurerBillEmail,
+} from "~/server/modules/mail/service";
 import * as repo from "./repo";
 
 /** The role whose members carry the inventory-loss Umlage. */
@@ -387,6 +387,7 @@ async function mailBills(
 				to: "treasurer",
 				send: (pdf, fileName) =>
 					sendTreasurerBillEmail(
+						scope,
 						recipient.email,
 						bill.row.userName,
 						billNumber,
@@ -413,6 +414,7 @@ async function mailBills(
 				to: "member",
 				send: (pdf, fileName) =>
 					sendBillNotificationEmail(
+						scope,
 						user.email,
 						bill.row.userName,
 						billNumber,

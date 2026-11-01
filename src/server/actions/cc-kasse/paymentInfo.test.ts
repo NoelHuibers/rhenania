@@ -23,7 +23,7 @@ describe("my payment info", () => {
 			iban: "de89 3704 0044 0532 0130 00",
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await getMyPaymentInfo()).toEqual({
 			accountHolder: "Max Muster",
 			iban: "DE89370400440532013000",
@@ -76,7 +76,11 @@ describe("my payment info", () => {
 		await createTenant();
 		signInAs(await createUser());
 
-		expect(await setMyPaymentInfo(input)).toEqual({ success: false, error });
+		expect(await setMyPaymentInfo(input)).toEqual({
+			ok: false,
+			error,
+			code: "INVALID_INPUT",
+		});
 		expect(await tenantDb().select().from(userPaymentInfo)).toHaveLength(0);
 	});
 
@@ -88,6 +92,10 @@ describe("my payment info", () => {
 				accountHolder: "A",
 				iban: "DE89370400440532013000",
 			}),
-		).toEqual({ success: false, error: "Nicht angemeldet" });
+		).toEqual({
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
+		});
 	});
 });

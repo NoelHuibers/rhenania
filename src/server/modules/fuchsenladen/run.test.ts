@@ -25,7 +25,7 @@ import {
 	type TestUser,
 	tenantDb,
 } from "../../../../test/harness";
-import { createNewFuchsenBilling } from "./billings";
+import { createNewFuchsenBilling } from "./actions";
 
 setupTestDatabases();
 

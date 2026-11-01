@@ -23,7 +23,7 @@ import {
 	getMyFuchsenSummary,
 	markAllUserFuchsenOrdersPaid,
 	updateFuchsenOrderStatus,
-} from "./orders";
+} from "./actions";
 
 setupTestDatabases();
 
@@ -61,8 +61,10 @@ describe("createFuchsenOrder", () => {
 			total: 3.6,
 		});
 
-		expect(result.success).toBe(true);
-		expect(await orderRow(result.orderId ?? "")).toMatchObject({
+		expect(result.ok).toBe(true);
+		expect(
+			await orderRow(result.ok ? (result.data.orderId ?? "") : ""),
+		).toMatchObject({
 			userId: member.id,
 			userName: "Fritz Fux",
 			itemId: item.id,
@@ -85,14 +87,19 @@ describe("createFuchsenOrder", () => {
 			total: 2,
 		};
 
-		expect((await createOrderAction(order)).success).toBe(false);
+		expect(await createOrderAction(order)).toMatchObject({
+			ok: false,
+			code: "UNAUTHENTICATED",
+		});
 
 		signInAs(await createUser());
+		expect(await createOrderAction({ ...order, amount: 0, total: 0 })).toEqual({
+			ok: false,
+			error: "Bitte eine ganze Anzahl zwischen 1 und 100 wählen",
+			code: "INVALID_INPUT",
+		});
 		expect(
-			(await createOrderAction({ ...order, amount: 0, total: 0 })).success,
-		).toBe(false);
-		expect(
-			(await createOrderAction({ ...order, amount: 1.5, total: 1.5 })).success,
+			(await createOrderAction({ ...order, amount: 1.5, total: 1.5 })).ok,
 		).toBe(false);
 		expect(await tenantDb().select().from(fuchsenOrders)).toHaveLength(0);
 	});
@@ -110,7 +117,7 @@ describe("createFuchsenOrder", () => {
 			total: 0,
 		});
 
-		expect(result.success).toBe(true);
+		expect(result.ok).toBe(true);
 		const [stored] = await tenantDb().select().from(fuchsenOrders);
 		expect(stored).toMatchObject({
 			itemName: "Fuchsenband",
@@ -135,7 +142,11 @@ describe("createFuchsenOrder", () => {
 			total: 1,
 		});
 
-		expect(result.success).toBe(false);
+		expect(result).toEqual({
+			ok: false,
+			error: "Artikel nicht verfügbar",
+			code: "UNAVAILABLE",
+		});
 	});
 });
 
@@ -159,16 +170,24 @@ describe("member views", () => {
 		});
 	});
 
-	test("signed-out visitors get empty views", async () => {
+	test("signed-out visitors are refused, not shown empty views (#216)", async () => {
 		await createTenant();
 		signOut();
 
-		expect(await getMyFuchsenOrders()).toEqual([]);
-		expect(await getMyFuchsenSummary()).toEqual({
-			openTotal: 0,
-			paidTotal: 0,
-			openCount: 0,
+		await expect(getMyFuchsenOrders()).rejects.toMatchObject({
+			code: "UNAUTHENTICATED",
 		});
+		await expect(getMyFuchsenSummary()).rejects.toMatchObject({
+			code: "UNAUTHENTICATED",
+		});
+	});
+
+	test("a failed query is an error, not an empty list", async () => {
+		await createTenant();
+		signInAs(await createUser());
+		await tenantDb().$client.execute("DROP TABLE fuchsen_order");
+
+		await expect(getMyFuchsenOrders()).rejects.toThrow(/Failed query/);
 	});
 });
 
@@ -221,9 +240,10 @@ describe("updateFuchsenOrderStatus", () => {
 		});
 		signInAs(await createUser({ roles: ["Fuchs"] }));
 
-		expect((await updateFuchsenOrderStatus(order.id, "Bezahlt")).success).toBe(
-			true,
-		);
+		expect(await updateFuchsenOrderStatus(order.id, "Bezahlt")).toMatchObject({
+			ok: true,
+			data: { id: order.id, status: "Bezahlt", paidAt: NOW },
+		});
 		expect(await orderRow(order.id)).toMatchObject({
 			status: "Bezahlt",
 			paidAt: NOW,
@@ -244,9 +264,7 @@ describe("updateFuchsenOrderStatus", () => {
 		});
 		signInAs(await createUser({ roles: ["Admin"] }));
 
-		expect((await updateFuchsenOrderStatus(order.id, "Bezahlt")).success).toBe(
-			true,
-		);
+		expect((await updateFuchsenOrderStatus(order.id, "Bezahlt")).ok).toBe(true);
 	});
 
 	test("is refused for members without the Fuchs or Admin role", async () => {
@@ -259,8 +277,9 @@ describe("updateFuchsenOrderStatus", () => {
 		signInAs(member);
 
 		expect(await updateFuchsenOrderStatus(order.id, "Bezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect((await orderRow(order.id))?.status).toBe("Offen");
 	});
@@ -270,8 +289,9 @@ describe("updateFuchsenOrderStatus", () => {
 		signInAs(await createUser({ roles: ["Fuchs"] }));
 
 		expect(await updateFuchsenOrderStatus("missing", "Bezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error: "Bestellung nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });
@@ -290,7 +310,7 @@ describe("markAllUserFuchsenOrdersPaid", () => {
 
 		const result = await markAllUserFuchsenOrdersPaid(member.id);
 
-		expect(result).toEqual({ success: true, count: 2 });
+		expect(result).toEqual({ ok: true, data: { count: 2 } });
 		const mine = await getFuchsenOrdersForUser(member.id);
 		expect(mine.every((o) => o.status === "Bezahlt")).toBe(true);
 		expect((await orderRow(othersOrder.id))?.status).toBe("Offen");
@@ -313,9 +333,10 @@ describe("paying orders of billed members (#143)", () => {
 		signInAs(await createUser({ roles: ["Fuchs"] }));
 
 		expect(await updateFuchsenOrderStatus(billed.id, "Bezahlt")).toEqual({
-			success: false,
+			ok: false,
 			error:
 				"Bestellung ist bereits abgerechnet. Bitte den Status der Rechnung ändern.",
+			code: "BILLED_ORDER",
 		});
 		expect((await orderRow(billed.id))?.status).toBe("Offen");
 	});
@@ -345,8 +366,8 @@ describe("paying orders of billed members (#143)", () => {
 		signInAs(await createUser({ roles: ["Fuchs"] }));
 
 		expect(await markAllUserFuchsenOrdersPaid(member.id)).toEqual({
-			success: true,
-			count: 3,
+			ok: true,
+			data: { count: 3 },
 		});
 
 		const bills = await tenantDb().select().from(fuchsenBills);

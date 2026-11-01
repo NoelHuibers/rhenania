@@ -90,5 +90,10 @@ CONFIRM_PROD=<control-db-host> pnpm db:control:migrate # Control-DB
 CONFIRM_PROD=<control-db-host> pnpm db:migrate-tenants # alle Tenant-DBs
 ```
 
+Ein PR mit neuen Migrationen bleibt rot („Migrations applied to production“),
+bis sie in Produktion angewendet sind und der PR das Label `migration:applied`
+trägt. Der Check läuft beim Setzen des Labels von selbst neu. Die Migration muss
+deshalb additiv sein: Bis zum Merge läuft der alte Code auf dem neuen Schema.
+
 `drizzle-kit push` gibt es bewusst nicht mehr als Skript: Es umgeht das
 Migrations-Journal und hat früher zu Drift geführt.

@@ -2,7 +2,8 @@
 "use server";
 
 import { del, list, put } from "@vercel/blob";
-
+import { unstable_rethrow } from "next/navigation";
+import { type ActionResult, fail, ok } from "~/lib/action-result";
 import { auth, getIdentity } from "~/server/auth";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { log } from "~/server/lib/log";
@@ -19,18 +20,15 @@ import { buildTenantExport } from "~/server/lib/tenant-export";
  */
 const EXPORT_TTL_MS = 24 * 60 * 60 * 1000;
 
-export type TenantExportResult =
-	| {
-			success: true;
-			url: string;
-			fileName: string;
-			createdAt: string;
-			tables: number;
-			rows: number;
-			files: number;
-			missingFiles: number;
-	  }
-	| { success: false; error: string };
+export type TenantExport = {
+	url: string;
+	fileName: string;
+	createdAt: string;
+	tables: number;
+	rows: number;
+	files: number;
+	missingFiles: number;
+};
 
 /** Blob folder of a tenant's exports; nothing else is ever deleted. */
 function exportPrefix(slug: string) {
@@ -78,19 +76,22 @@ async function deleteExpiredExports(prefix: string, now: Date) {
  * Exports all data of the current Corps as a ZIP (see `tenant-export.ts`),
  * uploads it under `tenants/<slug>/exports/` with a random suffix and
  * returns the download link. Tenant Admins and platform superadmins only.
+ *
+ * Not a defineAction: that needs an active member of the Corps, and a
+ * superadmin need not be one. It still answers with an ActionResult (#216).
  */
-export async function exportTenantData(): Promise<TenantExportResult> {
+export async function exportTenantData(): Promise<ActionResult<TenantExport>> {
 	const identity = await getIdentity();
 	const userId = identity?.user.id;
 	if (!userId) {
-		return { success: false, error: "Nicht angemeldet" };
+		return fail("Nicht angemeldet", "UNAUTHENTICATED");
 	}
 	// auth() only returns a session for an active member of this Corps, so a
 	// superadmin from elsewhere is checked on the identity alone.
 	const session = await auth();
 	const isAdmin = session?.user.roles.includes("Admin") ?? false;
 	if (!isAdmin && !(await isSuperAdmin(userId))) {
-		return { success: false, error: "Keine Berechtigung" };
+		return fail("Keine Berechtigung", "FORBIDDEN");
 	}
 
 	const tenant = await requireCurrentTenant();
@@ -125,8 +126,7 @@ export async function exportTenantData(): Promise<TenantExportResult> {
 			missingFiles: result.missingFiles.length,
 			removedExports: removed,
 		});
-		return {
-			success: true,
+		return ok({
 			url: blob.downloadUrl,
 			fileName,
 			createdAt: now.toISOString(),
@@ -134,15 +134,16 @@ export async function exportTenantData(): Promise<TenantExportResult> {
 			rows: result.tables.reduce((sum, t) => sum + t.rows, 0),
 			files: result.files,
 			missingFiles: result.missingFiles.length,
-		};
+		});
 	} catch (error) {
+		unstable_rethrow(error);
 		await log.error("tenant export failed", {
 			tenant: tenant.slug,
 			error: error instanceof Error ? error.message : String(error),
 		});
-		return {
-			success: false,
-			error: "Der Export ist fehlgeschlagen. Bitte später erneut versuchen.",
-		};
+		return fail(
+			"Der Export ist fehlgeschlagen. Bitte später erneut versuchen.",
+			"INTERNAL",
+		);
 	}
 }

@@ -46,7 +46,7 @@ export function SemProGenerieren({
 		const result = await upsertSemesterConfig({ name, startDate, endDate });
 
 		setSaving(false);
-		if (!result.success) {
+		if (!result.ok) {
 			setError(result.error);
 			return;
 		}

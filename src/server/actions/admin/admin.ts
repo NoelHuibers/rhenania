@@ -2,7 +2,7 @@
 "use server";
 
 import { and, eq, or, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { controlDb } from "~/server/db/control";
 import {
 	accounts,
@@ -24,9 +24,11 @@ import {
 	userRoles,
 	users,
 } from "~/server/db/schema";
-import { getCurrentTenantDb } from "~/server/db/tenants";
+import { getCurrentTenantDb, type TenantDb } from "~/server/db/tenants";
 import { ROLES, requireRole } from "~/server/lib/authz";
-import { forgetMembership, requireTenantId } from "~/server/lib/tenant-context";
+import { ActionError, defineAction } from "~/server/lib/define-action";
+import { NotFoundError, ValidationError } from "~/server/lib/domain-error";
+import { forgetMembership } from "~/server/lib/tenant-context";
 import { seedDefaultRoles } from "~/server/lib/tenant-seed";
 import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
@@ -143,110 +145,72 @@ export async function getRolesWithUserCount(): Promise<Role[]> {
 /**
  * Initialize default roles if they don't exist
  */
-export async function initializeRoles(): Promise<void> {
-	await requireRole(ROLES.admin);
-	const db = await getCurrentTenantDb();
-	try {
+export const initializeRoles = defineAction(
+	{
+		roles: ROLES.admin,
+		errorMessage: "Standardrollen konnten nicht angelegt werden",
+	},
+	async ({ tenant }) => {
 		// One statement for the shared default list (also used when a tenant
 		// is provisioned); roles that already exist keep their description.
-		await seedDefaultRoles(db);
-	} catch (error) {
-		console.error("Failed to initialize roles:", error);
-		throw new Error("Failed to initialize roles");
+		await seedDefaultRoles(tenant.db);
+	},
+);
+
+async function addRole(db: TenantDb, userId: string, roleId: string) {
+	const existingAssignment = await db
+		.select()
+		.from(userRoles)
+		.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
+		.limit(1);
+	if (existingAssignment.length === 0) {
+		await db.insert(userRoles).values({
+			userId,
+			roleId,
+			assignedAt: sql`(unixepoch())`,
+		});
 	}
 }
 
-/**
- * Assign a role to a user
- */
-export async function assignUserRole(
-	userId: string,
-	roleId: string,
-): Promise<void> {
-	await requireRole(ROLES.admin);
-	const db = await getCurrentTenantDb();
-	try {
-		// Check if assignment already exists
-		const existingAssignment = await db
-			.select()
-			.from(userRoles)
-			.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
-			.limit(1);
-
-		if (existingAssignment.length === 0) {
-			await db.insert(userRoles).values({
-				userId,
-				roleId,
-				assignedAt: sql`(unixepoch())`,
-			});
-		}
-
-		revalidatePath("/admin");
-	} catch (error) {
-		console.error("Failed to assign role:", error);
-		throw new Error("Failed to assign role");
-	}
-}
-
-/**
- * Remove a role from a user
- */
-export async function removeUserRole(
-	userId: string,
-	roleId: string,
-): Promise<void> {
-	await requireRole(ROLES.admin);
-	const db = await getCurrentTenantDb();
-	try {
-		await db
-			.delete(userRoles)
-			.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
-
-		revalidatePath("/admin");
-	} catch (error) {
-		console.error("Failed to remove role:", error);
-		throw new Error("Failed to remove role");
-	}
+async function dropRole(db: TenantDb, userId: string, roleId: string) {
+	await db
+		.delete(userRoles)
+		.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
 }
 
 /**
  * Toggle a user's role (assign if not present, remove if present)
  */
-export async function toggleUserRole(
-	userId: string,
-	roleId: string,
-): Promise<void> {
-	await requireRole(ROLES.admin);
-	const db = await getCurrentTenantDb();
-	try {
-		const existingAssignment = await db
+export const toggleUserRole = defineAction(
+	{
+		roles: ROLES.admin,
+		schema: z.tuple([z.string(), z.string()]),
+		errorMessage: "Rolle konnte nicht geändert werden",
+		revalidate: ["/admin"],
+	},
+	async ([userId, roleId], { tenant }) => {
+		const existingAssignment = await tenant.db
 			.select()
 			.from(userRoles)
 			.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
 			.limit(1);
-
 		if (existingAssignment.length > 0) {
-			await removeUserRole(userId, roleId);
+			await dropRole(tenant.db, userId, roleId);
 		} else {
-			await assignUserRole(userId, roleId);
+			await addRole(tenant.db, userId, roleId);
 		}
-	} catch (error) {
-		console.error("Failed to toggle role:", error);
-		throw new Error("Failed to toggle role");
-	}
-}
+	},
+);
 
-/**
- * Update a user's name and/or email. Writes the control-DB source of truth,
- * then mirrors to all tenant DBs the user belongs to.
- */
 /**
  * Tenant admins may only act on users of their own tenant. Identity is
  * global, so without this an admin of one Corps could edit or delete
  * accounts that belong to another Corps.
  */
-async function assertMemberOfCurrentTenant(userId: string): Promise<string> {
-	const tenantId = await requireTenantId();
+async function assertMemberOfTenant(
+	userId: string,
+	tenantId: string,
+): Promise<void> {
 	const [membership] = await controlDb
 		.select({ userId: tenantMemberships.userId })
 		.from(tenantMemberships)
@@ -258,45 +222,58 @@ async function assertMemberOfCurrentTenant(userId: string): Promise<string> {
 		)
 		.limit(1);
 	if (!membership) {
-		throw new Error("Diese Person ist kein Mitglied dieses Corps.");
-	}
-	return tenantId;
-}
-
-export async function updateUser(
-	userId: string,
-	data: { name?: string; email?: string },
-): Promise<void> {
-	await requireRole(ROLES.admin);
-	await assertMemberOfCurrentTenant(userId);
-
-	const [current] = await controlDb
-		.select({ email: controlUsers.email })
-		.from(controlUsers)
-		.where(eq(controlUsers.id, userId))
-		.limit(1);
-	if (!current) {
-		throw new Error("Benutzer nicht gefunden");
-	}
-	// The email is the login identity across every Corps; a tenant admin
-	// must not be able to redirect it (password reset would follow).
-	if (
-		data.email !== undefined &&
-		data.email.trim().toLowerCase() !== current.email.toLowerCase()
-	) {
-		throw new Error(
-			"Die E-Mail-Adresse kann nur von der Person selbst geändert werden.",
+		throw new NotFoundError(
+			"Diese Person ist kein Mitglied dieses Corps.",
+			"NOT_A_MEMBER",
 		);
 	}
-	const name = data.name?.trim();
-	if (name === undefined) {
-		return;
-	}
-	if (name.length === 0 || name.length > 255) {
-		throw new Error("Ungültiger Name");
-	}
+}
 
-	try {
+/**
+ * Update a user's name (the e-mail is theirs to change). Writes the
+ * control-DB source of truth, then mirrors to all tenant DBs the user
+ * belongs to.
+ */
+export const updateUser = defineAction(
+	{
+		roles: ROLES.admin,
+		schema: z.tuple([
+			z.string(),
+			z.object({ name: z.string().optional(), email: z.string().optional() }),
+		]),
+		errorMessage: "Benutzer konnte nicht aktualisiert werden",
+		revalidate: ["/admin"],
+	},
+	async ([userId, data], { tenant }) => {
+		await assertMemberOfTenant(userId, tenant.tenantId);
+
+		const [current] = await controlDb
+			.select({ email: controlUsers.email })
+			.from(controlUsers)
+			.where(eq(controlUsers.id, userId))
+			.limit(1);
+		if (!current) {
+			throw new NotFoundError("Benutzer nicht gefunden");
+		}
+		// The email is the login identity across every Corps; a tenant admin
+		// must not be able to redirect it (password reset would follow).
+		if (
+			data.email !== undefined &&
+			data.email.trim().toLowerCase() !== current.email.toLowerCase()
+		) {
+			throw new ActionError(
+				"Die E-Mail-Adresse kann nur von der Person selbst geändert werden.",
+				"FORBIDDEN",
+			);
+		}
+		const name = data.name?.trim();
+		if (name === undefined) {
+			return;
+		}
+		if (name.length === 0 || name.length > 255) {
+			throw new ValidationError("Ungültiger Name");
+		}
+
 		await controlDb
 			.update(controlUsers)
 			.set({ name, updatedAt: new Date() })
@@ -318,25 +295,22 @@ export async function updateUser(
 				updatedAt: refreshed.updatedAt,
 			});
 		}
-
-		revalidatePath("/admin");
-	} catch (error) {
-		console.error("Failed to update user:", error);
-		throw new Error("Failed to update user");
-	}
-}
+	},
+);
 
 /**
  * Bulk-set the full user list for a role.
  * Adds users not yet assigned, removes users no longer selected.
  */
-export async function bulkSetRoleUsers(
-	roleId: string,
-	userIds: string[],
-): Promise<void> {
-	await requireRole(ROLES.admin);
-	const db = await getCurrentTenantDb();
-	try {
+export const bulkSetRoleUsers = defineAction(
+	{
+		roles: ROLES.admin,
+		schema: z.tuple([z.string(), z.array(z.string())]),
+		errorMessage: "Rolle konnte nicht gespeichert werden",
+		revalidate: ["/admin"],
+	},
+	async ([roleId, userIds], { tenant }) => {
+		const { db } = tenant;
 		const current = await db
 			.select({ userId: userRoles.userId })
 			.from(userRoles)
@@ -359,17 +333,10 @@ export async function bulkSetRoleUsers(
 		}
 
 		for (const userId of toRemove) {
-			await db
-				.delete(userRoles)
-				.where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)));
+			await dropRole(db, userId, roleId);
 		}
-
-		revalidatePath("/admin");
-	} catch (error) {
-		console.error("Failed to bulk set role users:", error);
-		throw new Error("Failed to bulk set role users");
-	}
-}
+	},
+);
 
 /**
  * Remove a user from the CURRENT tenant: delete their tenant-local data,
@@ -378,11 +345,16 @@ export async function bulkSetRoleUsers(
  * remaining tenant membership — identity is shared across tenants, so one
  * tenant's admin must not destroy it while other memberships exist.
  */
-export async function deleteUser(userId: string): Promise<void> {
-	await requireRole(ROLES.admin);
-	const tenantId = await assertMemberOfCurrentTenant(userId);
-	const db = await getCurrentTenantDb();
-	try {
+export const deleteUser = defineAction(
+	{
+		roles: ROLES.admin,
+		schema: z.tuple([z.string()]),
+		errorMessage: "Benutzer konnte nicht gelöscht werden",
+		revalidate: ["/admin"],
+	},
+	async ([userId], { tenant }) => {
+		const { db, tenantId } = tenant;
+		await assertMemberOfTenant(userId, tenantId);
 		// Nullify nullable FK columns that reference this user
 		await db
 			.update(homepageImages)
@@ -461,10 +433,5 @@ export async function deleteUser(userId: string): Promise<void> {
 			await controlDb.delete(userStats).where(eq(userStats.userId, userId));
 			await controlDb.delete(controlUsers).where(eq(controlUsers.id, userId));
 		}
-
-		revalidatePath("/admin");
-	} catch (error) {
-		console.error("Failed to delete user:", error);
-		throw new Error("Failed to delete user");
-	}
-}
+	},
+);

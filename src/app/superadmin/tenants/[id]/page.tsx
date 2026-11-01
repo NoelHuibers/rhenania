@@ -11,8 +11,8 @@ export default async function TenantDetailPage({
 }) {
 	const { id } = await params;
 	const result = await getTenantDetailAction(id);
-	if (!result.success || !result.data) {
-		if (result.error === "Tenant not found") {
+	if (!result.ok) {
+		if (result.code === "NOT_FOUND") {
 			notFound();
 		}
 		return (

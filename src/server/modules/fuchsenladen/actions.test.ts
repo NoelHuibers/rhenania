@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-
 import {
 	fuchsenBillPeriods,
 	fuchsenBills,
@@ -27,9 +26,9 @@ import {
 	getFuchsenBillsForPeriod,
 	getMyFuchsenBills,
 	getUnbilledFuchsenOrdersGrouped,
+	markAllUserFuchsenOrdersPaid,
 	updateFuchsenBillStatus,
-} from "./billings";
-import { markAllUserFuchsenOrdersPaid } from "./orders";
+} from "./actions";
 
 setupTestDatabases();
 

@@ -21,14 +21,14 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { formatDate, formatEUR } from "~/lib/format";
-import type { FuchsenOrder } from "~/server/actions/fuchsenladen/orders";
 import {
+	type FuchsenOrder,
 	type FuchsenUserBill,
 	getFuchsenBillsByUser,
 	getFuchsenOrdersForUser,
 	markAllUserFuchsenOrdersPaid,
 	updateFuchsenOrderStatus,
-} from "~/server/actions/fuchsenladen/orders";
+} from "~/server/modules/fuchsenladen/actions";
 
 export function FuchsenBillsManagement() {
 	const [bills, setBills] = useState<FuchsenUserBill[]>([]);
@@ -57,6 +57,15 @@ export function FuchsenBillsManagement() {
 		load();
 	}, []);
 
+	const loadOrders = async (userId: string) => {
+		try {
+			const orders = await getFuchsenOrdersForUser(userId);
+			setUserOrders((prev) => new Map(prev).set(userId, orders));
+		} catch {
+			toast.error("Fehler beim Laden der Bestellungen");
+		}
+	};
+
 	const toggleExpand = async (userId: string) => {
 		if (expandedUserId === userId) {
 			setExpandedUserId(null);
@@ -64,25 +73,23 @@ export function FuchsenBillsManagement() {
 		}
 		setExpandedUserId(userId);
 		if (!userOrders.has(userId)) {
-			const orders = await getFuchsenOrdersForUser(userId);
-			setUserOrders((prev) => new Map(prev).set(userId, orders));
+			await loadOrders(userId);
 		}
 	};
 
 	const handleMarkAllPaid = (userId: string) => {
 		startTransition(async () => {
 			const result = await markAllUserFuchsenOrdersPaid(userId);
-			if (result.success) {
+			if (result.ok) {
 				toast.success(
-					`${result.count ?? 0} Bestellung(en) als bezahlt markiert`,
+					`${result.data.count} Bestellung(en) als bezahlt markiert`,
 				);
 				await load();
 				if (expandedUserId === userId) {
-					const orders = await getFuchsenOrdersForUser(userId);
-					setUserOrders((prev) => new Map(prev).set(userId, orders));
+					await loadOrders(userId);
 				}
 			} else {
-				toast.error(result.error || "Fehler");
+				toast.error(result.error);
 			}
 		});
 	};
@@ -95,15 +102,14 @@ export function FuchsenBillsManagement() {
 		const next = current === "Offen" ? "Bezahlt" : "Offen";
 		startTransition(async () => {
 			const result = await updateFuchsenOrderStatus(orderId, next);
-			if (result.success) {
+			if (result.ok) {
 				toast.success(
 					`Bestellung als ${next === "Bezahlt" ? "bezahlt" : "offen"} markiert`,
 				);
 				await load();
-				const orders = await getFuchsenOrdersForUser(userId);
-				setUserOrders((prev) => new Map(prev).set(userId, orders));
+				await loadOrders(userId);
 			} else {
-				toast.error(result.error || "Fehler");
+				toast.error(result.error);
 			}
 		});
 	};

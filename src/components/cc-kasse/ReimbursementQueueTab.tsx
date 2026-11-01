@@ -23,6 +23,7 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { EmptyState } from "~/components/ui/empty-state";
 import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
+import type { ActionResult } from "~/lib/action-result";
 import { formatDate, formatEUR } from "~/lib/format";
 import { formatIban } from "~/lib/iban";
 import {
@@ -87,16 +88,16 @@ export function ReimbursementQueueTab({
 	const filteredSum = filtered.reduce((s, r) => s + r.amount, 0);
 
 	const run = (
-		action: () => Promise<{ success: boolean; error?: string }>,
+		action: () => Promise<ActionResult>,
 		message = "Aktualisiert",
 	) => {
 		startTransition(async () => {
 			const res = await action();
-			if (res.success) {
+			if (res.ok) {
 				toast.success(message);
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Fehler");
+				toast.error(res.error);
 			}
 		});
 	};

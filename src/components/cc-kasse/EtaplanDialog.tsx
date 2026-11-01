@@ -96,14 +96,12 @@ export function EtaplanDialog({ open, onOpenChange, etaplan, onSaved }: Props) {
 				? await updateEtaplan(etaplan.id, payload)
 				: await createEtaplan(payload);
 
-			if (res.success) {
+			if (res.ok) {
 				toast.success(isEdit ? "Etatplan gespeichert" : "Etatplan erstellt");
-				if ("warning" in res && res.warning) {
-					toast.warning(res.warning);
+				if ("warning" in res.data && res.data.warning) {
+					toast.warning(res.data.warning);
 				}
-				const newId =
-					"data" in res && res.data ? (res.data as Etaplan).id : etaplan?.id;
-				onSaved(newId);
+				onSaved(res.data.etaplan?.id ?? etaplan?.id);
 				onOpenChange(false);
 			} else {
 				toast.error(res.error);

@@ -16,7 +16,7 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { formatEUR } from "~/lib/format";
-import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
+import type { FuchsenItem } from "~/server/modules/fuchsenladen/actions";
 
 export interface EditingData {
 	name: string;

@@ -100,12 +100,12 @@ export function CrossChallengeDialog() {
 				drinkName: drinkName.trim() || null,
 				quantity,
 			});
-			if (r.success) {
+			if (r.ok) {
 				toast.success("Cross-Corps-Herausforderung gesendet");
 				reset();
 				setOpen(false);
 			} else {
-				toast.error(r.error ?? "Fehler beim Erstellen");
+				toast.error(r.error);
 			}
 		});
 	};

@@ -2,30 +2,34 @@
 
 import bcrypt from "bcryptjs";
 import { and, eq } from "drizzle-orm";
+import { unstable_rethrow } from "next/navigation";
+import { type ActionResult, fail, ok } from "~/lib/action-result";
 import { controlDb } from "~/server/db/control";
 import { accounts, users as controlUsers } from "~/server/db/control-schema";
 import { verificationTokens } from "~/server/db/schema";
 import { getTenantDb } from "~/server/db/tenants";
+import { log } from "~/server/lib/log";
 import { requireTenantId } from "~/server/lib/tenant-context";
 import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
-interface VerifyEmailResult {
-	success: boolean;
-	error?: string;
-}
+// Public (see PUBLIC_ACTIONS in test/server-actions.ts): the invited person
+// has no session yet, so this cannot use defineAction; the single-use token
+// is the authorisation. It still answers with an ActionResult (#216).
+
+const INVALID_TOKEN = "Ungültiger oder abgelaufener Verifizierungstoken.";
 
 export async function verifyEmailAndSetPassword(
 	token: string,
 	email: string,
 	password: string,
-): Promise<VerifyEmailResult> {
+): Promise<ActionResult> {
 	try {
 		// Validate password requirements
 		if (password.length < 8) {
-			return {
-				success: false,
-				error: "Das Passwort muss mindestens 8 Zeichen lang sein.",
-			};
+			return fail(
+				"Das Passwort muss mindestens 8 Zeichen lang sein.",
+				"INVALID_INPUT",
+			);
 		}
 
 		const hasUpperCase = /[A-Z]/.test(password);
@@ -33,11 +37,10 @@ export async function verifyEmailAndSetPassword(
 		const hasNumbers = /\d/.test(password);
 
 		if (!hasUpperCase || !hasLowerCase || !hasNumbers) {
-			return {
-				success: false,
-				error:
-					"Das Passwort muss Groß- und Kleinbuchstaben sowie Zahlen enthalten.",
-			};
+			return fail(
+				"Das Passwort muss Groß- und Kleinbuchstaben sowie Zahlen enthalten.",
+				"INVALID_INPUT",
+			);
 		}
 
 		const tenantId = await requireTenantId();
@@ -57,10 +60,7 @@ export async function verifyEmailAndSetPassword(
 			.limit(1);
 
 		if (verificationToken.length === 0) {
-			return {
-				success: false,
-				error: "Ungültiger oder abgelaufener Verifizierungstoken.",
-			};
+			return fail(INVALID_TOKEN, "INVALID_TOKEN");
 		}
 
 		const tokenData = verificationToken[0];
@@ -70,11 +70,10 @@ export async function verifyEmailAndSetPassword(
 				.delete(verificationTokens)
 				.where(eq(verificationTokens.token, token));
 
-			return {
-				success: false,
-				error:
-					"Der Verifizierungslink ist abgelaufen. Bitte wenden Sie sich an einen Administrator.",
-			};
+			return fail(
+				"Der Verifizierungslink ist abgelaufen. Bitte wenden Sie sich an einen Administrator.",
+				"TOKEN_EXPIRED",
+			);
 		}
 
 		// Find the user in control DB.
@@ -86,14 +85,14 @@ export async function verifyEmailAndSetPassword(
 
 		const userData = user[0];
 		if (!userData) {
-			return { success: false, error: "Benutzer nicht gefunden." };
+			return fail("Benutzer nicht gefunden.", "NOT_FOUND");
 		}
 
 		if (userData.emailVerified) {
-			return {
-				success: false,
-				error: "Diese E-Mail-Adresse wurde bereits verifiziert.",
-			};
+			return fail(
+				"Diese E-Mail-Adresse wurde bereits verifiziert.",
+				"ALREADY_VERIFIED",
+			);
 		}
 
 		const saltRounds = 12;
@@ -155,12 +154,12 @@ export async function verifyEmailAndSetPassword(
 			.delete(verificationTokens)
 			.where(eq(verificationTokens.token, token));
 
-		return { success: true };
+		return ok();
 	} catch (error) {
-		console.error("Error verifying email and setting password:", error);
-		return {
-			success: false,
-			error: "Ein unerwarteter Fehler ist aufgetreten.",
-		};
+		unstable_rethrow(error);
+		await log.error("verifying e-mail and setting password failed", {
+			err: error,
+		});
+		return fail("Ein unerwarteter Fehler ist aufgetreten.", "INTERNAL");
 	}
 }

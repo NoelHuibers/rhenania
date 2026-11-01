@@ -6,7 +6,7 @@ import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { formatEUR } from "~/lib/format";
-import type { FuchsenItem } from "~/server/actions/fuchsenladen/items";
+import type { FuchsenItem } from "~/server/modules/fuchsenladen/actions";
 
 interface FuchsenItemCardProps {
 	item: FuchsenItem;

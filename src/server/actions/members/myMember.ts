@@ -1,11 +1,17 @@
 "use server";
 
+// The caller's own entry in the member directory (/profile). getMyMember is
+// read by the profile page; updateMyMember answers with an ActionResult
+// (#216).
+
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "~/server/auth";
-import { db } from "~/server/db";
+import { db as proxyDb } from "~/server/db";
 import { type Member, members } from "~/server/db/schema";
+import type { TenantDb } from "~/server/db/tenants";
+import { defineAction } from "~/server/lib/define-action";
+import { NotFoundError } from "~/server/lib/domain-error";
 import { getTenantId, hasActiveMembership } from "~/server/lib/tenant-context";
 
 const clean = (s?: string | null): string | null => {
@@ -17,6 +23,7 @@ const clean = (s?: string | null): string | null => {
 // single unlinked member whose email matches (case-insensitive). Returns null
 // if there is no match or an ambiguous (>1) match.
 async function resolveMyMember(
+	db: TenantDb,
 	userId: string,
 	email: string | null,
 ): Promise<Member | null> {
@@ -68,7 +75,7 @@ export async function getMyMember(): Promise<Member | null> {
 	if (!userId) {
 		return null;
 	}
-	return resolveMyMember(userId, session.user.email ?? null);
+	return resolveMyMember(proxyDb, userId, session.user.email ?? null);
 }
 
 // Members may edit all of their own data EXCEPT their status (Abteilung) and the
@@ -98,24 +105,24 @@ const selfSchema = z.object({
 	notes: z.string().max(1000).nullable().optional(),
 });
 
-export async function updateMyMember(input: z.input<typeof selfSchema>) {
-	const session = await auth();
-	const userId = session?.user?.id;
-	if (!userId) {
-		return { success: false as const, error: "Nicht angemeldet" };
-	}
-
-	const member = await resolveMyMember(userId, session.user.email ?? null);
-	if (!member) {
-		return {
-			success: false as const,
-			error: "Kein Mitgliedseintrag gefunden — wende dich an den Senior.",
-		};
-	}
-
-	try {
-		const p = selfSchema.parse(input);
-		await db
+export const updateMyMember = defineAction(
+	{
+		schema: z.tuple([selfSchema]),
+		revalidate: ["/profile"],
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([p], { tenant, user }) => {
+		const member = await resolveMyMember(
+			tenant.db,
+			user.id,
+			user.email ?? null,
+		);
+		if (!member) {
+			throw new NotFoundError(
+				"Kein Mitgliedseintrag gefunden — wende dich an den Senior.",
+			);
+		}
+		await tenant.db
 			.update(members)
 			.set({
 				firstName: p.firstName.trim(),
@@ -140,19 +147,8 @@ export async function updateMyMember(input: z.input<typeof selfSchema>) {
 				forwarding: p.forwarding ?? member.forwarding,
 				lettersOptOut: p.lettersOptOut ?? member.lettersOptOut,
 				notes: clean(p.notes),
-				updatedBy: userId,
+				updatedBy: user.id,
 			})
 			.where(eq(members.id, member.id));
-		revalidatePath("/profile");
-		return { success: true as const };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error updating own member data:", error);
-		return { success: false as const, error: "Fehler beim Speichern" };
-	}
-}
+	},
+);

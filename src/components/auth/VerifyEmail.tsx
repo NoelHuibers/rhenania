@@ -14,16 +14,14 @@ import {
 } from "~/components/ui/card";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import type { ActionResult } from "~/lib/action-result";
 
 interface VerifyEmailPageProps {
 	verifyEmailAndSetPassword: (
 		token: string,
 		email: string,
 		password: string,
-	) => Promise<{
-		success: boolean;
-		error?: string;
-	}>;
+	) => Promise<ActionResult>;
 }
 
 export function VerifyEmailPage({
@@ -96,11 +94,11 @@ export function VerifyEmailPage({
 		try {
 			const result = await verifyEmailAndSetPassword(token, email, password);
 
-			if (result.success) {
+			if (result.ok) {
 				// The sign-in page confirms the activation inline.
 				router.push("/auth/signin?message=account-activated");
 			} else {
-				setError(result.error || "Ein Fehler ist aufgetreten.");
+				setError(result.error);
 			}
 		} catch (_error) {
 			setError("Ein unerwarteter Fehler ist aufgetreten.");

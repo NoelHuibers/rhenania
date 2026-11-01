@@ -52,9 +52,9 @@ export function RsvpControls({
 				target == null
 					? await removeRsvp(eventId)
 					: await setRsvp(eventId, target);
-			if (!result.success) {
+			if (!result.ok) {
 				setOptimistic(previous);
-				setError(result.message);
+				setError(result.error);
 				return;
 			}
 			router.refresh();

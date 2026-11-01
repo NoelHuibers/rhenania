@@ -26,7 +26,7 @@ export function MyReimbursementsTable({
 	const cancel = (id: string) => {
 		startTransition(async () => {
 			const res = await cancelMyReimbursement(id);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Antrag storniert");
 				router.refresh();
 			} else {

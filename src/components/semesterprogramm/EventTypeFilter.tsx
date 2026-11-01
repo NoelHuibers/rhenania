@@ -3,6 +3,7 @@
 import { Filter } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { toast } from "sonner";
 import { Button } from "~/components/ui/button";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Label } from "~/components/ui/label";
@@ -44,18 +45,24 @@ export function EventTypeFilter({
 		} else {
 			next.add(type);
 		}
-		setHidden(next);
-
-		startTransition(async () => {
-			await setHiddenEventTypes(Array.from(next));
-			router.refresh();
-		});
+		save(next);
 	}
 
 	function reset() {
-		setHidden(new Set());
+		save(new Set());
+	}
+
+	/** Shows `next` at once; goes back to the old filter if saving fails. */
+	function save(next: Set<EventTypeName>) {
+		const previous = hidden;
+		setHidden(next);
 		startTransition(async () => {
-			await setHiddenEventTypes([]);
+			const result = await setHiddenEventTypes(Array.from(next));
+			if (!result.ok) {
+				setHidden(previous);
+				toast.error(result.error);
+				return;
+			}
 			router.refresh();
 		});
 	}

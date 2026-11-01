@@ -57,9 +57,8 @@ describe("updateUserAvatarUrl", () => {
 		const result = await updateUserAvatarUrl(data);
 
 		expect(result).toEqual({
-			success: true,
-			message: "Profilbild erfolgreich aktualisiert",
-			imageUrl: `${own(member.id)}/new.png`,
+			ok: true,
+			data: { imageUrl: `${own(member.id)}/new.png` },
 		});
 		expect(del).toHaveBeenCalledWith(`${own(member.id)}/old.png`);
 		expect(await imageOf(member.id)).toBe(`${own(member.id)}/new.png`);
@@ -78,7 +77,7 @@ describe("updateUserAvatarUrl", () => {
 		const data = new FormData();
 		data.set("imageUrl", "https://img.example/me.png");
 
-		expect((await updateUserAvatarUrl(data)).success).toBe(true);
+		expect((await updateUserAvatarUrl(data)).ok).toBe(true);
 		expect(del).not.toHaveBeenCalled();
 
 		await deleteUserAvatar();
@@ -94,7 +93,11 @@ describe("updateUserAvatarUrl", () => {
 		]) {
 			const data = new FormData();
 			data.set("imageUrl", url);
-			expect((await updateUserAvatarUrl(data)).success).toBe(false);
+			expect(await updateUserAvatarUrl(data)).toEqual({
+				ok: false,
+				error: "Nur https-Bild-URLs sind erlaubt",
+				code: "INVALID_INPUT",
+			});
 		}
 	});
 
@@ -115,21 +118,23 @@ describe("updateUserAvatarUrl", () => {
 		const data = new FormData();
 		data.set("imageUrl", `${BLOB}/new.png`);
 
-		expect((await updateUserAvatarUrl(data)).success).toBe(true);
+		expect((await updateUserAvatarUrl(data)).ok).toBe(true);
 		expect(await imageOf(member.id)).toBe(`${BLOB}/new.png`);
 	});
 
 	test("requires a signed-in member and an image URL", async () => {
 		await createTenant();
 		expect(await updateUserAvatarUrl(new FormData())).toEqual({
-			success: false,
-			message: "Nicht authentifiziert",
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
 		});
 
 		signInAs(await createUser());
 		expect(await updateUserAvatarUrl(new FormData())).toEqual({
-			success: false,
-			message: "Keine Bild-URL angegeben",
+			ok: false,
+			error: "Keine Bild-URL angegeben",
+			code: "INVALID_INPUT",
 		});
 	});
 });
@@ -138,10 +143,7 @@ describe("deleteUserAvatar", () => {
 	test("removes the blob and clears the image", async () => {
 		const member = await memberWithImage((id) => `${own(id)}/old.png`);
 
-		expect(await deleteUserAvatar()).toEqual({
-			success: true,
-			message: "Profilbild erfolgreich gelöscht",
-		});
+		expect(await deleteUserAvatar()).toEqual({ ok: true });
 		expect(del).toHaveBeenCalledWith(`${own(member.id)}/old.png`);
 		expect(await imageOf(member.id)).toBeNull();
 	});
@@ -158,8 +160,9 @@ describe("deleteUserAvatar", () => {
 	test("rejects anonymous callers", async () => {
 		await createTenant();
 		expect(await deleteUserAvatar()).toEqual({
-			success: false,
-			message: "Nicht authentifiziert",
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
 		});
 	});
 });

@@ -153,7 +153,7 @@ export function KostenpunktDialog({
 				? await updateKostenpunkt(kostenpunkt.id, base)
 				: await createKostenpunkt({ ...base, etaplanId });
 
-			if (res.success) {
+			if (res.ok) {
 				toast.success(
 					isEdit ? "Kostenpunkt gespeichert" : "Kostenpunkt erstellt",
 				);

@@ -2,12 +2,13 @@
 
 import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
-import { revalidatePath } from "next/cache";
-import { db } from "~/server/db";
+import { z } from "zod";
 import { kostenpunkte, kostenpunktPositionen } from "~/server/db/schema";
+import { defineAction } from "~/server/lib/define-action";
+import { NotFoundError, ValidationError } from "~/server/lib/domain-error";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 import { protectFormulaLikeText } from "~/server/lib/xlsx-safe";
-import { EDIT_ROLES, requireRoles } from "./_guards";
+import { EDIT_ROLES } from "./_guards";
 import {
 	BODY_START_ROW,
 	COL,
@@ -65,18 +66,19 @@ type ParsedKp = {
 
 // ─── Export ──────────────────────────────────────────────────────────────────
 
-export async function exportEtaplanXlsx(etaplanId: string) {
-	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	try {
+/** The plan as an .xlsx workbook, base64-encoded for the download. */
+export const exportEtaplanXlsx = defineAction(
+	{
+		roles: EDIT_ROLES,
+		schema: z.tuple([z.string()]),
+		errorMessage: "Export fehlgeschlagen",
+	},
+	async ([etaplanId], { tenant: { db } }) => {
 		const plan = await db.query.etaplans.findFirst({
 			where: (t, { eq }) => eq(t.id, etaplanId),
 		});
 		if (!plan) {
-			return { success: false as const, error: "Etatplan nicht gefunden" };
+			throw new NotFoundError("Etatplan nicht gefunden");
 		}
 
 		const kps = await db.query.kostenpunkte.findMany({
@@ -221,32 +223,26 @@ export async function exportEtaplanXlsx(etaplanId: string) {
 		const buffer = await wb.xlsx.writeBuffer();
 		const base64 = Buffer.from(buffer).toString("base64");
 		const fileName = `Etatplan_${plan.semesterType}${plan.year}.xlsx`;
-		return { success: true as const, base64, fileName };
-	} catch (error) {
-		console.error("Error exporting etaplan:", error);
-		return { success: false as const, error: "Export fehlgeschlagen" };
-	}
-}
+		return { base64, fileName };
+	},
+);
 
 // ─── Import (line-for-line into positions, merge/upsert) ──────────────────────
 
-export async function importEtaplanXlsx(input: {
-	etaplanId: string;
-	base64: string;
-}) {
-	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	try {
-		const { etaplanId, base64 } = input;
+export const importEtaplanXlsx = defineAction(
+	{
+		roles: EDIT_ROLES,
+		schema: z.tuple([z.object({ etaplanId: z.string(), base64: z.string() })]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Import fehlgeschlagen",
+	},
+	async ([{ etaplanId, base64 }], { tenant: { db } }) => {
 		const plan = await db.query.etaplans.findFirst({
 			where: (t, { eq }) => eq(t.id, etaplanId),
 			columns: { id: true },
 		});
 		if (!plan) {
-			return { success: false as const, error: "Etatplan nicht gefunden" };
+			throw new NotFoundError("Etatplan nicht gefunden");
 		}
 
 		const wb = new ExcelJS.Workbook();
@@ -257,7 +253,7 @@ export async function importEtaplanXlsx(input: {
 		);
 		const ws = wb.getWorksheet(SHEET_NAME) ?? wb.worksheets[0];
 		if (!ws) {
-			return { success: false as const, error: "Tabellenblatt nicht gefunden" };
+			throw new ValidationError("Tabellenblatt nicht gefunden");
 		}
 
 		const errors: string[] = [];
@@ -337,10 +333,7 @@ export async function importEtaplanXlsx(input: {
 		}
 
 		if (parsed.length === 0) {
-			return {
-				success: false as const,
-				error: "Keine Kostenpunkte in der Datei gefunden",
-			};
+			throw new ValidationError("Keine Kostenpunkte in der Datei gefunden");
 		}
 
 		const existing = await db
@@ -410,17 +403,6 @@ export async function importEtaplanXlsx(input: {
 				? `${unchanged} bestehende Kostenpunkte waren nicht in der Datei und wurden beibehalten.`
 				: undefined;
 
-		revalidatePath("/cc-kasse");
-		return {
-			success: true as const,
-			created,
-			updated,
-			unchanged,
-			errors,
-			note,
-		};
-	} catch (error) {
-		console.error("Error importing etaplan:", error);
-		return { success: false as const, error: "Import fehlgeschlagen" };
-	}
-}
+		return { created, updated, unchanged, errors, note };
+	},
+);

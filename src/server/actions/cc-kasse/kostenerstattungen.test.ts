@@ -82,7 +82,7 @@ describe("submitReimbursement", () => {
 
 		const result = await submitReimbursement(submitInput(kp.id));
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await onlyRow()).toMatchObject({
 			kostenpunktId: kp.id,
 			etaplanId: plan.id,
@@ -132,7 +132,7 @@ describe("submitReimbursement", () => {
 			...patch,
 		});
 
-		expect(result.success).toBe(false);
+		expect(result).toMatchObject({ ok: false, code: "INVALID_INPUT" });
 		if (message) {
 			expect(result).toMatchObject({ error: message });
 		}
@@ -143,16 +143,18 @@ describe("submitReimbursement", () => {
 		const { member } = await setup();
 		signInAs(member);
 		expect(await submitReimbursement(submitInput("missing"))).toEqual({
-			success: false,
+			ok: false,
 			error: "Kostenpunkt nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 
 	test("requires a session", async () => {
 		const { kp } = await setup();
 		expect(await submitReimbursement(submitInput(kp.id))).toEqual({
-			success: false,
+			ok: false,
 			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
 		});
 	});
 
@@ -196,7 +198,7 @@ describe("member self-service", () => {
 		const mine = await createReimbursement(kp, { submittedBy: member.id });
 		signInAs(member);
 
-		expect(await cancelMyReimbursement(mine.id)).toEqual({ success: true });
+		expect(await cancelMyReimbursement(mine.id)).toEqual({ ok: true });
 		expect(await tenantDb().select().from(kostenerstattungen)).toHaveLength(0);
 	});
 
@@ -210,12 +212,14 @@ describe("member self-service", () => {
 		signInAs(member);
 
 		expect(await cancelMyReimbursement(foreign.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Antrag nicht gefunden",
+			code: "NOT_FOUND",
 		});
 		expect(await cancelMyReimbursement(approved.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Nur eingereichte Anträge können storniert werden",
+			code: "CONFLICT",
 		});
 		expect(await tenantDb().select().from(kostenerstattungen)).toHaveLength(2);
 	});
@@ -233,7 +237,7 @@ describe("member self-service", () => {
 			receipts: undefined,
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await onlyRow()).toMatchObject({
 			kostenpunktId: otherKp.id,
 			etaplanId: otherPlan.id,
@@ -256,8 +260,9 @@ describe("member self-service", () => {
 		const result = await updateMyReimbursement(mine.id, submitInput(kp.id));
 
 		expect(result).toEqual({
-			success: false,
+			ok: false,
 			error: "Nur eingereichte Anträge können bearbeitet werden",
+			code: "CONFLICT",
 		});
 		expect((await onlyRow()).amount).toBe(3);
 	});
@@ -271,7 +276,7 @@ describe("member self-service", () => {
 		signInAs(member);
 
 		expect(await updateMyReimbursement(foreign.id, submitInput(kp.id))).toEqual(
-			{ success: false, error: "Antrag nicht gefunden" },
+			{ ok: false, error: "Antrag nicht gefunden", code: "NOT_FOUND" },
 		);
 		expect((await onlyRow()).amount).toBe(3);
 	});
@@ -293,7 +298,7 @@ describe("status workflow", () => {
 	test("Eingereicht → Genehmigt → Ausgezahlt records who and when", async () => {
 		const { kassier, row } = await inStatus("Eingereicht");
 
-		expect(await approveReimbursement(row.id)).toEqual({ success: true });
+		expect(await approveReimbursement(row.id)).toEqual({ ok: true });
 		expect(await onlyRow()).toMatchObject({
 			status: "Genehmigt",
 			approvedBy: kassier.id,
@@ -302,7 +307,7 @@ describe("status workflow", () => {
 
 		const paidAt = new Date("2026-10-27T09:00:00Z");
 		vi.setSystemTime(paidAt);
-		expect(await markReimbursementPaid(row.id)).toEqual({ success: true });
+		expect(await markReimbursementPaid(row.id)).toEqual({ ok: true });
 		expect(await onlyRow()).toMatchObject({
 			status: "Ausgezahlt",
 			approvedAt: NOW,
@@ -328,7 +333,7 @@ describe("status workflow", () => {
 
 		const result = await rejectReimbursement(row.id, "  Kein Beleg  ");
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await onlyRow()).toMatchObject({
 			status: "Abgelehnt",
 			rejectionReason: "Kein Beleg",
@@ -341,8 +346,9 @@ describe("status workflow", () => {
 		const { row } = await inStatus("Eingereicht");
 
 		expect(await rejectReimbursement(row.id, "   ")).toEqual({
-			success: false,
+			ok: false,
 			error: "Begründung ist erforderlich",
+			code: "INVALID_INPUT",
 		});
 		expect((await onlyRow()).status).toBe("Eingereicht");
 
@@ -372,8 +378,9 @@ describe("status workflow", () => {
 		}[action];
 
 		expect(await run()).toEqual({
-			success: false,
+			ok: false,
 			error: "Ungültiger Statusübergang",
+			code: "CONFLICT",
 		});
 		const after = await onlyRow();
 		expect(after.status).toBe(from);
@@ -392,8 +399,9 @@ describe("status workflow", () => {
 			await markReimbursementPaid("missing"),
 		]) {
 			expect(result).toEqual({
-				success: false,
+				ok: false,
 				error: "Antrag nicht gefunden",
+				code: "NOT_FOUND",
 			});
 		}
 	});
@@ -414,7 +422,7 @@ describe("treasury bookings", () => {
 			expenseDate,
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await onlyRow()).toMatchObject({
 			etaplanId: plan.id,
 			source: "Direktbuchung",
@@ -441,12 +449,17 @@ describe("treasury bookings", () => {
 		};
 
 		expect(await createDirectBooking({ ...base, recipientName: "" })).toEqual({
-			success: false,
+			ok: false,
 			error: "Empfänger ist erforderlich",
+			code: "INVALID_INPUT",
 		});
 		expect(
 			await createDirectBooking({ ...base, kostenpunktId: "missing" }),
-		).toEqual({ success: false, error: "Kostenpunkt nicht gefunden" });
+		).toEqual({
+			ok: false,
+			error: "Kostenpunkt nicht gefunden",
+			code: "NOT_FOUND",
+		});
 		expect(await tenantDb().select().from(kostenerstattungen)).toHaveLength(0);
 	});
 
@@ -468,7 +481,7 @@ describe("treasury bookings", () => {
 			receipts: [receipt],
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await onlyRow()).toMatchObject({
 			kostenpunktId: otherKp.id,
 			etaplanId: otherPlan.id,
@@ -486,12 +499,17 @@ describe("treasury bookings", () => {
 		signInAs(kassier);
 
 		expect(await updateReimbursement(row.id, {})).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Änderungen",
+			code: "INVALID_INPUT",
 		});
 		expect(
 			await updateReimbursement(row.id, { kostenpunktId: "missing" }),
-		).toEqual({ success: false, error: "Kostenpunkt nicht gefunden" });
+		).toEqual({
+			ok: false,
+			error: "Kostenpunkt nicht gefunden",
+			code: "NOT_FOUND",
+		});
 		expect((await onlyRow()).kostenpunktId).toBe(kp.id);
 	});
 });
@@ -559,7 +577,11 @@ describe("receipt links", () => {
 		url: "https://files.example/tenants/rhenania/receipts/1-beleg.pdf",
 		name: "beleg.pdf",
 	};
-	const invalid = { success: false, error: "Ungültiger Beleg" };
+	const invalid = {
+		ok: false,
+		error: "Ungültiger Beleg",
+		code: "INVALID_INPUT",
+	};
 
 	test.each([
 		["another Corps' receipt", foreignCorps],
@@ -608,7 +630,7 @@ describe("receipt links", () => {
 				...submitInput(kp.id),
 				receipts: [legacy, receipt],
 			}),
-		).toEqual({ success: true });
+		).toEqual({ ok: true });
 		expect((await onlyRow()).receipts).toEqual([legacy, receipt]);
 
 		expect(
@@ -642,7 +664,7 @@ describe("receipt links", () => {
 		});
 
 		expect(await updateReimbursement(row.id, { receipts: [] })).toEqual({
-			success: true,
+			ok: true,
 		});
 		expect((await onlyRow()).receipts).toEqual([]);
 	});
