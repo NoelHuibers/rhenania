@@ -36,7 +36,7 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "~/server/lib/domain-error";
-import { readEloEnabled } from "~/server/lib/elo-preference";
+import { isEloOptOut, readEloEnabled } from "~/server/lib/elo-preference";
 import { log } from "~/server/lib/log";
 import type { TenantScope } from "~/server/lib/tenant-scope";
 import {
@@ -576,16 +576,24 @@ export async function recentGames(
 	const { db } = tenant;
 	const latest = await repo.recentGames(db, limit);
 
-	// Names per game: three lookups each, and two preference reads per game
-	// below: a known N+1, moved unchanged.
-	const withNames = await Promise.all(
-		latest.map(async (game) => {
-			const [player1, player2, winnerName] = await Promise.all([
-				repo.playerCard(db, game.player1Id),
-				repo.playerCard(db, game.player2Id),
-				repo.playerName(db, game.winnerId),
-			]);
+	// Every player's name, picture and opt-out in one read (#244).
+	const ids = new Set(latest.flatMap((g) => [g.player1Id, g.player2Id]));
+	for (const g of latest) {
+		if (g.winnerId) {
+			ids.add(g.winnerId);
+		}
+	}
+	const cards = new Map(
+		(await repo.playerCards(db, [...ids])).map((c) => [c.userId, c]),
+	);
+	const takesPart = (userId: string) =>
+		!isEloOptOut(cards.get(userId)?.prefValue);
 
+	return latest
+		.filter((g) => takesPart(g.player1Id) && takesPart(g.player2Id))
+		.map((game) => {
+			const player1 = cards.get(game.player1Id);
+			const player2 = cards.get(game.player2Id);
 			// Calculate ELO change for display
 			const player1Won = game.winnerId === game.player1Id;
 			const eloChange = Math.abs(
@@ -593,38 +601,21 @@ export async function recentGames(
 					? (game.player1EloAfter ?? 0) - (game.player1EloBefore ?? 0)
 					: (game.player2EloAfter ?? 0) - (game.player2EloBefore ?? 0),
 			);
-
 			return {
 				...game,
-				player1Name: player1?.name || null,
-				player2Name: player2?.name || null,
+				player1Name: player1?.userName || null,
+				player2Name: player2?.userName || null,
 				player1Avatar: player1?.avatar || null,
 				player2Avatar: player2?.avatar || null,
-				winnerName: winnerName || null,
+				winnerName:
+					(game.winnerId && cards.get(game.winnerId)?.userName) || null,
 				player1EloBefore: game.player1EloBefore ?? DEFAULT_ELO,
 				player2EloBefore: game.player2EloBefore ?? DEFAULT_ELO,
 				player1EloAfter: game.player1EloAfter ?? DEFAULT_ELO,
 				player2EloAfter: game.player2EloAfter ?? DEFAULT_ELO,
 				eloChange,
 			};
-		}),
-	);
-
-	const filtered: GameRecord[] = [];
-	for (const [i, g] of latest.entries()) {
-		const record = withNames[i];
-		if (!record) {
-			continue;
-		}
-		const [p1, p2] = await Promise.all([
-			repo.isEloEnabled(db, g.player1Id),
-			repo.isEloEnabled(db, g.player2Id),
-		]);
-		if (p1 && p2) {
-			filtered.push(record);
-		}
-	}
-	return filtered;
+		});
 }
 
 /**

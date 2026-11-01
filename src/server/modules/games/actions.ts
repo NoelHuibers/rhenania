@@ -231,7 +231,7 @@ export async function listChallengeableUsers(
 ): Promise<crossCorps.ChallengeableUser[]> {
 	const caller = await requireRoles();
 	return caller
-		? crossCorps.challengeableUsers(tenantId, caller.member.id)
+		? crossCorps.challengeableUsers(caller.tenant, tenantId, caller.member.id)
 		: [];
 }
 

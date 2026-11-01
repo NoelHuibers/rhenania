@@ -548,12 +548,21 @@ export async function challengeableTenants(
 
 /**
  * Members of `tenantId` the user can challenge (not the user themselves,
- * if they are a member there too), by ELO.
+ * if they are a member there too), by ELO. Only for a Corps
+ * `challengeableTenants` offers: another active one (#244).
  */
 export async function challengeableUsers(
+	tenant: TenantScope,
 	tenantId: string,
 	userId: string,
 ): Promise<ChallengeableUser[]> {
+	if (tenantId === tenant.tenantId) {
+		return [];
+	}
+	const active = await repo.activeTenants();
+	if (!active.some((t) => t.id === tenantId)) {
+		return [];
+	}
 	const memberIds = await repo.memberIdsOf(tenantId, userId);
 	if (memberIds.length === 0) {
 		return [];
@@ -596,7 +605,7 @@ export async function globalPeakEloHolder(): Promise<GlobalPeakHolder | null> {
 
 /**
  * Global leaderboard: every player of every Corps by unified ELO, each
- * labelled with the first active Corps found for them.
+ * labelled with the active Corps they joined first.
  */
 export async function globalLeaderboard(
 	limit: number,
@@ -614,8 +623,8 @@ export async function globalLeaderboard(
 	]);
 
 	const userById = new Map(userRows.map((u) => [u.id, u]));
-	// Pick the first membership we see for each user as their display Corps.
-	// Real fix: a "primary tenant" preference; v1 punt.
+	// Each player is labelled with the Corps they joined first (#244):
+	// memberships come ordered by join date.
 	const tenantByUser = new Map<string, { slug: string; displayName: string }>();
 	for (const m of membershipRows) {
 		if (!tenantByUser.has(m.userId)) {

@@ -9,6 +9,7 @@ import {
 	setUserStats,
 } from "../../../../test/factories/game";
 import {
+	countQueries,
 	createTenant,
 	createUser,
 	setupTestDatabases,
@@ -129,6 +130,30 @@ describe("game history", () => {
 
 		expect(recent.map((g) => g.player2Id)).toEqual([bert.id]);
 	});
+});
+
+test("recent games read their players in one query, however many games (#244)", async () => {
+	await createTenant();
+	const players = await createPlayers(5);
+	const [anna] = players;
+	signInAs(anna as NonNullable<typeof anna>);
+	const play = async (n: number) => {
+		for (let i = 0; i < n; i++) {
+			const p1 = players[i % 5] as NonNullable<(typeof players)[number]>;
+			const p2 = players[(i + 1) % 5] as NonNullable<(typeof players)[number]>;
+			await insertGame({ player1Id: p1.id, player2Id: p2.id, winnerId: p1.id });
+		}
+	};
+	await getRecentGames(); // warm the session and tenant caches
+
+	await play(2);
+	const few = await countQueries(() => getRecentGames(50));
+	await play(20);
+	const many = await countQueries(() => getRecentGames(50));
+
+	expect(few.result).toHaveLength(2);
+	expect(many.result).toHaveLength(22);
+	expect(many.total).toBe(few.total);
 });
 
 describe("opponent picker", () => {
