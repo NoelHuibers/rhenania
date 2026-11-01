@@ -1,36 +1,11 @@
 // drink-order.ts — the rules behind the two-tap order on /trinken (#74):
-// which accounts a drink can be booked on, the quantity limits, what the
-// confirm button and the toast say, which drinks show up as shortcuts, and
-// the guard that keeps a double tap from booking twice.
+// the quantity limits, what the confirm button and the toast say, which
+// drinks show up as shortcuts, and the guard that keeps a double tap from
+// booking twice. The accounts themselves are in booking-accounts.ts.
 //
 // Pure, so the flow can be tested without a browser.
 
 import { formatEUR } from "./format";
-
-/** Group accounts a drink can be booked on; null books on the member. */
-export const BOOKING_ACCOUNTS = [
-	"CC",
-	"AKN",
-	"CBesuch",
-	"AHV",
-	"RC",
-	"SC",
-	"Stiftungsfest",
-	"Nikolausbowle",
-] as const;
-
-export type BookingAccount = (typeof BOOKING_ACCOUNTS)[number];
-
-export function isBookingAccount(value: unknown): value is BookingAccount {
-	return (BOOKING_ACCOUNTS as readonly unknown[]).includes(value);
-}
-
-/** The accounts shown as chips; the rest sit behind "Weitere". */
-export const COMMON_BOOKING_ACCOUNTS: readonly BookingAccount[] = [
-	"CC",
-	"AKN",
-	"CBesuch",
-];
 
 export const MIN_ORDER_AMOUNT = 1;
 export const MAX_ORDER_AMOUNT = 100;
@@ -77,10 +52,7 @@ export function quantityPresets(
 }
 
 /** "Bestellen · 1,20 €" or, on a group account, "Auf AKN buchen · 3,00 €". */
-export function confirmLabel(
-	billing: BookingAccount | null,
-	total: number,
-): string {
+export function confirmLabel(billing: string | null, total: number): string {
 	const action = billing ? `Auf ${billing} buchen` : "Bestellen";
 	return `${action} · ${formatEUR(total)}`;
 }
@@ -90,7 +62,7 @@ export function orderToastMessage(
 	quantity: number,
 	drinkName: string,
 	total: number,
-	billing: BookingAccount | null,
+	billing: string | null,
 ): string {
 	return `${quantity}x ${drinkName} bestellt (${formatEUR(total)}) - Abrechnung auf ${
 		billing ? billing : "eigene Kosten"

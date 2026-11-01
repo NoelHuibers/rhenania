@@ -4,11 +4,7 @@
 import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { after } from "next/server";
 import { z } from "zod";
-import {
-	isBookingAccount,
-	isValidOrderAmount,
-	MAX_ORDER_AMOUNT,
-} from "~/lib/drink-order";
+import { isValidOrderAmount, MAX_ORDER_AMOUNT } from "~/lib/drink-order";
 import { MY_ORDERS_PAGE_SIZE } from "~/lib/my-orders";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { drinks, orders, users } from "~/server/db/schema";
@@ -16,6 +12,7 @@ import { getCurrentTenantDb } from "~/server/db/tenants";
 import { requireMember } from "~/server/lib/authz";
 import { ActionError, defineAction } from "~/server/lib/define-action";
 import { NotFoundError } from "~/server/lib/domain-error";
+import { isBookableAccount } from "~/server/modules/booking-accounts/service";
 import { drinkPricing } from "~/server/modules/getraenkekasse/service";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
 
@@ -57,9 +54,8 @@ export const createOrder = defineAction(
 		}
 
 		// Faxe orders always go on the AHV account.
-		const bookingFor = user.roles.includes("Faxe")
-			? "AHV"
-			: orderData.bookingFor;
+		const isFaxe = user.roles.includes("Faxe");
+		const bookingFor = isFaxe ? "AHV" : orderData.bookingFor;
 
 		// Admin booking: only admins may book for somebody else.
 		const isBookingForOther =
@@ -87,7 +83,12 @@ export const createOrder = defineAction(
 		if (!isValidOrderAmount(orderData.amount)) {
 			throw new ActionError(INVALID_AMOUNT, "INVALID_INPUT");
 		}
-		if (bookingFor !== null && !isBookingAccount(bookingFor)) {
+		// Faxe always book on AHV, whatever the Getränkewart did to that account.
+		if (
+			!isFaxe &&
+			bookingFor !== null &&
+			!(await isBookableAccount(tenant, bookingFor))
+		) {
 			throw new ActionError("Unbekanntes Abrechnungskonto", "INVALID_INPUT");
 		}
 

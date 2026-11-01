@@ -20,6 +20,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import type { BookingAccountOption } from "~/lib/booking-accounts";
 import { formatEUR } from "~/lib/format";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { getAllUsers, type User } from "~/server/actions/game/getUsers";
@@ -28,6 +29,7 @@ import {
 	getDrinkMarkupPercent,
 } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
+import { getBookingAccounts } from "~/server/modules/booking-accounts/actions";
 
 type Drink = {
 	id: string;
@@ -40,6 +42,7 @@ export function BookingTab() {
 	const [users, setUsers] = useState<User[]>([]);
 	const [drinks, setDrinks] = useState<Drink[]>([]);
 	const [markupPercent, setMarkupPercent] = useState(0);
+	const [accounts, setAccounts] = useState<BookingAccountOption[]>([]);
 	const [loading, setLoading] = useState(true);
 
 	const [selectedUserId, setSelectedUserId] = useState<string>("");
@@ -52,14 +55,18 @@ export function BookingTab() {
 	useEffect(() => {
 		const load = async () => {
 			try {
-				const [usersData, drinksData, markup] = await Promise.all([
-					getAllUsers(),
-					getAllDrinksForMenu(),
-					getDrinkMarkupPercent(),
-				]);
+				const [usersData, drinksData, markup, accountsData] = await Promise.all(
+					[
+						getAllUsers(),
+						getAllDrinksForMenu(),
+						getDrinkMarkupPercent(),
+						getBookingAccounts(),
+					],
+				);
 				setUsers(usersData);
 				setDrinks(drinksData);
 				setMarkupPercent(markup);
+				setAccounts(accountsData);
 			} catch {
 				toast.error("Fehler beim Laden der Daten");
 			} finally {
@@ -200,13 +207,16 @@ export function BookingTab() {
 					</div>
 
 					{/* Billing option */}
-					<div className="space-y-1.5">
-						<Label>Abrechnung</Label>
-						<BillingSelector
-							selectedBilling={billing}
-							onBillingChange={setBilling}
-						/>
-					</div>
+					{accounts.length > 0 && (
+						<div className="space-y-1.5">
+							<Label>Abrechnung</Label>
+							<BillingSelector
+								accounts={accounts}
+								selectedBilling={billing}
+								onBillingChange={setBilling}
+							/>
+						</div>
+					)}
 
 					{/* Summary */}
 					{selectedUser && selectedDrink && (

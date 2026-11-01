@@ -1,6 +1,7 @@
 "use client";
 
 import { BankLog } from "~/components/getraenkewart/kasse/BankLog";
+import { BookingAccountsCard } from "~/components/getraenkewart/kasse/BookingAccountsCard";
 import { EntityBillsCard } from "~/components/getraenkewart/kasse/EntityBillsCard";
 import { ExternalBillsCard } from "~/components/getraenkewart/kasse/ExternalBillsCard";
 import { GetraenkeBillingCard } from "~/components/getraenkewart/kasse/GetraenkeBillingCard";
@@ -15,6 +16,7 @@ import type {
 	MemberBill,
 	Summary,
 } from "~/components/getraenkewart/kasse/types";
+import type { ManagedBookingAccount } from "~/server/modules/booking-accounts/actions";
 import type {
 	GetraenkeBillingSettings,
 	GetraenkeSettings,
@@ -27,6 +29,8 @@ type Props = {
 	entityBills: EntityBill[];
 	memberBills: MemberBill[];
 	pfandWert: number;
+	/** The group accounts drinks can be booked on. */
+	bookingAccounts: ManagedBookingAccount[];
 	/** Feature settings; null for tenants without markup / treasurer features. */
 	settings?: GetraenkeSettings | null;
 	/** Sender and account of the bills; null for non-Getränkewarte. */
@@ -41,6 +45,7 @@ export function KasseTab({
 	entityBills,
 	memberBills,
 	pfandWert,
+	bookingAccounts,
 	settings = null,
 	billing = null,
 }: Props) {
@@ -50,6 +55,7 @@ export function KasseTab({
 			{billing && <GetraenkeBillingCard settings={billing} />}
 			{settings && <GetraenkeSettingsCard settings={settings} />}
 			<NeueRechnungCard />
+			<BookingAccountsCard accounts={bookingAccounts} />
 			<BankLog entries={bankEntries} />
 			<MemberBillsCard bills={memberBills} />
 			<EntityBillsCard bills={entityBills} />

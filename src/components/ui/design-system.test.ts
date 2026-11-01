@@ -166,7 +166,17 @@ describe("BillingSelector", () => {
 	const selector = (
 		selectedBilling: Parameters<typeof BillingSelector>[0]["selectedBilling"],
 	) =>
-		render(h(BillingSelector, { selectedBilling, onBillingChange: () => {} }));
+		render(
+			h(BillingSelector, {
+				accounts: [
+					{ name: "CC", pinned: true },
+					{ name: "AKN", pinned: true },
+					{ name: "Stiftungsfest", pinned: false },
+				],
+				selectedBilling,
+				onBillingChange: () => {},
+			}),
+		);
 	const checked = (html: string) =>
 		radios(html)
 			.filter((r) => r.includes('aria-checked="true"'))
@@ -182,7 +192,7 @@ describe("BillingSelector", () => {
 		);
 	});
 
-	test("a common account is checked as a 44 px chip", () => {
+	test("a pinned account is checked as a 44 px chip", () => {
 		const html = selector("AKN");
 		expect(checked(html)).toEqual(["AKN"]);
 		for (const r of radios(html)) {
@@ -190,7 +200,7 @@ describe("BillingSelector", () => {
 		}
 	});
 
-	test("a rare account from 'Weitere' joins the chips while selected", () => {
+	test("an unpinned account from 'Weitere' joins the chips while selected", () => {
 		expect(selector(null)).not.toContain(">Stiftungsfest<");
 		const html = selector("Stiftungsfest");
 		expect(checked(html)).toEqual(["Stiftungsfest"]);

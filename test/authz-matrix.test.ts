@@ -421,6 +421,15 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getUserBillingData: "member",
 		downloadUserBillPDF: "member",
 	},
+	"src/server/modules/booking-accounts/actions.ts": {
+		getBookingAccounts: "member",
+		getManagedBookingAccounts: GETRAENKE,
+		addBookingAccount: { access: GETRAENKE, args: () => ["Matrix", false] },
+		setBookingAccountPinned: { access: GETRAENKE, args: () => ["x", true] },
+		setBookingAccountArchived: { access: GETRAENKE, args: () => ["x", true] },
+		moveBookingAccount: { access: GETRAENKE, args: () => ["x", "up"] },
+		deleteBookingAccount: { access: GETRAENKE, args: () => ["x"] },
+	},
 	"src/server/modules/getraenkekasse/actions.ts": {
 		getKasseSummary: GETRAENKE,
 		getBankEntries: GETRAENKE,

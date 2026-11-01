@@ -1,6 +1,7 @@
 "use client";
 
 import { RadioGroup as RadioGroupPrimitive } from "radix-ui";
+import type * as React from "react";
 
 import { cn } from "~/lib/utils";
 
@@ -25,6 +26,16 @@ type ChipGroupProps<T extends string> = {
 	 * 16 px padding). Use it when the chips sit directly in the page padding.
 	 */
 	bleed?: boolean;
+	/**
+	 * Wrap onto more lines instead of scrolling, for a choice where every
+	 * option must stay visible (no chip cut off at the edge).
+	 */
+	wrap?: boolean;
+	/**
+	 * Shown after the last chip, in the same row, e.g. a "Weitere" menu
+	 * button for options that are not chips. Not a radio itself.
+	 */
+	trailing?: React.ReactNode;
 	disabled?: boolean;
 	className?: string;
 } & (
@@ -34,7 +45,8 @@ type ChipGroupProps<T extends string> = {
 
 /**
  * The one filter-chip / segmented control (#87): a single-choice row of
- * pills that scrolls sideways on phones instead of wrapping. It is a radio
+ * pills that scrolls sideways on phones instead of wrapping (or wraps, with
+ * `wrap`). It is a radio
  * group: one Tab stop, arrow keys move between chips and select them, Home
  * and End jump to the ends. Needs an accessible name (`aria-label` or
  * `aria-labelledby`).
@@ -45,6 +57,8 @@ export function ChipGroup<T extends string>({
 	onValueChange,
 	size = "default",
 	bleed = false,
+	wrap = false,
+	trailing,
 	disabled,
 	className,
 	...labelling
@@ -59,14 +73,18 @@ export function ChipGroup<T extends string>({
 			className={cn(
 				// The padding keeps the 44 px hit areas and the focus ring inside
 				// the scroll box, which would clip them; the negative margin hides it.
-				"-m-1 flex min-w-0 gap-1.5 overflow-x-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-				bleed && "-mx-4 px-4 md:-mx-1 md:px-1",
+				"-m-1 flex min-w-0 gap-1.5 p-1",
+				wrap
+					? "flex-wrap"
+					: "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+				bleed && !wrap && "-mx-4 px-4 md:-mx-1 md:px-1",
 				className,
 			)}
 		>
 			{options.map((o) => (
 				<Chip key={o.value} option={o} size={size} />
 			))}
+			{trailing}
 		</RadioGroupPrimitive.Root>
 	);
 }
