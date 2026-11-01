@@ -7,7 +7,6 @@ import { z } from "zod";
 import { auth } from "~/server/auth";
 import { ROLES, requireCaller } from "~/server/lib/authz";
 import { defineAction } from "~/server/lib/define-action";
-import { log } from "~/server/lib/log";
 import { scopeOf } from "~/server/lib/tenant-scope";
 import { runGetraenkeBilling } from "./run";
 import * as billing from "./service";
@@ -85,28 +84,17 @@ export async function getUserBillingData(): Promise<billing.UserBillingData> {
 }
 
 /** The caller's own bill as PDF in Blob storage, for the download link. */
-export async function downloadUserBillPDF(billId: string): Promise<{
-	success: boolean;
-	downloadUrl?: string;
-	fileName?: string;
-	error?: string;
-}> {
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			throw new Error("User must be authenticated to download billing data");
-		}
+export const downloadUserBillPDF = defineAction(
+	{
+		schema: z.tuple([z.string()]),
+		errorMessage: "PDF konnte nicht heruntergeladen werden",
+	},
+	async ([billId], { tenant, user }) => {
 		const { downloadUrl, fileName } = await billing.saveUserBillPdf(
-			await scopeOf(session.tenantId),
-			session.user,
+			tenant,
+			user,
 			billId,
 		);
-		return { success: true, downloadUrl, fileName };
-	} catch (error) {
-		await log.error("Error downloading PDF", { err: error });
-		return {
-			success: false,
-			error: error instanceof Error ? error.message : "Failed to download PDF",
-		};
-	}
-}
+		return { downloadUrl, fileName };
+	},
+);
