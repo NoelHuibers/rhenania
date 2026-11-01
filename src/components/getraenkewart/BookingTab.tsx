@@ -23,13 +23,13 @@ import {
 import type { BookingAccountOption } from "~/lib/booking-accounts";
 import { formatEUR } from "~/lib/format";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
-import { getAllUsers, type User } from "~/server/actions/game/getUsers";
 import {
 	getAllDrinksForMenu,
 	getDrinkMarkupPercent,
 } from "~/server/actions/menu";
 import { createOrder } from "~/server/actions/orders";
 import { getBookingAccounts } from "~/server/modules/booking-accounts/actions";
+import { getAllUsers, type User } from "~/server/modules/games/actions";
 
 type Drink = {
 	id: string;

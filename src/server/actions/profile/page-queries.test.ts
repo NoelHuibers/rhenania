@@ -7,11 +7,11 @@ import { getMyOrdersPage } from "~/server/actions/orders";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
 import { getUserProfile } from "~/server/actions/profile/profile";
 import { auth } from "~/server/auth";
-import { getEloStatsForUser } from "~/server/lib/elo-stats";
 import {
 	getProfilePreferencesForUser,
 	isEloEnabledForUser,
 } from "~/server/lib/preferences";
+import { loadEloStats } from "~/server/loaders/elo-stats";
 import { loadOpenBill } from "~/server/loaders/open-bill";
 import { getUserAchievements } from "~/server/modules/achievements/actions";
 import { getUserBillingData } from "~/server/modules/billing/actions";
@@ -83,9 +83,11 @@ async function loadProfilePage() {
 		loadOpenBill(session),
 		(async () => {
 			const s = await auth();
-			const id = s?.user?.id ?? "";
-			return (await isEloEnabledForUser(id))
-				? await getEloStatsForUser(id)
+			if (!s) {
+				throw new Error("not signed in");
+			}
+			return (await isEloEnabledForUser(s.user.id))
+				? await loadEloStats(s)
 				: null;
 		})(),
 	]);

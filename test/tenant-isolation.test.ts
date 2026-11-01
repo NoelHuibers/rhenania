@@ -78,9 +78,9 @@ const FOREIGN = "Fremdcorps";
  * and rankings). They may return B's names; they still must not change B.
  */
 const CROSS_CORPS_READS: Record<string, string> = {
-	"src/server/actions/game/cross-tenant-discovery.ts#listChallengeableTenants":
+	"src/server/modules/games/actions.ts#listChallengeableTenants":
 		"lists the other Corps to challenge",
-	"src/server/actions/game/cross-tenant-discovery.ts#listChallengeableUsers":
+	"src/server/modules/games/actions.ts#listChallengeableUsers":
 		"lists the members of the chosen Corps to challenge",
 	"src/server/actions/newuser/users.ts#createUser":
 		"inviting a person who already has an account adds that account to this Corps",

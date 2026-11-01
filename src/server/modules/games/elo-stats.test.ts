@@ -4,17 +4,18 @@ import {
 	createPlayers,
 	insertGame,
 	setUserStats,
-} from "../../../test/factories/game";
+} from "../../../../test/factories/game";
 import {
 	createTenant,
 	createUser,
 	setupTestDatabases,
-} from "../../../test/harness";
-import { getEloStatsForUser } from "./elo-stats";
+	testScope,
+} from "../../../../test/harness";
+import { eloStatsOf } from "./service";
 
 setupTestDatabases();
 
-describe("getEloStatsForUser", () => {
+describe("eloStatsOf", () => {
 	test("reads the unified stats and the ELO history oldest first", async () => {
 		await createTenant();
 		const [anna, bert] = await createPlayers(2);
@@ -40,7 +41,7 @@ describe("getEloStatsForUser", () => {
 			player2EloAfter: 1199,
 		});
 
-		const { stats, eloHistory } = await getEloStatsForUser(anna.id);
+		const { stats, eloHistory } = await eloStatsOf(testScope(), anna.id);
 
 		expect(stats).toMatchObject({
 			currentElo: 1199,
@@ -73,7 +74,7 @@ describe("getEloStatsForUser", () => {
 			player1EloAfter: 1199,
 		});
 
-		const { stats } = await getEloStatsForUser(anna.id);
+		const { stats } = await eloStatsOf(testScope(), anna.id);
 
 		expect(stats).toMatchObject({
 			userId: anna.id,
@@ -89,7 +90,7 @@ describe("getEloStatsForUser", () => {
 		await createTenant();
 		const user = await createUser();
 
-		const { stats, eloHistory } = await getEloStatsForUser(user.id);
+		const { stats, eloHistory } = await eloStatsOf(testScope(), user.id);
 
 		expect(stats).toMatchObject({
 			currentElo: 1200,
@@ -111,7 +112,7 @@ describe("getEloStatsForUser", () => {
 			player1EloAfter: 1216,
 		});
 
-		const { eloHistory } = await getEloStatsForUser(anna.id);
+		const { eloHistory } = await eloStatsOf(testScope(), anna.id);
 
 		expect(eloHistory).toEqual([{ date: "2026-10-26", elo: 1216 }]);
 	});

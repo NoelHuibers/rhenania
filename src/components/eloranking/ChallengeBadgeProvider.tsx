@@ -12,7 +12,7 @@ import { nextPollDelay, POLL_BASE_MS } from "~/lib/poll-backoff";
 import {
 	type ChallengeFeed,
 	getMyChallenges,
-} from "~/server/actions/game/challenge";
+} from "~/server/modules/games/actions";
 
 const EMPTY_FEED: ChallengeFeed = {
 	incomingPending: [],

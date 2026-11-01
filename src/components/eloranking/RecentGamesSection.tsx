@@ -1,6 +1,6 @@
 import { Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { getRecentGames } from "~/server/actions/game/game";
+import { getRecentGames } from "~/server/modules/games/actions";
 import { RecentGamesClient } from "./RecentGamesClient";
 
 export async function RecentGamesSection() {

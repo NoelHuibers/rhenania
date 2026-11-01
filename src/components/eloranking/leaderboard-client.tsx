@@ -7,8 +7,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { getGlobalLeaderboard } from "~/server/actions/game/cross-tenant-discovery";
-import { getLeaderboard } from "~/server/actions/game/game";
+import {
+	getGlobalLeaderboard,
+	getLeaderboard,
+} from "~/server/modules/games/actions";
 
 export type LeaderboardScope = "global" | "internal";
 

@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { formatDateTime, formatRelative } from "~/lib/format";
-import type { GameRecord } from "~/server/actions/game/game";
+import type { GameRecord } from "~/server/modules/games/actions";
 
 interface RecentGamesClientProps {
 	games: GameRecord[];

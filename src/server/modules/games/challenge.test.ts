@@ -33,7 +33,7 @@ import {
 	getMyChallenges,
 	proposeResult,
 	respondToChallenge,
-} from "./challenge";
+} from "./actions";
 
 // Achievements run after the response; they have their own tests.
 vi.mock("~/server/modules/achievements/tracking", () => ({

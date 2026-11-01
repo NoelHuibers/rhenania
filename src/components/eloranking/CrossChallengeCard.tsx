@@ -23,7 +23,7 @@ import {
 	disputeCrossTenantResult,
 	proposeCrossTenantResult,
 	respondToCrossTenantChallenge,
-} from "~/server/actions/game/cross-tenant-challenge";
+} from "~/server/modules/games/actions";
 
 type Variant =
 	| "incoming-pending"

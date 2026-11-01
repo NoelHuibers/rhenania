@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import {
 	type CrossChallengeFeed,
 	getMyCrossTenantChallenges,
-} from "~/server/actions/game/cross-tenant-challenge";
+} from "~/server/modules/games/actions";
 import { useChallengeBadge } from "./ChallengeBadgeProvider";
 import { ChallengeCard } from "./ChallengeCard";
 import { CreateChallengeForm } from "./CreateChallengeForm";

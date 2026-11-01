@@ -2,8 +2,11 @@ import { GamepadIcon, TrendingUp, Trophy, Users } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Skeleton } from "~/components/ui/skeleton";
 import { StatTile } from "~/components/ui/stat-tile";
-import { getGlobalPeakEloHolder } from "~/server/actions/game/cross-tenant-discovery";
-import { getLeaderboard, getRecentGames } from "~/server/actions/game/game";
+import {
+	getGlobalPeakEloHolder,
+	getLeaderboard,
+	getRecentGames,
+} from "~/server/modules/games/actions";
 
 function StatTileSkeleton() {
 	return (

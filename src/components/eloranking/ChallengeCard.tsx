@@ -15,7 +15,7 @@ import {
 	disputeResult,
 	proposeResult,
 	respondToChallenge,
-} from "~/server/actions/game/challenge";
+} from "~/server/modules/games/actions";
 import { useChallengeBadge } from "./ChallengeBadgeProvider";
 
 type Variant =
