@@ -15,7 +15,7 @@ import {
 	getAvailableDrinks,
 	getDrinkMarkupPercent,
 	type MenuItem,
-} from "~/server/actions/menu";
+} from "~/server/modules/drinks/actions";
 import {
 	createChallenge,
 	getAllUsersExcept,

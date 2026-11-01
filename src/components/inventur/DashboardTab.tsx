@@ -5,7 +5,7 @@ import type {
 	ActiveEventInventory,
 	EtaplanWithKostenpunkte,
 	InventurEvent,
-} from "~/server/actions/inventur/inventur";
+} from "~/server/modules/inventur/actions";
 import { InventoryCountDialog } from "./CountMode";
 import { ActiveEventBanner } from "./dashboard/ActiveEventBanner";
 import { DashboardActions } from "./dashboard/DashboardActions";

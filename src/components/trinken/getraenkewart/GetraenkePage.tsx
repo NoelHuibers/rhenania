@@ -18,7 +18,7 @@ import {
 	getDrinks,
 	toggleDrinkAvailability,
 	updateDrink,
-} from "~/server/actions/drinks";
+} from "~/server/modules/drinks/actions";
 
 export function GetraenkePage() {
 	const tenantSlug = useTenantSlug();

@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import Image from "next/image";
 import { formatEUR } from "~/lib/format";
 import { cn } from "~/lib/utils";
-import type { MenuItem } from "~/server/actions/menu";
+import type { MenuItem } from "~/server/modules/drinks/actions";
 
 interface DrinkButtonProps {
 	drink: MenuItem;

@@ -21,8 +21,8 @@ import {
 import { roundToCent } from "~/lib/money";
 import { unitPriceFor } from "~/lib/pricing";
 import { cn } from "~/lib/utils";
-import type { MenuItem } from "~/server/actions/menu";
-import { createOrder } from "~/server/actions/orders";
+import type { MenuItem } from "~/server/modules/drinks/actions";
+import { createOrder } from "~/server/modules/orders/actions";
 import { type BillingOption, BillingSelector } from "./Billingselector";
 import { DrinkButton } from "./DrinkButton";
 import { OrderDrawer, type OrderIntent } from "./OrderDrawer";

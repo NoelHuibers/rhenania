@@ -24,7 +24,7 @@ import {
 } from "~/components/ui/select";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
 import { parseDecimalInput } from "~/lib/decimal";
-import { addDrink } from "~/server/actions/drinks";
+import { addDrink } from "~/server/modules/drinks/actions";
 import { DrinkImagePicker } from "./DrinkImagePicker";
 
 interface AddDrinkDialogProps {

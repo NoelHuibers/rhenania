@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import type { MenuItem } from "~/server/actions/menu";
+import type { MenuItem } from "~/server/modules/drinks/actions";
 import { DrinkButton } from "./DrinkButton";
 import { DrinksMenu } from "./DrinksMenu";
 

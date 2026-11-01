@@ -13,14 +13,15 @@ import {
 	signInAs,
 	type TestUser,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
 import { useServerTimeZone } from "../../../../test/server-tz";
-import { getConsumptionLast6MonthsByDrink } from "./consumption";
 import {
-	getLeaderboardLast6Months,
-	getMonthlyGrowthRate,
-	getTotalConsumption,
-} from "./leaderboard";
+	consumptionByDrink,
+	leaderboard,
+	monthlyGrowthRate,
+	totalConsumption,
+} from "./service";
 
 setupTestDatabases();
 
@@ -116,7 +117,7 @@ describe("leaderboard", () => {
 	test("ranks members by personal liters over six months", async () => {
 		await seed();
 
-		expect(await getLeaderboardLast6Months()).toEqual([
+		expect(await leaderboard(testScope())).toEqual([
 			{
 				userId: fritz.id,
 				userName: "Fritz",
@@ -148,7 +149,7 @@ describe("leaderboard", () => {
 	test("honours the limit", async () => {
 		await seed();
 
-		const top = await getLeaderboardLast6Months({ limit: 2 });
+		const top = await leaderboard(testScope(), 2);
 
 		expect(top.map((e) => e.userName)).toEqual(["Fritz", "Max"]);
 	});
@@ -157,25 +158,25 @@ describe("leaderboard", () => {
 		await seed();
 
 		// (3.5 − 5) / 5
-		expect(await getMonthlyGrowthRate()).toBe(-30);
+		expect(await monthlyGrowthRate(testScope())).toBe(-30);
 	});
 
 	test("total consumption counts every order of the last six months", async () => {
 		await seed();
 
 		// 4 + 3 + 1.5 personal + 51 group bookings.
-		expect(await getTotalConsumption()).toBe(59.5);
+		expect(await totalConsumption(testScope())).toBe(59.5);
 	});
 
 	test("an empty tenant has no ranking and no growth rate", async () => {
-		expect(await getLeaderboardLast6Months()).toEqual([]);
-		expect(await getMonthlyGrowthRate()).toBeNull();
-		expect(await getTotalConsumption()).toBe(0);
+		expect(await leaderboard(testScope())).toEqual([]);
+		expect(await monthlyGrowthRate(testScope())).toBeNull();
+		expect(await totalConsumption(testScope())).toBe(0);
 	});
 });
 
 // The month axis is computed from the JS clock, so these tests fake it.
-describe("getConsumptionLast6MonthsByDrink", () => {
+describe("consumptionByDrink", () => {
 	beforeEach(() => {
 		vi.useFakeTimers({ toFake: ["Date"] });
 		vi.setSystemTime(new Date("2026-10-27T10:00:00Z"));
@@ -227,7 +228,7 @@ describe("getConsumptionLast6MonthsByDrink", () => {
 			createdAt: new Date("2026-10-31T22:30:00Z"),
 		});
 
-		const { data } = await getConsumptionLast6MonthsByDrink();
+		const { data } = await consumptionByDrink(testScope());
 
 		expect(data.map((d) => [d.label, d.monthStart, d.total])).toEqual([
 			["Mai 2026", monthStart(5), 1],
@@ -261,7 +262,7 @@ describe("getConsumptionLast6MonthsByDrink", () => {
 			createdAt: midMonth(1),
 		});
 
-		const { data, config } = await getConsumptionLast6MonthsByDrink();
+		const { data, config } = await consumptionByDrink(testScope());
 
 		const p = `drink_${pils.id}`;
 		const w = `drink_${wein.id}`;

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
 	cancelEventInventory,
 	saveQuickAdjustments,
-} from "~/server/actions/inventur/inventur";
+} from "~/server/modules/inventur/actions";
 import { submitInventory } from "../CountMode";
 import { removeSavedItemIds } from "../changed-items";
 import {

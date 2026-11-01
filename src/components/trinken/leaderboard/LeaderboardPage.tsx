@@ -1,17 +1,16 @@
 import { ConsumptionLineChart } from "~/components/trinken/leaderboard/ConsumptionChart";
 import { Leaderboard } from "~/components/trinken/leaderboard/Leaderboard";
 import { MetricsCards } from "~/components/trinken/leaderboard/MetricsCards";
-import { getConsumptionLast6MonthsByDrink } from "~/server/actions/leaderboard/consumption";
-import {
-	getLeaderboardLast6Months,
-	getMonthlyGrowthRate,
-	getTotalConsumption,
-} from "~/server/actions/leaderboard/leaderboard";
+import { loadLeaderboard } from "~/server/loaders/leaderboard";
 import { SiteHeader } from "../SiteHeader";
 
 export async function LeaderboardPage() {
-	const rows = await getLeaderboardLast6Months({ limit: 20 });
-	const { data, config } = await getConsumptionLast6MonthsByDrink();
+	const {
+		rows,
+		chart: { data, config },
+		total,
+		growthRate,
+	} = await loadLeaderboard();
 
 	const consumers = rows.map((r, i) => ({
 		id: i + 1,
@@ -24,9 +23,6 @@ export async function LeaderboardPage() {
 				? "neu"
 				: `${r.changePct >= 0 ? "+" : ""}${r.changePct.toFixed(0)}%`,
 	}));
-
-	const total = await getTotalConsumption();
-	const growthRate = await getMonthlyGrowthRate();
 
 	return (
 		<div className="min-h-screen bg-background">

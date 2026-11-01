@@ -9,7 +9,7 @@ import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Progress } from "~/components/ui/progress";
 import { formatEUR } from "~/lib/format";
-import type { Drink } from "~/server/actions/drinks";
+import type { Drink } from "~/server/modules/drinks/actions";
 import { DeleteButton } from "./Deletebutton";
 
 interface DrinksCardsMobileProps {

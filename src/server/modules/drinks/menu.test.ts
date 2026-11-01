@@ -7,13 +7,13 @@ import {
 	setKasseConfig,
 	setupTestDatabases,
 	signInAs,
-} from "../../../test/harness";
-import { requireTenant } from "../../../test/state";
+} from "../../../../test/harness";
+import { requireTenant } from "../../../../test/state";
 import {
 	getAllDrinksForMenu,
 	getAvailableDrinks,
 	getDrinkMarkupPercent,
-} from "./menu";
+} from "./actions";
 
 setupTestDatabases();
 

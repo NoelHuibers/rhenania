@@ -6,7 +6,6 @@
 
 import { unstable_rethrow } from "next/navigation";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { getMyOrdersPage } from "~/server/actions/orders";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
 import { getUserProfile } from "~/server/actions/profile/profile";
 import { getProfilePreferencesForUser } from "~/server/lib/preferences";
@@ -18,6 +17,7 @@ import {
 	getMyFuchsenSummary,
 } from "~/server/modules/fuchsenladen/actions";
 import { getMyMember } from "~/server/modules/members/actions";
+import { getMyOrdersPage } from "~/server/modules/orders/actions";
 import { AccountSecurity } from "./AccountSecurity";
 import { Achievements } from "./Achievements";
 import { BillingOverview } from "./BillingOverview";

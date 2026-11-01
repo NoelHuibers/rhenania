@@ -11,7 +11,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "~/components/ui/table";
-import type { Drink } from "~/server/actions/drinks";
+import type { Drink } from "~/server/modules/drinks/actions";
 import { DrinkRow } from "./DrinkRow";
 
 interface DrinksTableDesktopProps {
