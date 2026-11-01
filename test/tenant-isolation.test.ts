@@ -55,7 +55,7 @@ vi.mock("@vercel/blob", () => ({
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 vi.mock("~/server/lib/turso-platform");
 vi.mock("~/server/lib/tenant-provisioning");
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 	recalculateAllAchievements: vi.fn(),
 }));

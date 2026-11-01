@@ -3,8 +3,9 @@
 Where server code lives, how it gets its tenant database, and the order in
 which the existing code moves there. Phase 1 (this document, the lint rule,
 the explicit script DB), phase 2 (billing and the Getränkekasse), phase 3
-(the Fuchsenladen and the mails) and phase 4 (the CC-Kasse and
-Mitglieder/Semesterbeitrag) are done; achievements and games come next.
+(the Fuchsenladen and the mails), phase 4 (the CC-Kasse and
+Mitglieder/Semesterbeitrag) and the achievements half of phase 5 are done;
+the games come next.
 
 ## Why
 
@@ -103,7 +104,8 @@ One domain per PR, each PR leaving behaviour, query counts (the
 2. **Billing + Getränkekasse** (done, see below).
 3. **Fuchsenladen + mails** (done, see below).
 4. **CC-Kasse and Mitglieder/Semesterbeitrag** (done, see below).
-5. Achievements/tracking and games (the cross-tenant parts need two scopes).
+5. Achievements/tracking (done, see below) and games (the cross-tenant
+   parts need two scopes).
 6. The rest (events, profile, drinks, images, venues), then delete the proxy
    and `getCurrentTenantDb`, leaving `TenantScope` as the only way in.
 
@@ -232,6 +234,46 @@ src/server/domain/semesterbeitrag/beitrag-pdf.ts  the Beitrag letter
 - The actions name their id parameters (`etaplanId`, `kostenpunktId`,
   `einnahmeId`, `reimbursementId`, `memberId`), so the tenant-isolation
   test passes each a foreign row of the right kind.
-- Known gap: `knip --production` reports unused exports only under
-  `src/server/actions`, so an action in a module's `actions.ts` that only
-  a test calls is not flagged yet.
+- `knip --production` reported unused exports only under
+  `src/server/actions`; since #239 it checks the modules' `actions.ts`
+  too.
+
+## Phase 5: achievements and games
+
+### Achievements (done)
+
+```
+src/server/modules/achievements/
+  repo.ts        the catalogue with a user's unlocks and progress, the
+                 statistics the rules read (one tenant batch, one control
+                 batch for cross-Corps games), the progress and unlock
+                 batch, the history the recalculation reads, the profile's
+                 lists and unlock counts
+  tracking.ts    checkAndUnlockAchievements (live events) and
+                 recalculateAllAchievements (the seed)
+  service.ts     the profile's achievement list, unlock percentages, the
+                 Corps' founding day
+  actions.ts     getUserAchievements
+src/server/domain/achievements/rules.ts   the rules per event, the
+                                          recalculation's history helpers
+```
+
+- Tracking takes the scope of the Corps whose achievements move:
+  `checkAndUnlockAchievements(tenant, userId, event, context?)`. The
+  actions that cause an event (orders, the avatar, new accounts, games)
+  pass their own scope; a cross-Corps game tracks each player in the
+  Corps they played for, with one explicit scope per Corps. The
+  `{ tenantId }` option and the fallback to the request host (and, in the
+  seed, to every cross-Corps game of the user) are gone.
+- Tracking still never throws; a failure is logged. The rules read the
+  scope's clock, the founding day comes from the scope's tenant.
+- `actions/achievements/`, `actions/profile/achievements.ts` and
+  `lib/achievement-stats.ts` are gone. Four of those files (with
+  `lib/achievements/version1.ts`, whose `seedAchievements` now takes the
+  database) imported the proxy; the baseline is 20.
+- `pnpm db:seed <tenant-id>` names the tenant whose DB `DATABASE_URL` is
+  and runs with the `react-server` condition, so it can import the
+  services (`server-only`). Nothing calls `runWithScriptDb` any more; it
+  goes with the proxy.
+- The query budgets are unchanged: one event costs at most three round
+  trips (`tracking-queries.test.ts`), the profile page's count stays.

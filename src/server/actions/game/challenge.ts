@@ -28,8 +28,8 @@ import {
 	type EloOutcome,
 	revertEloOutcome,
 } from "~/server/lib/user-stats";
+import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
 import { drinkPricing } from "~/server/modules/getraenkekasse/service";
-import { checkAndUnlockAchievements } from "../achievements/tracking";
 
 const RESPOND_WINDOW_MS = 30 * 60 * 1000; // 30 min to accept
 const PLAY_WINDOW_MS = 6 * 60 * 60 * 1000; // 6 h to propose result
@@ -591,7 +591,7 @@ async function settleChallenge(
 	scope: TenantScope,
 	challengeId: string,
 ): Promise<{ gameId: string }> {
-	const { tenantId, db } = scope;
+	const { db } = scope;
 	const row = await claimProposedResult(scope, challengeId);
 	if (!row) {
 		throw new ConflictError(NOTHING_TO_CONFIRM);
@@ -652,14 +652,10 @@ async function settleChallenge(
 	// Achievements run after the response, against this Corps explicitly.
 	after(() =>
 		Promise.all([
-			checkAndUnlockAchievements(row.challengerId, "game_played", undefined, {
-				tenantId,
-			}),
-			checkAndUnlockAchievements(row.opponentId, "game_played", undefined, {
-				tenantId,
-			}),
-			checkAndUnlockAchievements(winnerId, "game_won", undefined, { tenantId }),
-			checkAndUnlockAchievements(loserId, "game_lost", undefined, { tenantId }),
+			checkAndUnlockAchievements(scope, row.challengerId, "game_played"),
+			checkAndUnlockAchievements(scope, row.opponentId, "game_played"),
+			checkAndUnlockAchievements(scope, winnerId, "game_won"),
+			checkAndUnlockAchievements(scope, loserId, "game_lost"),
 		]),
 	);
 

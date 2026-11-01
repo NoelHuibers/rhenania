@@ -12,9 +12,9 @@ import { getCurrentTenantDb } from "~/server/db/tenants";
 import { requireMember } from "~/server/lib/authz";
 import { ActionError, defineAction } from "~/server/lib/define-action";
 import { NotFoundError } from "~/server/lib/domain-error";
+import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
 import { isBookableAccount } from "~/server/modules/booking-accounts/service";
 import { drinkPricing } from "~/server/modules/getraenkekasse/service";
-import { checkAndUnlockAchievements } from "./achievements/tracking";
 
 const INVALID_AMOUNT = `Bitte eine ganze Anzahl zwischen 1 und ${MAX_ORDER_AMOUNT} wählen`;
 
@@ -142,9 +142,12 @@ export const createOrder = defineAction(
 			bookingFor,
 		};
 		after(() =>
-			checkAndUnlockAchievements(userId, "order_created", achievementContext, {
-				tenantId: tenant.tenantId,
-			}),
+			checkAndUnlockAchievements(
+				tenant,
+				userId,
+				"order_created",
+				achievementContext,
+			),
 		);
 
 		return { orderId: newOrder?.id };

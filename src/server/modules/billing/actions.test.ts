@@ -40,7 +40,7 @@ import {
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 // Achievements run fire-and-forget after an order; they have their own tests.
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
 

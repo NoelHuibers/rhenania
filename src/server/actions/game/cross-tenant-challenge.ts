@@ -33,7 +33,10 @@ import {
 	type EloOutcome,
 	revertEloOutcome,
 } from "~/server/lib/user-stats";
-import { checkAndUnlockAchievements } from "../achievements/tracking";
+import {
+	type AchievementEvent,
+	checkAndUnlockAchievements,
+} from "~/server/modules/achievements/tracking";
 
 const RESPOND_WINDOW_MS = 30 * 60 * 1000;
 const PLAY_WINDOW_MS = 6 * 60 * 60 * 1000;
@@ -565,41 +568,29 @@ async function settleCrossTenantChallenge(
 		throw error;
 	}
 
-	// Each player's achievements live in their own Corps' DB.
-	const corpsOf = (userId: string) => ({
-		tenantId:
-			userId === row.challengerId
-				? row.challengerTenantId
-				: row.opponentTenantId,
+	// Each player's achievements live in the Corps they played for: two
+	// explicit scopes, the challenger's and the opponent's.
+	after(() => {
+		const challengerCorps = scopeOf(row.challengerTenantId);
+		const opponentCorps = scopeOf(row.opponentTenantId);
+		const track = async (userId: string, event: AchievementEvent) => {
+			try {
+				const corps = await (userId === row.challengerId
+					? challengerCorps
+					: opponentCorps);
+				await checkAndUnlockAchievements(corps, userId, event);
+			} catch (error) {
+				// That Corps' DB is unavailable; tracking never fails the game.
+				console.error("Achievement tracking error:", error);
+			}
+		};
+		return Promise.all([
+			track(row.challengerId, "game_played"),
+			track(row.opponentId, "game_played"),
+			track(winnerId, "game_won"),
+			track(loserId, "game_lost"),
+		]);
 	});
-	after(() =>
-		Promise.all([
-			checkAndUnlockAchievements(
-				row.challengerId,
-				"game_played",
-				undefined,
-				corpsOf(row.challengerId),
-			),
-			checkAndUnlockAchievements(
-				row.opponentId,
-				"game_played",
-				undefined,
-				corpsOf(row.opponentId),
-			),
-			checkAndUnlockAchievements(
-				winnerId,
-				"game_won",
-				undefined,
-				corpsOf(winnerId),
-			),
-			checkAndUnlockAchievements(
-				loserId,
-				"game_lost",
-				undefined,
-				corpsOf(loserId),
-			),
-		]),
-	);
 
 	return { gameId };
 }

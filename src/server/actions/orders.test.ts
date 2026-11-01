@@ -1,8 +1,7 @@
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
-
-import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
 import { bookingAccounts, orders } from "~/server/db/schema";
+import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
 import { createOrderRow, daysAgo } from "../../../test/factories/inventory";
 import {
 	countQueries,
@@ -19,7 +18,7 @@ import { testState } from "../../../test/state";
 import { createOrder, getMyOrdersPage } from "./orders";
 
 // Achievements run after the response; they have their own tests.
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
 
@@ -77,6 +76,7 @@ describe("createOrder", () => {
 		expect(testState.afterTasks).toHaveLength(1);
 		await flushAfter();
 		expect(checkAndUnlockAchievements).toHaveBeenCalledWith(
+			expect.objectContaining({ tenantId: tenant.id }),
 			member.id,
 			"order_created",
 			{
@@ -86,7 +86,6 @@ describe("createOrder", () => {
 				total: 3,
 				bookingFor: null,
 			},
-			{ tenantId: tenant.id },
 		);
 	});
 

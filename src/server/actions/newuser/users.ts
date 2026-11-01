@@ -15,8 +15,8 @@ import { defineAction } from "~/server/lib/define-action";
 import { ConflictError } from "~/server/lib/domain-error";
 import { forgetMembership } from "~/server/lib/tenant-context";
 import { mirrorUserToTenant } from "~/server/lib/user-mirror";
+import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
 import { sendVerificationEmail } from "~/server/modules/mail/service";
-import { checkAndUnlockAchievements } from "../achievements/tracking";
 
 /**
  * Invites `email` into the Admin's Corps: creates the identity unless it
@@ -108,9 +108,7 @@ export const createUser = defineAction(
 		if (isNew) {
 			const newUserId = userRow.id;
 			after(() =>
-				checkAndUnlockAchievements(newUserId, "account_created", undefined, {
-					tenantId,
-				}),
+				checkAndUnlockAchievements(tenant, newUserId, "account_created"),
 			);
 		}
 

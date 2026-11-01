@@ -18,7 +18,7 @@ import { getLeaderboard, getRecentGames } from "./game";
 import { getAllUsersExcept } from "./getUsers";
 
 // Achievements run fire-and-forget after the response; they have their own tests.
-vi.mock("~/server/actions/achievements/tracking", () => ({
+vi.mock("~/server/modules/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
 

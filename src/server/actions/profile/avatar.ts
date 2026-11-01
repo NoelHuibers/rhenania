@@ -11,7 +11,7 @@ import { defineAction } from "~/server/lib/define-action";
 import { ValidationError } from "~/server/lib/domain-error";
 import { log } from "~/server/lib/log";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
-import { checkAndUnlockAchievements } from "../achievements/tracking";
+import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
 
 /**
  * Only blobs in the caller's own avatar folder may ever be deleted. Without
@@ -85,9 +85,7 @@ export const updateUserAvatarUrl = defineAction(
 			.where(eq(users.id, user.id));
 
 		after(() =>
-			checkAndUnlockAchievements(user.id, "profile_picture_set", undefined, {
-				tenantId: tenant.tenantId,
-			}),
+			checkAndUnlockAchievements(tenant, user.id, "profile_picture_set"),
 		);
 
 		return { imageUrl };

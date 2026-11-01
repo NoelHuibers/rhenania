@@ -5,7 +5,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { achievementProgress } from "~/server/db/schema";
-import { getTenantById, requireTenantId } from "~/server/lib/tenant-context";
+import { getTenantById } from "~/server/lib/tenant-context";
 import {
 	createDrinkWith,
 	freezeClock,
@@ -22,6 +22,7 @@ import {
 	setupTestDatabases,
 	type TestUser,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
 import { checkAndUnlockAchievements } from "./tracking";
 
@@ -44,7 +45,7 @@ async function setup(at = "2026-10-24T14:00:00Z") {
 }
 
 function orderEvent(user: TestUser, drink: Drink, amount = 1) {
-	return checkAndUnlockAchievements(user.id, "order_created", {
+	return checkAndUnlockAchievements(testScope(), user.id, "order_created", {
 		drinkName: drink.name,
 		drinkId: drink.id,
 		amount,
@@ -57,9 +58,6 @@ describe("achievement tracking query budget (#22)", () => {
 	test("an order costs 3 round trips (was ~50), however long the history", async () => {
 		const { user, pils } = await setup();
 		await insertOrder({ user, drink: pils, amount: 3 });
-		// The tenant is resolved from the request host once and then cached;
-		// warm that cache so only the tracking itself is counted.
-		await requireTenantId();
 
 		const first = await countQueries(() => orderEvent(user, pils));
 
@@ -90,13 +88,12 @@ describe("achievement tracking query budget (#22)", () => {
 			player2Id: rival.id,
 			winnerId: user.id,
 		});
-		await requireTenantId(); // warm the host → tenant cache, see above
 
 		const played = await countQueries(() =>
-			checkAndUnlockAchievements(user.id, "game_played"),
+			checkAndUnlockAchievements(testScope(), user.id, "game_played"),
 		);
 		const won = await countQueries(() =>
-			checkAndUnlockAchievements(user.id, "game_won"),
+			checkAndUnlockAchievements(testScope(), user.id, "game_won"),
 		);
 
 		expect(played).toMatchObject({ tenant: 3, control: 1 });
@@ -112,11 +109,11 @@ describe("achievement tracking query budget (#22)", () => {
 			player2Id: rival.id,
 			winnerId: rival.id,
 		});
-		await checkAndUnlockAchievements(user.id, "game_lost");
+		await checkAndUnlockAchievements(testScope(), user.id, "game_lost");
 		const before = await tenantDb().select().from(achievementProgress);
 
 		const again = await countQueries(() =>
-			checkAndUnlockAchievements(user.id, "game_lost"),
+			checkAndUnlockAchievements(testScope(), user.id, "game_lost"),
 		);
 
 		// The streak stays 0: catalogue read, nothing to load or write.
@@ -127,10 +124,10 @@ describe("achievement tracking query budget (#22)", () => {
 
 	test("an event whose achievements are all unlocked costs one query", async () => {
 		const { user } = await setup();
-		await checkAndUnlockAchievements(user.id, "account_created");
+		await checkAndUnlockAchievements(testScope(), user.id, "account_created");
 
 		const again = await countQueries(() =>
-			checkAndUnlockAchievements(user.id, "account_created"),
+			checkAndUnlockAchievements(testScope(), user.id, "account_created"),
 		);
 
 		expect(again).toMatchObject({ total: 1, writes: 0 });
