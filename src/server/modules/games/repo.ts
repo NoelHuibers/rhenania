@@ -30,14 +30,13 @@ import {
 	users,
 } from "~/server/db/schema";
 import type { TenantDb } from "~/server/db/tenants";
-import { ELO_PREFERENCE_KEY } from "~/server/lib/elo-preference";
+import { ELO_OPT_OUT, ELO_PREFERENCE_KEY } from "~/server/lib/elo-preference";
 
 export type Challenge = typeof challenges.$inferSelect;
 type GameInsert = typeof games.$inferInsert;
 type OrderInsert = typeof orders.$inferInsert;
 
 /** The stored ELO opt-out: the preference value `false`. */
-const FALSE_JSON = JSON.stringify(false);
 
 /** Statuses of a challenge that is still running. */
 export const OPEN_STATUSES = [
@@ -352,52 +351,21 @@ export async function recentGames(db: TenantDb, limit: number) {
 		.limit(limit);
 }
 
-/** A player's name and picture (one query per call). */
-export async function playerCard(db: TenantDb, userId: string) {
-	const [row] = await db
-		.select({ name: users.name, avatar: users.image })
-		.from(users)
-		.where(eq(users.id, userId))
-		.limit(1);
-	return row ?? null;
-}
-
-/** A player's name (one query per call). */
-export async function playerName(db: TenantDb, userId: string) {
-	const [row] = await db
-		.select({ name: users.name })
-		.from(users)
-		.where(eq(users.id, userId))
-		.limit(1);
-	return row?.name ?? null;
-}
-
 /**
- * Whether the user takes part in the ranking: no preference row, or one
- * whose value is not `false` (compared as stored).
+ * Name, picture and ranking preference of each given player, in one query
+ * (the recent-games feed).
  */
-export async function isEloEnabled(
-	db: TenantDb,
-	userId: string,
-): Promise<boolean> {
-	const row = await db
-		.select({ value: userPreferences.value })
-		.from(userPreferences)
-		.where(
-			and(
-				eq(userPreferences.userId, userId),
-				eq(userPreferences.key, ELO_PREFERENCE_KEY),
-			),
-		)
-		.limit(1);
-	// default = enabled (no pref row)
-	return row.length === 0 ? true : row[0]?.value !== FALSE_JSON;
+export async function playerCards(db: TenantDb, userIds: string[]) {
+	if (userIds.length === 0) {
+		return [];
+	}
+	return withEloPreference(db).where(inArray(users.id, userIds));
 }
 
 /** Not opted out of the ranking: no preference row or not `false`. */
 const takesPart: SQL | undefined = or(
 	isNull(userPreferences.value),
-	ne(userPreferences.value, FALSE_JSON),
+	ne(userPreferences.value, ELO_OPT_OUT),
 );
 
 function withEloPreference(db: TenantDb) {

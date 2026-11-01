@@ -9,7 +9,7 @@
 
 import "server-only";
 
-import { and, desc, eq, gt, inArray, lt, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, lt, ne, or } from "drizzle-orm";
 import { controlDb } from "~/server/db/control";
 import {
 	crossTenantChallenges,
@@ -135,10 +135,14 @@ export async function activeCorpsOf(userIds: string[]) {
 				eq(tenantMemberships.status, "active"),
 				eq(tenants.status, "active"),
 			),
-		);
+		)
+		.orderBy(asc(tenantMemberships.joinedAt), asc(tenantMemberships.tenantId));
 }
 
-/** One active Corps the user is an active member of, null if none. */
+/**
+ * The active Corps the user joined first (their home Corps), null if none.
+ * The same pick as the first row per user of `activeCorpsOf`.
+ */
 export async function firstActiveCorpsOf(userId: string) {
 	const [row] = await controlDb
 		.select({ slug: tenants.slug, displayName: tenants.displayName })
@@ -151,6 +155,7 @@ export async function firstActiveCorpsOf(userId: string) {
 				eq(tenants.status, "active"),
 			),
 		)
+		.orderBy(asc(tenantMemberships.joinedAt), asc(tenantMemberships.tenantId))
 		.limit(1);
 	return row ?? null;
 }

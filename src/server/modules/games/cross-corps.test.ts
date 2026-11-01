@@ -768,6 +768,46 @@ describe("cross-Corps discovery", () => {
 		expect(members.map((m) => m.userId)).toEqual([b.player.id]);
 	});
 
+	test("lists nobody for the caller's own Corps or a suspended one (#244)", async () => {
+		const { a } = await twoCorps();
+		const zollern = await createTenant({
+			displayName: "Zollern",
+			status: "suspended",
+		});
+		await createUser({ tenantId: zollern.id });
+		await createUser({ tenantId: a.tenant.id });
+		signInAs(a.player);
+
+		expect(await listChallengeableUsers(a.tenant.id)).toEqual([]);
+		expect(await listChallengeableUsers(zollern.id)).toEqual([]);
+		expect(await listChallengeableUsers("no-such-corps")).toEqual([]);
+	});
+
+	test("global leaderboard labels a member of several Corps with the one they joined first (#244)", async () => {
+		const { a, b } = await twoCorps();
+		// Bruno joined Rhenania long before Hassia, where his account is.
+		await controlDb()
+			.insert(tenantMemberships)
+			.values({
+				userId: b.player.id,
+				tenantId: a.tenant.id,
+				status: "active",
+				joinedAt: new Date("2020-01-01T00:00:00Z"),
+			});
+		await setUserStats(b.player.id, {
+			currentElo: 1300,
+			totalGames: 1,
+			wins: 1,
+		});
+		signInAs(a.player);
+
+		const board = await getGlobalLeaderboard();
+
+		expect(board.find((e) => e.userId === b.player.id)).toMatchObject({
+			tenantName: a.tenant.displayName,
+		});
+	});
+
 	test("global leaderboard ranks every Corps by unified ELO", async () => {
 		const { a, b } = await twoCorps();
 		const idle = await createUser({ tenantId: b.tenant.id });
