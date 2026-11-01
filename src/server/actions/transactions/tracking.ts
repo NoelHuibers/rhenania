@@ -1,4 +1,4 @@
-// lib/actions/transactions.ts
+// transactions/tracking.ts — the order list behind /transactions.
 "use server";
 
 import {
@@ -12,9 +12,9 @@ import {
 	type SQL,
 	sql,
 } from "drizzle-orm";
-import { db } from "~/server/db";
+import { z } from "zod";
 import { orders } from "~/server/db/schema";
-import { requireMember } from "~/server/lib/authz";
+import { defineAction } from "~/server/lib/define-action";
 
 /**
  * A case-insensitive GLOB pattern for "contains `term`". SQLite's LIKE and
@@ -51,54 +51,54 @@ function searchCondition(search: string) {
 	);
 }
 
-export interface TransactionFilters {
-	search?: string;
-	billStatus?: "all" | "billed" | "not_billed";
-	purposeFilter?: "all" | "personal" | "events";
-	limit?: number;
-	offset?: number;
+const transactionFiltersSchema = z.object({
+	search: z.string().optional(),
+	billStatus: z.enum(["all", "billed", "not_billed"]).optional(),
+	purposeFilter: z.enum(["all", "personal", "events"]).optional(),
+	limit: z.number().int().min(0).optional(),
+	offset: z.number().int().min(0).optional(),
+});
+
+export type TransactionFilters = z.input<typeof transactionFiltersSchema>;
+
+/** The WHERE clause for `filters` (search, bill status, purpose). */
+function filterCondition({
+	search = "",
+	billStatus = "all",
+	purposeFilter = "all",
+}: TransactionFilters) {
+	const conditions: Array<SQL | undefined> = [];
+
+	if (search.trim()) {
+		conditions.push(searchCondition(search));
+	}
+
+	if (billStatus === "billed") {
+		conditions.push(eq(orders.inBill, true));
+	} else if (billStatus === "not_billed") {
+		conditions.push(eq(orders.inBill, false));
+	}
+
+	if (purposeFilter === "personal") {
+		conditions.push(or(isNull(orders.bookingFor), eq(orders.bookingFor, "")));
+	} else if (purposeFilter === "events") {
+		conditions.push(
+			and(isNotNull(orders.bookingFor), ne(orders.bookingFor, "")),
+		);
+	}
+
+	return conditions.length > 0 ? and(...conditions) : undefined;
 }
 
-export async function getTransactions(filters: TransactionFilters = {}) {
-	await requireMember();
-	try {
-		const {
-			search = "",
-			billStatus = "all",
-			purposeFilter = "all",
-			limit = 50,
-			offset = 0,
-		} = filters;
-
-		// Build where conditions
-		const conditions: Array<SQL | undefined> = [];
-
-		// Search filter
-		if (search?.trim()) {
-			conditions.push(searchCondition(search));
-		}
-
-		// Bill status filter
-		if (billStatus === "billed") {
-			conditions.push(eq(orders.inBill, true));
-		} else if (billStatus === "not_billed") {
-			conditions.push(eq(orders.inBill, false));
-		}
-
-		// Purpose filter
-		if (purposeFilter === "personal") {
-			conditions.push(or(isNull(orders.bookingFor), eq(orders.bookingFor, "")));
-		} else if (purposeFilter === "events") {
-			conditions.push(
-				and(isNotNull(orders.bookingFor), ne(orders.bookingFor, "")),
-			);
-		}
-
-		// Combine conditions
-		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-		// Execute query
-		const transactions = await db
+/** The Kassenwart's order list, newest first, `limit` rows from `offset`. */
+export const getTransactions = defineAction(
+	{
+		schema: z.tuple([transactionFiltersSchema.optional()]),
+		errorMessage: "Fehler beim Abrufen der Transaktionen",
+	},
+	async ([filters = {}], { tenant }) => {
+		const { limit = 50, offset = 0 } = filters;
+		return tenant.db
 			.select({
 				id: orders.id,
 				userId: orders.userId,
@@ -114,79 +114,24 @@ export async function getTransactions(filters: TransactionFilters = {}) {
 				createdAt: orders.createdAt,
 			})
 			.from(orders)
-			.where(whereClause)
+			.where(filterCondition(filters))
 			.orderBy(desc(orders.createdAt))
 			.limit(limit)
 			.offset(offset);
+	},
+);
 
-		// Convert timestamps to Date objects for the frontend
-		const formattedTransactions = transactions.map((transaction) => {
-			// The database already returns Date objects, no conversion needed
-			return {
-				...transaction,
-				createdAt: transaction.createdAt, // Already a Date object
-			};
-		});
-
-		return {
-			success: true,
-			data: formattedTransactions,
-			total: formattedTransactions.length,
-		};
-	} catch (error) {
-		console.error("Error fetching transactions:", error);
-		return {
-			success: false,
-			error: "Failed to fetch transactions",
-			data: [],
-			total: 0,
-		};
-	}
-}
-
-// Server action to get transaction count (useful for pagination)
-export async function getTransactionCount(filters: TransactionFilters = {}) {
-	await requireMember();
-	try {
-		const { search = "", billStatus = "all", purposeFilter = "all" } = filters;
-
-		// Build where conditions (same as above)
-		const conditions: Array<SQL | undefined> = [];
-
-		if (search?.trim()) {
-			conditions.push(searchCondition(search));
-		}
-
-		if (billStatus === "billed") {
-			conditions.push(eq(orders.inBill, true));
-		} else if (billStatus === "not_billed") {
-			conditions.push(eq(orders.inBill, false));
-		}
-
-		if (purposeFilter === "personal") {
-			conditions.push(or(isNull(orders.bookingFor), eq(orders.bookingFor, "")));
-		} else if (purposeFilter === "events") {
-			conditions.push(
-				and(isNotNull(orders.bookingFor), ne(orders.bookingFor, "")),
-			);
-		}
-
-		const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
-
-		const countResult = await db
+/** How many orders match `filters` (for the total shown above the list). */
+export const getTransactionCount = defineAction(
+	{
+		schema: z.tuple([transactionFiltersSchema.optional()]),
+		errorMessage: "Fehler beim Zählen der Transaktionen",
+	},
+	async ([filters = {}], { tenant }) => {
+		const [row] = await tenant.db
 			.select({ count: sql<number>`count(*)` })
 			.from(orders)
-			.where(whereClause);
-
-		return {
-			success: true,
-			count: countResult[0]?.count ?? 0,
-		};
-	} catch (error) {
-		console.error("Error counting transactions:", error);
-		return {
-			success: false,
-			count: 0,
-		};
-	}
-}
+			.where(filterCondition(filters));
+		return row?.count ?? 0;
+	},
+);
