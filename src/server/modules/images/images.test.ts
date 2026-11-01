@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { createHomepageImage } from "../../../../test/factories/platform";
 import { createTenant, setupTestDatabases } from "../../../../test/harness";
 import { requireTenant } from "../../../../test/state";
-import { getActiveImageBySection, getAllActiveImagesBySection } from "./images";
+import {
+	getActiveImageBySection,
+	getAllActiveImagesBySection,
+} from "./actions";
 
 setupTestDatabases();
 

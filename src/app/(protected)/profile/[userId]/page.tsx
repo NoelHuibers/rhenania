@@ -5,8 +5,8 @@ import { PublicAchievements } from "~/components/profile/PublicAchievements";
 import { PublicProfileIdentity } from "~/components/profile/PublicProfileIdentity";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Card, CardContent } from "~/components/ui/card";
-import { getPublicProfile } from "~/server/actions/profile/public-profile";
 import { auth } from "~/server/auth";
+import { getPublicProfile } from "~/server/modules/profile/actions";
 
 export default async function PublicProfilePage({
 	params,

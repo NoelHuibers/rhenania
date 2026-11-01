@@ -7,7 +7,7 @@ import {
 	signInAs,
 } from "../../../../test/harness";
 import { requireTenant } from "../../../../test/state";
-import { getUserRoles, hasAnyRole } from "./userRoles";
+import { getUserRoles, hasAnyRole } from "./actions";
 
 setupTestDatabases();
 

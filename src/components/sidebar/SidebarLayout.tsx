@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { isSidebarOpen, SIDEBAR_COOKIE_NAME } from "~/lib/sidebar-cookie";
-import { getChallengeNotificationPreferenceAction } from "~/server/actions/profile/preferences";
+import { getChallengeNotificationPreferenceAction } from "~/server/modules/preferences/actions";
 import { ChallengeBadgeProvider } from "../eloranking/ChallengeBadgeProvider";
 import { SidebarProvider } from "../ui/sidebar";
 import { AppSidebar } from "./AppSidebar";

@@ -22,7 +22,7 @@ import {
 	refreshProfile,
 	syncFromMicrosoft,
 	updateUserName,
-} from "~/server/actions/profile/profile";
+} from "~/server/modules/profile/actions";
 import { ProfileAvatarDialog } from "./ProfileAvatarDialog";
 
 interface User {

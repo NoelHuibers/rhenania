@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { AHV_VORSTAND_ROLES, HAUSVEREIN_VORSTAND_ROLES } from "~/lib/roles";
-import { toggleUserRole } from "../../server/actions/admin/admin";
+import { toggleUserRole } from "~/server/modules/users/actions";
 import { SiteHeader } from "../trinken/SiteHeader";
 import { AddUserDialog } from "./AddUserDialog";
 import { BulkRoleDialog } from "./BulkRoleDialog";

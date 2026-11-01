@@ -3,15 +3,15 @@ import {
 	formatEventFullDate,
 	startOfDayInTZ,
 } from "~/lib/time";
-import {
-	getActiveImageBySection,
-	getAllActiveImagesBySection,
-} from "~/server/actions/bilder/images";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 import {
 	getPublicPastEvents,
 	getPublicUpcomingEvents,
 } from "~/server/modules/events/actions";
+import {
+	getActiveImageBySection,
+	getAllActiveImagesBySection,
+} from "~/server/modules/images/actions";
 import { type LandingEvent, RhenaniaExperience } from "./experience";
 
 function relativeLabel(d: Date): string | null {

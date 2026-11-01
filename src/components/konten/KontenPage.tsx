@@ -21,7 +21,7 @@ import {
 	deleteKonto,
 	type Konto,
 	updateKonto,
-} from "~/server/actions/kontos/kontos";
+} from "~/server/modules/konten/actions";
 import { KontoCard } from "./KontoCard";
 import { emptyForm, type FormState, KontoForm } from "./KontoForm";
 

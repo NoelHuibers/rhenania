@@ -3,7 +3,7 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { updateUser } from "../../server/actions/admin/admin";
+import { updateUser } from "~/server/modules/users/actions";
 import { Button } from "../ui/button";
 import {
 	Dialog,

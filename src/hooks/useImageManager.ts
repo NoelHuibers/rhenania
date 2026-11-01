@@ -12,7 +12,7 @@ import {
 	saveHomepageImage,
 	toggleImageActive,
 	updateImageOrder,
-} from "~/server/actions/bilder/homepageImages";
+} from "~/server/modules/images/actions";
 
 // Local stricter type — this hook hardcodes the four default sections.
 // The schema-level `HomepageSection` is `string` for cross-tenant flexibility;

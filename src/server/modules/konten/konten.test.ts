@@ -15,7 +15,7 @@ import {
 	signOut,
 	tenantDb,
 } from "../../../../test/harness";
-import { createKonto, deleteKonto, getKontos, updateKonto } from "./kontos";
+import { createKonto, deleteKonto, getKontos, updateKonto } from "./actions";
 
 setupTestDatabases();
 

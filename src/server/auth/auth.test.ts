@@ -200,7 +200,7 @@ describe("membership revocation (#20)", () => {
 		expect(await auth()).not.toBeNull(); // now cached as active
 
 		signInAs(admin);
-		const { deleteUser } = await import("~/server/actions/admin/admin");
+		const { deleteUser } = await import("~/server/modules/users/actions");
 		await deleteUser(member.id);
 
 		signInAs(member);

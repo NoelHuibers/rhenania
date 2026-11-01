@@ -2,7 +2,7 @@
 
 import "server-only";
 
-import { getKontos } from "~/server/actions/kontos/kontos";
+import { getKontos } from "~/server/modules/konten/actions";
 import { requirePageRoles } from "./page-access";
 
 const ALLOWED_ROLES = ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"];

@@ -31,7 +31,6 @@ export default async function ProfilePage() {
 	if (!session?.user?.id) {
 		redirect("/auth/signin");
 	}
-	const userId = session.user.id;
 
 	return (
 		<>
@@ -52,7 +51,7 @@ export default async function ProfilePage() {
 								<AccountSecuritySection />
 							</Suspense>
 							<Suspense fallback={<SectionSkeleton />}>
-								<PreferencesSection userId={userId} />
+								<PreferencesSection session={session} />
 							</Suspense>
 							<Suspense fallback={<PaymentInfo />}>
 								<PaymentInfoSection />

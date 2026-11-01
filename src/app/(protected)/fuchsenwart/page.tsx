@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { FuchsenwartPage } from "~/components/fuchsenladen/FuchsenwartPage";
-import { hasAnyRole } from "~/server/actions/admin/userRoles";
 import { auth } from "~/server/auth";
+import { hasAnyRole } from "~/server/modules/users/actions";
 
 export default async function Page() {
 	const session = await auth();

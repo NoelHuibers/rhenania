@@ -12,7 +12,6 @@ import {
 	formatEventMonthLong,
 	formatEventWeekdayShort,
 } from "~/lib/time";
-import { getHiddenEventTypes } from "~/server/actions/profile/preferences";
 import { protocolForHost } from "~/server/lib/local-host";
 import {
 	getOrCreateCalendarToken,
@@ -21,6 +20,7 @@ import {
 	getUserRsvpsForEvents,
 	getYesAttendeePreviewForEvents,
 } from "~/server/modules/events/actions";
+import { getHiddenEventTypes } from "~/server/modules/preferences/actions";
 
 export const metadata = {
 	title: "Semesterprogramm",

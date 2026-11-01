@@ -160,6 +160,7 @@ async function seedForeignCorps(other: TestTenant) {
 		eventId: event.id,
 		recurringEventId: template.id,
 		venueId: venue.id,
+		kontoId: konto.id,
 		etaplanId: etaplan.id,
 		kostenpunktId: kp.id,
 		einnahmeId: einnahme.id,
@@ -173,7 +174,6 @@ async function seedForeignCorps(other: TestTenant) {
 		treasurerEmail: user.email,
 	};
 	const idByModule: Record<string, string> = {
-		"kontos/kontos.ts": konto.id,
 		// Every `id` of the Fuchsenladen module is an item id.
 		"src/server/modules/fuchsenladen/actions.ts": item.id,
 	};

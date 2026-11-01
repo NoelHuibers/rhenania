@@ -7,8 +7,8 @@
 import { unstable_rethrow } from "next/navigation";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
-import { getUserProfile } from "~/server/actions/profile/profile";
-import { getProfilePreferencesForUser } from "~/server/lib/preferences";
+import type { auth } from "~/server/auth";
+import { loadProfilePreferences } from "~/server/loaders/preferences";
 import { getUserAchievements } from "~/server/modules/achievements/actions";
 import { getUserBillingData } from "~/server/modules/billing/actions";
 import { getMyPaymentInfo } from "~/server/modules/cc-kasse/actions";
@@ -18,6 +18,7 @@ import {
 } from "~/server/modules/fuchsenladen/actions";
 import { getMyMember } from "~/server/modules/members/actions";
 import { getMyOrdersPage } from "~/server/modules/orders/actions";
+import { getUserProfile } from "~/server/modules/profile/actions";
 import { AccountSecurity } from "./AccountSecurity";
 import { Achievements } from "./Achievements";
 import { BillingOverview } from "./BillingOverview";
@@ -70,9 +71,11 @@ export async function AccountSecuritySection() {
 	return <AccountSecurity initial={result.ok ? result.value : null} />;
 }
 
-export async function PreferencesSection({ userId }: { userId: string }) {
+type Session = NonNullable<Awaited<ReturnType<typeof auth>>>;
+
+export async function PreferencesSection({ session }: { session: Session }) {
 	const prefs = await load("preferences", () =>
-		getProfilePreferencesForUser(userId),
+		loadProfilePreferences(session),
 	);
 	return <Preferences initial={prefs.ok ? prefs.value : undefined} />;
 }

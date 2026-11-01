@@ -17,7 +17,7 @@ import {
 	saveHomepageImage,
 	toggleImageActive,
 	updateImageOrder,
-} from "./homepageImages";
+} from "./actions";
 
 vi.mock("@vercel/blob", () => ({ del: vi.fn() }));
 

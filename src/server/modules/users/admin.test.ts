@@ -41,7 +41,7 @@ import {
 	initializeRoles,
 	toggleUserRole,
 	updateUser,
-} from "./admin";
+} from "./actions";
 
 setupTestDatabases();
 

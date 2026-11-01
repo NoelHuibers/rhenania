@@ -9,12 +9,12 @@ import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { Separator } from "~/components/ui/separator";
 import {
+	type ProfilePreferences,
 	setChallengeNotificationPreferenceAction,
 	setEloPreferenceAction,
 	setEmailNotificationPreferenceAction,
 	setPublicProfilePreferenceAction,
-} from "~/server/actions/profile/preferences";
-import type { ProfilePreferences } from "~/server/lib/preferences";
+} from "~/server/modules/preferences/actions";
 
 const ALL_ON: ProfilePreferences = {
 	elo: true,

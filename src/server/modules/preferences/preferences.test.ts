@@ -2,17 +2,12 @@ import { describe, expect, test } from "vitest";
 
 import { userPreferences } from "~/server/db/schema";
 import {
-	getHiddenEventTypesForUser,
-	getProfilePreferencesForUser,
-	isEloEnabledForUser,
-	isPublicProfileEnabledForUser,
-} from "~/server/lib/preferences";
-import {
 	createTenant,
 	createUser,
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
 import {
 	getHiddenEventTypes,
@@ -22,7 +17,13 @@ import {
 	setEmailNotificationPreferenceAction,
 	setHiddenEventTypes,
 	setPublicProfilePreferenceAction,
-} from "./preferences";
+} from "./actions";
+import {
+	hiddenEventTypes,
+	isEloEnabled,
+	isPublicProfileEnabled,
+	profilePreferences,
+} from "./service";
 
 setupTestDatabases();
 
@@ -101,7 +102,7 @@ describe("boolean switches", () => {
 
 	test("default to on and can be switched off", async () => {
 		const member = await signedInMember();
-		expect(await getProfilePreferencesForUser(member.id)).toEqual({
+		expect(await profilePreferences(testScope(), member.id)).toEqual({
 			elo: true,
 			publicProfile: true,
 			challengeNotifications: true,
@@ -110,22 +111,24 @@ describe("boolean switches", () => {
 
 		for (const [key, set] of switches) {
 			expect(await set({ enabled: false })).toEqual({ ok: true });
-			expect((await getProfilePreferencesForUser(member.id))[key]).toBe(false);
+			expect((await profilePreferences(testScope(), member.id))[key]).toBe(
+				false,
+			);
 		}
 	});
 
 	test("Elo and public profile can be read for another member", async () => {
 		await signedInMember();
 		const other = await createUser();
-		expect(await isEloEnabledForUser(other.id)).toBe(true);
-		expect(await isPublicProfileEnabledForUser(other.id)).toBe(true);
+		expect(await isEloEnabled(testScope(), other.id)).toBe(true);
+		expect(await isPublicProfileEnabled(testScope(), other.id)).toBe(true);
 
 		signInAs(other);
 		await setEloPreferenceAction({ enabled: false });
 		await setPublicProfilePreferenceAction({ enabled: false });
 
-		expect(await isEloEnabledForUser(other.id)).toBe(false);
-		expect(await isPublicProfileEnabledForUser(other.id)).toBe(false);
+		expect(await isEloEnabled(testScope(), other.id)).toBe(false);
+		expect(await isPublicProfileEnabled(testScope(), other.id)).toBe(false);
 	});
 
 	test("only an explicit false switches Elo or the public profile off", async () => {
@@ -141,8 +144,8 @@ describe("boolean switches", () => {
 				},
 			]);
 
-		expect(await isEloEnabledForUser(member.id)).toBe(true);
-		expect(await isPublicProfileEnabledForUser(member.id)).toBe(true);
+		expect(await isEloEnabled(testScope(), member.id)).toBe(true);
+		expect(await isPublicProfileEnabled(testScope(), member.id)).toBe(true);
 	});
 });
 
@@ -153,7 +156,10 @@ describe("hidden Semesterprogramm event types", () => {
 		await setHiddenEventTypes(["AHV", "Kneipe" as never, "SC"]);
 
 		expect(await getHiddenEventTypes()).toEqual(["AHV", "SC"]);
-		expect(await getHiddenEventTypesForUser(member.id)).toEqual(["AHV", "SC"]);
+		expect(await hiddenEventTypes(testScope(), member.id)).toEqual([
+			"AHV",
+			"SC",
+		]);
 	});
 
 	test("ignores malformed stored values", async () => {
@@ -166,7 +172,7 @@ describe("hidden Semesterprogramm event types", () => {
 			value: '"AHV"',
 		});
 		expect(await getHiddenEventTypes()).toEqual([]);
-		expect(await getHiddenEventTypesForUser(member.id)).toEqual([]);
-		expect(await getHiddenEventTypesForUser("unknown")).toEqual([]);
+		expect(await hiddenEventTypes(testScope(), member.id)).toEqual([]);
+		expect(await hiddenEventTypes(testScope(), "unknown")).toEqual([]);
 	});
 });

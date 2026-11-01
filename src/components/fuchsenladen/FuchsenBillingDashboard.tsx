@@ -7,7 +7,6 @@ import { BillingTable } from "~/components/rechnungen/BillingTable";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { formatEUR } from "~/lib/format";
-import { getUserRoles } from "~/server/actions/admin/userRoles";
 import { useSession } from "~/server/auth/client";
 import {
 	type FuchsenBillingConfig,
@@ -16,6 +15,7 @@ import {
 	getFuchsenBillingConfig,
 	getMyFuchsenBills,
 } from "~/server/modules/fuchsenladen/actions";
+import { getUserRoles } from "~/server/modules/users/actions";
 import { FuchsenwartBilling } from "./FuchsenwartBilling";
 import { makeDetails } from "./fuchsen-details";
 
