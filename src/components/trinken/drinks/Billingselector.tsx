@@ -11,15 +11,16 @@ import {
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import {
-	BOOKING_ACCOUNTS,
-	type BookingAccount,
-	COMMON_BOOKING_ACCOUNTS,
-} from "~/lib/drink-order";
+	type BookingAccountOption,
+	splitBookingAccounts,
+} from "~/lib/booking-accounts";
 
 /** Group account the next order is booked on; null books on the member. */
-export type BillingOption = BookingAccount | null;
+export type BillingOption = string | null;
 
 interface BillingSelectorProps {
+	/** The active accounts, as the Getränkewart set them up. */
+	accounts: readonly BookingAccountOption[];
 	selectedBilling: BillingOption;
 	onBillingChange: (billing: BillingOption) => void;
 }
@@ -29,74 +30,88 @@ const PERSONAL = "privat";
 /** Label of that chip. */
 const PERSONAL_LABEL = "Privat";
 
-const rareOptions = BOOKING_ACCOUNTS.filter(
-	(a) => !COMMON_BOOKING_ACCOUNTS.includes(a),
-);
-
 export function BillingSelector({
+	accounts,
 	selectedBilling,
 	onBillingChange,
 }: BillingSelectorProps) {
 	const labelId = useId();
-	const rareSelected =
-		selectedBilling !== null && rareOptions.includes(selectedBilling);
+	if (accounts.length === 0) {
+		return null;
+	}
 
-	// The common accounts are chips; a rarer account picked from "Weitere"
-	// joins them as a chip so the choice stays visible.
+	// The pinned accounts are chips; one picked from "Weitere" joins them so
+	// the choice stays visible. The row wraps, so no chip is ever cut off.
+	const { chips, more } = splitBookingAccounts(accounts, selectedBilling);
 	const options: ChipOption<string>[] = [
 		{ value: PERSONAL, label: PERSONAL_LABEL },
-		...COMMON_BOOKING_ACCOUNTS.map((a) => ({ value: a, label: a })),
-		...(rareSelected
-			? [{ value: selectedBilling, label: selectedBilling }]
-			: []),
+		...chips.map((a) => ({ value: a, label: a })),
 	];
 
 	const select = (value: string) =>
-		onBillingChange(value === PERSONAL ? null : (value as BookingAccount));
+		onBillingChange(value === PERSONAL ? null : value);
 
 	return (
 		<div className="min-w-0">
 			<p id={labelId} className="mb-1.5 text-muted-foreground text-xs">
 				Auf ein Konto buchen (optional)
 			</p>
-			<div className="flex min-w-0 items-center gap-1.5">
-				<ChipGroup
-					aria-labelledby={labelId}
-					size="lg"
-					value={selectedBilling ?? PERSONAL}
-					onValueChange={select}
-					options={options}
-					className="flex-1"
-				/>
-				<DropdownMenu>
-					<DropdownMenuTrigger asChild>
-						<Button
-							type="button"
-							variant="outline"
-							className="h-11 shrink-0 gap-1 rounded-full px-3"
-						>
-							Weitere
-							<ChevronDown className="size-4" />
-						</Button>
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end">
-						<DropdownMenuRadioGroup
+			<ChipGroup
+				aria-labelledby={labelId}
+				size="lg"
+				wrap
+				value={selectedBilling ?? PERSONAL}
+				onValueChange={select}
+				options={options}
+				trailing={
+					more.length > 0 ? (
+						<MoreAccounts
+							accounts={more}
 							value={selectedBilling ?? PERSONAL}
-							onValueChange={select}
-						>
-							{rareOptions.map((option) => (
-								<DropdownMenuRadioItem
-									key={option}
-									value={option}
-									className="min-h-11"
-								>
-									{option}
-								</DropdownMenuRadioItem>
-							))}
-						</DropdownMenuRadioGroup>
-					</DropdownMenuContent>
-				</DropdownMenu>
-			</div>
+							onSelect={select}
+						/>
+					) : null
+				}
+			/>
 		</div>
+	);
+}
+
+/** The accounts that are not chips, in a menu after the last chip. */
+function MoreAccounts({
+	accounts,
+	value,
+	onSelect,
+}: {
+	accounts: string[];
+	value: string;
+	onSelect: (value: string) => void;
+}) {
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					type="button"
+					variant="outline"
+					className="h-11 shrink-0 gap-1 rounded-full px-3"
+				>
+					Weitere
+					<ChevronDown className="size-4" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end">
+				<DropdownMenuRadioGroup value={value} onValueChange={onSelect}>
+					{accounts.map((option) => (
+						<DropdownMenuRadioItem
+							key={option}
+							value={option}
+							className="min-h-11"
+						>
+							{option}
+						</DropdownMenuRadioItem>
+					))}
+				</DropdownMenuRadioGroup>
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }

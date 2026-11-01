@@ -60,6 +60,7 @@ export const TABLE_DESCRIPTIONS: Record<string, string> = {
 	bill_item: "Positionen der Getränkerechnungen",
 	bill_pdf: "Gespeicherte PDF-Getränkerechnungen",
 	bill_period: "Abrechnungsläufe der Getränkekasse",
+	booking_account: "Buchungskonten für Getränke (CC, AKN, …)",
 	calendar_token: "Kalender-Abonnements der Mitglieder (ohne Zugangsschlüssel)",
 	challenge: "Herausforderungen (Bierjunge u. a.)",
 	einnahme: "Einnahmen der CC-Kasse",
