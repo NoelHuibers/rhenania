@@ -8,6 +8,7 @@ import {
 	setupTestDatabases,
 	signInAs,
 } from "../../../test/harness";
+import { requireTenant } from "../../../test/state";
 import {
 	getAllDrinksForMenu,
 	getAvailableDrinks,
@@ -28,6 +29,16 @@ describe("drinks menu", () => {
 			"Pils",
 			"Radler",
 		]);
+	});
+
+	test("a failed read throws instead of showing an empty menu (#216)", async () => {
+		await createTenant();
+		signInAs(await createUser());
+		await createDrink({ name: "Pils" });
+		await requireTenant().client.execute('ALTER TABLE "order" RENAME TO gone');
+
+		await expect(getAvailableDrinks()).rejects.toThrow();
+		await expect(getAllDrinksForMenu()).rejects.toThrow();
 	});
 
 	test("the markup is only reported while the feature is on", async () => {
