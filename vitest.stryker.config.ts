@@ -19,7 +19,7 @@ export default defineConfig({
 			"src/server/actions/orders.test.ts",
 			"src/server/actions/billings/**/*.test.ts",
 			"src/server/actions/inventur/**/*.test.ts",
-			"src/server/actions/cc-kasse/kostenerstattungen.test.ts",
+			"src/server/modules/cc-kasse/**/*.test.ts",
 		],
 	},
 });
