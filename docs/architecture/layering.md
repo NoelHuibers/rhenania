@@ -2,8 +2,9 @@
 
 Where server code lives, how it gets its tenant database, and the order in
 which the existing code moves there. Phase 1 (this document, the lint rule,
-the explicit script DB) and phase 2 (billing and the Getränkekasse) are
-done; the Fuchsenladen comes next.
+the explicit script DB), phase 2 (billing and the Getränkekasse) and phase 3
+(the Fuchsenladen and the mails) are done; CC-Kasse and
+Mitglieder/Semesterbeitrag come next.
 
 ## Why
 
@@ -100,7 +101,7 @@ One domain per PR, each PR leaving behaviour, query counts (the
 1. **Foundation** (done): explicit script DB, no fallback, lint rule, page
    loaders, import-count ratchet, this document.
 2. **Billing + Getränkekasse** (done, see below).
-3. Fuchsenladen (shares the billing plan and runs).
+3. **Fuchsenladen + mails** (done, see below).
 4. CC-Kasse and Mitglieder/Semesterbeitrag.
 5. Achievements/tracking and games (the cross-tenant parts need two scopes).
 6. The rest (events, profile, drinks, images, venues), then delete the proxy
@@ -138,4 +139,36 @@ src/server/loaders/open-bill.ts              the open-bill banner/card
   orders, menu, challenges). They resolve the scope and call the services.
 - Reads that used to answer an outage with `[]` (bill periods, a period's
   bills, the profile's bill, the billing profile) now fail.
-- Still on the proxy: the bill mails (`actions/newuser/email.ts`).
+- The bill mails moved to `modules/mail` in phase 3.
+
+## Phase 3: Fuchsenladen and mails (done)
+
+```
+src/server/modules/fuchsenladen/
+  repo.ts        items, orders, bill periods, bills, items of bills,
+                 payment details; the run's read batch and atomic write
+                 batch; a bill's status change with its orders as one batch
+  run.ts         the Fuchsenladen billing run (service) on
+                 domain/billing/plan.ts
+  service.ts     items (+ Blob pictures), orders, bill status changes,
+                 reads, payment details, PDF and CSV
+  actions.ts     every Fuchsenladen action: changes are defineActions,
+                 page reads are guarded functions that throw
+src/server/modules/mail/
+  repo.ts        the CC-Kasse's PayPal link
+  service.ts     every outgoing mail; the bill mails (Getränke, treasurer,
+                 Semesterbeitrag, Mahnung) take the scope they are sent for
+src/server/domain/fuchsenladen/bill-pdf.ts   the bill PDF layout
+src/server/domain/fuchsenladen/csv.ts        the period CSV layout
+```
+
+- `lib/billing-batch.ts` and `lib/carried-bills.ts` stay shared with the
+  Getränke billing.
+- Reads that used to answer a signed-out caller or an outage with `[]`,
+  zero totals or the empty payment details (orders, order summary, bills,
+  items, periods) now throw; the pages show their error (#216).
+- `actions/fuchsenladen/orders.ts` only re-exports `getMyFuchsenOrders` and
+  `getMyFuchsenSummary` for the profile code that still imports them from
+  there. Delete it once the profile imports the module.
+- `actions/members/semesterbeitrag.ts` (phase 4) builds its scope with
+  `currentTenantScope()` for the Beitrag and Mahnung mails.
