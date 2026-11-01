@@ -1,31 +1,56 @@
 name: Health
 
-# Daily check that production answers and every tenant DB is reachable and on
-# the schema this build expects. Needs the repository secret HEALTH_TOKEN
-# (same value as the HEALTH_TOKEN env var on Vercel) and optionally the
-# variable HEALTH_URL; does nothing until they're configured.
+# Production answers and every tenant DB is reachable and on the schema the
+# live build expects. Runs daily and after every successful production
+# deployment (Vercel reports those to GitHub as deployment statuses), so a
+# deploy whose schema is behind fails here within minutes, with an email.
+#
+# Needs the repository secret HEALTH_TOKEN (same value as the HEALTH_TOKEN
+# env var on Vercel) and optionally the variable HEALTH_URL; does nothing
+# until they're configured. /api/health* must be exempt from the Vercel
+# Firewall challenge, or every request gets a 429.
 on:
   schedule:
     - cron: "47 5 * * *"
+  deployment_status:
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: health
+  cancel-in-progress: false
+
 jobs:
   drift:
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
       HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
-      HEALTH_URL: ${{ vars.HEALTH_URL || 'https://rhenania-stuttgart.de' }}
+      HEALTH_URL: ${{ vars.HEALTH_URL || 'https://www.rhenania-stuttgart.de' }}
+      # Set for deployment runs: the live build must be this commit.
+      EXPECTED_SHA: ${{ github.event.deployment.sha }}
     steps:
-      - name: Liveness and tenant schema drift
+      - name: Liveness, live commit and tenant schema drift
         run: |
           if [ -z "$HEALTH_TOKEN" ]; then
             echo "::notice::HEALTH_TOKEN is not configured; skipping."
             exit 0
           fi
-          curl -fsS "$HEALTH_URL/api/health" | jq .
-          curl -sS -H "Authorization: Bearer $HEALTH_TOKEN" "$HEALTH_URL/api/health/tenants" | tee tenants.json | jq .
-          jq -e '.healthy' tenants.json > /dev/null
+          curl -fsS --retry 3 --retry-all-errors "$HEALTH_URL/api/health" | tee health.json | jq .
+          if [ -n "$EXPECTED_SHA" ]; then
+            live=$(jq -r '.sha' health.json)
+            if [ "$live" != "$EXPECTED_SHA" ]; then
+              echo "::warning::Live build is $live, not the deployed $EXPECTED_SHA (a newer deploy may have replaced it)."
+            fi
+          fi
+          curl -sS --retry 3 -H "Authorization: Bearer $HEALTH_TOKEN" "$HEALTH_URL/api/health/tenants" | tee tenants.json | jq .
+          if ! jq -e '.healthy' tenants.json > /dev/null; then
+            echo "::error::A tenant is unreachable or its schema is behind $(jq -r '.expected' tenants.json). See the response above."
+            exit 1
+          fi

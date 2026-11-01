@@ -80,20 +80,41 @@ Migrationen werden in CI geprüft (`pnpm db:check`, Job „Migrations“):
   erst wenn kein laufender Code die alte Struktur mehr braucht. Der PR bekommt
   dann das Label `migration:contract`.
 
-Vor einem Deploy mit Schemaänderungen zuerst migrieren. Schreibende Skripte
-und `drizzle-kit migrate` verweigern Remote-Datenbanken, solange `CONFIRM_PROD`
-nicht genau den DB-Host nennt. Die Fehlermeldung zeigt den Wert an:
+Produktion wird beim Deploy automatisch migriert. Der Vercel-Build-Befehl
+(`vercel.json`) ist `pnpm build && pnpm db:migrate:deploy`. Ein
+Production-Deploy läuft daher so ab:
+
+1. Code bauen (`next build`); schlägt das fehl, wird nichts migriert.
+2. Control-DB migrieren, dann alle Tenant-DBs, Rhenania zuerst als Canary
+   (`MIGRATION_CANARY`). Scheitert der Canary, bleiben die übrigen Tenants
+   unberührt.
+3. Erst danach schaltet Vercel die neue Version live. Scheitert eine
+   Migration, schlägt der Build fehl und die laufende Version bleibt online.
+
+Preview- und lokale Builds migrieren nie. Überlappende Production-Builds
+warten aufeinander (Lease in der Control-DB, Tabelle `__deploy_lock`). Vor
+jeder DB steht ein PITR-Zeitpunkt im Build-Log (Wiederherstellung über Turso
+Point-in-Time-Recovery), am Ende eine Tabelle und eine JSON-Zeile
+`deploy-migrations` pro Deploy.
+
+Weil die alte Version während des Builds schon auf dem neuen Schema läuft,
+müssen Migrationen additiv sein; CI erzwingt das (siehe oben,
+`migration:contract`). Rollbacks gehen nur vorwärts: eine neue Migration statt
+eines Reverts. Ein Instant Rollback in Vercel ist sicher, solange die
+Migrationen additiv waren.
+
+Voraussetzung in Vercel (nur Environment *Production*):
+`CONFIRM_PROD=<control-db-host>`. Ohne diese Variable bricht der
+Production-Build ab, statt Code vor seinem Schema auszuliefern.
+
+Von Hand, etwa zum Prüfen oder für eine Reparatur: Schreibende Skripte und
+`drizzle-kit migrate` verweigern Remote-Datenbanken, solange `CONFIRM_PROD`
+nicht genau den DB-Host nennt. Die Fehlermeldung zeigt den Wert an.
 
 ```bash
-pnpm db:migrate-tenants --dry-run                     # was steht an? (ohne Bestätigung)
-CONFIRM_PROD=<control-db-host> pnpm db:control:migrate # Control-DB
-CONFIRM_PROD=<control-db-host> pnpm db:migrate-tenants # alle Tenant-DBs
+pnpm db:migrate:deploy --dry-run                       # was würde ein Deploy anwenden?
+CONFIRM_PROD=<control-db-host> pnpm db:migrate-tenants # alle Tenant-DBs von Hand
 ```
-
-Ein PR mit neuen Migrationen bleibt rot („Migrations applied to production“),
-bis sie in Produktion angewendet sind und der PR das Label `migration:applied`
-trägt. Der Check läuft beim Setzen des Labels von selbst neu. Die Migration muss
-deshalb additiv sein: Bis zum Merge läuft der alte Code auf dem neuen Schema.
 
 `drizzle-kit push` gibt es bewusst nicht mehr als Skript: Es umgeht das
 Migrations-Journal und hat früher zu Drift geführt.
