@@ -76,7 +76,7 @@ describe("verifyEmailAndSetPassword", () => {
 			PASSWORD,
 		);
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect((await identityOf(user.id))?.emailVerified).toBe(true);
 		for (const id of [tenant.id, other.id]) {
 			const [mirror] = await tenantDb(id)
@@ -117,14 +117,16 @@ describe("verifyEmailAndSetPassword", () => {
 		const { user, token } = await invited();
 
 		expect(await verifyEmailAndSetPassword(token, user.email, "Ab1")).toEqual({
-			success: false,
+			ok: false,
 			error: "Das Passwort muss mindestens 8 Zeichen lang sein.",
+			code: "INVALID_INPUT",
 		});
 		for (const weak of ["alllower1", "ALLUPPER1", "NoDigitsHere"]) {
 			expect(await verifyEmailAndSetPassword(token, user.email, weak)).toEqual({
-				success: false,
+				ok: false,
 				error:
 					"Das Passwort muss Groß- und Kleinbuchstaben sowie Zahlen enthalten.",
+				code: "INVALID_INPUT",
 			});
 		}
 		expect(await tokenRows()).toHaveLength(1);
@@ -138,8 +140,9 @@ describe("verifyEmailAndSetPassword", () => {
 		expect(
 			await verifyEmailAndSetPassword(token, other.user.email, PASSWORD),
 		).toEqual({
-			success: false,
+			ok: false,
 			error: "Ungültiger oder abgelaufener Verifizierungstoken.",
+			code: "INVALID_TOKEN",
 		});
 		expect((await identityOf(other.user.id))?.emailVerified).toBe(false);
 	});
@@ -153,9 +156,10 @@ describe("verifyEmailAndSetPassword", () => {
 		expect(
 			await verifyEmailAndSetPassword(token, user.email, PASSWORD),
 		).toEqual({
-			success: false,
+			ok: false,
 			error:
 				"Der Verifizierungslink ist abgelaufen. Bitte wenden Sie sich an einen Administrator.",
+			code: "TOKEN_EXPIRED",
 		});
 		expect(await tokenRows()).toHaveLength(0);
 		expect((await identityOf(user.id))?.emailVerified).toBe(false);
@@ -182,12 +186,17 @@ describe("verifyEmailAndSetPassword", () => {
 		expect(
 			await verifyEmailAndSetPassword("t1", verified.email, PASSWORD),
 		).toEqual({
-			success: false,
+			ok: false,
 			error: "Diese E-Mail-Adresse wurde bereits verifiziert.",
+			code: "ALREADY_VERIFIED",
 		});
 		expect(
 			await verifyEmailAndSetPassword("t2", "ghost@example.test", PASSWORD),
-		).toEqual({ success: false, error: "Benutzer nicht gefunden." });
+		).toEqual({
+			ok: false,
+			error: "Benutzer nicht gefunden.",
+			code: "NOT_FOUND",
+		});
 		expect(await controlDb().select().from(accounts)).toHaveLength(0);
 	});
 
@@ -199,8 +208,9 @@ describe("verifyEmailAndSetPassword", () => {
 		expect(
 			await verifyEmailAndSetPassword(token, user.email, PASSWORD),
 		).toEqual({
-			success: false,
+			ok: false,
 			error: "Ungültiger oder abgelaufener Verifizierungstoken.",
+			code: "INVALID_TOKEN",
 		});
 	});
 });
