@@ -3,8 +3,9 @@
 // Server-only, deliberately NOT "use server": nothing here may be callable
 // from the browser as a server action. The bill mails (Getränke, treasurer,
 // Semesterbeitrag, Mahnung) take the TenantScope they are sent for: its
-// tenant signs them and its database holds the CC-Kasse's PayPal link. The
-// account mails (invitation, password reset) link to the request's host.
+// tenant signs and sends them (its mailbox) and its database holds the
+// CC-Kasse's PayPal link. The account mails (invitation, password reset)
+// link to the request's host and go out from its mailbox.
 
 import "server-only";
 
@@ -241,7 +242,7 @@ ${tenantLabel}
 			],
 		};
 
-		await sendTenantMail(mailOptions);
+		await sendTenantMail(mailOptions, scope.tenantId);
 		await log.info("mail sent", { kind: "bill" });
 	} catch (error) {
 		console.error(`Error sending bill notification to ${email}:`, error);
@@ -267,10 +268,11 @@ export async function sendTreasurerBillEmail(
 		const { label, formattedTotal } = billAmount(total);
 		const tenantLabel = await tenantLabelOf(scope);
 
-		await sendTenantMail({
-			to: treasurerEmail,
-			subject: `Getränkerechnung ${billNumber}: ${billOwnerName}`,
-			text: `
+		await sendTenantMail(
+			{
+				to: treasurerEmail,
+				subject: `Getränkerechnung ${billNumber}: ${billOwnerName}`,
+				text: `
 Hallo,
 
 die Getränkerechnung von ${billOwnerName} für die Abrechnungsperiode ${billNumber} wurde erstellt.
@@ -282,7 +284,7 @@ ${label}: ${formattedTotal}
 Mit freundlichen Grüßen,
 ${tenantLabel}
       `,
-			html: `
+				html: `
         <!DOCTYPE html>
         <html>
           <head>
@@ -322,14 +324,16 @@ ${tenantLabel}
           </body>
         </html>
       `,
-			attachments: [
-				{
-					filename: fileName,
-					content: pdfBuffer,
-					contentType: "application/pdf",
-				},
-			],
-		});
+				attachments: [
+					{
+						filename: fileName,
+						content: pdfBuffer,
+						contentType: "application/pdf",
+					},
+				],
+			},
+			scope.tenantId,
+		);
 		await log.info("mail sent", { kind: "bill-treasurer" });
 	} catch (error) {
 		console.error(
@@ -462,26 +466,29 @@ export async function sendBeitragEmail(
 			: "";
 		const body = `für <strong>${escapeHtml(runName)}</strong> bitten wir um deinen Semesterbeitrag in Höhe von <strong>${formattedTotal}</strong>. Im Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.`;
 
-		await sendTenantMail({
-			to: email,
-			subject: `Dein Semesterbeitrag — ${runName}`,
-			text: `Lieber ${memberName},\n\nfür ${runName} bitten wir um deinen Semesterbeitrag in Höhe von ${formattedTotal}.\nIm Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.${paypalText}\n\nMit corpsbrüderlichen Grüßen\n${tenantLabel}`,
-			html: beitragHtml(
-				tenantLabel,
-				memberName,
-				runName,
-				formattedTotal,
-				body,
-				paypalUrl,
-			),
-			attachments: [
-				{
-					filename: fileName,
-					content: pdfBuffer,
-					contentType: "application/pdf",
-				},
-			],
-		});
+		await sendTenantMail(
+			{
+				to: email,
+				subject: `Dein Semesterbeitrag — ${runName}`,
+				text: `Lieber ${memberName},\n\nfür ${runName} bitten wir um deinen Semesterbeitrag in Höhe von ${formattedTotal}.\nIm Anhang findest du die Beitragsrechnung als PDF. Bitte überweise den Betrag innerhalb von 2 Wochen.${paypalText}\n\nMit corpsbrüderlichen Grüßen\n${tenantLabel}`,
+				html: beitragHtml(
+					tenantLabel,
+					memberName,
+					runName,
+					formattedTotal,
+					body,
+					paypalUrl,
+				),
+				attachments: [
+					{
+						filename: fileName,
+						content: pdfBuffer,
+						contentType: "application/pdf",
+					},
+				],
+			},
+			scope.tenantId,
+		);
 		await log.info("mail sent", { kind: "beitrag" });
 	} catch (error) {
 		console.error(`Error sending Beitrag email to ${email}:`, error);
@@ -507,26 +514,29 @@ export async function sendMahnungEmail(
 			: "";
 		const body = `dein Semesterbeitrag für <strong>${escapeHtml(runName)}</strong> ist trotz Fälligkeit weiterhin offen. Wir erlauben uns daher, eine Mahngebühr zu berechnen. Der offene Gesamtbetrag beträgt <strong>${formattedTotal}</strong> (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.`;
 
-		await sendTenantMail({
-			to: email,
-			subject: `Zahlungserinnerung — ${runName}`,
-			text: `Lieber ${memberName},\n\ndein Semesterbeitrag für ${runName} ist weiterhin offen. Inklusive Mahngebühr beträgt der offene Gesamtbetrag ${formattedTotal} (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.${paypalText}\n\nMit corpsbrüderlichen Grüßen\n${tenantLabel}`,
-			html: beitragHtml(
-				tenantLabel,
-				memberName,
-				runName,
-				formattedTotal,
-				body,
-				paypalUrl,
-			),
-			attachments: [
-				{
-					filename: fileName,
-					content: pdfBuffer,
-					contentType: "application/pdf",
-				},
-			],
-		});
+		await sendTenantMail(
+			{
+				to: email,
+				subject: `Zahlungserinnerung — ${runName}`,
+				text: `Lieber ${memberName},\n\ndein Semesterbeitrag für ${runName} ist weiterhin offen. Inklusive Mahngebühr beträgt der offene Gesamtbetrag ${formattedTotal} (siehe angehängte Mahnung). Bitte überweise den Betrag zeitnah.${paypalText}\n\nMit corpsbrüderlichen Grüßen\n${tenantLabel}`,
+				html: beitragHtml(
+					tenantLabel,
+					memberName,
+					runName,
+					formattedTotal,
+					body,
+					paypalUrl,
+				),
+				attachments: [
+					{
+						filename: fileName,
+						content: pdfBuffer,
+						contentType: "application/pdf",
+					},
+				],
+			},
+			scope.tenantId,
+		);
 		await log.info("mail sent", { kind: "mahnung" });
 	} catch (error) {
 		console.error(`Error sending Mahnung email to ${email}:`, error);

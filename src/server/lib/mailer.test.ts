@@ -60,6 +60,23 @@ describe("sendTenantMail outbox", () => {
 		});
 	});
 
+	test("sends for the given tenant, not the request's", async () => {
+		outbox = mkdtempSync(path.join(os.tmpdir(), "rhenania-outbox-"));
+		const { sendTenantMail } = await loadMailer({ MAIL_OUTBOX_DIR: outbox });
+		await createTenant({ slug: "rhenania" });
+		const hassia = await createTenant({ slug: "hassia" });
+
+		await sendTenantMail(
+			{ to: "a@example.test", subject: "S", text: "T" },
+			hassia.id,
+		);
+
+		const [file] = readdirSync(outbox);
+		expect(
+			JSON.parse(readFileSync(path.join(outbox, file as string), "utf8")),
+		).toMatchObject({ tenant: "hassia" });
+	});
+
 	test("refuses to use the outbox on Vercel production", async () => {
 		outbox = mkdtempSync(path.join(os.tmpdir(), "rhenania-outbox-"));
 		const { sendTenantMail } = await loadMailer({
