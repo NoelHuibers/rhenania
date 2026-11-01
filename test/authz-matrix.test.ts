@@ -257,25 +257,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		updateKonto: "member",
 		deleteKonto: ADMIN,
 	},
-	"src/server/actions/members/linkAccounts.ts": {
-		relinkMemberAccounts: ADRESSLISTE,
-	},
-	"src/server/actions/members/members.ts": {
-		listMembers: ADRESSLISTE,
-		listMemberStatusOptions: ADRESSLISTE,
-		createMember: ADRESSLISTE,
-		updateMember: ADRESSLISTE,
-		updateMemberFields: ADRESSLISTE,
-		deleteMember: ADRESSLISTE,
-	},
-	"src/server/actions/members/membersExcel.ts": {
-		exportMembersXlsx: ADRESSLISTE,
-		importMembersXlsx: ADRESSLISTE,
-	},
-	"src/server/actions/members/myMember.ts": {
-		getMyMember: "member",
-		updateMyMember: "member",
-	},
 	"src/server/actions/members/semesterbeitrag.ts": {
 		listBeitragRuns: CC_TREASURY,
 		createBeitragRun: CC_TREASURY,
@@ -442,6 +423,19 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getGetraenkeBillingSettings: GETRAENKE,
 		updateGetraenkeBillingProfile: GETRAENKE,
 		markAllMemberBillsPaid: GETRAENKE,
+	},
+	"src/server/modules/members/actions.ts": {
+		listMembers: ADRESSLISTE,
+		listMemberStatusOptions: ADRESSLISTE,
+		createMember: ADRESSLISTE,
+		updateMember: ADRESSLISTE,
+		updateMemberFields: ADRESSLISTE,
+		deleteMember: ADRESSLISTE,
+		relinkMemberAccounts: ADRESSLISTE,
+		exportMembersXlsx: ADRESSLISTE,
+		importMembersXlsx: ADRESSLISTE,
+		getMyMember: "member",
+		updateMyMember: "member",
 	},
 };
 

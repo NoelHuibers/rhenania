@@ -6,6 +6,7 @@
 // unless the caller is an active member of the request's tenant), so these
 // guards check membership and roles in one go.
 
+import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import { auth } from "~/server/auth";
 import { noteRequestUser } from "~/server/lib/log-context";
 
@@ -26,6 +27,8 @@ export const ROLES = {
 	fotos: ["Fotowart", "Admin"],
 	events: ["Admin"],
 	konten: ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"],
+	/** Admins and the AHV board: the Adressliste. */
+	adressliste: ADRESSLISTE_ROLES,
 } as const satisfies Record<string, readonly string[]>;
 
 export type Member = NonNullable<Awaited<ReturnType<typeof auth>>>["user"];

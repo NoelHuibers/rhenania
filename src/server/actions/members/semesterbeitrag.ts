@@ -15,6 +15,7 @@ import {
 	semesterbeitragRuns,
 } from "~/server/db/schema";
 import type { TenantDb } from "~/server/db/tenants";
+import { makeBeitragspflichtigMatcher } from "~/server/domain/members/statuses";
 import { defineAction } from "~/server/lib/define-action";
 import {
 	ConflictError,
@@ -22,14 +23,12 @@ import {
 	NotFoundError,
 	ValidationError,
 } from "~/server/lib/domain-error";
-import {
-	getTenantMemberStatuses,
-	makeBeitragspflichtigMatcher,
-} from "~/server/lib/member-statuses";
+import type { TenantScope } from "~/server/lib/tenant-scope";
 import {
 	sendBeitragEmail,
 	sendMahnungEmail,
 } from "~/server/modules/mail/service";
+import { memberStatuses } from "~/server/modules/members/service";
 import { BEITRAG_ROLES, requireRoles } from "./_guards";
 import { generateBeitragPDF } from "./beitragPDF";
 
@@ -58,12 +57,13 @@ const createRunSchema = z.object({
 });
 
 async function insertCharges(
-	db: TenantDb,
+	tenant: TenantScope,
 	runId: string,
 	baseAmount: number,
 ): Promise<number> {
+	const { db } = tenant;
 	const isBeitragspflichtig = makeBeitragspflichtigMatcher(
-		await getTenantMemberStatuses(),
+		await memberStatuses(tenant),
 	);
 	const allMembers = await db
 		.select({
@@ -139,7 +139,7 @@ export const createBeitragRun = defineAction(
 			dueDate: input.dueDate,
 			createdBy: user.id,
 		});
-		const chargesCreated = await insertCharges(tenant.db, runId, input.amount);
+		const chargesCreated = await insertCharges(tenant, runId, input.amount);
 		return { runId, chargesCreated };
 	},
 );
@@ -154,7 +154,7 @@ export const regenerateCharges = defineAction(
 	},
 	async ([runId], { tenant }) => {
 		const run = await findRun(tenant.db, runId);
-		const added = await insertCharges(tenant.db, runId, run.amount);
+		const added = await insertCharges(tenant, runId, run.amount);
 		return { checked: added };
 	},
 );

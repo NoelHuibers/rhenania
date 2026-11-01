@@ -11,7 +11,7 @@ import {
 	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
-import { getMyMember, updateMyMember } from "./myMember";
+import { getMyMember, updateMyMember } from "./actions";
 
 setupTestDatabases();
 

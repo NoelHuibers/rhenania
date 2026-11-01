@@ -5,7 +5,7 @@ import { Checkbox } from "~/components/ui/checkbox";
 import type { DataListColumn } from "~/components/ui/data-list";
 import { IconButton } from "~/components/ui/icon-button";
 import { cn } from "~/lib/utils";
-import type { MemberListItem } from "~/server/actions/members/members";
+import type { MemberListItem } from "~/server/modules/members/actions";
 import {
 	type CellProps,
 	type CellStatus,

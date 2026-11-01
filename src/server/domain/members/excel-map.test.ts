@@ -8,7 +8,7 @@ import {
 	normalizeStatus,
 	parseBool,
 	parseExcelDate,
-} from "./members-excel-map";
+} from "./excel-map";
 
 describe("COLUMNS", () => {
 	test("headers are unique and the body starts below the header", () => {

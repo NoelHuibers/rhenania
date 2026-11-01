@@ -168,7 +168,6 @@ async function seedForeignCorps(other: TestTenant) {
 		"events/recurring.ts": event.id,
 		"venues.ts": venue.id,
 		"kontos/kontos.ts": konto.id,
-		"members/members.ts": member.id,
 		"cc-kasse/etaplans.ts": etaplan.id,
 		"cc-kasse/kostenpunkte.ts": kp.id,
 		"cc-kasse/einnahmen.ts": einnahme.id,

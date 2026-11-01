@@ -27,7 +27,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import type { MemberListItem } from "~/server/actions/members/members";
+import type { MemberListItem } from "~/server/modules/members/actions";
 
 /** Search, Abteilung filter, row count, column menu and scroll buttons. */
 export function MembersToolbar({

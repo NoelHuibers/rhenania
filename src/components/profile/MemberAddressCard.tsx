@@ -16,8 +16,8 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
 import { cn } from "~/lib/utils";
-import { updateMyMember } from "~/server/actions/members/myMember";
 import type { Member } from "~/server/db/schema";
+import { updateMyMember } from "~/server/modules/members/actions";
 
 const emptyForm = {
 	firstName: "",

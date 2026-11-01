@@ -1,19 +1,21 @@
 import { describe, expect, test } from "vitest";
-import { setMemberStatuses } from "../../../test/factories/members";
-import { createTenant, setupTestDatabases } from "../../../test/harness";
+import { makeBeitragspflichtigMatcher } from "~/server/domain/members/statuses";
+import { DEFAULT_MEMBER_STATUSES } from "~/server/lib/tenant-default-config";
+import { setMemberStatuses } from "../../../../test/factories/members";
 import {
-	getTenantMemberStatuses,
-	makeBeitragspflichtigMatcher,
-} from "./member-statuses";
-import { DEFAULT_MEMBER_STATUSES } from "./tenant-default-config";
+	createTenant,
+	setupTestDatabases,
+	testScope,
+} from "../../../../test/harness";
+import { memberStatuses } from "./service";
 
 setupTestDatabases();
 
-describe("getTenantMemberStatuses", () => {
+describe("memberStatuses", () => {
 	test("falls back to the German Corps defaults while the table is empty", async () => {
 		await createTenant();
 
-		const statuses = await getTenantMemberStatuses();
+		const statuses = await memberStatuses(testScope());
 
 		expect(statuses).toEqual(
 			DEFAULT_MEMBER_STATUSES.map(({ key, label, beitragspflichtig }) => ({
@@ -35,7 +37,7 @@ describe("getTenantMemberStatuses", () => {
 			{ key: "Bursch", label: "Bursche", beitragspflichtig: true },
 		]);
 
-		expect(await getTenantMemberStatuses()).toEqual([
+		expect(await memberStatuses(testScope())).toEqual([
 			expect.objectContaining({ key: "Fux", beitragspflichtig: true }),
 			expect.objectContaining({ key: "Bursch", label: "Bursche" }),
 		]);
@@ -45,7 +47,7 @@ describe("getTenantMemberStatuses", () => {
 		await createTenant();
 		await setMemberStatuses([{ key: "Alt", isActive: false }]);
 
-		expect((await getTenantMemberStatuses()).map((s) => s.key)).toEqual(
+		expect((await memberStatuses(testScope())).map((s) => s.key)).toEqual(
 			DEFAULT_MEMBER_STATUSES.map((s) => s.key),
 		);
 	});

@@ -27,7 +27,7 @@ import {
 	listMembers,
 	updateMember,
 	updateMemberFields,
-} from "./members";
+} from "./actions";
 
 setupTestDatabases();
 

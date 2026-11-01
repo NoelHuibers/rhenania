@@ -7,7 +7,7 @@ import { DataList } from "~/components/ui/data-list";
 import {
 	type MemberListItem,
 	updateMemberFields,
-} from "~/server/actions/members/members";
+} from "~/server/modules/members/actions";
 import type { CellProps, CellStatus } from "./MemberCells";
 import { SaveBar, type SaveResult } from "./MembersSaveBar";
 import { MembersToolbar } from "./MembersToolbar";

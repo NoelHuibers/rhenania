@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { ADRESSLISTE_ROLES, AHV_VORSTAND_ROLES } from "~/lib/roles";
 import { etaplans, kostenerstattungen } from "~/server/db/schema";
+import { ROLES } from "~/server/lib/authz";
 import {
 	createKostenpunkt,
 	createReimbursement,
@@ -15,11 +16,7 @@ import {
 	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
-import {
-	BEITRAG_ROLES,
-	MEMBER_EDIT_ROLES,
-	MEMBER_VIEW_ROLES,
-} from "../members/_guards";
+import { BEITRAG_ROLES } from "../members/_guards";
 import {
 	EDIT_ROLES,
 	requireAuth,
@@ -48,10 +45,9 @@ describe("role constants", () => {
 			"AHV 2. Vorstand",
 			"AHV 3. Vorstand",
 		]);
-		expect(MEMBER_EDIT_ROLES).toBe(ADRESSLISTE_ROLES);
-		expect(MEMBER_VIEW_ROLES).toBe(ADRESSLISTE_ROLES);
+		expect(ROLES.adressliste).toBe(ADRESSLISTE_ROLES);
 		for (const r of AHV_VORSTAND_ROLES) {
-			expect(MEMBER_EDIT_ROLES).toContain(r);
+			expect(ROLES.adressliste).toContain(r);
 		}
 		expect(BEITRAG_ROLES).toEqual(["CC-Kasse", "Admin"]);
 	});

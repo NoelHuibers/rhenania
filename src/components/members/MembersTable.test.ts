@@ -6,13 +6,13 @@ import { createElement as h } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
-import type { MemberListItem } from "~/server/actions/members/members";
+import type { MemberListItem } from "~/server/modules/members/actions";
 import { MembersTable } from "./MembersTable";
 
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: () => {} }),
 }));
-vi.mock("~/server/actions/members/members", () => ({
+vi.mock("~/server/modules/members/actions", () => ({
 	updateMemberFields: vi.fn(),
 }));
 

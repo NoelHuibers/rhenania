@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import { describe, expect, test } from "vitest";
 
 import { members } from "~/server/db/schema";
+import { COLUMNS, SHEET_NAME } from "~/server/domain/members/excel-map";
 import { createMember } from "../../../../test/factories/members";
 import {
 	createTenant,
@@ -12,8 +13,7 @@ import {
 	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
-import { COLUMNS, SHEET_NAME } from "./members-excel-map";
-import { exportMembersXlsx, importMembersXlsx } from "./membersExcel";
+import { exportMembersXlsx, importMembersXlsx } from "./actions";
 
 setupTestDatabases();
 

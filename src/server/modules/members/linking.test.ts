@@ -9,13 +9,11 @@ import {
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
+	testScope,
 } from "../../../../test/harness";
-import {
-	applyLink,
-	computeLinkablePairs,
-	tryAutoLinkMember,
-} from "./link-helpers";
-import { relinkMemberAccounts } from "./linkAccounts";
+import { relinkMemberAccounts } from "./actions";
+import { linkMember } from "./repo";
+import { linkablePairs, tryAutoLink } from "./service";
 
 setupTestDatabases();
 
@@ -27,7 +25,7 @@ async function userIdOf(memberId: string) {
 	return row?.userId;
 }
 
-describe("computeLinkablePairs", () => {
+describe("linkablePairs", () => {
 	test("pairs an unlinked member with the one free account matching any of its emails", async () => {
 		await createTenant();
 		const account = await createUser({ email: "max@example.test" });
@@ -38,7 +36,7 @@ describe("computeLinkablePairs", () => {
 			email3: "  MAX@Example.test ",
 		});
 
-		expect(await computeLinkablePairs()).toEqual({
+		expect(await linkablePairs(tenantDb())).toEqual({
 			pairs: [{ memberId: m.id, userId: account.id, name: "Max Muster" }],
 			ambiguous: 0,
 		});
@@ -50,7 +48,10 @@ describe("computeLinkablePairs", () => {
 		await createUser({ email: "b@example.test" });
 		await createMember({ email: "a@example.test", email2: "b@example.test" });
 
-		expect(await computeLinkablePairs()).toEqual({ pairs: [], ambiguous: 1 });
+		expect(await linkablePairs(tenantDb())).toEqual({
+			pairs: [],
+			ambiguous: 1,
+		});
 	});
 
 	test("an account matching two members is ambiguous for both", async () => {
@@ -59,7 +60,10 @@ describe("computeLinkablePairs", () => {
 		await createMember({ email: "shared@example.test" });
 		await createMember({ email2: "shared@example.test" });
 
-		expect(await computeLinkablePairs()).toEqual({ pairs: [], ambiguous: 2 });
+		expect(await linkablePairs(tenantDb())).toEqual({
+			pairs: [],
+			ambiguous: 2,
+		});
 	});
 
 	test("accounts already linked and members already linked are skipped", async () => {
@@ -70,18 +74,21 @@ describe("computeLinkablePairs", () => {
 		const free = await createUser({ email: "free@example.test" });
 		await createMember({ userId: free.id, email: "x@example.test" });
 
-		expect(await computeLinkablePairs()).toEqual({ pairs: [], ambiguous: 0 });
+		expect(await linkablePairs(tenantDb())).toEqual({
+			pairs: [],
+			ambiguous: 0,
+		});
 	});
 });
 
-describe("applyLink / tryAutoLinkMember", () => {
+describe("linkMember / tryAutoLink", () => {
 	test("never overwrites an existing link", async () => {
 		await createTenant();
 		const first = await createUser();
 		const second = await createUser();
 		const m = await createMember({ userId: first.id });
 
-		await applyLink(m.id, second.id);
+		await linkMember(tenantDb(), m.id, second.id);
 
 		expect(await userIdOf(m.id)).toBe(first.id);
 	});
@@ -93,10 +100,10 @@ describe("applyLink / tryAutoLinkMember", () => {
 		const ma = await createMember({ email: "a@example.test" });
 		const mb = await createMember({ email: "b@example.test" });
 
-		expect(await tryAutoLinkMember(ma.id)).toBe(true);
+		expect(await tryAutoLink(testScope(), ma.id)).toBe(true);
 		expect(await userIdOf(ma.id)).toBe(a.id);
 		expect(await userIdOf(mb.id)).toBeNull();
-		expect(await tryAutoLinkMember(ma.id)).toBe(false);
+		expect(await tryAutoLink(testScope(), ma.id)).toBe(false);
 	});
 });
 

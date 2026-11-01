@@ -1234,7 +1234,7 @@ export const eventTypes = createTable(
 // Member status taxonomy (Adressliste "Abteilung"). `key` is the canonical
 // value offered in dropdowns; members.status stays free text, so imported
 // variants are matched against keys by normalized longest-prefix (see
-// member-statuses.ts). `beitragspflichtig` drives who gets Semesterbeitrag
+// ~/server/domain/members/statuses.ts). `beitragspflichtig` drives who gets Semesterbeitrag
 // charges — per-tenant, since other Corps use different labels.
 export const memberStatuses = createTable(
 	"member_status",
