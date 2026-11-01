@@ -31,7 +31,7 @@ const GUARDS = new Set([
 ]);
 
 /**
- * Calls that run a query. Getting a DB handle (`getCurrentTenantDb()`) is
+ * Calls that run a query. Getting a DB handle (`scopeOf(tenantId)`) is
  * fine before the guard, using it is not.
  */
 const DATA_ACCESS = new Set([

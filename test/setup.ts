@@ -93,14 +93,6 @@ vi.mock("next/server", async (importOriginal) => {
 });
 
 // ─── Databases ──────────────────────────────────────────────────────────────
-vi.mock("~/server/db", async () => {
-	const { requireTenant } = await import("./state");
-	return {
-		db: lazy(() => requireTenant().db),
-		client: lazy(() => requireTenant().client),
-	};
-});
-
 vi.mock("~/server/db/control", async () => {
 	const { requireControl } = await import("./state");
 	return {
@@ -126,14 +118,6 @@ vi.mock("~/server/db/tenants", async () => {
 	return {
 		TenantNotFoundError,
 		getTenantDb: async (tenantId: string) => get(tenantId).db,
-		getCurrentTenantDb: async () => {
-			if (!testState.tenantId) {
-				throw new Error(
-					"No tenant in request context. Did the request bypass middleware?",
-				);
-			}
-			return get(testState.tenantId).db;
-		},
 		getTenantClient: async (tenantId: string) => get(tenantId).client,
 		clearTenantDbCache: () => {},
 	};
