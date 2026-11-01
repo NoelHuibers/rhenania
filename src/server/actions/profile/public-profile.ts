@@ -14,15 +14,15 @@ import {
 	users,
 } from "~/server/db/schema";
 import {
-	type EloHistoryPoint,
-	getEloStatsForUser,
-} from "~/server/lib/elo-stats";
-import {
 	isEloEnabledForUser,
 	isPublicProfileEnabledForUser,
 } from "~/server/lib/preferences";
 import { scopeOf } from "~/server/lib/tenant-scope";
 import { unlockPercentages as unlockPercentagesOf } from "~/server/modules/achievements/service";
+import {
+	type EloHistoryPoint,
+	eloStatsOf,
+} from "~/server/modules/games/service";
 
 export type PublicAchievement = {
 	id: string;
@@ -132,7 +132,9 @@ export async function getPublicProfile(
 		unlockPercent: unlockPercentages[a.id] ?? 0,
 	}));
 
-	const elo = eloEnabled ? await getEloStatsForUser(userId) : null;
+	const elo = eloEnabled
+		? await eloStatsOf(await scopeOf(session.tenantId), userId)
+		: null;
 
 	return {
 		status: "public",

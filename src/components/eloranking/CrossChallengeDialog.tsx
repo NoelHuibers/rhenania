@@ -23,13 +23,13 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
-import { createCrossTenantChallenge } from "~/server/actions/game/cross-tenant-challenge";
 import {
 	type ChallengeableTenant,
 	type ChallengeableUser,
+	createCrossTenantChallenge,
 	listChallengeableTenants,
 	listChallengeableUsers,
-} from "~/server/actions/game/cross-tenant-discovery";
+} from "~/server/modules/games/actions";
 
 type Payment = "none" | "challenger" | "loser" | "split";
 

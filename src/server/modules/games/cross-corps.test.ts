@@ -35,16 +35,14 @@ import {
 	confirmCrossTenantResult,
 	createCrossTenantChallenge,
 	disputeCrossTenantResult,
-	getMyCrossTenantChallenges,
-	proposeCrossTenantResult,
-	respondToCrossTenantChallenge,
-} from "./cross-tenant-challenge";
-import {
 	getGlobalLeaderboard,
 	getGlobalPeakEloHolder,
+	getMyCrossTenantChallenges,
 	listChallengeableTenants,
 	listChallengeableUsers,
-} from "./cross-tenant-discovery";
+	proposeCrossTenantResult,
+	respondToCrossTenantChallenge,
+} from "./actions";
 
 // Achievements are stubbed; single tests opt into the real tracking and
 // await what the settlement fired in the background.

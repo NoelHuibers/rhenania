@@ -4,8 +4,8 @@ Where server code lives, how it gets its tenant database, and the order in
 which the existing code moves there. Phase 1 (this document, the lint rule,
 the explicit script DB), phase 2 (billing and the Getränkekasse), phase 3
 (the Fuchsenladen and the mails), phase 4 (the CC-Kasse and
-Mitglieder/Semesterbeitrag) and the achievements half of phase 5 are done;
-the games come next.
+Mitglieder/Semesterbeitrag) and phase 5 (achievements and games) are done;
+the rest comes next.
 
 ## Why
 
@@ -104,10 +104,10 @@ One domain per PR, each PR leaving behaviour, query counts (the
 2. **Billing + Getränkekasse** (done, see below).
 3. **Fuchsenladen + mails** (done, see below).
 4. **CC-Kasse and Mitglieder/Semesterbeitrag** (done, see below).
-5. Achievements/tracking (done, see below) and games (the cross-tenant
-   parts need two scopes).
-6. The rest (events, profile, drinks, images, venues), then delete the proxy
-   and `getCurrentTenantDb`, leaving `TenantScope` as the only way in.
+5. **Achievements/tracking and games** (done, see below).
+6. The rest (events, profile, drinks and the drink leaderboard, images,
+   venues), then delete the proxy and `getCurrentTenantDb`, leaving
+   `TenantScope` as the only way in.
 
 ## Phase 2: billing and Getränkekasse (done)
 
@@ -238,9 +238,9 @@ src/server/domain/semesterbeitrag/beitrag-pdf.ts  the Beitrag letter
   `src/server/actions`; since #239 it checks the modules' `actions.ts`
   too.
 
-## Phase 5: achievements and games
+## Phase 5: achievements and games (done)
 
-### Achievements (done)
+### Achievements
 
 ```
 src/server/modules/achievements/
@@ -279,3 +279,50 @@ src/server/domain/achievements/rules.ts   the rules per event, the
   goes with the proxy.
 - The query budgets are unchanged: one event costs at most three round
   trips (`tracking-queries.test.ts`), the profile page's count stays.
+
+### Games
+
+```
+src/server/modules/games/
+  repo.ts              the Corps' DB: challenges (guarded status moves, the
+                       claim, the settlement batch, the sweep), played
+                       games, the members and ELO preferences the
+                       Eloranking and the challenge form read, the ELO
+                       card's fallback and history
+  cross-corps-repo.ts  the control DB: cross-Corps challenges and games,
+                       memberships and Corps, the unified ELO rows
+  service.ts           intra-Corps challenges (create to settle, sweep,
+                       feed), recent games, the leaderboard, member lists,
+                       the profile's ELO card
+  cross-corps.ts       cross-Corps challenges on two scopes, discovery,
+                       the global leaderboard and peak
+  actions.ts           every game action
+src/server/domain/games/challenges.ts   deadlines, who pays, the feeds
+src/server/loaders/elo-stats.ts         the ELO card of /profile
+```
+
+- A cross-Corps challenge never touches the request's tenant implicitly.
+  The challenger plays for the scope `defineAction` built (the Corps they
+  are signed in to); the opponent's ELO preference is read through
+  `scopeOf(opponentTenantId)`, opened only after the membership check;
+  settling opens `scopeOf(challengerTenantId)` and
+  `scopeOf(opponentTenantId)` and tracks each player's achievements in
+  their own Corps. A Corps whose DB is unavailable answers "no ELO" or
+  is skipped by the tracking, as before. `listChallengeableTenants`
+  excludes the caller's Corps by the guard's tenant, no longer by the
+  request host.
+- The deadlines and the sweeps read the scope's clock.
+- `actions/game/` and `lib/elo-stats.ts` are gone; three of them
+  imported the proxy, the baseline is 17. `lib/user-stats.ts` (the
+  unified ELO in the control DB), `lib/elo.ts` (the rating maths) and
+  `lib/elo-preference.ts` stay shared in `lib`.
+- The reads keep their old answers: the feeds, the challengeable Corps
+  and members are empty for a signed-out caller (`requireRoles` in
+  `actions.ts` maps the AuthzError to nothing), `getAllUsers*` throw
+  "Unauthorized", and `getRecentGames`/`getLeaderboard` still log a
+  failed query and answer `[]`. Their query counts are unchanged too:
+  `recentGames` still reads names and preferences per game, a known
+  N+1 left for its own fix.
+- The drink leaderboard (`actions/leaderboard/`) is not a game: it ranks
+  litres ordered and charts consumption per drink, from orders and drinks
+  only. It moves with the drinks and orders in phase 6.

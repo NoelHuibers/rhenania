@@ -12,15 +12,16 @@ import { RadioGroup, RadioGroupItem } from "~/components/ui/radio-group";
 import { formatEUR } from "~/lib/format";
 import { applyMarkup } from "~/lib/pricing";
 import {
-	createChallenge,
-	type PaymentRule,
-} from "~/server/actions/game/challenge";
-import { getAllUsersExcept, type User } from "~/server/actions/game/getUsers";
-import {
 	getAvailableDrinks,
 	getDrinkMarkupPercent,
 	type MenuItem,
 } from "~/server/actions/menu";
+import {
+	createChallenge,
+	getAllUsersExcept,
+	type PaymentRule,
+	type User,
+} from "~/server/modules/games/actions";
 
 interface CreateChallengeFormProps {
 	onCreated?: () => void;

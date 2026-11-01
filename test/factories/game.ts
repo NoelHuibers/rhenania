@@ -11,13 +11,6 @@ import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, vi } from "vitest";
 
 import { defaultAchievements } from "~/lib/achievements/version1";
-import {
-	confirmResult,
-	createChallenge,
-	type PaymentRule,
-	proposeResult,
-	respondToChallenge,
-} from "~/server/actions/game/challenge";
 import { userStats } from "~/server/db/control-schema";
 import {
 	achievementProgress,
@@ -28,6 +21,13 @@ import {
 	userAchievements,
 	userPreferences,
 } from "~/server/db/schema";
+import {
+	confirmResult,
+	createChallenge,
+	type PaymentRule,
+	proposeResult,
+	respondToChallenge,
+} from "~/server/modules/games/actions";
 import {
 	controlDb,
 	createUser,

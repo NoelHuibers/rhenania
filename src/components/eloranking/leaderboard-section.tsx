@@ -1,5 +1,5 @@
 import { Card, CardContent } from "~/components/ui/card";
-import { getGlobalLeaderboard } from "~/server/actions/game/cross-tenant-discovery";
+import { getGlobalLeaderboard } from "~/server/modules/games/actions";
 import { LeaderboardClient, type LeaderboardEntry } from "./leaderboard-client";
 
 export async function LeaderboardSection() {

@@ -14,8 +14,7 @@ import {
 	setupTestDatabases,
 	signInAs,
 } from "../../../../test/harness";
-import { getLeaderboard, getRecentGames } from "./game";
-import { getAllUsersExcept } from "./getUsers";
+import { getAllUsersExcept, getLeaderboard, getRecentGames } from "./actions";
 
 // Achievements run fire-and-forget after the response; they have their own tests.
 vi.mock("~/server/modules/achievements/tracking", () => ({
