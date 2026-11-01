@@ -127,15 +127,3 @@ export async function getDatabase(
 export async function databaseExists(name: string): Promise<boolean> {
 	return (await getDatabase(name)) !== null;
 }
-
-// Validates Turso DB-name conventions: lowercase letters, digits, dashes,
-// 3-32 chars, must start with a letter. Tenant slug should already conform.
-export function tursoDatabaseNameForSlug(slug: string): string {
-	const candidate = `corps-${slug}`.toLowerCase();
-	if (!/^[a-z][a-z0-9-]{2,31}$/.test(candidate)) {
-		throw new Error(
-			`Tenant slug '${slug}' produces invalid Turso DB name '${candidate}'. Use lowercase letters, digits, and dashes; 3-32 chars total.`,
-		);
-	}
-	return candidate;
-}

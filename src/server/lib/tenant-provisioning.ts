@@ -27,7 +27,10 @@ import path from "node:path";
 import { and, eq, isNull, lt, ne, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
-
+import {
+	isValidTursoDatabaseName,
+	tenantDatabaseName,
+} from "~/lib/tenant-db-name";
 import { controlDb } from "~/server/db/control";
 import {
 	users as controlUsers,
@@ -53,7 +56,6 @@ import {
 	createDatabaseToken,
 	deleteDatabase,
 	getDatabase,
-	tursoDatabaseNameForSlug,
 } from "~/server/lib/turso-platform";
 import { upsertUserMirror } from "~/server/lib/user-mirror";
 
@@ -97,6 +99,8 @@ export type ProvisionTenantInput = {
 	primaryHostname?: string | null;
 	/** Existing account that becomes the tenant's first Admin. */
 	firstAdminEmail?: string | null;
+	/** The Turso database's name; derived from the display name when empty. */
+	dbName?: string | null;
 };
 
 export type ProvisionTenantResult = {
@@ -184,7 +188,13 @@ async function prepareRun(input: ProvisionTenantInput): Promise<string> {
 	if (!displayName) {
 		throw new Error("displayName is required.");
 	}
-	const dbName = tursoDatabaseNameForSlug(slug);
+	const dbName =
+		input.dbName?.trim().toLowerCase() || tenantDatabaseName(displayName, slug);
+	if (!isValidTursoDatabaseName(dbName)) {
+		throw new Error(
+			`Invalid Turso DB name '${dbName}'. Use lowercase letters, digits, and dashes; 3-32 chars, starting with a letter.`,
+		);
+	}
 	const primaryHostname = normalizeHostname(input.primaryHostname);
 	const firstAdminEmail = normalizeEmail(input.firstAdminEmail);
 
@@ -229,6 +239,11 @@ async function prepareRun(input: ProvisionTenantInput): Promise<string> {
 	const patch: Partial<ProvisioningRun> = {};
 	if (!isPast(run, "control_rows")) {
 		patch.displayName = displayName;
+	}
+	// A name taken in Turso stops the run before its DB exists; another
+	// name can be given on resume until then.
+	if (input.dbName?.trim() && !isPast(run, "db_requested")) {
+		patch.dbName = dbName;
 	}
 	if (primaryHostname && !isPast(run, "domain")) {
 		patch.primaryHostname = primaryHostname;
@@ -310,7 +325,7 @@ class StepRunner {
 				// this run didn't create.
 				if (await getDatabase(run.dbName)) {
 					throw new Error(
-						`Turso DB '${run.dbName}' already exists but was not created by this run. Delete it or pick another slug.`,
+						`Turso DB '${run.dbName}' already exists but was not created by this run. Delete it or choose another database name.`,
 					);
 				}
 				return this.advance("db_requested");

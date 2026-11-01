@@ -8,6 +8,7 @@ import { Button } from "~/components/ui/button";
 import { ConfirmAction } from "~/components/ui/confirm-action";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
+import { tenantDatabaseName } from "~/lib/tenant-db-name";
 import { createTenantAction } from "~/server/actions/superadmin/tenants";
 
 export function NewTenantForm() {
@@ -17,6 +18,10 @@ export function NewTenantForm() {
 	const [displayName, setDisplayName] = useState("");
 	const [primaryHostname, setPrimaryHostname] = useState("");
 	const [firstAdminEmail, setFirstAdminEmail] = useState("");
+	// Empty: the name derived from the display name (shown as placeholder).
+	const [dbName, setDbName] = useState("");
+	const suggestedDbName =
+		displayName.trim() || slug ? tenantDatabaseName(displayName, slug) : "";
 	const [confirming, setConfirming] = useState(false);
 
 	// Submitting (after the browser's own validation) only asks; the
@@ -33,6 +38,7 @@ export function NewTenantForm() {
 				displayName,
 				primaryHostname: primaryHostname || null,
 				firstAdminEmail: firstAdminEmail || null,
+				dbName: dbName || null,
 			});
 			if (!result.ok) {
 				// Progress is kept: submitting again resumes the run.
@@ -77,8 +83,7 @@ export function NewTenantForm() {
 					/>
 					<p className="text-muted-foreground text-xs">
 						Lowercase letters, digits, dashes. 3–31 chars, must start with a
-						letter. Becomes part of the Turso DB name (
-						<code>corps-&lt;slug&gt;</code>) and the Microsoft providerId (
+						letter. Becomes part of the Microsoft providerId (
 						<code>microsoft-&lt;slug&gt;</code>).
 					</p>
 				</div>
@@ -93,6 +98,23 @@ export function NewTenantForm() {
 						required
 						disabled={isPending}
 					/>
+				</div>
+
+				<div className="space-y-1">
+					<Label htmlFor="dbName">Database name (optional)</Label>
+					<Input
+						id="dbName"
+						value={dbName}
+						onChange={(e) => setDbName(e.target.value.toLowerCase())}
+						placeholder={suggestedDbName || "corps-hassia-bonn"}
+						pattern="[a-z][a-z0-9\-]{2,31}"
+						disabled={isPending}
+					/>
+					<p className="text-muted-foreground text-xs">
+						The Turso database. Leave empty for{" "}
+						<code>{suggestedDbName || "corps-<name>-<city>"}</code>, derived
+						from the display name. Set another one if that name is taken.
+					</p>
 				</div>
 
 				<div className="space-y-1">

@@ -6,7 +6,6 @@ import {
 	databaseExists,
 	deleteDatabase,
 	getDatabase,
-	tursoDatabaseNameForSlug,
 } from "./turso-platform";
 
 // Fake credentials: the real env is empty in tests and the setup guard
@@ -173,21 +172,5 @@ describe("getDatabase", () => {
 
 		fetchMock.mockResolvedValueOnce(json({ error: "not found" }, 404));
 		expect(await getDatabase("corps-nope")).toBeNull();
-	});
-});
-
-describe("tursoDatabaseNameForSlug", () => {
-	test("prefixes and lowercases the slug", () => {
-		expect(tursoDatabaseNameForSlug("hassia")).toBe("corps-hassia");
-		expect(tursoDatabaseNameForSlug("Rhenania-2")).toBe("corps-rhenania-2");
-	});
-
-	test("rejects names Turso would refuse", () => {
-		expect(tursoDatabaseNameForSlug("a".repeat(26))).toHaveLength(32);
-		for (const slug of ["a".repeat(27), "corps_x", "x.y", "über"]) {
-			expect(() => tursoDatabaseNameForSlug(slug)).toThrow(
-				/produces invalid Turso DB name/,
-			);
-		}
 	});
 });
