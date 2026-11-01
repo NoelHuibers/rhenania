@@ -187,20 +187,13 @@ export function AddDrinkDialog({
 						isCurrentlyAvailable: formData.isCurrentlyAvailable === "true",
 					});
 
-					if (result.success) {
-						toast.success(result.message);
+					if (result.ok) {
+						toast.success("Getränk erfolgreich hinzugefügt");
 						onDrinkAdded();
 						onOpenChange(false);
 						resetForm();
 					} else {
-						toast.error(result.error || "Fehler beim Hinzufügen des Getränks");
-						if (result.details) {
-							for (const detail of result.details) {
-								toast.error(
-									`${detail.path.map(String).join(".")}: ${detail.message}`,
-								);
-							}
-						}
+						toast.error(result.error);
 					}
 				} catch (error) {
 					console.error("Error adding drink:", error);

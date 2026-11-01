@@ -58,11 +58,11 @@ export function GetraenkePage() {
 		startTransition(async () => {
 			try {
 				const result = await deleteDrink(id);
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					toast.success("Getränk erfolgreich gelöscht");
 					setDrinks((prev) => prev.filter((drink) => drink.id !== id));
 				} else {
-					toast.error(result.error || "Fehler beim Löschen");
+					toast.error(result.error);
 				}
 			} catch (error) {
 				console.error("Error deleting drink:", error);
@@ -75,8 +75,8 @@ export function GetraenkePage() {
 		startTransition(async () => {
 			try {
 				const result = await toggleDrinkAvailability(id);
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					toast.success("Verfügbarkeit erfolgreich geändert");
 					setDrinks((prev) =>
 						prev.map((drink) =>
 							drink.id === id
@@ -88,7 +88,7 @@ export function GetraenkePage() {
 						),
 					);
 				} else {
-					toast.error(result.error || "Fehler beim Ändern der Verfügbarkeit");
+					toast.error(result.error);
 				}
 			} catch (error) {
 				console.error("Error toggling availability:", error);
@@ -115,17 +115,14 @@ export function GetraenkePage() {
 				try {
 					const result = await updateDrink(drinkId, { pictureUrl });
 
-					if (result.success && result.data) {
+					if (result.ok) {
+						const updated = result.data;
 						toast.success("Bild erfolgreich aktualisiert");
-
 						setDrinks((prev) =>
-							prev.map((drink) =>
-								// biome-ignore lint/style/noNonNullAssertion: result.data checked above in result.success && result.data
-								drink.id === drinkId ? result.data! : drink,
-							),
+							prev.map((drink) => (drink.id === drinkId ? updated : drink)),
 						);
 					} else {
-						toast.error(result.error || "Fehler beim Aktualisieren des Bildes");
+						toast.error(result.error);
 					}
 				} catch (error) {
 					console.error("Error updating drink with image:", error);
@@ -214,8 +211,8 @@ export function GetraenkePage() {
 				}
 
 				const result = await updateDrink(id, updateData);
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					toast.success("Getränk erfolgreich aktualisiert");
 					setDrinks((prev) =>
 						prev.map((drink) =>
 							drink.id === id
@@ -231,7 +228,7 @@ export function GetraenkePage() {
 					);
 					cancelEditing();
 				} else {
-					toast.error(result.error || "Fehler beim Aktualisieren");
+					toast.error(result.error);
 				}
 			} catch (error) {
 				console.error("Error updating drink:", error);
