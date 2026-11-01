@@ -26,6 +26,7 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import { useServerTimeZone } from "../../../../test/server-tz";
+import { testState } from "../../../../test/state";
 import {
 	createBeitragRun,
 	deleteBeitragRun,
@@ -481,8 +482,10 @@ describe("sendBeitragEmails", () => {
 		const result = await sendBeitragEmails(run.id, { onlyUnsent: false });
 
 		expect(result).toMatchObject({ ok: true, data: { emailed: 1 } });
+		// Sent from the scope's tenant, not the request's host.
 		expect(sendTenantMail).toHaveBeenCalledWith(
 			expect.objectContaining({ to: "a@example.test" }),
+			testState.tenantId,
 		);
 	});
 
@@ -580,8 +583,10 @@ describe("sendBeitragEmails", () => {
 
 		expect(result).toMatchObject({ ok: true, data: { emailed: 1, failed: 0 } });
 		expect(sendTenantMail).toHaveBeenCalledTimes(1);
+		// Sent from the scope's tenant, not the request's host.
 		expect(sendTenantMail).toHaveBeenCalledWith(
 			expect.objectContaining({ to: "deferred@example.test" }),
+			testState.tenantId,
 		);
 	});
 });

@@ -24,6 +24,7 @@ import {
 } from "~/server/lib/tenant-config";
 import {
 	getCurrentTenant,
+	getTenantById,
 	type TenantContext,
 } from "~/server/lib/tenant-context";
 
@@ -213,11 +214,17 @@ async function writeToOutbox(
 }
 
 /**
- * Send an email on behalf of the CURRENT tenant. Graph (tenant's own
- * mailbox) when configured, legacy Gmail otherwise.
+ * Send an email on behalf of a tenant: `tenantId` when given (the bill
+ * mails pass their scope's tenant), otherwise the request's (account mails).
+ * Graph (tenant's own mailbox) when configured, legacy Gmail otherwise.
  */
-export async function sendTenantMail(mail: TenantMail): Promise<void> {
-	const tenant = await getCurrentTenant();
+export async function sendTenantMail(
+	mail: TenantMail,
+	tenantId?: string,
+): Promise<void> {
+	const tenant = tenantId
+		? await getTenantById(tenantId)
+		: await getCurrentTenant();
 	if (env.MAIL_OUTBOX_DIR) {
 		await writeToOutbox(env.MAIL_OUTBOX_DIR, tenant, mail);
 		return;
