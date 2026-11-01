@@ -16,7 +16,7 @@ import {
 	markChargeDeferred,
 	markChargePaid,
 	markChargeUnpaid,
-} from "~/server/actions/members/semesterbeitrag";
+} from "~/server/modules/semesterbeitrag/actions";
 
 function chargeBadge(c: ChargeListItem) {
 	if (c.status === "Bezahlt") {

@@ -6,7 +6,7 @@ import { ADRESSLISTE_ROLES } from "~/lib/roles";
 import {
 	listMemberStatusOptions,
 	listMembers,
-} from "~/server/actions/members/members";
+} from "~/server/modules/members/actions";
 import { requirePageRoles } from "./page-access";
 
 const VIEW_ROLES = ADRESSLISTE_ROLES;

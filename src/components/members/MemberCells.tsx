@@ -4,7 +4,7 @@ import { Link2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback } from "~/components/ui/avatar";
 import { cn } from "~/lib/utils";
-import type { MemberListItem } from "~/server/actions/members/members";
+import type { MemberListItem } from "~/server/modules/members/actions";
 import { MemberStatusBadge } from "./MemberStatusBadge";
 import { avatarColorClasses, memberInitials } from "./member-constants";
 import { type EditableKey, memberName } from "./member-edits";

@@ -17,20 +17,16 @@ import {
 import { EmptyState } from "~/components/ui/empty-state";
 import { SectionCard } from "~/components/ui/section-card";
 import { formatEUR } from "~/lib/format";
+import type { Etaplan } from "~/server/modules/cc-kasse/actions";
 import {
 	deleteEinnahme,
+	deleteKostenpunkt,
 	type EinnahmeRow,
-} from "~/server/actions/cc-kasse/einnahmen";
-import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
-import {
 	exportEtaplanXlsx,
 	importEtaplanXlsx,
-} from "~/server/actions/cc-kasse/excel";
-import {
-	deleteKostenpunkt,
 	type KostenpunktWithPositions,
 	type LinkableEvent,
-} from "~/server/actions/cc-kasse/kostenpunkte";
+} from "~/server/modules/cc-kasse/actions";
 import { type EditingEinnahme, EinnahmeDialog } from "./EinnahmeDialog";
 import { EtaplanDialog } from "./EtaplanDialog";
 import { EtaplanToolbar } from "./etaplan-editor/EtaplanToolbar";

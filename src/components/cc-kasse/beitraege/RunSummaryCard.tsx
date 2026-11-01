@@ -21,7 +21,7 @@ import { formatDate, formatEUR } from "~/lib/format";
 import {
 	type ChargesForRun,
 	regenerateCharges,
-} from "~/server/actions/members/semesterbeitrag";
+} from "~/server/modules/semesterbeitrag/actions";
 
 /** Summary of the selected Beitragslauf: collected so far and run actions. */
 export function RunSummaryCard({

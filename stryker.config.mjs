@@ -16,7 +16,7 @@ export default {
 		"src/server/actions/billings/billings.ts",
 		"src/server/lib/billing-run.ts",
 		"src/server/actions/inventur/inventur.ts",
-		"src/server/actions/cc-kasse/kostenerstattungen.ts",
+		"src/server/modules/cc-kasse/service.ts",
 		"src/server/lib/elo.ts",
 	],
 	coverageAnalysis: "perTest",

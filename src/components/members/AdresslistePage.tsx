@@ -18,15 +18,13 @@ import { Button } from "~/components/ui/button";
 import { ConfirmAction } from "~/components/ui/confirm-action";
 import { StatTile } from "~/components/ui/stat-tile";
 import { downloadBase64, fileToBase64, XLSX_MIME } from "~/lib/file-download";
-import { relinkMemberAccounts } from "~/server/actions/members/linkAccounts";
 import {
 	deleteMember,
-	type MemberListItem,
-} from "~/server/actions/members/members";
-import {
 	exportMembersXlsx,
 	importMembersXlsx,
-} from "~/server/actions/members/membersExcel";
+	type MemberListItem,
+	relinkMemberAccounts,
+} from "~/server/modules/members/actions";
 import { MemberDialog } from "./MemberDialog";
 import { MembersTable } from "./MembersTable";
 import { memberCategory } from "./member-constants";

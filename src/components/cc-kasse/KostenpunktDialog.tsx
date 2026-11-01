@@ -28,7 +28,7 @@ import {
 	type KostenpunktWithPositions,
 	type LinkableEvent,
 	updateKostenpunkt,
-} from "~/server/actions/cc-kasse/kostenpunkte";
+} from "~/server/modules/cc-kasse/actions";
 
 const NEW_CATEGORY = "__new__";
 const NO_EVENT = "__none__";

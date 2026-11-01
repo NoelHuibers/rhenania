@@ -25,7 +25,7 @@ import { parseDecimalInput } from "~/lib/decimal";
 import {
 	createEinnahme,
 	updateEinnahme,
-} from "~/server/actions/cc-kasse/einnahmen";
+} from "~/server/modules/cc-kasse/actions";
 import type { KostenpunktOption } from "./ReimbursementDialog";
 
 export type EditingEinnahme = {

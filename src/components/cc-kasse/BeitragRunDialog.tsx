@@ -21,8 +21,8 @@ import {
 	SelectValue,
 } from "~/components/ui/select";
 import { parseDecimalInput } from "~/lib/decimal";
-import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
-import { createBeitragRun } from "~/server/actions/members/semesterbeitrag";
+import type { Etaplan } from "~/server/modules/cc-kasse/actions";
+import { createBeitragRun } from "~/server/modules/semesterbeitrag/actions";
 
 type KpOption = { id: string; name: string; category: string };
 

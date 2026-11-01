@@ -27,7 +27,7 @@ import {
 } from "~/components/ui/select";
 import type { ActionResult } from "~/lib/action-result";
 import { downloadBase64, PDF_MIME } from "~/lib/file-download";
-import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
+import type { Etaplan } from "~/server/modules/cc-kasse/actions";
 import {
 	type BeitragRun,
 	type ChargeListItem,
@@ -36,7 +36,7 @@ import {
 	downloadChargePdf,
 	sendBeitragEmails,
 	sendMahnungen,
-} from "~/server/actions/members/semesterbeitrag";
+} from "~/server/modules/semesterbeitrag/actions";
 import { BeitragRunDialog } from "./BeitragRunDialog";
 import { ChargeRow } from "./beitraege/ChargeRow";
 import { RunSummaryCard } from "./beitraege/RunSummaryCard";

@@ -31,7 +31,7 @@ import {
 	markReimbursementPaid,
 	type QueueReimbursement,
 	rejectReimbursement,
-} from "~/server/actions/cc-kasse/kostenerstattungen";
+} from "~/server/modules/cc-kasse/actions";
 import { ReceiptLinks } from "./ReceiptLinks";
 import {
 	type EditingReimbursement,

@@ -20,7 +20,7 @@ import {
 	DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { formatEUR } from "~/lib/format";
-import type { KostenpunktWithPositions } from "~/server/actions/cc-kasse/kostenpunkte";
+import type { KostenpunktWithPositions } from "~/server/modules/cc-kasse/actions";
 
 /** Header of the Etatplan editor: totals, plan menu (edit, Excel) and booking buttons. */
 export function EtaplanToolbar({

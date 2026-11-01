@@ -6,18 +6,18 @@
 
 import { unstable_rethrow } from "next/navigation";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { getMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
-import { getMyMember } from "~/server/actions/members/myMember";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { getUserAchievements } from "~/server/actions/profile/achievements";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
 import { getUserProfile } from "~/server/actions/profile/profile";
 import { getProfilePreferencesForUser } from "~/server/lib/preferences";
 import { getUserBillingData } from "~/server/modules/billing/actions";
+import { getMyPaymentInfo } from "~/server/modules/cc-kasse/actions";
 import {
 	getMyFuchsenOrders,
 	getMyFuchsenSummary,
 } from "~/server/modules/fuchsenladen/actions";
+import { getMyMember } from "~/server/modules/members/actions";
 import { AccountSecurity } from "./AccountSecurity";
 import { Achievements } from "./Achievements";
 import { BillingOverview } from "./BillingOverview";

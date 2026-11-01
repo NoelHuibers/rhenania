@@ -2,22 +2,20 @@
 
 import "server-only";
 
-import { listEinnahmen } from "~/server/actions/cc-kasse/einnahmen";
 import {
 	getActiveEtaplan,
 	getEtaplanById,
-	listEtaplans,
-} from "~/server/actions/cc-kasse/etaplans";
-import { listReimbursementQueue } from "~/server/actions/cc-kasse/kostenerstattungen";
-import {
+	getEtaplanOverview,
 	linkableEvents,
+	listEinnahmen,
+	listEtaplans,
 	listKostenpunkteForEtaplan,
-} from "~/server/actions/cc-kasse/kostenpunkte";
-import { getEtaplanOverview } from "~/server/actions/cc-kasse/overview";
+	listReimbursementQueue,
+} from "~/server/modules/cc-kasse/actions";
 import {
 	listBeitragRuns,
 	listChargesForRun,
-} from "~/server/actions/members/semesterbeitrag";
+} from "~/server/modules/semesterbeitrag/actions";
 import { requirePageRoles } from "./page-access";
 
 const ALLOWED_ROLES = ["CC-Kasse", "Senior", "Admin"];

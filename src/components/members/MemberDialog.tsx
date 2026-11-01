@@ -16,7 +16,7 @@ import {
 	createMember,
 	type MemberListItem,
 	updateMember,
-} from "~/server/actions/members/members";
+} from "~/server/modules/members/actions";
 import {
 	emptyMemberForm,
 	type MemberForm,

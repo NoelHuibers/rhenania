@@ -3,7 +3,7 @@
 import { Progress } from "~/components/ui/progress";
 import { formatEUR } from "~/lib/format";
 import { cn } from "~/lib/utils";
-import type { EtaplanOverview } from "~/server/actions/cc-kasse/overview";
+import type { EtaplanOverview } from "~/server/modules/cc-kasse/actions";
 import { incomePct } from "./budget";
 
 // Income mirror of the Kostenpunkte list: how much of the planned income has
