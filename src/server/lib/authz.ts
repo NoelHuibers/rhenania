@@ -27,6 +27,8 @@ export const ROLES = {
 	fotos: ["Fotowart", "Admin"],
 	events: ["Admin"],
 	konten: ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"],
+	/** Who edits the Etatplan and its Kostenpunkte (the CC-Kasse page). */
+	etatplan: ["Senior", "CC-Kasse", "Admin"],
 	/** The treasurers: Kostenerstattungen, Einnahmen, the Semesterbeitrag. */
 	ccKasse: ["CC-Kasse", "Admin"],
 	/** Admins and the AHV board: the Adressliste. */

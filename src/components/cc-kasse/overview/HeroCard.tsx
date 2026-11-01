@@ -8,7 +8,7 @@ import { cn } from "~/lib/utils";
 import type {
 	BudgetStatus,
 	EtaplanOverview,
-} from "~/server/actions/cc-kasse/overview";
+} from "~/server/modules/cc-kasse/actions";
 import { budgetBar } from "./budget";
 
 const BUDGET_STATUS: Record<BudgetStatus, { label: string; tone: StatusTone }> =

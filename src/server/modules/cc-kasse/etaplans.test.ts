@@ -15,7 +15,7 @@ import {
 	getEtaplanById,
 	listEtaplans,
 	updateEtaplan,
-} from "./etaplans";
+} from "./actions";
 
 setupTestDatabases();
 

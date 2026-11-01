@@ -31,14 +31,14 @@ import {
 	UrlTabs,
 } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
-import type { EinnahmeRow } from "~/server/actions/cc-kasse/einnahmen";
-import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
 import type { QueueReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
 import type {
+	EinnahmeRow,
+	Etaplan,
+	EtaplanOverview,
 	KostenpunktWithPositions,
 	LinkableEvent,
-} from "~/server/actions/cc-kasse/kostenpunkte";
-import type { EtaplanOverview } from "~/server/actions/cc-kasse/overview";
+} from "~/server/modules/cc-kasse/actions";
 import type {
 	BeitragRun,
 	ChargesForRun,

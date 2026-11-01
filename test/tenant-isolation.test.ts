@@ -154,6 +154,7 @@ async function seedForeignCorps(other: TestTenant) {
 		recurringEventId: event.id,
 		etaplanId: etaplan.id,
 		kostenpunktId: kp.id,
+		einnahmeId: einnahme.id,
 		memberId: member.id,
 		imageId: drink.id,
 		chargeId: member.id,
@@ -168,9 +169,6 @@ async function seedForeignCorps(other: TestTenant) {
 		"events/recurring.ts": event.id,
 		"venues.ts": venue.id,
 		"kontos/kontos.ts": konto.id,
-		"cc-kasse/etaplans.ts": etaplan.id,
-		"cc-kasse/kostenpunkte.ts": kp.id,
-		"cc-kasse/einnahmen.ts": einnahme.id,
 		"cc-kasse/kostenerstattungen.ts": reimbursement.id,
 		// Every `id` of the Fuchsenladen module is an item id.
 		"src/server/modules/fuchsenladen/actions.ts": item.id,

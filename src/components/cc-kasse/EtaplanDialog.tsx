@@ -25,7 +25,7 @@ import {
 	createEtaplan,
 	type Etaplan,
 	updateEtaplan,
-} from "~/server/actions/cc-kasse/etaplans";
+} from "~/server/modules/cc-kasse/actions";
 
 type Props = {
 	open: boolean;

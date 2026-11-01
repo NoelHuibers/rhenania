@@ -18,7 +18,7 @@ import {
 	deleteEinnahme,
 	listEinnahmen,
 	updateEinnahme,
-} from "./einnahmen";
+} from "./actions";
 
 setupTestDatabases();
 

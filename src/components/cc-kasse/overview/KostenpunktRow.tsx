@@ -11,7 +11,7 @@ import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import { formatDate, formatEUR } from "~/lib/format";
 import { cn } from "~/lib/utils";
 import type { QueueReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
-import type { KostenpunktOverview } from "~/server/actions/cc-kasse/overview";
+import type { KostenpunktOverview } from "~/server/modules/cc-kasse/actions";
 import { budgetBar, remainingTone } from "./budget";
 
 export type KpExtras = {

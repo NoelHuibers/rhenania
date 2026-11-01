@@ -10,8 +10,10 @@ import {
 } from "~/components/ui/dropdown-menu";
 import { IconButton } from "~/components/ui/icon-button";
 import { formatDate, formatEUR } from "~/lib/format";
-import type { EinnahmeRow } from "~/server/actions/cc-kasse/einnahmen";
-import type { KostenpunktWithPositions } from "~/server/actions/cc-kasse/kostenpunkte";
+import type {
+	EinnahmeRow,
+	KostenpunktWithPositions,
+} from "~/server/modules/cc-kasse/actions";
 
 /** One Kostenpunkt in the editor: budget, plan positions and booked income. */
 export function KostenpunktItem({

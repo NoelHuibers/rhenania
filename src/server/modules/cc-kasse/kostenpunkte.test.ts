@@ -26,7 +26,7 @@ import {
 	linkableEvents,
 	listKostenpunkteForEtaplan,
 	updateKostenpunkt,
-} from "./kostenpunkte";
+} from "./actions";
 
 setupTestDatabases();
 

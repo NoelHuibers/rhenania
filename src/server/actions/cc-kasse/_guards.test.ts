@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import { ADRESSLISTE_ROLES, AHV_VORSTAND_ROLES } from "~/lib/roles";
 import { etaplans, kostenerstattungen } from "~/server/db/schema";
 import { ROLES } from "~/server/lib/authz";
+import { createEtaplan } from "~/server/modules/cc-kasse/actions";
 import {
 	createKostenpunkt,
 	createReimbursement,
@@ -22,7 +23,6 @@ import {
 	requireRoles,
 	TREASURY_ROLES,
 } from "./_guards";
-import { createEtaplan } from "./etaplans";
 import { approveReimbursement } from "./kostenerstattungen";
 
 setupTestDatabases();

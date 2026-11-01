@@ -16,7 +16,7 @@ import {
 	setupTestDatabases,
 	signInAs,
 } from "../../../../test/harness";
-import { getEtaplanOverview } from "./overview";
+import { getEtaplanOverview } from "./actions";
 
 setupTestDatabases();
 
