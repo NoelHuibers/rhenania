@@ -1,14 +1,15 @@
 // repo.ts — the CC-Kasse in the tenant DB (#33).
 //
 // Drizzle reads and writes of the Etatpläne, their Kostenpunkte (with
-// Positionen) and Einnahmen, and the sums the budget overview is computed
-// from. Every function takes the database it runs on; none checks the
-// caller, applies a rule or revalidates a page. A read that may find
-// nothing returns null or []; a failed query throws.
+// Positionen), Einnahmen and Kostenerstattungen, the members' payment
+// details and the sums the budget overview is computed from. Every
+// function takes the database it runs on; none checks the caller, applies
+// a rule or revalidates a page. A read that may find nothing returns null
+// or []; a failed query throws.
 
 import "server-only";
 
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, type SQL, sql } from "drizzle-orm";
 import {
 	einnahmen,
 	etaplans,
@@ -18,6 +19,7 @@ import {
 	kostenpunktPositionen,
 	semesterbeitragCharges,
 	semesterbeitragRuns,
+	userPaymentInfo,
 } from "~/server/db/schema";
 import type { TenantDb } from "~/server/db/tenants";
 import type { OverviewSums } from "~/server/domain/cc-kasse/overview";
@@ -27,6 +29,9 @@ type EtaplanInsert = typeof etaplans.$inferInsert;
 type KostenpunktInsert = typeof kostenpunkte.$inferInsert;
 type PositionInsert = typeof kostenpunktPositionen.$inferInsert;
 type EinnahmeInsert = typeof einnahmen.$inferInsert;
+export type ErstattungInsert = typeof kostenerstattungen.$inferInsert;
+export type ErstattungStatus =
+	(typeof kostenerstattungen.$inferSelect)["status"];
 
 // ─── Etatpläne ───────────────────────────────────────────────────────────────
 
@@ -269,6 +274,105 @@ export async function updateEinnahme(
 
 export async function deleteEinnahme(db: TenantDb, id: string): Promise<void> {
 	await db.delete(einnahmen).where(eq(einnahmen.id, id));
+}
+
+// ─── Kostenerstattungen ──────────────────────────────────────────────────────
+
+export async function insertErstattung(
+	db: TenantDb,
+	values: ErstattungInsert,
+): Promise<void> {
+	await db.insert(kostenerstattungen).values(values);
+}
+
+/** Who submitted a request, its status and receipts; null if there is none. */
+export async function findErstattung(db: TenantDb, id: string) {
+	const row = await db.query.kostenerstattungen.findFirst({
+		where: (t, { eq }) => eq(t.id, id),
+		columns: { id: true, submittedBy: true, status: true, receipts: true },
+	});
+	return row ?? null;
+}
+
+export async function updateErstattung(
+	db: TenantDb,
+	id: string,
+	values: Partial<ErstattungInsert>,
+): Promise<void> {
+	await db
+		.update(kostenerstattungen)
+		.set(values)
+		.where(eq(kostenerstattungen.id, id));
+}
+
+export async function deleteErstattung(
+	db: TenantDb,
+	id: string,
+): Promise<void> {
+	await db.delete(kostenerstattungen).where(eq(kostenerstattungen.id, id));
+}
+
+/** The member's own requests, newest first, with Kostenpunkt and plan. */
+export async function erstattungenOf(db: TenantDb, userId: string) {
+	return db.query.kostenerstattungen.findMany({
+		where: (t, { eq }) => eq(t.submittedBy, userId),
+		orderBy: (t, { desc }) => [desc(t.createdAt)],
+		with: {
+			kostenpunkt: { columns: { id: true, name: true, category: true } },
+			etaplan: { columns: { id: true, name: true } },
+		},
+	});
+}
+
+/** Every request (of a plan, in a status), newest first, with submitter. */
+export async function erstattungQueue(
+	db: TenantDb,
+	filter?: { etaplanId?: string; status?: ErstattungStatus },
+) {
+	const conds: Array<SQL | undefined> = [];
+	if (filter?.etaplanId) {
+		conds.push(eq(kostenerstattungen.etaplanId, filter.etaplanId));
+	}
+	if (filter?.status) {
+		conds.push(eq(kostenerstattungen.status, filter.status));
+	}
+	return db.query.kostenerstattungen.findMany({
+		where: conds.length ? and(...conds) : undefined,
+		orderBy: (t) => [desc(t.createdAt)],
+		with: {
+			kostenpunkt: { columns: { id: true, name: true, category: true } },
+			etaplan: { columns: { id: true, name: true } },
+			submitter: { columns: { id: true, name: true } },
+		},
+	});
+}
+
+// ─── Payment details ─────────────────────────────────────────────────────────
+
+/** The account a member's reimbursements are paid to, or null. */
+export async function paymentInfoOf(
+	db: TenantDb,
+	userId: string,
+): Promise<{ accountHolder: string; iban: string } | null> {
+	const row = await db.query.userPaymentInfo.findFirst({
+		where: (t, { eq }) => eq(t.userId, userId),
+		columns: { accountHolder: true, iban: true },
+	});
+	return row ?? null;
+}
+
+export async function savePaymentInfo(
+	db: TenantDb,
+	userId: string,
+	values: { accountHolder: string; iban: string },
+): Promise<void> {
+	await db
+		.insert(userPaymentInfo)
+		.values({ userId, ...values })
+		.onConflictDoUpdate({
+			target: userPaymentInfo.userId,
+			set: { ...values, updatedAt: sql`(unixepoch())` },
+		});
 }
 
 // ─── The overview ────────────────────────────────────────────────────────────

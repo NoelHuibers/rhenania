@@ -10,7 +10,7 @@ import { Label } from "~/components/ui/label";
 import {
 	type MyPaymentInfo,
 	setMyPaymentInfo,
-} from "~/server/actions/cc-kasse/paymentInfo";
+} from "~/server/modules/cc-kasse/actions";
 
 /**
  * The member's own account details. `initial` comes from the server (#24);

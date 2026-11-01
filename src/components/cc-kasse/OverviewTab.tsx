@@ -15,8 +15,10 @@ import { SectionCard } from "~/components/ui/section-card";
 import { StatTile } from "~/components/ui/stat-tile";
 import { formatEUR } from "~/lib/format";
 import { cn } from "~/lib/utils";
-import type { QueueReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
-import type { EtaplanOverview } from "~/server/modules/cc-kasse/actions";
+import type {
+	EtaplanOverview,
+	QueueReimbursement,
+} from "~/server/modules/cc-kasse/actions";
 import { incomePct, remainingTone } from "./overview/budget";
 import { EinnahmenSection } from "./overview/EinnahmenSection";
 import { HeroCard } from "./overview/HeroCard";

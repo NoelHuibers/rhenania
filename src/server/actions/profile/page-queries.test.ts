@@ -3,8 +3,6 @@
 // member's history is. The order list is one page, never the whole history.
 
 import { describe, expect, test } from "vitest";
-
-import { getMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { getUserAchievements } from "~/server/actions/profile/achievements";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
@@ -17,6 +15,7 @@ import {
 } from "~/server/lib/preferences";
 import { loadOpenBill } from "~/server/loaders/open-bill";
 import { getUserBillingData } from "~/server/modules/billing/actions";
+import { getMyPaymentInfo } from "~/server/modules/cc-kasse/actions";
 import {
 	getMyFuchsenOrders,
 	getMyFuchsenSummary,

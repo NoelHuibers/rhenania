@@ -6,7 +6,7 @@ import { useState } from "react";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import type { MyReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
+import type { MyReimbursement } from "~/server/modules/cc-kasse/actions";
 import { MyReimbursementsTable } from "./MyReimbursementsTable";
 import {
 	type EditingReimbursement,

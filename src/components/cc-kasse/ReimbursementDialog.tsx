@@ -28,11 +28,11 @@ import { parseDecimalInput } from "~/lib/decimal";
 import { uploadReceipt } from "~/lib/receipt-upload";
 import {
 	createDirectBooking,
+	setMyPaymentInfo,
 	submitReimbursement,
 	updateMyReimbursement,
 	updateReimbursement,
-} from "~/server/actions/cc-kasse/kostenerstattungen";
-import { setMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
+} from "~/server/modules/cc-kasse/actions";
 import type {
 	EditingReimbursement,
 	KostenpunktOption,

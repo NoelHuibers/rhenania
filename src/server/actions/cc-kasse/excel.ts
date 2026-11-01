@@ -4,11 +4,11 @@ import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import { z } from "zod";
 import { kostenpunkte, kostenpunktPositionen } from "~/server/db/schema";
+import { ROLES } from "~/server/lib/authz";
 import { defineAction } from "~/server/lib/define-action";
 import { NotFoundError, ValidationError } from "~/server/lib/domain-error";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
 import { protectFormulaLikeText } from "~/server/lib/xlsx-safe";
-import { EDIT_ROLES } from "./_guards";
 import {
 	BODY_START_ROW,
 	COL,
@@ -69,7 +69,7 @@ type ParsedKp = {
 /** The plan as an .xlsx workbook, base64-encoded for the download. */
 export const exportEtaplanXlsx = defineAction(
 	{
-		roles: EDIT_ROLES,
+		roles: ROLES.etatplan,
 		schema: z.tuple([z.string()]),
 		errorMessage: "Export fehlgeschlagen",
 	},
@@ -231,7 +231,7 @@ export const exportEtaplanXlsx = defineAction(
 
 export const importEtaplanXlsx = defineAction(
 	{
-		roles: EDIT_ROLES,
+		roles: ROLES.etatplan,
 		schema: z.tuple([z.object({ etaplanId: z.string(), base64: z.string() })]),
 		revalidate: ["/cc-kasse"],
 		errorMessage: "Import fehlgeschlagen",

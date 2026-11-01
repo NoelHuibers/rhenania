@@ -26,7 +26,7 @@ import {
 	submitReimbursement,
 	updateMyReimbursement,
 	updateReimbursement,
-} from "./kostenerstattungen";
+} from "./actions";
 
 setupTestDatabases();
 

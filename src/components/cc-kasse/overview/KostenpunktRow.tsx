@@ -10,8 +10,10 @@ import { StackedBar } from "~/components/ui/stacked-bar";
 import { ReimbursementStatusBadge } from "~/components/ui/status-badge";
 import { formatDate, formatEUR } from "~/lib/format";
 import { cn } from "~/lib/utils";
-import type { QueueReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
-import type { KostenpunktOverview } from "~/server/modules/cc-kasse/actions";
+import type {
+	KostenpunktOverview,
+	QueueReimbursement,
+} from "~/server/modules/cc-kasse/actions";
 import { budgetBar, remainingTone } from "./budget";
 
 export type KpExtras = {

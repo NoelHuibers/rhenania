@@ -10,7 +10,7 @@ import { formatDate, formatEUR } from "~/lib/format";
 import {
 	cancelMyReimbursement,
 	type MyReimbursement,
-} from "~/server/actions/cc-kasse/kostenerstattungen";
+} from "~/server/modules/cc-kasse/actions";
 import { ReceiptLinks } from "./ReceiptLinks";
 
 export function MyReimbursementsTable({

@@ -31,13 +31,13 @@ import {
 	UrlTabs,
 } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
-import type { QueueReimbursement } from "~/server/actions/cc-kasse/kostenerstattungen";
 import type {
 	EinnahmeRow,
 	Etaplan,
 	EtaplanOverview,
 	KostenpunktWithPositions,
 	LinkableEvent,
+	QueueReimbursement,
 } from "~/server/modules/cc-kasse/actions";
 import type {
 	BeitragRun,

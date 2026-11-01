@@ -6,13 +6,13 @@
 
 import { unstable_rethrow } from "next/navigation";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
-import { getMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { getUserAchievements } from "~/server/actions/profile/achievements";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
 import { getUserProfile } from "~/server/actions/profile/profile";
 import { getProfilePreferencesForUser } from "~/server/lib/preferences";
 import { getUserBillingData } from "~/server/modules/billing/actions";
+import { getMyPaymentInfo } from "~/server/modules/cc-kasse/actions";
 import {
 	getMyFuchsenOrders,
 	getMyFuchsenSummary,

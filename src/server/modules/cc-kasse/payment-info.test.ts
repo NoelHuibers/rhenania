@@ -8,7 +8,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
-import { getMyPaymentInfo, setMyPaymentInfo } from "./paymentInfo";
+import { getMyPaymentInfo, setMyPaymentInfo } from "./actions";
 
 setupTestDatabases();
 

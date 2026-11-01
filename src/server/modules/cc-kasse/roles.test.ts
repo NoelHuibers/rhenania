@@ -2,8 +2,7 @@ import { describe, expect, test } from "vitest";
 
 import { ADRESSLISTE_ROLES, AHV_VORSTAND_ROLES } from "~/lib/roles";
 import { etaplans, kostenerstattungen } from "~/server/db/schema";
-import { ROLES } from "~/server/lib/authz";
-import { createEtaplan } from "~/server/modules/cc-kasse/actions";
+import { ROLES, requireCaller } from "~/server/lib/authz";
 import {
 	createKostenpunkt,
 	createReimbursement,
@@ -17,24 +16,18 @@ import {
 	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
-import {
-	EDIT_ROLES,
-	requireAuth,
-	requireRoles,
-	TREASURY_ROLES,
-} from "./_guards";
-import { approveReimbursement } from "./kostenerstattungen";
+import { approveReimbursement, createEtaplan } from "./actions";
 
 setupTestDatabases();
 
 describe("role constants", () => {
 	test("treasury roles are a strict subset of the Etatplan editors", () => {
-		expect(EDIT_ROLES).toEqual(["Senior", "CC-Kasse", "Admin"]);
-		expect(TREASURY_ROLES).toEqual(["CC-Kasse", "Admin"]);
-		for (const r of TREASURY_ROLES) {
-			expect(EDIT_ROLES).toContain(r);
+		expect(ROLES.etatplan).toEqual(["Senior", "CC-Kasse", "Admin"]);
+		expect(ROLES.ccKasse).toEqual(["CC-Kasse", "Admin"]);
+		for (const r of ROLES.ccKasse) {
+			expect(ROLES.etatplan).toContain(r);
 		}
-		expect(TREASURY_ROLES).not.toContain("Senior");
+		expect(ROLES.ccKasse).not.toContain("Senior");
 	});
 
 	test("the Adressliste is open to Admins and the whole AHV board only", () => {
@@ -48,48 +41,45 @@ describe("role constants", () => {
 		for (const r of AHV_VORSTAND_ROLES) {
 			expect(ROLES.adressliste).toContain(r);
 		}
-		expect(ROLES.ccKasse).toEqual(["CC-Kasse", "Admin"]);
 	});
 });
 
-describe("requireAuth", () => {
+describe("requireCaller with the CC-Kasse roles", () => {
 	test("rejects a missing session", async () => {
 		await createTenant();
-		expect(await requireAuth()).toEqual({
-			ok: false,
-			error: "Nicht angemeldet",
-		});
+		await expect(requireCaller()).rejects.toThrow("Nicht angemeldet");
 	});
 
-	test("returns the signed-in user id and their tenant", async () => {
+	test("returns the signed-in member and their tenant", async () => {
 		const tenant = await createTenant();
 		const user = await createUser();
 		signInAs(user);
-		expect(await requireAuth()).toEqual({
-			ok: true,
-			userId: user.id,
+		expect(await requireCaller()).toMatchObject({
+			member: { id: user.id },
 			tenantId: tenant.id,
 		});
 	});
-});
 
-describe("requireRoles", () => {
 	test("rejects a missing session before looking at roles", async () => {
 		await createTenant();
-		expect(await requireRoles(EDIT_ROLES)).toEqual({
-			ok: false,
-			error: "Nicht angemeldet",
-		});
+		await expect(requireCaller(ROLES.etatplan)).rejects.toThrow(
+			"Nicht angemeldet",
+		);
 	});
 
 	test("rejects members without any of the roles", async () => {
 		await createTenant();
 		signInAs(await createUser({ roles: ["Getränkewart"] }));
-		expect(await requireRoles(EDIT_ROLES)).toEqual({
-			ok: false,
-			error: "Keine Berechtigung",
-		});
+		await expect(requireCaller(ROLES.etatplan)).rejects.toThrow(
+			"Keine Berechtigung",
+		);
 	});
+
+	const allowed = (roles: readonly string[]) =>
+		requireCaller(roles).then(
+			() => true,
+			() => false,
+		);
 
 	test.each([
 		["Senior", true, false],
@@ -100,8 +90,8 @@ describe("requireRoles", () => {
 		await createTenant();
 		const user = await createUser({ roles: [role] });
 		signInAs(user);
-		expect((await requireRoles(EDIT_ROLES)).ok).toBe(edit);
-		expect((await requireRoles(TREASURY_ROLES)).ok).toBe(treasury);
+		expect(await allowed(ROLES.etatplan)).toBe(edit);
+		expect(await allowed(ROLES.ccKasse)).toBe(treasury);
 	});
 
 	test("roles held in another tenant do not count", async () => {
@@ -110,9 +100,9 @@ describe("requireRoles", () => {
 		const user = await createUser({ roles: ["CC-Kasse"], tenantId: home.id });
 		signInAs(user);
 
-		expect((await requireRoles(TREASURY_ROLES)).ok).toBe(true);
+		expect(await allowed(ROLES.ccKasse)).toBe(true);
 		switchTenant(other);
-		expect((await requireRoles(TREASURY_ROLES)).ok).toBe(false);
+		expect(await allowed(ROLES.ccKasse)).toBe(false);
 	});
 });
 

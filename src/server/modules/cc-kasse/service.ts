@@ -1,5 +1,6 @@
-// service.ts — the CC-Kasse: Etatpläne, Kostenpunkte, Einnahmen and the
-// budget overview (#33).
+// service.ts — the CC-Kasse: Etatpläne, Kostenpunkte, Einnahmen,
+// Kostenerstattungen, the members' payment details and the budget
+// overview (#33).
 //
 // Domain rules on top of ./repo. Every function takes the TenantScope it
 // works in; failures the user should read are DomainErrors, anything else
@@ -9,16 +10,23 @@
 import "server-only";
 
 import { z } from "zod";
+import { ibanSchema } from "~/lib/iban";
 import { roundToCent } from "~/lib/money";
 import {
 	buildOverview,
 	type EtaplanOverview,
 } from "~/server/domain/cc-kasse/overview";
-import { ConflictError, NotFoundError } from "~/server/lib/domain-error";
+import { isTenantReceiptUrl } from "~/server/lib/blob-url";
+import {
+	ConflictError,
+	NotFoundError,
+	ValidationError,
+} from "~/server/lib/domain-error";
+import { getTenantById } from "~/server/lib/tenant-context";
 import type { TenantScope } from "~/server/lib/tenant-scope";
 import * as repo from "./repo";
 
-export type { Etaplan } from "./repo";
+export type { ErstattungStatus, Etaplan } from "./repo";
 
 type Actor = { id: string };
 
@@ -303,6 +311,366 @@ export async function updateEinnahme(
 
 export async function deleteEinnahme({ db }: TenantScope, id: string) {
 	await repo.deleteEinnahme(db, id);
+}
+
+// ─── Kostenerstattungen ──────────────────────────────────────────────────────
+
+const TRANSITIONS: Record<repo.ErstattungStatus, repo.ErstattungStatus[]> = {
+	Eingereicht: ["Genehmigt", "Abgelehnt"],
+	Genehmigt: ["Ausgezahlt", "Abgelehnt"],
+	Ausgezahlt: [],
+	Abgelehnt: [],
+};
+
+function canTransition(
+	from: repo.ErstattungStatus,
+	to: repo.ErstattungStatus,
+): boolean {
+	return TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+const receiptsSchema = z
+	.array(z.object({ url: z.string().url(), name: z.string().max(255) }))
+	.max(20, "Zu viele Belege");
+
+type Receipt = { url: string; name: string };
+
+const INVALID_RECEIPT = "Ungültiger Beleg";
+const REQUEST_NOT_FOUND = "Antrag nicht gefunden";
+
+/**
+ * Receipts must be files uploaded to this Corps' receipt folder. Links
+ * already stored on the row (`stored`) stay accepted, so older entries can
+ * still be edited without re-uploading their receipts. Throws otherwise.
+ */
+async function checkReceipts(
+	{ tenantId }: TenantScope,
+	receipts: Receipt[] | undefined,
+	stored: Receipt[] | null = null,
+): Promise<void> {
+	if (!receipts?.length) {
+		return;
+	}
+	const corps = await getTenantById(tenantId);
+	if (!corps) {
+		throw new Error(`Unknown tenant ${tenantId}`);
+	}
+	const kept = new Set(stored?.map((r) => r.url));
+	if (
+		!receipts.every(
+			(r) => kept.has(r.url) || isTenantReceiptUrl(r.url, corps.slug),
+		)
+	) {
+		throw new ValidationError(INVALID_RECEIPT);
+	}
+}
+
+export const submitSchema = z.object({
+	kostenpunktId: z.string().min(1, "Kostenpunkt ist erforderlich"),
+	description: z
+		.string()
+		.min(1, "Beschreibung ist erforderlich")
+		.max(500, "Beschreibung ist zu lang"),
+	amount: z
+		.number()
+		.positive("Betrag muss positiv sein")
+		.max(1_000_000, "Betrag ist zu hoch"),
+	recipientName: z
+		.string()
+		.min(1, "Kontoinhaber ist erforderlich")
+		.max(255, "Kontoinhaber ist zu lang"),
+	iban: ibanSchema,
+	receipts: receiptsSchema.optional(),
+	expenseDate: z.date().optional(),
+});
+
+type SubmitInput = z.infer<typeof submitSchema>;
+
+/** A member asks for an expense to be reimbursed. */
+export async function submitErstattung(
+	tenant: TenantScope,
+	actor: Actor,
+	input: SubmitInput,
+) {
+	await checkReceipts(tenant, input.receipts);
+	const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
+	await repo.insertErstattung(tenant.db, {
+		kostenpunktId: kp.id,
+		etaplanId: kp.etaplanId,
+		source: "Antrag",
+		status: "Eingereicht",
+		description: input.description,
+		amount: roundToCent(input.amount),
+		submittedBy: actor.id,
+		recipientName: input.recipientName,
+		iban: input.iban,
+		receipts: input.receipts ?? null,
+		expenseDate: input.expenseDate ?? tenant.now(),
+	});
+}
+
+/** The member's own requests, newest first. */
+export async function myErstattungen({ db }: TenantScope, userId: string) {
+	return repo.erstattungenOf(db, userId);
+}
+
+export type MyReimbursement = Awaited<
+	ReturnType<typeof myErstattungen>
+>[number];
+
+/** The member's own request, while it is still Eingereicht; throws otherwise. */
+async function ownOpenRequest(
+	{ db }: TenantScope,
+	actor: Actor,
+	id: string,
+	refusal: string,
+) {
+	const row = await repo.findErstattung(db, id);
+	if (!row || row.submittedBy !== actor.id) {
+		throw new NotFoundError(REQUEST_NOT_FOUND);
+	}
+	if (row.status !== "Eingereicht") {
+		throw new ConflictError(refusal);
+	}
+	return row;
+}
+
+/** A member withdraws their own request while it is still Eingereicht. */
+export async function cancelMyErstattung(
+	tenant: TenantScope,
+	actor: Actor,
+	id: string,
+) {
+	await ownOpenRequest(
+		tenant,
+		actor,
+		id,
+		"Nur eingereichte Anträge können storniert werden",
+	);
+	await repo.deleteErstattung(tenant.db, id);
+}
+
+/** A member edits their own request while it is still Eingereicht. */
+export async function updateMyErstattung(
+	tenant: TenantScope,
+	actor: Actor,
+	id: string,
+	input: SubmitInput,
+) {
+	const row = await ownOpenRequest(
+		tenant,
+		actor,
+		id,
+		"Nur eingereichte Anträge können bearbeitet werden",
+	);
+	await checkReceipts(tenant, input.receipts, row.receipts);
+	const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
+	await repo.updateErstattung(tenant.db, id, {
+		kostenpunktId: kp.id,
+		etaplanId: kp.etaplanId,
+		description: input.description,
+		amount: roundToCent(input.amount),
+		recipientName: input.recipientName,
+		iban: input.iban,
+		receipts: input.receipts ?? null,
+	});
+}
+
+/** Checks that the request exists and may move on to `to`; throws otherwise. */
+async function checkTransition(
+	{ db }: TenantScope,
+	id: string,
+	to: repo.ErstattungStatus,
+) {
+	const row = await repo.findErstattung(db, id);
+	if (!row) {
+		throw new NotFoundError(REQUEST_NOT_FOUND);
+	}
+	if (!canTransition(row.status, to)) {
+		throw new ConflictError("Ungültiger Statusübergang");
+	}
+}
+
+export async function approveErstattung(
+	tenant: TenantScope,
+	actor: Actor,
+	id: string,
+) {
+	await checkTransition(tenant, id, "Genehmigt");
+	await repo.updateErstattung(tenant.db, id, {
+		status: "Genehmigt",
+		approvedBy: actor.id,
+		approvedAt: tenant.now(),
+	});
+}
+
+/** Rejects a request; the reason is required and kept to 500 characters. */
+export async function rejectErstattung(
+	tenant: TenantScope,
+	actor: Actor,
+	id: string,
+	reason: string | null | undefined,
+) {
+	const trimmed = (reason ?? "").trim();
+	if (!trimmed) {
+		throw new ValidationError("Begründung ist erforderlich");
+	}
+	await checkTransition(tenant, id, "Abgelehnt");
+	await repo.updateErstattung(tenant.db, id, {
+		status: "Abgelehnt",
+		rejectionReason: trimmed.slice(0, 500),
+		rejectedBy: actor.id,
+		rejectedAt: tenant.now(),
+	});
+}
+
+/** Marks an approved request as paid, on `paidAt` or now. */
+export async function payErstattung(
+	tenant: TenantScope,
+	actor: Actor,
+	id: string,
+	paidAt: Date | undefined,
+) {
+	await checkTransition(tenant, id, "Ausgezahlt");
+	await repo.updateErstattung(tenant.db, id, {
+		status: "Ausgezahlt",
+		paidBy: actor.id,
+		paidAt: paidAt ?? tenant.now(),
+	});
+}
+
+export const directBookingSchema = z.object({
+	kostenpunktId: z.string().min(1, "Kostenpunkt ist erforderlich"),
+	description: z.string().min(1, "Beschreibung ist erforderlich").max(500),
+	amount: z.number().positive("Betrag muss positiv sein").max(1_000_000),
+	recipientName: z.string().min(1, "Empfänger ist erforderlich").max(255),
+	iban: z.string().max(50).nullable().optional(),
+	receipts: receiptsSchema.optional(),
+	expenseDate: z.date(),
+});
+
+/** The treasurer books an expense already paid, e.g. in cash. */
+export async function createDirectBooking(
+	tenant: TenantScope,
+	actor: Actor,
+	input: z.infer<typeof directBookingSchema>,
+) {
+	await checkReceipts(tenant, input.receipts);
+	const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
+	await repo.insertErstattung(tenant.db, {
+		kostenpunktId: kp.id,
+		etaplanId: kp.etaplanId,
+		source: "Direktbuchung",
+		status: "Ausgezahlt",
+		description: input.description,
+		amount: roundToCent(input.amount),
+		submittedBy: null,
+		recipientName: input.recipientName,
+		iban: input.iban ?? null,
+		receipts: input.receipts ?? null,
+		expenseDate: input.expenseDate,
+		approvedBy: actor.id,
+		approvedAt: input.expenseDate,
+		paidBy: actor.id,
+		paidAt: input.expenseDate,
+	});
+}
+
+// The receipts are checked in the body, so a malformed link answers
+// "Ungültiger Beleg" like a foreign one.
+export const erstattungPatchSchema = z.object({
+	kostenpunktId: z.string().optional(),
+	description: z.string().optional(),
+	amount: z.number().optional(),
+	recipientName: z.string().optional(),
+	iban: z.string().nullable().optional(),
+	expenseDate: z.date().optional(),
+	receipts: z.array(z.object({ url: z.string(), name: z.string() })).optional(),
+});
+
+/** The treasurer corrects any field of a request. */
+export async function updateErstattung(
+	tenant: TenantScope,
+	id: string,
+	input: z.infer<typeof erstattungPatchSchema>,
+) {
+	const patch: Partial<repo.ErstattungInsert> = {};
+	if (input.kostenpunktId !== undefined) {
+		const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
+		patch.kostenpunktId = kp.id;
+		patch.etaplanId = kp.etaplanId;
+	}
+	if (input.description !== undefined) {
+		patch.description = input.description;
+	}
+	if (input.amount !== undefined) {
+		patch.amount = roundToCent(input.amount);
+	}
+	if (input.recipientName !== undefined) {
+		patch.recipientName = input.recipientName;
+	}
+	if (input.iban !== undefined) {
+		patch.iban = input.iban;
+	}
+	if (input.expenseDate !== undefined) {
+		patch.expenseDate = input.expenseDate;
+	}
+	if (input.receipts !== undefined) {
+		const parsed = receiptsSchema.safeParse(input.receipts);
+		if (!parsed.success) {
+			throw new ValidationError(INVALID_RECEIPT);
+		}
+		const row = await repo.findErstattung(tenant.db, id);
+		await checkReceipts(tenant, parsed.data, row?.receipts ?? null);
+		patch.receipts = parsed.data;
+	}
+	if (Object.keys(patch).length === 0) {
+		throw new ValidationError("Keine Änderungen");
+	}
+	await repo.updateErstattung(tenant.db, id, patch);
+}
+
+/** Every request (of a plan, in a status), newest first. */
+export async function erstattungQueue(
+	{ db }: TenantScope,
+	filter?: { etaplanId?: string; status?: repo.ErstattungStatus },
+) {
+	return repo.erstattungQueue(db, filter);
+}
+
+export type QueueReimbursement = Awaited<
+	ReturnType<typeof erstattungQueue>
+>[number];
+
+// ─── Payment details ─────────────────────────────────────────────────────────
+
+export const paymentInfoSchema = z.object({
+	accountHolder: z
+		.string()
+		.min(1, "Kontoinhaber ist erforderlich")
+		.max(255, "Kontoinhaber ist zu lang"),
+	iban: ibanSchema,
+});
+
+export type MyPaymentInfo = { accountHolder: string; iban: string };
+
+/** The account the member's reimbursements are paid to, or null. */
+export async function paymentInfo(
+	{ db }: TenantScope,
+	userId: string,
+): Promise<MyPaymentInfo | null> {
+	return repo.paymentInfoOf(db, userId);
+}
+
+export async function savePaymentInfo(
+	{ db }: TenantScope,
+	actor: Actor,
+	input: z.infer<typeof paymentInfoSchema>,
+) {
+	await repo.savePaymentInfo(db, actor.id, {
+		accountHolder: input.accountHolder,
+		iban: input.iban,
+	});
 }
 
 // ─── The overview ────────────────────────────────────────────────────────────
