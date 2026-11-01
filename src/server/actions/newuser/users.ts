@@ -15,8 +15,8 @@ import { defineAction } from "~/server/lib/define-action";
 import { ConflictError } from "~/server/lib/domain-error";
 import { forgetMembership } from "~/server/lib/tenant-context";
 import { mirrorUserToTenant } from "~/server/lib/user-mirror";
+import { sendVerificationEmail } from "~/server/modules/mail/service";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
-import { sendVerificationEmail } from "./email";
 
 /**
  * Invites `email` into the Admin's Corps: creates the identity unless it

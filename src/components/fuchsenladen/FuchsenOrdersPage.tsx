@@ -18,11 +18,11 @@ import {
 	TableRow,
 } from "~/components/ui/table";
 import { formatDate, formatEUR } from "~/lib/format";
-import type { FuchsenOrder } from "~/server/actions/fuchsenladen/orders";
 import {
+	type FuchsenOrder,
 	getMyFuchsenOrders,
 	getMyFuchsenSummary,
-} from "~/server/actions/fuchsenladen/orders";
+} from "~/server/modules/fuchsenladen/actions";
 
 export function FuchsenOrdersPage() {
 	const [orders, setOrders] = useState<FuchsenOrder[]>([]);

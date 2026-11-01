@@ -19,7 +19,6 @@ import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { applyMarkup } from "~/lib/pricing";
-import { createNewFuchsenBilling } from "~/server/actions/fuchsenladen/billings";
 import {
 	billItems,
 	billPeriods,
@@ -33,6 +32,7 @@ import {
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { sendTenantMail } from "~/server/lib/mailer";
 import { createNewBilling } from "~/server/modules/billing/actions";
+import { createNewFuchsenBilling } from "~/server/modules/fuchsenladen/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,

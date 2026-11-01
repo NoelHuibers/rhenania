@@ -7,10 +7,6 @@
 import { and, desc, eq, isNull, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { roundToCent } from "~/lib/money";
-import {
-	sendBeitragEmail,
-	sendMahnungEmail,
-} from "~/server/actions/newuser/email";
 import { db } from "~/server/db";
 import {
 	kostenpunkte,
@@ -30,6 +26,10 @@ import {
 	getTenantMemberStatuses,
 	makeBeitragspflichtigMatcher,
 } from "~/server/lib/member-statuses";
+import {
+	sendBeitragEmail,
+	sendMahnungEmail,
+} from "~/server/modules/mail/service";
 import { BEITRAG_ROLES, requireRoles } from "./_guards";
 import { generateBeitragPDF } from "./beitragPDF";
 
@@ -331,6 +331,7 @@ export const sendBeitragEmails = defineAction(
 				const email = c.member?.email;
 				if (email) {
 					await sendBeitragEmail(
+						tenant,
 						email,
 						c.memberName,
 						run.name,
@@ -395,6 +396,7 @@ export const sendMahnungen = defineAction(
 				const email = c.member?.email;
 				if (email) {
 					await sendMahnungEmail(
+						tenant,
 						email,
 						c.memberName,
 						run.name,

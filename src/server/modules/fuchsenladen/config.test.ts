@@ -12,7 +12,7 @@ import {
 	type FuchsenBillingConfigInput,
 	getFuchsenBillingConfig,
 	updateFuchsenBillingConfig,
-} from "./billingConfig";
+} from "./actions";
 
 setupTestDatabases();
 
@@ -48,7 +48,7 @@ describe("updateFuchsenBillingConfig", () => {
 		signInAs(fuchs);
 
 		expect(await updateFuchsenBillingConfig(input)).toMatchObject({
-			success: true,
+			ok: true,
 		});
 		await updateFuchsenBillingConfig({ ...input, paymentDueDays: 7 });
 
@@ -72,8 +72,8 @@ describe("updateFuchsenBillingConfig", () => {
 
 		const result = await updateFuchsenBillingConfig({ ...input, ...patch });
 
-		expect(result.success).toBe(false);
-		expect(result.error).toContain(message);
+		expect(result).toMatchObject({ ok: false, code: "INVALID_INPUT" });
+		expect(!result.ok && result.error).toContain(message);
 		expect(await tenantDb().select().from(fuchsenBillingConfig)).toHaveLength(
 			0,
 		);
@@ -84,8 +84,9 @@ describe("updateFuchsenBillingConfig", () => {
 		signInAs(await createUser());
 
 		expect(await updateFuchsenBillingConfig(input)).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect(await tenantDb().select().from(fuchsenBillingConfig)).toHaveLength(
 			0,

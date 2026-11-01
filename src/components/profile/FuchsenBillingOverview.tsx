@@ -18,7 +18,7 @@ import { formatDate, formatEUR } from "~/lib/format";
 import type {
 	FuchsenOrder,
 	getMyFuchsenSummary,
-} from "~/server/actions/fuchsenladen/orders";
+} from "~/server/modules/fuchsenladen/actions";
 
 /** Placeholder while the Fuchsenladen orders stream in. */
 export function FuchsenBillingOverviewSkeleton() {

@@ -5,10 +5,6 @@
 import { describe, expect, test } from "vitest";
 
 import { getMyPaymentInfo } from "~/server/actions/cc-kasse/paymentInfo";
-import {
-	getMyFuchsenOrders,
-	getMyFuchsenSummary,
-} from "~/server/actions/fuchsenladen/orders";
 import { getMyMember } from "~/server/actions/members/myMember";
 import { getMyOrdersPage } from "~/server/actions/orders";
 import { getUserAchievements } from "~/server/actions/profile/achievements";
@@ -22,6 +18,10 @@ import {
 } from "~/server/lib/preferences";
 import { loadOpenBill } from "~/server/loaders/open-bill";
 import { getUserBillingData } from "~/server/modules/billing/actions";
+import {
+	getMyFuchsenOrders,
+	getMyFuchsenSummary,
+} from "~/server/modules/fuchsenladen/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,

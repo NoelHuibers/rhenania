@@ -11,19 +11,17 @@ import { ConfirmAction } from "~/components/ui/confirm-action";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { formatDate, formatEUR } from "~/lib/format";
 import {
-	type FuchsenBillingConfig,
-	getFuchsenBillingConfig,
-} from "~/server/actions/fuchsenladen/billingConfig";
-import {
 	createNewFuchsenBilling,
+	type FuchsenBillingConfig,
 	type FuchsenBillingEntry,
 	type FuchsenBillPeriod,
 	getAllFuchsenBillPeriods,
+	getFuchsenBillingConfig,
 	getFuchsenBillPeriodCSV,
 	getFuchsenBillsForPeriod,
 	getUnbilledFuchsenOrdersGrouped,
 	updateFuchsenBillStatus,
-} from "~/server/actions/fuchsenladen/billings";
+} from "~/server/modules/fuchsenladen/actions";
 import { FuchsenBillingSettings } from "./FuchsenBillingSettings";
 import { makeDetails } from "./fuchsen-details";
 
@@ -144,8 +142,12 @@ export function FuchsenwartBilling({
 		if (historyBills.has(periodId)) {
 			return;
 		}
-		const bills = await getFuchsenBillsForPeriod(periodId);
-		setHistoryBills((prev) => new Map(prev).set(periodId, bills));
+		try {
+			const bills = await getFuchsenBillsForPeriod(periodId);
+			setHistoryBills((prev) => new Map(prev).set(periodId, bills));
+		} catch {
+			toast.error("Fehler beim Laden der Rechnungen");
+		}
 	};
 
 	const olderPeriods = periods.slice(1);
@@ -292,7 +294,11 @@ export function FuchsenwartBilling({
 
 			<TabsContent value="settings" className="space-y-4">
 				<FuchsenBillingSettings
-					onSaved={() => getFuchsenBillingConfig().then(onConfigSaved)}
+					onSaved={() =>
+						getFuchsenBillingConfig()
+							.then(onConfigSaved)
+							.catch(() => toast.error("Fehler beim Laden der Zahlungsdaten"))
+					}
 				/>
 			</TabsContent>
 		</Tabs>

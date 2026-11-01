@@ -8,16 +8,14 @@ import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { formatEUR } from "~/lib/format";
 import { getUserRoles } from "~/server/actions/admin/userRoles";
+import { useSession } from "~/server/auth/client";
 import {
 	type FuchsenBillingConfig,
-	getFuchsenBillingConfig,
-} from "~/server/actions/fuchsenladen/billingConfig";
-import {
 	type FuchsenBillingEntry,
 	type FuchsenBillPeriod,
+	getFuchsenBillingConfig,
 	getMyFuchsenBills,
-} from "~/server/actions/fuchsenladen/billings";
-import { useSession } from "~/server/auth/client";
+} from "~/server/modules/fuchsenladen/actions";
 import { FuchsenwartBilling } from "./FuchsenwartBilling";
 import { makeDetails } from "./fuchsen-details";
 

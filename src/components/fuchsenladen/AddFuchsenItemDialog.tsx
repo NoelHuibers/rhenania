@@ -28,7 +28,7 @@ import {
 import { Textarea } from "~/components/ui/textarea";
 import { uploadDrinkImage, validateImageFile } from "~/lib/blob-upload";
 import { parseDecimalInput } from "~/lib/decimal";
-import { addFuchsenItem } from "~/server/actions/fuchsenladen/items";
+import { addFuchsenItem } from "~/server/modules/fuchsenladen/actions";
 
 interface AddFuchsenItemDialogProps {
 	isOpen: boolean;
@@ -149,13 +149,13 @@ export function AddFuchsenItemDialog({
 						isCurrentlyAvailable: formData.isCurrentlyAvailable === "true",
 					});
 
-					if (result.success) {
-						toast.success(result.message);
+					if (result.ok) {
+						toast.success("Artikel erfolgreich hinzugefügt");
 						onItemAdded();
 						onOpenChange(false);
 						resetForm();
 					} else {
-						toast.error(result.error || "Fehler beim Hinzufügen");
+						toast.error(result.error);
 					}
 				} catch (error) {
 					console.error("Error adding fuchsen item:", error);

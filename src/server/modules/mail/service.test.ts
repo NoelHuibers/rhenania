@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { sendTenantMail, type TenantMail } from "~/server/lib/mailer";
 import { createKonto } from "../../../../test/factories/platform";
-import { createTenant, setupTestDatabases } from "../../../../test/harness";
+import {
+	createTenant,
+	setupTestDatabases,
+	testScope,
+} from "../../../../test/harness";
 import { testState } from "../../../../test/state";
 import {
 	sendBeitragEmail,
@@ -11,7 +15,7 @@ import {
 	sendPasswordResetEmail,
 	sendTreasurerBillEmail,
 	sendVerificationEmail,
-} from "./email";
+} from "./service";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 
@@ -72,6 +76,7 @@ describe("bill mails", () => {
 		await createTenant({ displayName: "Corps Hassia" });
 
 		await sendBillNotificationEmail(
+			testScope(),
 			"max@example.test",
 			"Max",
 			"KW-43-26",
@@ -108,6 +113,7 @@ describe("bill mails", () => {
 		const name = '<a href="https://evil.example">Max</a>';
 
 		await sendBillNotificationEmail(
+			testScope(),
 			"max@example.test",
 			name,
 			"KW-43-26",
@@ -130,6 +136,7 @@ describe("bill mails", () => {
 		await createTenant({ displayName: "Corps Hassia" });
 
 		await sendTreasurerBillEmail(
+			testScope(),
 			"kasse@hassia.example",
 			"Max Muster",
 			"KW-43-26",
@@ -151,6 +158,7 @@ describe("bill mails", () => {
 		await createTenant({ displayName: "Corps Hassia" });
 
 		await sendBillNotificationEmail(
+			testScope(),
 			"lena@example.test",
 			"Lena",
 			"KW-43-26",
@@ -161,6 +169,7 @@ describe("bill mails", () => {
 		);
 		const member = sentMail();
 		await sendTreasurerBillEmail(
+			testScope(),
 			"kasse@hassia.example",
 			"Lena",
 			"KW-43-26",
@@ -186,8 +195,10 @@ describe("bill mails", () => {
 		expect(treasurer.html).toContain(">Guthaben</p>");
 	});
 
-	test("signs with a neutral label outside a tenant request", async () => {
+	test("signs with a neutral label for an unknown tenant", async () => {
+		await createTenant();
 		await sendBillNotificationEmail(
+			{ ...testScope(), tenantId: "no-such-tenant" },
 			"a@example.test",
 			"A",
 			"KW-1",
@@ -205,6 +216,7 @@ describe("bill mails", () => {
 
 		await expect(
 			sendBillNotificationEmail(
+				testScope(),
 				"a@example.test",
 				"A",
 				"KW-1",
@@ -217,13 +229,37 @@ describe("bill mails", () => {
 			"Failed to send bill notification email to a@example.test",
 		);
 		await expect(
-			sendTreasurerBillEmail("k@example.test", "A", "KW-1", 1, pdf, "r.pdf"),
+			sendTreasurerBillEmail(
+				testScope(),
+				"k@example.test",
+				"A",
+				"KW-1",
+				1,
+				pdf,
+				"r.pdf",
+			),
 		).rejects.toThrow("Failed to send treasurer bill email to k@example.test");
 		await expect(
-			sendBeitragEmail("b@example.test", "B", "WS 26", 1, pdf, "b.pdf"),
+			sendBeitragEmail(
+				testScope(),
+				"b@example.test",
+				"B",
+				"WS 26",
+				1,
+				pdf,
+				"b.pdf",
+			),
 		).rejects.toThrow("Failed to send Beitrag email to b@example.test");
 		await expect(
-			sendMahnungEmail("m@example.test", "M", "WS 26", 1, pdf, "m.pdf"),
+			sendMahnungEmail(
+				testScope(),
+				"m@example.test",
+				"M",
+				"WS 26",
+				1,
+				pdf,
+				"m.pdf",
+			),
 		).rejects.toThrow("Failed to send Mahnung email to m@example.test");
 		await expect(
 			sendPasswordResetEmail("p@example.test", "https://x"),
@@ -245,6 +281,7 @@ describe("Semesterbeitrag mails", () => {
 		});
 
 		await sendBeitragEmail(
+			testScope(),
 			"max@example.test",
 			"Max",
 			"WS 2026/27",
@@ -272,6 +309,7 @@ describe("Semesterbeitrag mails", () => {
 		await createKonto({ kasseType: "Getränkekasse", paypalLink: "@Bier" });
 
 		await sendMahnungEmail(
+			testScope(),
 			"max@example.test",
 			"Max",
 			"WS 2026/27",
@@ -319,10 +357,30 @@ test("no HTML mail interpolates user values unescaped (#91)", async () => {
 		() => sendVerificationEmail("a@example.test", `t${evil}`),
 		() => sendPasswordResetEmail("a@example.test", `https://x/r?t=${evil}`),
 		() =>
-			sendBillNotificationEmail("a@example.test", evil, evil, 1, pdf, "r", 14),
-		() => sendTreasurerBillEmail("k@example.test", evil, evil, 1, pdf, "r"),
-		() => sendBeitragEmail("a@example.test", evil, evil, 1, pdf, "b"),
-		() => sendMahnungEmail("a@example.test", evil, evil, 1, pdf, "m"),
+			sendBillNotificationEmail(
+				testScope(),
+				"a@example.test",
+				evil,
+				evil,
+				1,
+				pdf,
+				"r",
+				14,
+			),
+		() =>
+			sendTreasurerBillEmail(
+				testScope(),
+				"k@example.test",
+				evil,
+				evil,
+				1,
+				pdf,
+				"r",
+			),
+		() =>
+			sendBeitragEmail(testScope(), "a@example.test", evil, evil, 1, pdf, "b"),
+		() =>
+			sendMahnungEmail(testScope(), "a@example.test", evil, evil, 1, pdf, "m"),
 	];
 	for (const send of sends) {
 		vi.mocked(sendTenantMail).mockClear();

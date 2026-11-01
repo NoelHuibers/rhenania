@@ -10,7 +10,7 @@ import { CardGridSkeleton } from "~/components/ui/page-skeleton";
 import {
 	type FuchsenItem,
 	getFuchsenItemsForMenu,
-} from "~/server/actions/fuchsenladen/items";
+} from "~/server/modules/fuchsenladen/actions";
 import { FuchsenItemCard } from "./FuchsenItemCard";
 import { FuchsenOrderDrawer } from "./FuchsenOrderDrawer";
 

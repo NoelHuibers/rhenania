@@ -1,28 +1,38 @@
-// lib/email.ts
-// Server-only helpers, deliberately NOT "use server": the functions here
-// must not be callable from the browser as server actions.
+// service.ts — the app's outgoing mails (#33).
+//
+// Server-only, deliberately NOT "use server": nothing here may be callable
+// from the browser as a server action. The bill mails (Getränke, treasurer,
+// Semesterbeitrag, Mahnung) take the TenantScope they are sent for: its
+// tenant signs them and its database holds the CC-Kasse's PayPal link. The
+// account mails (invitation, password reset) link to the request's host.
+
 import "server-only";
-import { and, eq } from "drizzle-orm";
+
 import { isCredit } from "~/lib/bill-payment";
 import { escapeHtml } from "~/lib/html";
 import { normalizePaypalLink } from "~/lib/paypal";
-import { db } from "~/server/db";
-import { kontos } from "~/server/db/schema";
 import { log } from "~/server/lib/log";
 import { sendTenantMail } from "~/server/lib/mailer";
 import {
 	getCurrentRequestOrigin,
-	getCurrentTenant,
+	getTenantById,
 } from "~/server/lib/tenant-context";
+import type { TenantScope } from "~/server/lib/tenant-scope";
+import * as repo from "./repo";
 
 /** Canonical PayPal URL stored on the active konto of the given kasse, or null. */
-async function getKontoPaypalUrl(kasseType: string): Promise<string | null> {
-	const [konto] = await db
-		.select({ paypalLink: kontos.paypalLink })
-		.from(kontos)
-		.where(and(eq(kontos.kasseType, kasseType), eq(kontos.isActive, true)))
-		.limit(1);
-	return konto?.paypalLink ? normalizePaypalLink(konto.paypalLink) : null;
+async function getKontoPaypalUrl(
+	{ db }: TenantScope,
+	kasseType: string,
+): Promise<string | null> {
+	const paypalLink = await repo.activeKontoPaypalLink(db, kasseType);
+	return paypalLink ? normalizePaypalLink(paypalLink) : null;
+}
+
+/** The name the bill mails are signed with. */
+async function tenantLabelOf({ tenantId }: TenantScope): Promise<string> {
+	const tenant = await getTenantById(tenantId);
+	return tenant?.displayName ?? "Corps";
 }
 
 interface EmailTemplate {
@@ -143,6 +153,7 @@ function billAmount(total: number) {
  * Getränke billing profile, the one the attached PDF prints.
  */
 export async function sendBillNotificationEmail(
+	scope: TenantScope,
 	email: string,
 	userName: string,
 	billNumber: string,
@@ -159,8 +170,7 @@ export async function sendBillNotificationEmail(
 		const payHtml = credit
 			? CREDIT_NOTE
 			: `Bitte überweise den Betrag innerhalb von <strong>${paymentDueDays} Tagen</strong>.`;
-		const tenant = await getCurrentTenant();
-		const tenantLabel = tenant?.displayName ?? "Corps";
+		const tenantLabel = await tenantLabelOf(scope);
 
 		const mailOptions = {
 			to: email,
@@ -245,6 +255,7 @@ ${tenantLabel}
  * attached, so the treasurer can file or forward them one by one.
  */
 export async function sendTreasurerBillEmail(
+	scope: TenantScope,
 	treasurerEmail: string,
 	billOwnerName: string,
 	billNumber: string,
@@ -254,8 +265,7 @@ export async function sendTreasurerBillEmail(
 ): Promise<void> {
 	try {
 		const { label, formattedTotal } = billAmount(total);
-		const tenant = await getCurrentTenant();
-		const tenantLabel = tenant?.displayName ?? "Corps";
+		const tenantLabel = await tenantLabelOf(scope);
 
 		await sendTenantMail({
 			to: treasurerEmail,
@@ -435,6 +445,7 @@ function beitragHtml(
 }
 
 export async function sendBeitragEmail(
+	scope: TenantScope,
 	email: string,
 	memberName: string,
 	runName: string,
@@ -444,9 +455,8 @@ export async function sendBeitragEmail(
 ): Promise<void> {
 	try {
 		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
-		const tenant = await getCurrentTenant();
-		const tenantLabel = tenant?.displayName ?? "Corps";
-		const paypalUrl = await getKontoPaypalUrl("CC-Kasse");
+		const tenantLabel = await tenantLabelOf(scope);
+		const paypalUrl = await getKontoPaypalUrl(scope, "CC-Kasse");
 		const paypalText = paypalUrl
 			? `\nOder bezahle bequem per PayPal: ${paypalUrl}`
 			: "";
@@ -480,6 +490,7 @@ export async function sendBeitragEmail(
 }
 
 export async function sendMahnungEmail(
+	scope: TenantScope,
 	email: string,
 	memberName: string,
 	runName: string,
@@ -489,9 +500,8 @@ export async function sendMahnungEmail(
 ): Promise<void> {
 	try {
 		const formattedTotal = `${total.toFixed(2).replace(".", ",")}€`;
-		const tenant = await getCurrentTenant();
-		const tenantLabel = tenant?.displayName ?? "Corps";
-		const paypalUrl = await getKontoPaypalUrl("CC-Kasse");
+		const tenantLabel = await tenantLabelOf(scope);
+		const paypalUrl = await getKontoPaypalUrl(scope, "CC-Kasse");
 		const paypalText = paypalUrl
 			? `\nOder bezahle bequem per PayPal: ${paypalUrl}`
 			: "";

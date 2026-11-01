@@ -7,6 +7,7 @@ import {
 	tenantMemberships,
 } from "~/server/db/control-schema";
 import { users, verificationTokens } from "~/server/db/schema";
+import { sendVerificationEmail } from "~/server/modules/mail/service";
 import {
 	controlDb,
 	createTenant,
@@ -16,10 +17,11 @@ import {
 	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
-import { sendVerificationEmail } from "./email";
 import { createUser } from "./users";
 
-vi.mock("./email", () => ({ sendVerificationEmail: vi.fn() }));
+vi.mock("~/server/modules/mail/service", () => ({
+	sendVerificationEmail: vi.fn(),
+}));
 vi.mock("~/server/actions/achievements/tracking", () => ({
 	checkAndUnlockAchievements: vi.fn(),
 }));
