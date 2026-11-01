@@ -4,10 +4,11 @@ import type { KnipConfig } from "knip";
 //
 //   knip               whole repo, tests count as users
 //   knip --production  only app code (no tests, no scripts) and only the
-//                      `src/server/actions` findings are reported: every
-//                      export of a "use server" module is a callable POST
-//                      endpoint, so an action that only a test calls is
-//                      still dead weight on the attack surface (#57).
+//                      findings in `src/server/actions` and the modules'
+//                      `actions.ts` are reported: every export of a
+//                      "use server" module is a callable POST endpoint, so
+//                      an action that only a test calls is still dead
+//                      weight on the attack surface (#57).
 //
 // Next.js routes, proxy.ts, instrumentation.ts, next.config.js, Vitest,
 // Playwright, Drizzle, Stryker, PostCSS and lefthook entry points come from
@@ -54,7 +55,7 @@ const config: KnipConfig = {
 		...(production && {
 			// Exports only used by tests are expected outside the server
 			// actions; the first (non-production) run covers those files.
-			"!(src/server/actions/**)": [
+			"!(src/server/actions/**|src/server/modules/*/actions.ts)": [
 				"files",
 				"exports",
 				"types",
