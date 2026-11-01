@@ -5,11 +5,7 @@ import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import {
-	isBookingAccount,
-	isValidOrderAmount,
-	MAX_ORDER_AMOUNT,
-} from "~/lib/drink-order";
+import { isValidOrderAmount, MAX_ORDER_AMOUNT } from "~/lib/drink-order";
 import { MY_ORDERS_PAGE_SIZE } from "~/lib/my-orders";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
 import { auth } from "~/server/auth";
@@ -19,6 +15,8 @@ import { requireMember } from "~/server/lib/authz";
 import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
 import { log } from "~/server/lib/log";
 import { requireTenantId } from "~/server/lib/tenant-context";
+import { currentTenantScope } from "~/server/lib/tenant-scope";
+import { isBookableAccount } from "~/server/modules/booking-accounts/service";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
 import { getUserName } from "./getUserName";
 
@@ -106,9 +104,14 @@ export async function createOrder(
 				error: `Bitte eine ganze Anzahl zwischen 1 und ${MAX_ORDER_AMOUNT} wählen`,
 			};
 		}
+		// Faxe always book on AHV, whatever the Getränkewart did to that account.
 		if (
+			!isFaxe &&
 			orderData.bookingFor !== null &&
-			!isBookingAccount(orderData.bookingFor)
+			!(await isBookableAccount(
+				await currentTenantScope(),
+				orderData.bookingFor,
+			))
 		) {
 			return { success: false, error: "Unbekanntes Abrechnungskonto" };
 		}

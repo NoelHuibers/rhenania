@@ -28,6 +28,13 @@ function drink(
 	};
 }
 
+const ACCOUNTS = [
+	{ name: "CC", pinned: true },
+	{ name: "AKN", pinned: true },
+	{ name: "CBesuch", pinned: true },
+	{ name: "Stiftungsfest", pinned: false },
+];
+
 const MENU = [
 	drink("pils", "Pils", 1.2),
 	drink("weizen", "Weizen", 1.5),
@@ -40,6 +47,7 @@ function render(props: Partial<Parameters<typeof DrinksMenu>[0]> = {}) {
 			drinks: MENU,
 			markupPercent: 0,
 			recentDrinkIds: [],
+			bookingAccounts: ACCOUNTS,
 			...props,
 		}),
 	);
@@ -97,6 +105,28 @@ describe("DrinksMenu", () => {
 			const [chip] = buttonsWith(html, account);
 			expect(chip, account).toMatch(/h-11/);
 		}
+	});
+
+	test("the account chips wrap instead of being cut off", () => {
+		const html = render();
+		expect(html).toMatch(/role="radiogroup"[^>]*class="[^"]*flex-wrap/);
+		expect(html).not.toMatch(/role="radiogroup"[^>]*overflow-x-auto/);
+	});
+
+	test("the pinned accounts are chips, the rest are behind Weitere", () => {
+		const html = render();
+		expect(buttonsWith(html, ">CBesuch<")).toHaveLength(1);
+		expect(buttonsWith(html, "Stiftungsfest")).toEqual([]);
+	});
+
+	test("no Weitere without unpinned accounts, no selector without accounts", () => {
+		const pinnedOnly = render({
+			bookingAccounts: [{ name: "CC", pinned: true }],
+		});
+		expect(buttonsWith(pinnedOnly, "Weitere")).toEqual([]);
+		expect(render({ bookingAccounts: [] })).not.toContain(
+			"Auf ein Konto buchen",
+		);
 	});
 
 	test("an empty menu shows the empty state", () => {

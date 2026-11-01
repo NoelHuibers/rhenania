@@ -1,6 +1,6 @@
-// The backfill of migration 0014 (#221): which existing inventory rows hold a
+// The backfill of migration 0015 (#221): which existing inventory rows hold a
 // real count. Runs the migrations before it on an empty database, seeds rows
-// as the old code wrote them, then applies 0014.
+// as the old code wrote them, then applies 0015.
 
 import path from "node:path";
 import { createClient } from "@libsql/client";
@@ -28,7 +28,7 @@ test("closed rows and changed running rows become counts, opening rows do not", 
 	const isCounted = migrations.findIndex((m) =>
 		m.sql.some((s) => s.includes("ADD `isCounted`")),
 	);
-	expect(isCounted).toBe(14);
+	expect(isCounted).toBe(15);
 	await apply(0, isCounted);
 
 	const rows: Array<
