@@ -2,9 +2,9 @@
 
 Where server code lives, how it gets its tenant database, and the order in
 which the existing code moves there. Phase 1 (this document, the lint rule,
-the explicit script DB), phase 2 (billing and the Getränkekasse) and phase 3
-(the Fuchsenladen and the mails) are done; CC-Kasse and
-Mitglieder/Semesterbeitrag come next.
+the explicit script DB), phase 2 (billing and the Getränkekasse), phase 3
+(the Fuchsenladen and the mails) and phase 4 (the CC-Kasse and
+Mitglieder/Semesterbeitrag) are done; achievements and games come next.
 
 ## Why
 
@@ -102,7 +102,7 @@ One domain per PR, each PR leaving behaviour, query counts (the
    loaders, import-count ratchet, this document.
 2. **Billing + Getränkekasse** (done, see below).
 3. **Fuchsenladen + mails** (done, see below).
-4. CC-Kasse and Mitglieder/Semesterbeitrag.
+4. **CC-Kasse and Mitglieder/Semesterbeitrag** (done, see below).
 5. Achievements/tracking and games (the cross-tenant parts need two scopes).
 6. The rest (events, profile, drinks, images, venues), then delete the proxy
    and `getCurrentTenantDb`, leaving `TenantScope` as the only way in.
@@ -169,9 +169,69 @@ src/server/domain/fuchsenladen/csv.ts        the period CSV layout
   items, periods) now throw; the pages show their error (#216).
 - `actions/fuchsenladen/` and `actions/getUserName.ts` are gone; the
   profile reads its Fuchsenladen cards from the module.
-- `actions/members/semesterbeitrag.ts` (phase 4) passes its action's scope
-  to the Beitrag and Mahnung mails.
+- The Semesterbeitrag (`modules/semesterbeitrag` since phase 4) passes
+  its action's scope to the Beitrag and Mahnung mails.
 - Known gap: `sendTenantMail` (`lib/mailer.ts`) still picks the sending
   mailbox and From name from the request host (`getCurrentTenant()`), not
   from the scope. Every current caller runs in its tenant's request; a
   caller without one (a cron job) would need the scope passed down.
+
+## Phase 4: CC-Kasse and Mitglieder/Semesterbeitrag (done)
+
+```
+src/server/modules/cc-kasse/
+  repo.ts        Etatpläne, Kostenpunkte with Positionen (atomic create
+                 and replace), Einnahmen, Kostenerstattungen, payment
+                 details, the overview's sums
+  service.ts     Etatplan, Kostenpunkt, Einnahmen and Erstattung rules
+                 (status transitions, receipts in the Corps' folder),
+                 payment details, the overview
+  excel.ts       the Etatplan workbook: export, and the import's upsert
+  actions.ts     every CC-Kasse action
+src/server/modules/semesterbeitrag/
+  repo.ts        runs, charges, the guarded "Gemahnt" write, the active
+                 CC-Kasse account
+  service.ts     runs, charges, the invoice and reminder loops, the
+                 charge PDF
+  actions.ts     every Semesterbeitrag action
+src/server/modules/members/
+  repo.ts        member rows, the member_status config, the user mirror's
+                 emails
+  service.ts     the status taxonomy (with defaults), the Adressliste,
+                 unambiguous account linking, the caller's own entry,
+                 who owes the Semesterbeitrag
+  excel.ts       the Adressliste workbook: export and import
+  actions.ts     every Adressliste and own-entry action
+src/server/domain/cc-kasse/overview.ts            budget overview (pure)
+src/server/domain/cc-kasse/etaplan-excel.ts       the EtatplanWS layout
+src/server/domain/members/excel-map.ts            the Adressliste columns
+src/server/domain/members/statuses.ts             beitragspflichtig matcher
+src/server/domain/semesterbeitrag/beitrag-pdf.ts  the Beitrag letter
+```
+
+- `actions/cc-kasse/`, `actions/members/` and `lib/member-statuses.ts`
+  are gone. Five of those files imported the proxy; the baseline is 24.
+- Role sets: `ROLES.etatplan` (Senior, CC-Kasse, Admin), `ROLES.ccKasse`
+  (CC-Kasse, Admin) and `ROLES.adressliste` in `lib/authz.ts` replace the
+  `_guards.ts` constants. Who may call what is unchanged.
+- The page reads keep their old answers. A caller without the right gets
+  `[]`/`null` (each `actions.ts` has a local `requireRoles` that maps the
+  AuthzError to nothing), and the plan reads (`listEtaplans`,
+  `getEtaplanById`, `getActiveEtaplan`, the Kostenpunkt, event and
+  overview reads) still log a failed query and answer it with `[]`/`null`.
+  Turning those into errors needs an `error.tsx` check on /cc-kasse and
+  /kostenerstattung first (#216); the services already throw.
+- The tenant's name on the Beitrag PDF and the Etatplan workbook and the
+  slug the receipt check uses come from the scope's tenant
+  (`getTenantById(tenant.tenantId)`), no longer from the request host.
+  The PDF's date and the overdue flags read the scope's clock.
+- The Konten (`actions/kontos/kontos.ts`) stay where they are: every
+  Kasse's bank accounts, managed per Kasse role, not part of the CC-Kasse
+  or the Adressliste. They are already on an explicit scope and belong
+  to phase 6.
+- The actions name their id parameters (`etaplanId`, `kostenpunktId`,
+  `einnahmeId`, `reimbursementId`, `memberId`), so the tenant-isolation
+  test passes each a foreign row of the right kind.
+- Known gap: `knip --production` reports unused exports only under
+  `src/server/actions`, so an action in a module's `actions.ts` that only
+  a test calls is not flagged yet.
