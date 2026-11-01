@@ -179,14 +179,12 @@ type BillingPlan = ReturnType<typeof planRows>;
 
 export type BillingRunResult =
 	| {
-			success: true;
 			message: string;
 			billsCreated: 0;
 			eventBillsCreated: 0;
 			totalAmount: 0;
 	  }
 	| {
-			success: true;
 			message: string;
 			billPeriod: { id: string; billNumber: string };
 			billsCreated: number;
@@ -256,7 +254,6 @@ async function billAndMail(
 	// An Umlage to charge is reason enough for a run, orders or not.
 	if (state.unbilledOrders.length === 0 && umlage === 0) {
 		return {
-			success: true,
 			message: "Keine unbezahlten Bestellungen gefunden",
 			billsCreated: 0,
 			totalAmount: 0,
@@ -317,7 +314,6 @@ async function billAndMail(
 	}
 
 	return {
-		success: true,
 		message: `Erfolgreich ${billsCreated + eventBillsCreated} Rechnungen erstellt`,
 		billPeriod: { id: period.id, billNumber: period.billNumber },
 		billsCreated,

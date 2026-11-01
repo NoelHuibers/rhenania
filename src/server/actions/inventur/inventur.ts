@@ -19,6 +19,7 @@ import { expectedStock, itemLoss } from "~/server/domain/inventory/loss";
 import { ROLES, requireRole } from "~/server/lib/authz";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
 import { ActionError, defineAction } from "~/server/lib/define-action";
+import { DomainError } from "~/server/lib/domain-error";
 import { hasFeature } from "~/server/lib/features";
 import {
 	incompleteBillingMessage,
@@ -562,7 +563,8 @@ export const closeInventoryAndBill = defineAction(
 			totalInventoryLoss = closed?.totalLoss ?? 0;
 		}
 
-		// The run's message is meant for the user; it logs its own failures.
+		// A refused run's message is meant for the user; it logs its own
+		// failures. Anything else is logged here and reported generically.
 		let billingError: string | null = null;
 		let billsCreated = 0;
 		let message = "";
@@ -570,17 +572,15 @@ export const closeInventoryAndBill = defineAction(
 			const billing = await runGetraenkeBilling({
 				inventoryLoss: totalInventoryLoss,
 			});
-			if (billing.success) {
-				billsCreated =
-					billing.billsCreated +
-					("eventBillsCreated" in billing ? billing.eventBillsCreated : 0);
-				message = billing.message;
-			} else {
-				billingError = billing.message;
-			}
+			billsCreated = billing.billsCreated + billing.eventBillsCreated;
+			message = billing.message;
 		} catch (error) {
-			await log.error("billing after inventory failed", { err: error });
-			billingError = "Fehler beim Erstellen der Rechnungen";
+			if (error instanceof DomainError) {
+				billingError = error.message;
+			} else {
+				await log.error("billing after inventory failed", { err: error });
+				billingError = "Fehler beim Erstellen der Rechnungen";
+			}
 		}
 
 		if (billingError !== null) {

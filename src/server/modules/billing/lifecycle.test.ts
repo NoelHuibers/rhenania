@@ -337,7 +337,6 @@ describe("Erste Abrechnung", () => {
 		const run = await abrechnenMitPeriode(woche(0));
 
 		expect(run).toMatchObject({
-			success: true,
 			billsCreated: 2,
 			eventBillsCreated: 1,
 			totalAmount: 16.5,
@@ -448,7 +447,7 @@ describe("Erste Abrechnung", () => {
 
 		const result = await abrechnen(woche(1));
 
-		expect(result).toMatchObject({ success: true, billsCreated: 0 });
+		expect(result).toMatchObject({ billsCreated: 0 });
 		expect(await tenantDb().select().from(billPeriods)).toHaveLength(1);
 		expect((await billsOf(member.id)).map((b) => [b.status, b.total])).toEqual([
 			["Unbezahlt", 10],
