@@ -1,6 +1,6 @@
 "use client";
 
-import { Edit, RefreshCw, FolderSyncIcon as Sync, X } from "lucide-react";
+import { Edit, RefreshCw, FolderSyncIcon as Sync } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import { ConfirmAction } from "~/components/ui/confirm-action";
 import {
 	Dialog,
 	DialogContent,
@@ -16,10 +15,8 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "~/components/ui/dialog";
-import { IconButton } from "~/components/ui/icon-button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { deleteUserAvatar } from "~/server/actions/profile/avatar";
 import {
 	getUserProfile,
 	refreshProfile,
@@ -91,30 +88,6 @@ export function ProfileIdentity({ initial }: { initial: User | null }) {
 			} catch (error) {
 				toast.error(
 					error instanceof Error ? error.message : "Failed to update name",
-				);
-			}
-		});
-	};
-
-	const handleDeleteAvatar = () => {
-		startTransition(async () => {
-			try {
-				const result = await deleteUserAvatar();
-
-				if (result.ok) {
-					toast.success("Profilbild gelöscht");
-					// Update local state
-					if (user) {
-						setUser({ ...user, image: null });
-					}
-				} else {
-					toast.error(result.error);
-				}
-			} catch (error) {
-				toast.error(
-					error instanceof Error
-						? error.message
-						: "Fehler beim Löschen des Profilbilds",
 				);
 			}
 		});
@@ -198,34 +171,12 @@ export function ProfileIdentity({ initial }: { initial: User | null }) {
 			<CardContent className="space-y-6">
 				{/* Avatar and basic info */}
 				<div className="flex flex-col items-center space-y-4">
-					<div className="group relative">
-						<Avatar className="h-24 w-24">
-							<AvatarImage src={user.image || "/placeholder.svg"} />
-							<AvatarFallback className="text-lg">
-								{getInitials(user.name)}
-							</AvatarFallback>
-						</Avatar>
-						{user.image && (
-							<ConfirmAction
-								title="Profilbild entfernen?"
-								description="Dein Profilbild wird gelöscht. Du kannst jederzeit ein neues hochladen."
-								confirmLabel="Entfernen"
-								onConfirm={handleDeleteAvatar}
-							>
-								{/* Hidden until hover on a mouse; always shown on touch
-								    screens and when focused with the keyboard. */}
-								<IconButton
-									label="Profilbild entfernen"
-									size="icon-sm"
-									variant="destructive"
-									className="absolute -top-2 -right-2 rounded-full pointer-fine:opacity-0 transition-opacity pointer-fine:focus-visible:opacity-100 pointer-fine:group-hover:opacity-100"
-									disabled={isPending}
-								>
-									<X />
-								</IconButton>
-							</ConfirmAction>
-						)}
-					</div>
+					<Avatar className="h-24 w-24">
+						<AvatarImage src={user.image || "/placeholder.svg"} />
+						<AvatarFallback className="text-lg">
+							{getInitials(user.name)}
+						</AvatarFallback>
+					</Avatar>
 
 					<div className="text-center">
 						<h3 className="font-semibold text-xl">{user.name || "No Name"}</h3>
@@ -289,6 +240,7 @@ export function ProfileIdentity({ initial }: { initial: User | null }) {
 
 					<ProfileAvatarDialog
 						userId={user.id}
+						currentImage={user.image}
 						isPending={isPending}
 						startTransition={startTransition}
 						onImageChange={(image) => {
