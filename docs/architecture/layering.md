@@ -271,8 +271,10 @@ src/server/domain/achievements/rules.ts   the rules per event, the
   `lib/achievement-stats.ts` are gone. Four of those files (with
   `lib/achievements/version1.ts`, whose `seedAchievements` now takes the
   database) imported the proxy; the baseline is 20.
-- `pnpm db:seed <tenant-id>` names the tenant whose DB `DATABASE_URL` is
-  and runs with the `react-server` condition, so it can import the
+- `pnpm db:seed <tenant-id or slug>` looks the tenant up in the control DB
+  and seeds that tenant's own database (a remote one needs CONFIRM_PROD),
+  so the cross-Corps games and the founding day always match the DB being
+  written. It runs with the `react-server` condition, so it can import the
   services (`server-only`). Nothing calls `runWithScriptDb` any more; it
   goes with the proxy.
 - The query budgets are unchanged: one event costs at most three round
