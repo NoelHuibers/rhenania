@@ -1,7 +1,7 @@
 "use client";
 
 import { upload } from "@vercel/blob/client";
-import { Camera, RefreshCw, Upload } from "lucide-react";
+import { Camera, RefreshCw, Trash2, Upload } from "lucide-react";
 import {
 	type TransitionStartFunction,
 	useEffect,
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useTenantSlug } from "~/components/TenantProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Button } from "~/components/ui/button";
+import { ConfirmAction } from "~/components/ui/confirm-action";
 import {
 	Dialog,
 	DialogContent,
@@ -22,19 +23,27 @@ import {
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { updateUserAvatarUrl } from "~/server/actions/profile/avatar";
+import {
+	deleteUserAvatar,
+	updateUserAvatarUrl,
+} from "~/server/actions/profile/avatar";
 
-/** "Bild ändern" button and dialog: upload a profile picture or set it by URL. */
+/**
+ * "Bild ändern" button and dialog: upload a profile picture, set it by URL,
+ * or remove the current one.
+ */
 export function ProfileAvatarDialog({
 	userId,
+	currentImage,
 	isPending,
 	startTransition,
 	onImageChange,
 }: {
 	userId: string;
+	currentImage: string | null;
 	isPending: boolean;
 	startTransition: TransitionStartFunction;
-	onImageChange: (image: string) => void;
+	onImageChange: (image: string | null) => void;
 }) {
 	const tenantSlug = useTenantSlug();
 	const [newAvatarUrl, setNewAvatarUrl] = useState("");
@@ -163,6 +172,28 @@ export function ProfileAvatarDialog({
 					error instanceof Error
 						? error.message
 						: "Failed to update profile picture",
+				);
+			}
+		});
+	};
+
+	const handleDeleteAvatar = () => {
+		startTransition(async () => {
+			try {
+				const result = await deleteUserAvatar();
+
+				if (result.ok) {
+					toast.success("Profilbild gelöscht");
+					setAvatarDialogOpen(false);
+					onImageChange(null);
+				} else {
+					toast.error(result.error);
+				}
+			} catch (error) {
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "Fehler beim Löschen des Profilbilds",
 				);
 			}
 		});
@@ -311,6 +342,28 @@ export function ProfileAvatarDialog({
 						</Button>
 					</TabsContent>
 				</Tabs>
+				{currentImage && (
+					<div className="flex items-center gap-3 border-t pt-4">
+						<Avatar className="h-10 w-10">
+							<AvatarImage src={currentImage} />
+							<AvatarFallback />
+						</Avatar>
+						<p className="flex-1 text-muted-foreground text-sm">
+							Aktuelles Profilbild
+						</p>
+						<ConfirmAction
+							title="Profilbild entfernen?"
+							description="Dein Profilbild wird gelöscht. Du kannst jederzeit ein neues hochladen."
+							confirmLabel="Entfernen"
+							onConfirm={handleDeleteAvatar}
+						>
+							<Button variant="destructive" size="sm" disabled={isPending}>
+								<Trash2 />
+								Entfernen
+							</Button>
+						</ConfirmAction>
+					</div>
+				)}
 			</DialogContent>
 		</Dialog>
 	);
