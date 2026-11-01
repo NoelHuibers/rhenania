@@ -17,15 +17,13 @@ import {
 import { EmptyState } from "~/components/ui/empty-state";
 import { SectionCard } from "~/components/ui/section-card";
 import { formatEUR } from "~/lib/format";
-import {
-	exportEtaplanXlsx,
-	importEtaplanXlsx,
-} from "~/server/actions/cc-kasse/excel";
 import type { Etaplan } from "~/server/modules/cc-kasse/actions";
 import {
 	deleteEinnahme,
 	deleteKostenpunkt,
 	type EinnahmeRow,
+	exportEtaplanXlsx,
+	importEtaplanXlsx,
 	type KostenpunktWithPositions,
 	type LinkableEvent,
 } from "~/server/modules/cc-kasse/actions";

@@ -1,5 +1,6 @@
-// Single source of truth for the EtatplanWS layout, matched to the real
-// EP_SS26.xlsx. Both the export and import in `excel.ts` read only from here,
+// etaplan-excel.ts — the single source of truth for the EtatplanWS layout,
+// matched to the real EP_SS26.xlsx. Both the export and import in
+// modules/cc-kasse/excel.ts read only from here,
 // so adapting to a different workbook is a one-file edit.
 
 export const SHEET_NAME = "EtatplanWS";

@@ -121,10 +121,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getActiveImageBySection: "public",
 		getAllActiveImagesBySection: "public",
 	},
-	"src/server/actions/cc-kasse/excel.ts": {
-		exportEtaplanXlsx: CC_EDIT,
-		importEtaplanXlsx: CC_EDIT,
-	},
 	"src/server/actions/currentOrders.ts": {
 		getCurrentOrders: "member",
 	},
@@ -355,6 +351,8 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		listReimbursementQueue: CC_EDIT,
 		getMyPaymentInfo: "member",
 		setMyPaymentInfo: "member",
+		exportEtaplanXlsx: CC_EDIT,
+		importEtaplanXlsx: CC_EDIT,
 	},
 	"src/server/modules/fuchsenladen/actions.ts": {
 		createNewFuchsenBilling: FUCHSEN,

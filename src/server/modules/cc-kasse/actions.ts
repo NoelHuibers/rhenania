@@ -10,6 +10,7 @@ import { z } from "zod";
 import { AuthzError, ROLES, requireCaller } from "~/server/lib/authz";
 import { defineAction } from "~/server/lib/define-action";
 import { scopeOf } from "~/server/lib/tenant-scope";
+import * as excel from "./excel";
 import * as cc from "./service";
 
 export type {
@@ -342,4 +343,27 @@ export const setMyPaymentInfo = defineAction(
 		errorMessage: "Fehler beim Speichern",
 	},
 	async ([input], { tenant, user }) => cc.savePaymentInfo(tenant, user, input),
+);
+
+// ─── Etatplan Excel ──────────────────────────────────────────────────────────
+
+/** The plan as an .xlsx workbook, base64-encoded for the download. */
+export const exportEtaplanXlsx = defineAction(
+	{
+		roles: ROLES.etatplan,
+		schema: z.tuple([z.string()]),
+		errorMessage: "Export fehlgeschlagen",
+	},
+	async ([etaplanId], { tenant }) => excel.exportXlsx(tenant, etaplanId),
+);
+
+/** Reads an EtatplanWS sheet into the plan (upserting its Kostenpunkte). */
+export const importEtaplanXlsx = defineAction(
+	{
+		...plan,
+		schema: z.tuple([z.object({ etaplanId: z.string(), base64: z.string() })]),
+		errorMessage: "Import fehlgeschlagen",
+	},
+	async ([{ etaplanId, base64 }], { tenant }) =>
+		excel.importXlsx(tenant, etaplanId, base64),
 );

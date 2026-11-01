@@ -192,6 +192,42 @@ export async function replaceKostenpunkt(
 	}
 }
 
+/** Id, category and name of a plan's Kostenpunkte (the Excel import's keys). */
+export async function kostenpunktKeys(db: TenantDb, etaplanId: string) {
+	return db
+		.select({
+			id: kostenpunkte.id,
+			category: kostenpunkte.category,
+			name: kostenpunkte.name,
+		})
+		.from(kostenpunkte)
+		.where(eq(kostenpunkte.etaplanId, etaplanId));
+}
+
+export async function setKostenpunktTotals(
+	db: TenantDb,
+	id: string,
+	values: Pick<KostenpunktInsert, "categoryOrder" | "budget" | "income">,
+): Promise<void> {
+	await db.update(kostenpunkte).set(values).where(eq(kostenpunkte.id, id));
+}
+
+export async function deletePositionen(
+	db: TenantDb,
+	kostenpunktId: string,
+): Promise<void> {
+	await db
+		.delete(kostenpunktPositionen)
+		.where(eq(kostenpunktPositionen.kostenpunktId, kostenpunktId));
+}
+
+export async function insertPositionen(
+	db: TenantDb,
+	rows: PositionInsert[],
+): Promise<void> {
+	await db.insert(kostenpunktPositionen).values(rows);
+}
+
 /** How many Erstattungen are booked on the Kostenpunkt. */
 export async function countErstattungen(
 	db: TenantDb,

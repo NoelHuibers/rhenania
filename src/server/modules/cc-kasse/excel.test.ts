@@ -4,6 +4,17 @@ import { describe, expect, test } from "vitest";
 
 import { kostenpunkte, kostenpunktPositionen } from "~/server/db/schema";
 import {
+	categoryFromSubtotal,
+	grandTotalLabel,
+	isGrandTotalLabel,
+	isSubsidyLabel,
+	isSubtotalLabel,
+	parseGermanNumber,
+	SHEET_NAME,
+	subtotalLabel,
+	titleText,
+} from "~/server/domain/cc-kasse/etaplan-excel";
+import {
 	createEtaplan,
 	createKostenpunkt,
 } from "../../../../test/factories/cc-kasse";
@@ -14,18 +25,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
-import {
-	categoryFromSubtotal,
-	grandTotalLabel,
-	isGrandTotalLabel,
-	isSubsidyLabel,
-	isSubtotalLabel,
-	parseGermanNumber,
-	SHEET_NAME,
-	subtotalLabel,
-	titleText,
-} from "./etaplan-excel-map";
-import { exportEtaplanXlsx, importEtaplanXlsx } from "./excel";
+import { exportEtaplanXlsx, importEtaplanXlsx } from "./actions";
 
 setupTestDatabases();
 
@@ -90,7 +90,7 @@ async function snapshot(etaplanId: string) {
 	);
 }
 
-describe("etaplan-excel-map", () => {
+describe("etaplan-excel", () => {
 	test.each([
 		["1.855,00 €", 1855],
 		["-12,50 €", -12.5],
