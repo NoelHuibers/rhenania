@@ -132,6 +132,7 @@ export async function createTenantAction(input: {
 	displayName: string;
 	primaryHostname?: string | null;
 	firstAdminEmail?: string | null;
+	dbName?: string | null;
 }): Promise<ActionResult<{ tenantId: string; dbUrl: string }>> {
 	const denied = await asResult("createTenantAction", () =>
 		requireSuperAdmin(),
@@ -146,6 +147,7 @@ export async function createTenantAction(input: {
 				displayName: input.displayName,
 				primaryHostname: input.primaryHostname,
 				firstAdminEmail: input.firstAdminEmail,
+				dbName: input.dbName,
 			});
 			return { tenantId: result.tenantId, dbUrl: result.dbUrl };
 		});

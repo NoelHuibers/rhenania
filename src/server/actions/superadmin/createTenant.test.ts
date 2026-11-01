@@ -52,11 +52,8 @@ const dataOf = <T>(r: ActionResult<T>) => (r.ok ? r.data : undefined);
 
 // The Turso Platform API is replaced by local file databases: "creating" a
 // DB hands out a fresh file URL, so migrations and seeding run for real.
-vi.mock("~/server/lib/turso-platform", async (importOriginal) => {
-	const actual =
-		await importOriginal<typeof import("~/server/lib/turso-platform")>();
+vi.mock("~/server/lib/turso-platform", () => {
 	return {
-		tursoDatabaseNameForSlug: actual.tursoDatabaseNameForSlug,
 		createDatabase: vi.fn(),
 		createDatabaseToken: vi.fn(),
 		deleteDatabase: vi.fn(),
@@ -291,17 +288,37 @@ describe("createTenantAction", () => {
 		expect(createDatabase).not.toHaveBeenCalled();
 	});
 
-	test("rejects slugs whose DB name exceeds Turso's limit", async () => {
+	test("names the DB after the display name, like the existing ones (#224)", async () => {
 		await signInAsSuperAdmin();
 
-		const result = await createTenantAction({
-			slug: "a".repeat(30),
-			displayName: "Long",
+		await createTenantAction({
+			slug: "hassia",
+			displayName: "Corps Hassia Darmstadt",
 		});
 
-		expect(result.ok).toBe(false);
-		expect(errorOf(result)).toMatch(/produces invalid Turso DB name/);
+		expect(createDatabase).toHaveBeenCalledWith("corps-hassia-darmstadt");
+		expect((await runOf("hassia"))?.dbName).toBe("corps-hassia-darmstadt");
+	});
+
+	test("takes a given DB name and rejects one Turso would refuse", async () => {
+		await signInAsSuperAdmin();
+
+		for (const dbName of ["Corps_X", "ab", "a".repeat(33)]) {
+			const result = await createTenantAction({
+				slug: "hassia",
+				displayName: "Corps Hassia",
+				dbName,
+			});
+			expect(errorOf(result)).toMatch(/^Invalid Turso DB name/);
+		}
 		expect(createDatabase).not.toHaveBeenCalled();
+
+		await createTenantAction({
+			slug: "hassia",
+			displayName: "Corps Hassia",
+			dbName: "corps-hassia-bonn",
+		});
+		expect(createDatabase).toHaveBeenCalledWith("corps-hassia-bonn");
 	});
 
 	test("rejects an unknown first admin and a taken hostname before touching Turso", async () => {
@@ -602,10 +619,22 @@ describe("resuming a failed run (#29)", () => {
 		});
 
 		expect(errorOf(result)).toBe(
-			"Provisioning 'hassia' stopped at step 'db_requested': Turso DB 'corps-hassia' already exists but was not created by this run. Delete it or pick another slug.. Run it again to resume.",
+			"Provisioning 'hassia' stopped at step 'db_requested': Turso DB 'corps-hassia' already exists but was not created by this run. Delete it or choose another database name.. Run it again to resume.",
 		);
 		expect(createDatabase).not.toHaveBeenCalled();
 		expect((await runOf("hassia"))?.step).toBe("requested");
+
+		// Resumed with another name, the run creates that DB instead.
+		vi.mocked(getDatabase).mockImplementation(async (name) =>
+			name === "corps-hassia" ? turso(name) : null,
+		);
+		const resumed = await createTenantAction({
+			slug: "hassia",
+			displayName: "Corps Hassia",
+			dbName: "corps-hassia-2",
+		});
+		expect(resumed.ok).toBe(true);
+		expect(createDatabase).toHaveBeenCalledWith("corps-hassia-2");
 	});
 
 	test("a resumed run picks up corrected inputs for steps not yet done", async () => {
