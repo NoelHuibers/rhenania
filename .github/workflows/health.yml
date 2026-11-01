@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 5
     env:
       HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
-      HEALTH_URL: ${{ vars.HEALTH_URL || 'https://rhenania-stuttgart.de' }}
+      HEALTH_URL: ${{ vars.HEALTH_URL || 'https://www.rhenania-stuttgart.de' }}
       # Set for deployment runs: the live build must be this commit.
       EXPECTED_SHA: ${{ github.event.deployment.sha }}
     steps:
