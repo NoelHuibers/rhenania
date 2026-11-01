@@ -20,7 +20,11 @@ import {
 	createKostenpunkt,
 	createReimbursement,
 } from "./factories/cc-kasse";
-import { createEvent, createVenue } from "./factories/events";
+import {
+	createEvent,
+	createRecurringEvent,
+	createVenue,
+} from "./factories/events";
 import {
 	createFuchsenItem,
 	createFuchsenOrder,
@@ -124,6 +128,9 @@ async function seedForeignCorps(other: TestTenant) {
 	const period = await createBillPeriodRow();
 	const bill = await createBillRow({ periodId: period.id, user });
 	const event = await createEvent({ title: `${FOREIGN}kneipe` });
+	const template = await createRecurringEvent({
+		title: `${FOREIGN}stammtisch`,
+	});
 	const venue = await createVenue(`${FOREIGN}haus`, `${FOREIGN}straße 1`);
 	const member = await createMember({ lastName: FOREIGN, userId: user.id });
 	const etaplan = await createEtaplan({ name: `${FOREIGN} WS` });
@@ -151,7 +158,7 @@ async function seedForeignCorps(other: TestTenant) {
 		billId: bill.id,
 		billPeriodId: period.id,
 		eventId: event.id,
-		recurringEventId: event.id,
+		recurringEventId: template.id,
 		venueId: venue.id,
 		etaplanId: etaplan.id,
 		kostenpunktId: kp.id,

@@ -5,6 +5,7 @@ import {
 	calendarTokens,
 	eventRsvps,
 	events,
+	recurringEvents,
 	semesterConfig,
 	userPreferences,
 	venues,
@@ -31,6 +32,26 @@ export async function createEvent(
 		throw new Error("Could not create event");
 	}
 	return event;
+}
+
+export async function createRecurringEvent(
+	opts: Partial<typeof recurringEvents.$inferInsert> = {},
+	tenantId = testState.tenantId,
+) {
+	const [template] = await requireTenant(tenantId)
+		.db.insert(recurringEvents)
+		.values({
+			title: `Stammtisch ${next()}`,
+			type: "Intern",
+			recurrenceType: "biweekly",
+			dayOfWeek: 3,
+			...opts,
+		})
+		.returning();
+	if (!template) {
+		throw new Error("Could not create recurring event");
+	}
+	return template;
 }
 
 export async function createRsvp(
