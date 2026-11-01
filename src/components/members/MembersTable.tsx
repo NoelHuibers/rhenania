@@ -127,7 +127,7 @@ export function MembersTable({
 				patches.map(async ([id, patch]) => ({
 					id,
 					res: await updateMemberFields(id, patch).catch(() => ({
-						success: false as const,
+						ok: false as const,
 						error: "Keine Verbindung zum Server.",
 					})),
 				})),
@@ -135,8 +135,8 @@ export function MembersTable({
 			const failed = new Map<string, string>();
 			let linked = false;
 			for (const { id, res } of results) {
-				if (res.success) {
-					linked ||= Boolean(res.linkedNow);
+				if (res.ok) {
+					linked ||= res.data.linkedNow;
 				} else {
 					failed.set(id, res.error);
 				}

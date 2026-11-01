@@ -25,6 +25,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "~/components/ui/select";
+import type { ActionResult } from "~/lib/action-result";
 import { downloadBase64, PDF_MIME } from "~/lib/file-download";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
 import {
@@ -82,16 +83,14 @@ export function BeitraegeTab({
 		(c) => matchesFilter(c, filter) && c.memberName.toLowerCase().includes(q),
 	);
 
-	const runAction = (
-		action: () => Promise<{ success: boolean; error?: string }>,
-	) =>
+	const runAction = (action: () => Promise<ActionResult<unknown>>) =>
 		startTransition(async () => {
 			const res = await action();
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Aktualisiert");
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Fehler");
+				toast.error(res.error);
 			}
 		});
 
@@ -101,10 +100,11 @@ export function BeitraegeTab({
 		}
 		startTransition(async () => {
 			const res = await sendBeitragEmails(run.id);
-			if (res.success) {
+			if (res.ok) {
+				const { emailed, lettersPending, failed } = res.data;
 				toast.success(
-					`${res.emailed} per Email, ${res.lettersPending} als Brief${
-						res.failed ? `, ${res.failed} fehlgeschlagen` : ""
+					`${emailed} per Email, ${lettersPending} als Brief${
+						failed ? `, ${failed} fehlgeschlagen` : ""
 					}`,
 				);
 				router.refresh();
@@ -120,9 +120,10 @@ export function BeitraegeTab({
 		}
 		startTransition(async () => {
 			const res = await sendMahnungen(run.id);
-			if (res.success) {
+			if (res.ok) {
+				const { processed, emailed, lettersPending } = res.data;
 				toast.success(
-					`${res.processed} gemahnt (${res.emailed} Email, ${res.lettersPending} Brief)`,
+					`${processed} gemahnt (${emailed} Email, ${lettersPending} Brief)`,
 				);
 				router.refresh();
 			} else {
@@ -139,11 +140,11 @@ export function BeitraegeTab({
 		setDeleteOpen(false);
 		startTransition(async () => {
 			const res = await deleteBeitragRun(id);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Beitragslauf gelöscht");
 				router.refresh();
 			} else {
-				toast.error(res.error ?? "Fehler");
+				toast.error(res.error);
 			}
 		});
 	};
@@ -151,8 +152,8 @@ export function BeitraegeTab({
 	const dlPdf = (chargeId: string, isMahnung: boolean) =>
 		startTransition(async () => {
 			const res = await downloadChargePdf(chargeId, { isMahnung });
-			if (res.success) {
-				downloadBase64(res.base64, res.fileName, PDF_MIME);
+			if (res.ok) {
+				downloadBase64(res.data.base64, res.data.fileName, PDF_MIME);
 			} else {
 				toast.error(res.error);
 			}

@@ -115,11 +115,11 @@ function DisplayNameSection({
 	const submit = () => {
 		startTransition(async () => {
 			const r = await updateTenantDisplayNameAction(tenantId, name);
-			if (r.success) {
+			if (r.ok) {
 				toast.success("Display name updated");
 				onDone();
 			} else {
-				toast.error(r.error ?? "Failed to update");
+				toast.error(r.error);
 			}
 		});
 	};
@@ -154,11 +154,11 @@ function StatusSection({
 	const submit = () => {
 		startTransition(async () => {
 			const r = await setTenantStatusAction(tenantId, next);
-			if (r.success) {
+			if (r.ok) {
 				toast.success(`Tenant ${next}`);
 				onDone();
 			} else {
-				toast.error(r.error ?? "Failed to update status");
+				toast.error(r.error);
 			}
 		});
 	};
@@ -204,13 +204,13 @@ function FeaturesSection({
 	const toggle = (key: FeatureKey, enabled: boolean) => {
 		startTransition(async () => {
 			const r = await setTenantFeatureAction(tenantId, key, enabled);
-			if (r.success) {
+			if (r.ok) {
 				toast.success(
 					`${FEATURES[key].label} ${enabled ? "enabled" : "disabled"}`,
 				);
 				onDone();
 			} else {
-				toast.error(r.error ?? "Failed to update feature");
+				toast.error(r.error);
 			}
 		});
 	};

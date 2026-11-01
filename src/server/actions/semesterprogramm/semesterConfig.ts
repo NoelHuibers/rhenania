@@ -1,10 +1,11 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { db } from "~/server/db";
 import { semesterConfig } from "~/server/db/schema";
-import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
+import { ROLES, requireMember } from "~/server/lib/authz";
+import { defineAction } from "~/server/lib/define-action";
 
 export type SemesterConfig = typeof semesterConfig.$inferSelect;
 
@@ -18,14 +19,17 @@ export async function getSemesterConfig(): Promise<SemesterConfig | null> {
 	return row ?? null;
 }
 
-export async function upsertSemesterConfig(input: {
-	name: string;
-	startDate: Date;
-	endDate: Date;
-}): Promise<{ success: true } | { success: false; error: string }> {
-	await requireRole(ROLES.events);
-	try {
-		await db
+export const upsertSemesterConfig = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([
+			z.object({ name: z.string(), startDate: z.date(), endDate: z.date() }),
+		]),
+		revalidate: ["/admin/semesterprogramm"],
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([input], { tenant }) => {
+		await tenant.db
 			.insert(semesterConfig)
 			.values({
 				id: "singleton",
@@ -41,10 +45,5 @@ export async function upsertSemesterConfig(input: {
 					endDate: input.endDate,
 				},
 			});
-
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch {
-		return { success: false, error: "Fehler beim Speichern" };
-	}
-}
+	},
+);

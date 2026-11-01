@@ -108,7 +108,7 @@ export function ProfileAvatarDialog({
 
 			const result = await updateUserAvatarUrl(formData);
 
-			if (result.success) {
+			if (result.ok) {
 				toast.success("Profilbild erfolgreich hochgeladen");
 				setAvatarDialogOpen(false);
 
@@ -122,7 +122,7 @@ export function ProfileAvatarDialog({
 					fileInputRef.current.value = "";
 				}
 			} else {
-				toast.error(result.message || "Upload fehlgeschlagen");
+				toast.error(result.error);
 			}
 		} catch (error) {
 			console.error("Upload error:", error);
@@ -149,12 +149,14 @@ export function ProfileAvatarDialog({
 
 				const result = await updateUserAvatarUrl(formData);
 
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					toast.success("Profilbild erfolgreich aktualisiert");
 					setAvatarDialogOpen(false);
 					// Update local state
 					onImageChange(newAvatarUrl.trim());
 					setNewAvatarUrl("");
+				} else {
+					toast.error(result.error);
 				}
 			} catch (error) {
 				toast.error(

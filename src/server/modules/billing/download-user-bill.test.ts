@@ -41,9 +41,11 @@ describe("downloadUserBillPDF", () => {
 		});
 
 		expect(await downloadUserBillPDF(bill.id)).toEqual({
-			success: true,
-			downloadUrl: "https://blob.example/bill.pdf",
-			fileName: "Rechnung.pdf",
+			ok: true,
+			data: {
+				downloadUrl: "https://blob.example/bill.pdf",
+				fileName: "Rechnung.pdf",
+			},
 		});
 		expect(saveUserBillPdf).toHaveBeenCalledWith(
 			expect.objectContaining({ tenantId: expect.any(String) }),
@@ -52,7 +54,7 @@ describe("downloadUserBillPDF", () => {
 		);
 	});
 
-	test("passes on PDF errors, with a default message", async () => {
+	test("passes on domain errors and hides unexpected ones", async () => {
 		const bill = await memberWithBill();
 		vi.mocked(saveUserBillPdf)
 			.mockRejectedValueOnce(new DomainError("Bill not found", "NOT_FOUND"))
@@ -60,25 +62,26 @@ describe("downloadUserBillPDF", () => {
 			.mockRejectedValueOnce(new Error("blob down"));
 
 		expect(await downloadUserBillPDF(bill.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Bill not found",
+			code: "NOT_FOUND",
 		});
-		expect(await downloadUserBillPDF(bill.id)).toEqual({
-			success: false,
-			error: "Failed to download PDF",
-		});
-		expect(await downloadUserBillPDF(bill.id)).toEqual({
-			success: false,
-			error: "blob down",
-		});
+		const hidden = {
+			ok: false,
+			error: "PDF konnte nicht heruntergeladen werden",
+			code: "INTERNAL",
+		};
+		expect(await downloadUserBillPDF(bill.id)).toEqual(hidden);
+		expect(await downloadUserBillPDF(bill.id)).toEqual(hidden);
 	});
 
 	test("refuses anonymous callers without generating anything", async () => {
 		await createTenant();
 
 		expect(await downloadUserBillPDF("any")).toEqual({
-			success: false,
-			error: "User must be authenticated to download billing data",
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
 		});
 		expect(saveUserBillPdf).not.toHaveBeenCalled();
 	});

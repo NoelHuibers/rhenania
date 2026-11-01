@@ -48,15 +48,22 @@ async function seedOrders() {
 	return created;
 }
 
+type Page = Awaited<ReturnType<typeof getTransactions>>;
+const rowsOf = (page: Page) => (page.ok ? page.data : []);
+const ids = (page: Page) => rowsOf(page).map((t) => t.id);
+const names = (page: Page) => rowsOf(page).map((t) => t.userName);
+const count = (n: number) => ({ ok: true, data: n });
+
 describe("getTransactions / getTransactionCount", () => {
 	test("returns all orders newest first by default", async () => {
 		const orders = await seedOrders();
 
 		const result = await getTransactions();
 
-		expect(result.success).toBe(true);
-		expect(result.data.map((t) => t.id)).toEqual(orders.map((o) => o.id));
-		expect(result.data[0]).toMatchObject({
+		expect(result.ok).toBe(true);
+		const rows = result.ok ? result.data : [];
+		expect(rows.map((t) => t.id)).toEqual(orders.map((o) => o.id));
+		expect(rows[0]).toMatchObject({
 			userName: "Max Muster",
 			drinkName: "Pils",
 			inBill: false,
@@ -64,7 +71,7 @@ describe("getTransactions / getTransactionCount", () => {
 			// land in the next second.
 			createdAt: orders[0]?.createdAt,
 		});
-		expect(await getTransactionCount()).toEqual({ success: true, count: 5 });
+		expect(await getTransactionCount()).toEqual({ ok: true, data: 5 });
 	});
 
 	test.each<[string, TransactionFilters, number[]]>([
@@ -88,12 +95,11 @@ describe("getTransactions / getTransactionCount", () => {
 		const orders = await seedOrders();
 
 		const result = await getTransactions(filters);
-		const count = await getTransactionCount(filters);
+		const total = await getTransactionCount(filters);
 
-		expect(result.data.map((t) => t.id)).toEqual(
-			expected.map((i) => orders[i]?.id),
-		);
-		expect(count.count).toBe(expected.length);
+		expect(result.ok).toBe(true);
+		expect(ids(result)).toEqual(expected.map((i) => orders[i]?.id));
+		expect(total).toEqual(count(expected.length));
 	});
 
 	test("pages with limit and offset", async () => {
@@ -101,8 +107,7 @@ describe("getTransactions / getTransactionCount", () => {
 
 		const page = await getTransactions({ limit: 2, offset: 2 });
 
-		expect(page.data.map((t) => t.id)).toEqual([orders[2]?.id, orders[3]?.id]);
-		expect(page.total).toBe(2);
+		expect(ids(page)).toEqual([orders[2]?.id, orders[3]?.id]);
 	});
 
 	test("finds members whose name starts with an umlaut (#136)", async () => {
@@ -111,7 +116,7 @@ describe("getTransactions / getTransactionCount", () => {
 
 		const result = await getTransactions({ search: "Özdemir" });
 
-		expect(result.data.map((t) => t.userName)).toEqual(["Özdemir"]);
+		expect(names(result)).toEqual(["Özdemir"]);
 	});
 
 	test("folds the case of non-ASCII letters on both sides", async () => {
@@ -123,22 +128,22 @@ describe("getTransactions / getTransactionCount", () => {
 
 		for (const search of ["özdemir", "ÖZDEMIR"]) {
 			const result = await getTransactions({ search });
-			expect(result.data.map((t) => t.userName)).toEqual(["Özdemir"]);
-			expect((await getTransactionCount({ search })).count).toBe(1);
+			expect(names(result)).toEqual(["Özdemir"]);
+			expect(await getTransactionCount({ search })).toEqual(count(1));
 		}
-		expect(
-			(await getTransactions({ search: "ärm" })).data.map((t) => t.userName),
-		).toEqual(["Jörg Ärmel"]);
-		expect((await getTransactionCount({ search: "KÖLSCH" })).count).toBe(2);
+		expect(names(await getTransactions({ search: "ärm" }))).toEqual([
+			"Jörg Ärmel",
+		]);
+		expect(await getTransactionCount({ search: "KÖLSCH" })).toEqual(count(2));
 	});
 
 	test("treats wildcard characters in the search literally", async () => {
 		await seedOrders();
 
 		for (const search of ["%", "_", "*", "?", "[a]"]) {
-			expect((await getTransactions({ search })).data).toEqual([]);
-			expect((await getTransactionCount({ search })).count).toBe(0);
+			expect(await getTransactions({ search })).toEqual({ ok: true, data: [] });
+			expect(await getTransactionCount({ search })).toEqual(count(0));
 		}
-		expect((await getTransactionCount({ search: "Club-" })).count).toBe(2);
+		expect(await getTransactionCount({ search: "Club-" })).toEqual(count(2));
 	});
 });

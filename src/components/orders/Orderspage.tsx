@@ -142,18 +142,14 @@ export function OrdersTracker() {
 					getTransactionCount(filters),
 				]);
 
-				setLoadFailed(!transactionResult.success);
-				if (transactionResult.success) {
+				setLoadFailed(!transactionResult.ok);
+				if (transactionResult.ok) {
 					setTransactions(transactionResult.data);
 					setTotalCount(
-						countResult.success
-							? countResult.count
-							: transactionResult.data.length,
+						countResult.ok ? countResult.data : transactionResult.data.length,
 					);
 				} else {
-					toast.error(
-						transactionResult.error || "Fehler beim Abrufen der Transaktionen",
-					);
+					toast.error(transactionResult.error);
 				}
 			} catch (error) {
 				console.error("Error fetching transactions:", error);

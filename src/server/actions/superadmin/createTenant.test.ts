@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import type { ActionResult } from "~/lib/action-result";
 
 import {
 	PROVISIONING_STEPS,
@@ -43,6 +44,11 @@ import {
 	listTenantProvisioningsAction,
 	setTenantStatusAction,
 } from "./tenants";
+
+/** The error of a failed ActionResult (undefined if it succeeded). */
+const errorOf = (r: ActionResult<unknown>) => (r.ok ? undefined : r.error);
+/** The data of a successful ActionResult (undefined if it failed). */
+const dataOf = <T>(r: ActionResult<T>) => (r.ok ? r.data : undefined);
 
 // The Turso Platform API is replaced by local file databases: "creating" a
 // DB hands out a fresh file URL, so migrations and seeding run for real.
@@ -133,7 +139,7 @@ describe("createTenantAction", () => {
 		});
 
 		expect(result).toEqual({
-			success: true,
+			ok: true,
 			data: { tenantId: expect.any(String), dbUrl: `file:${dbFile}` },
 		});
 		expect(createDatabase).toHaveBeenCalledWith("corps-hassia");
@@ -142,7 +148,7 @@ describe("createTenantAction", () => {
 
 		const tenant = await tenantBySlug("hassia");
 		expect(tenant).toMatchObject({
-			id: result.data?.tenantId,
+			id: dataOf(result)?.tenantId,
 			displayName: "Corps Hassia",
 			status: "active",
 			dbUrl: `file:${dbFile}`,
@@ -210,8 +216,8 @@ describe("createTenantAction", () => {
 			firstAdminEmail: " Senior@Hassia.example ",
 		});
 
-		expect(result.success).toBe(true);
-		const tenantId = result.data?.tenantId as string;
+		expect(result.ok).toBe(true);
+		const tenantId = dataOf(result)?.tenantId as string;
 		expect(await resolveTenantByHost("hassia.de")).toBe(tenantId);
 		expect(
 			await controlDb()
@@ -263,12 +269,12 @@ describe("createTenantAction", () => {
 
 		for (const slug of ["ab", "1corps", "corps_x", "a".repeat(32)]) {
 			const result = await createTenantAction({ slug, displayName: "X" });
-			expect(result.success).toBe(false);
-			expect(result.error).toMatch(/^Slug must be 3-31 chars/);
+			expect(result.ok).toBe(false);
+			expect(errorOf(result)).toMatch(/^Slug must be 3-31 chars/);
 		}
 		expect(
 			await createTenantAction({ slug: "hassia", displayName: "   " }),
-		).toEqual({ success: false, error: "displayName is required." });
+		).toEqual({ ok: false, error: "displayName is required." });
 		expect(createDatabase).not.toHaveBeenCalled();
 		expect(await controlDb().select().from(tenantProvisioning)).toEqual([]);
 	});
@@ -279,7 +285,7 @@ describe("createTenantAction", () => {
 		expect(
 			await createTenantAction({ slug: "platform", displayName: "Again" }),
 		).toEqual({
-			success: false,
+			ok: false,
 			error: "Tenant 'platform' already exists in the control DB.",
 		});
 		expect(createDatabase).not.toHaveBeenCalled();
@@ -293,8 +299,8 @@ describe("createTenantAction", () => {
 			displayName: "Long",
 		});
 
-		expect(result.success).toBe(false);
-		expect(result.error).toMatch(/produces invalid Turso DB name/);
+		expect(result.ok).toBe(false);
+		expect(errorOf(result)).toMatch(/produces invalid Turso DB name/);
 		expect(createDatabase).not.toHaveBeenCalled();
 	});
 
@@ -308,7 +314,7 @@ describe("createTenantAction", () => {
 				firstAdminEmail: "nobody@example.test",
 			}),
 		).toEqual({
-			success: false,
+			ok: false,
 			error:
 				"No account with email 'nobody@example.test'. The first admin must have signed in once before.",
 		});
@@ -319,7 +325,7 @@ describe("createTenantAction", () => {
 				primaryHostname: "platform.test.localhost",
 			}),
 		).toEqual({
-			success: false,
+			ok: false,
 			error: "Hostname already registered to another tenant",
 		});
 		expect(
@@ -328,7 +334,7 @@ describe("createTenantAction", () => {
 				displayName: "Corps Hassia",
 				primaryHostname: "https://hassia.de",
 			}),
-		).toEqual({ success: false, error: "Invalid hostname characters" });
+		).toEqual({ ok: false, error: "Invalid hostname characters" });
 		expect(getDatabase).not.toHaveBeenCalled();
 		expect(createDatabase).not.toHaveBeenCalled();
 		expect(await controlDb().select().from(tenantProvisioning)).toEqual([]);
@@ -341,7 +347,7 @@ describe("createTenantAction", () => {
 		expect(
 			await createTenantAction({ slug: "hassia", displayName: "Again" }),
 		).toEqual({
-			success: false,
+			ok: false,
 			error: "Tenant 'hassia' already exists in the control DB.",
 		});
 		expect(createDatabase).toHaveBeenCalledTimes(1);
@@ -358,7 +364,7 @@ describe("createTenantAction", () => {
 			displayName: "Corps Hassia",
 		});
 
-		expect(result.success).toBe(false);
+		expect(result.ok).toBe(false);
 		// The tenant row and auth config are one batch: neither is left over.
 		expect(await controlDb().select().from(tenants)).toHaveLength(1);
 		// The Turso DB is kept for the resume instead of being deleted; the
@@ -483,14 +489,14 @@ describe("resuming a failed run (#29)", () => {
 
 		const failed = await createTenantAction(input);
 
-		expect(failed.success).toBe(false);
-		expect(failed.error).toMatch(
+		expect(failed.ok).toBe(false);
+		expect(errorOf(failed)).toMatch(
 			new RegExp(`^Provisioning 'hassia' stopped at step '${step}': .+`),
 		);
 		const run = await runOf("hassia");
 		expect(run).toMatchObject({
 			step: PROVISIONING_STEPS[indexOf(step) - 1],
-			lastError: failed.error,
+			lastError: errorOf(failed),
 			leaseUntil: null,
 			attempts: 1,
 		});
@@ -501,11 +507,11 @@ describe("resuming a failed run (#29)", () => {
 			expect(pending?.status).toBe("pending");
 		}
 		expect(deleteDatabase).not.toHaveBeenCalled();
-		expect((await listTenantProvisioningsAction()).data).toEqual([
+		expect(dataOf(await listTenantProvisioningsAction())).toEqual([
 			expect.objectContaining({
 				slug: "hassia",
 				step: run?.step,
-				lastError: failed.error,
+				lastError: errorOf(failed),
 				running: false,
 			}),
 		]);
@@ -513,8 +519,8 @@ describe("resuming a failed run (#29)", () => {
 		await undo();
 		const resumed = await createTenantAction(input);
 
-		expect(resumed.success).toBe(true);
-		const tenantId = resumed.data?.tenantId as string;
+		expect(resumed.ok).toBe(true);
+		const tenantId = dataOf(resumed)?.tenantId as string;
 		expect(await tenantBySlug("hassia")).toMatchObject({
 			id: tenantId,
 			status: "active",
@@ -551,7 +557,7 @@ describe("resuming a failed run (#29)", () => {
 		expect(createDatabase).toHaveBeenCalledTimes(step === "db_created" ? 2 : 1);
 		expect(createDatabaseToken).toHaveBeenCalledTimes(step === "token" ? 2 : 1);
 		await expect(listTenantProvisioningsAction()).resolves.toEqual({
-			success: true,
+			ok: true,
 			data: [],
 		});
 	});
@@ -571,7 +577,7 @@ describe("resuming a failed run (#29)", () => {
 			slug: "hassia",
 			displayName: "Corps Hassia",
 		});
-		expect(failed.error).toMatch(/stopped at step 'db_created'/);
+		expect(errorOf(failed)).toMatch(/stopped at step 'db_created'/);
 		expect((await runOf("hassia"))?.step).toBe("db_requested");
 
 		const resumed = await createTenantAction({
@@ -580,7 +586,7 @@ describe("resuming a failed run (#29)", () => {
 		});
 
 		expect(resumed).toMatchObject({
-			success: true,
+			ok: true,
 			data: { dbUrl: `file:${dbFile}` },
 		});
 		expect(createDatabase).toHaveBeenCalledTimes(1);
@@ -595,7 +601,7 @@ describe("resuming a failed run (#29)", () => {
 			displayName: "Corps Hassia",
 		});
 
-		expect(result.error).toBe(
+		expect(errorOf(result)).toBe(
 			"Provisioning 'hassia' stopped at step 'db_requested': Turso DB 'corps-hassia' already exists but was not created by this run. Delete it or pick another slug.. Run it again to resume.",
 		);
 		expect(createDatabase).not.toHaveBeenCalled();
@@ -630,14 +636,14 @@ describe("resuming a failed run (#29)", () => {
 			slug: "hassia",
 			displayName: "Corps Hassia",
 		});
-		expect(failed.error).toMatch(/stopped at step 'migrated'/);
+		expect(errorOf(failed)).toMatch(/stopped at step 'migrated'/);
 
 		mkdirSync(dir);
 		const resumed = await createTenantAction({
 			slug: "hassia",
 			displayName: "Corps Hassia",
 		});
-		expect(resumed.success).toBe(true);
+		expect(resumed.ok).toBe(true);
 		rmSync(dir, { recursive: true, force: true });
 	});
 
@@ -649,10 +655,10 @@ describe("resuming a failed run (#29)", () => {
 			createTenantAction({ slug: "hassia", displayName: "Corps Hassia" }),
 		]);
 
-		expect(results.filter((r) => r.success)).toHaveLength(1);
-		expect(results.find((r) => !r.success)?.error).toMatch(
-			/already running|already exists/,
-		);
+		expect(results.filter((r) => r.ok)).toHaveLength(1);
+		expect(
+			errorOf(results.find((r) => !r.ok) ?? { ok: true, data: undefined }),
+		).toMatch(/already running|already exists/);
 		expect(createDatabase).toHaveBeenCalledTimes(1);
 		expect(await controlDb().select().from(tenants)).toHaveLength(2);
 	});
@@ -668,7 +674,7 @@ describe("abandonTenantProvisioningAction (#29)", () => {
 			displayName: "Corps Hassia",
 			primaryHostname: "hassia.de",
 		});
-		expect(result.success).toBe(false);
+		expect(result.ok).toBe(false);
 		await sql("DROP TRIGGER fail_domain");
 		vi.mocked(getDatabase).mockImplementation(async (name) => turso(name));
 	}
@@ -679,7 +685,7 @@ describe("abandonTenantProvisioningAction (#29)", () => {
 		expect((await tenantBySlug("hassia"))?.status).toBe("pending");
 
 		expect(await abandonTenantProvisioningAction("hassia")).toEqual({
-			success: true,
+			ok: true,
 		});
 
 		expect(deleteDatabase).toHaveBeenCalledWith("corps-hassia");
@@ -693,7 +699,7 @@ describe("abandonTenantProvisioningAction (#29)", () => {
 			slug: "hassia",
 			displayName: "Corps Hassia",
 		});
-		expect(again.success).toBe(true);
+		expect(again.ok).toBe(true);
 	});
 
 	test("before the DB was requested there is nothing to delete in Turso", async () => {
@@ -702,7 +708,7 @@ describe("abandonTenantProvisioningAction (#29)", () => {
 		await createTenantAction({ slug: "hassia", displayName: "Corps Hassia" });
 
 		expect(await abandonTenantProvisioningAction("hassia")).toEqual({
-			success: true,
+			ok: true,
 		});
 		expect(deleteDatabase).not.toHaveBeenCalled();
 		expect(await runOf("hassia")).toBeUndefined();
@@ -716,13 +722,13 @@ describe("abandonTenantProvisioningAction (#29)", () => {
 		const result = await abandonTenantProvisioningAction("hassia");
 
 		expect(result).toEqual({
-			success: false,
+			ok: false,
 			error:
 				"Could not delete Turso DB 'corps-hassia': Turso 500. Nothing else was removed; try again or delete it by hand.",
 		});
 		expect((await tenantBySlug("hassia"))?.status).toBe("pending");
 		expect(await runOf("hassia")).toMatchObject({
-			lastError: result.error,
+			lastError: errorOf(result),
 			leaseUntil: null,
 		});
 	});
@@ -733,11 +739,11 @@ describe("abandonTenantProvisioningAction (#29)", () => {
 		vi.mocked(getDatabase).mockImplementation(async (name) => turso(name));
 
 		expect(await abandonTenantProvisioningAction("hassia")).toEqual({
-			success: false,
+			ok: false,
 			error: "Tenant 'hassia' is active; it can't be abandoned.",
 		});
 		expect(await abandonTenantProvisioningAction("nope")).toEqual({
-			success: false,
+			ok: false,
 			error: "No provisioning run for 'nope'.",
 		});
 		expect(deleteDatabase).not.toHaveBeenCalled();
@@ -750,7 +756,7 @@ describe("abandonTenantProvisioningAction (#29)", () => {
 		await setTenantStatusAction(tenant?.id as string, "active");
 
 		expect(await abandonTenantProvisioningAction("hassia")).toMatchObject({
-			success: false,
+			ok: false,
 		});
 		expect(deleteDatabase).not.toHaveBeenCalled();
 	});

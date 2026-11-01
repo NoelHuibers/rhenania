@@ -108,10 +108,10 @@ describe("createBeitragRun", () => {
 		});
 
 		expect(result).toMatchObject({
-			success: true,
+			ok: true,
 			data: { chargesCreated: 3 },
 		});
-		const runId = result.success ? result.data.runId : "";
+		const runId = result.ok ? result.data.runId : "";
 		const [run] = await tenantDb()
 			.select()
 			.from(semesterbeitragRuns)
@@ -155,7 +155,7 @@ describe("createBeitragRun", () => {
 			dueDate: FUTURE_DUE,
 		});
 
-		const runId = result.success ? result.data.runId : "";
+		const runId = result.ok ? result.data.runId : "";
 		expect((await charges(runId)).map((c) => c.memberId)).toEqual([renonce.id]);
 	});
 
@@ -172,7 +172,7 @@ describe("createBeitragRun", () => {
 			dueDate: FUTURE_DUE,
 		});
 
-		expect(result.success).toBe(false);
+		expect(result.ok).toBe(false);
 		expect(await listBeitragRuns()).toEqual([]);
 	});
 
@@ -189,7 +189,11 @@ describe("createBeitragRun", () => {
 			dueDate: FUTURE_DUE,
 		});
 
-		expect(result).toEqual({ success: false, error: "Keine Berechtigung" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 		expect(await tenantDb().select().from(semesterbeitragRuns)).toHaveLength(0);
 	});
 
@@ -210,8 +214,9 @@ describe("createBeitragRun", () => {
 		});
 
 		expect(result).toEqual({
-			success: false,
+			ok: false,
 			error: "Der Kostenpunkt gehört nicht zum gewählten Etatplan.",
+			code: "INVALID_INPUT",
 		});
 		expect(await tenantDb().select().from(semesterbeitragRuns)).toHaveLength(0);
 	});
@@ -229,8 +234,9 @@ describe("createBeitragRun", () => {
 		});
 
 		expect(result).toEqual({
-			success: false,
+			ok: false,
 			error: "Kostenpunkt nicht gefunden",
+			code: "NOT_FOUND",
 		});
 		expect(await tenantDb().select().from(semesterbeitragRuns)).toHaveLength(0);
 	});
@@ -250,7 +256,7 @@ describe("regenerateCharges / deleteBeitragRun", () => {
 
 		const result = await regenerateCharges(run.id);
 
-		expect(result).toMatchObject({ success: true });
+		expect(result).toMatchObject({ ok: true });
 		const rows = await charges(run.id);
 		expect(rows).toHaveLength(2);
 		expect(rows.find((c) => c.id === existing.id)).toMatchObject({
@@ -266,12 +272,14 @@ describe("regenerateCharges / deleteBeitragRun", () => {
 	test("reports an unknown run", async () => {
 		await setup();
 		expect(await regenerateCharges("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Lauf nicht gefunden",
+			code: "NOT_FOUND",
 		});
 		expect(await deleteBeitragRun("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Lauf nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 
@@ -281,7 +289,10 @@ describe("regenerateCharges / deleteBeitragRun", () => {
 		await createCharge(run.id, await createMember(), { status: "Gemahnt" });
 		await createCharge(run.id, await createMember(), { status: "Gestundet" });
 
-		expect(await deleteBeitragRun(run.id)).toEqual({ success: true });
+		expect(await deleteBeitragRun(run.id)).toEqual({
+			ok: true,
+			data: undefined,
+		});
 		expect(await listBeitragRuns()).toEqual([]);
 		expect(await charges(run.id)).toEqual([]);
 	});
@@ -294,7 +305,7 @@ describe("regenerateCharges / deleteBeitragRun", () => {
 
 		const result = await deleteBeitragRun(run.id);
 
-		expect(result.success).toBe(false);
+		expect(result.ok).toBe(false);
 		expect(await charges(run.id)).toHaveLength(2);
 	});
 });
@@ -394,8 +405,9 @@ describe("charges", () => {
 			mahnungAmount: 5,
 		});
 		expect(await markChargeUnpaid("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });
@@ -423,10 +435,8 @@ describe("sendBeitragEmails", () => {
 		const result = await sendBeitragEmails(run.id);
 
 		expect(result).toEqual({
-			success: true,
-			emailed: 1,
-			lettersPending: 1,
-			failed: 0,
+			ok: true,
+			data: { emailed: 1, lettersPending: 1, failed: 0 },
 		});
 		expect(sendTenantMail).toHaveBeenCalledTimes(1);
 		const mail = vi.mocked(sendTenantMail).mock.calls[0]?.[0];
@@ -470,7 +480,7 @@ describe("sendBeitragEmails", () => {
 
 		const result = await sendBeitragEmails(run.id, { onlyUnsent: false });
 
-		expect(result).toMatchObject({ emailed: 1 });
+		expect(result).toMatchObject({ ok: true, data: { emailed: 1 } });
 		expect(sendTenantMail).toHaveBeenCalledWith(
 			expect.objectContaining({ to: "a@example.test" }),
 		);
@@ -489,10 +499,8 @@ describe("sendBeitragEmails", () => {
 		const result = await sendBeitragEmails(run.id);
 
 		expect(result).toEqual({
-			success: true,
-			emailed: 0,
-			lettersPending: 0,
-			failed: 1,
+			ok: true,
+			data: { emailed: 0, lettersPending: 0, failed: 1 },
 		});
 		expect(sendTenantMail).not.toHaveBeenCalled();
 		expect((await chargeRow(charge.id))?.emailSentAt).toBeNull();
@@ -511,7 +519,7 @@ describe("sendBeitragEmails", () => {
 
 		const result = await sendBeitragEmails(run.id);
 
-		expect(result).toMatchObject({ emailed: 0, failed: 1 });
+		expect(result).toMatchObject({ ok: true, data: { emailed: 0, failed: 1 } });
 		expect(await chargeRow(charge.id)).toMatchObject({
 			emailSentAt: null,
 			deliveryMethod: null,
@@ -521,8 +529,9 @@ describe("sendBeitragEmails", () => {
 	test("reports an unknown run", async () => {
 		await setup();
 		expect(await sendBeitragEmails("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Lauf nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 
@@ -542,10 +551,8 @@ describe("sendBeitragEmails", () => {
 		const result = await sendBeitragEmails(run.id);
 
 		expect(result).toEqual({
-			success: true,
-			emailed: 0,
-			lettersPending: 0,
-			failed: 0,
+			ok: true,
+			data: { emailed: 0, lettersPending: 0, failed: 0 },
 		});
 		expect(sendTenantMail).not.toHaveBeenCalled();
 		expect(await chargeRow(paid.id)).toMatchObject({
@@ -571,7 +578,7 @@ describe("sendBeitragEmails", () => {
 
 		const result = await sendBeitragEmails(run.id, { onlyUnsent: false });
 
-		expect(result).toMatchObject({ emailed: 1, failed: 0 });
+		expect(result).toMatchObject({ ok: true, data: { emailed: 1, failed: 0 } });
 		expect(sendTenantMail).toHaveBeenCalledTimes(1);
 		expect(sendTenantMail).toHaveBeenCalledWith(
 			expect.objectContaining({ to: "deferred@example.test" }),
@@ -590,8 +597,9 @@ describe("sendMahnungen", () => {
 		);
 
 		expect(await sendMahnungen(run.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Fälligkeitsdatum noch nicht erreicht.",
+			code: "CONFLICT",
 		});
 		expect((await chargeRow(charge.id))?.status).toBe("Offen");
 		expect(sendTenantMail).not.toHaveBeenCalled();
@@ -628,11 +636,8 @@ describe("sendMahnungen", () => {
 		const result = await sendMahnungen(run.id);
 
 		expect(result).toEqual({
-			success: true,
-			processed: 2,
-			emailed: 1,
-			lettersPending: 1,
-			failed: 0,
+			ok: true,
+			data: { processed: 2, emailed: 1, lettersPending: 1, failed: 0 },
 		});
 		expect(await chargeRow(open.id)).toMatchObject({
 			status: "Gemahnt",
@@ -660,7 +665,10 @@ describe("sendMahnungen", () => {
 
 		// A second run sends nothing new.
 		vi.mocked(sendTenantMail).mockClear();
-		expect(await sendMahnungen(run.id)).toMatchObject({ processed: 0 });
+		expect(await sendMahnungen(run.id)).toMatchObject({
+			ok: true,
+			data: { processed: 0 },
+		});
 		expect(sendTenantMail).not.toHaveBeenCalled();
 	});
 
@@ -676,12 +684,12 @@ describe("sendMahnungen", () => {
 
 		// No CC-Kasse account yet: the PDF cannot be generated.
 		const first = await sendMahnungen(run.id);
-		expect(first).toMatchObject({ failed: 1, emailed: 0 });
+		expect(first).toMatchObject({ ok: true, data: { failed: 1, emailed: 0 } });
 
 		await createKonto();
 		const retry = await sendMahnungen(run.id);
 
-		expect(retry).toMatchObject({ emailed: 1 });
+		expect(retry).toMatchObject({ ok: true, data: { emailed: 1 } });
 		expect(sendTenantMail).toHaveBeenCalledTimes(1);
 		expect((await chargeRow(charge.id))?.mahnungSentAt).toEqual(NOW);
 	});
@@ -695,11 +703,8 @@ describe("sendMahnungen", () => {
 		);
 
 		expect(await sendMahnungen(run.id)).toEqual({
-			success: true,
-			processed: 1,
-			emailed: 0,
-			lettersPending: 0,
-			failed: 1,
+			ok: true,
+			data: { processed: 1, emailed: 0, lettersPending: 0, failed: 1 },
 		});
 
 		expect(await chargeRow(charge.id)).toMatchObject({
@@ -727,9 +732,8 @@ describe("sendMahnungen", () => {
 		vi.spyOn(console, "error").mockImplementation(() => {});
 
 		expect(await sendMahnungen(run.id)).toMatchObject({
-			processed: 1,
-			emailed: 0,
-			failed: 1,
+			ok: true,
+			data: { processed: 1, emailed: 0, failed: 1 },
 		});
 		expect(await chargeRow(charge.id)).toMatchObject({
 			status: "Offen",
@@ -738,9 +742,8 @@ describe("sendMahnungen", () => {
 		});
 
 		expect(await sendMahnungen(run.id)).toMatchObject({
-			processed: 1,
-			emailed: 1,
-			failed: 0,
+			ok: true,
+			data: { processed: 1, emailed: 1, failed: 0 },
 		});
 		expect(await chargeRow(charge.id)).toMatchObject({
 			status: "Gemahnt",
@@ -760,7 +763,10 @@ describe("sendMahnungen", () => {
 		const charge = await createCharge(run.id, await createMember());
 
 		// No CC-Kasse account: the reminder fails.
-		expect(await sendMahnungen(run.id)).toMatchObject({ failed: 1 });
+		expect(await sendMahnungen(run.id)).toMatchObject({
+			ok: true,
+			data: { failed: 1 },
+		});
 		await markChargePaid(charge.id);
 		await markChargeUnpaid(charge.id);
 
@@ -815,18 +821,18 @@ describe("downloadChargePdf", () => {
 		const reminder = await downloadChargePdf(charge.id, { isMahnung: true });
 
 		expect(invoice).toMatchObject({
-			success: true,
-			fileName: "Beitragsrechnung_WS_2026_27_J_rg_M_ller.pdf",
+			ok: true,
+			data: { fileName: "Beitragsrechnung_WS_2026_27_J_rg_M_ller.pdf" },
 		});
 		expect(reminder).toMatchObject({
-			success: true,
-			fileName: "Mahnung_WS_2026_27_J_rg_M_ller.pdf",
+			ok: true,
+			data: { fileName: "Mahnung_WS_2026_27_J_rg_M_ller.pdf" },
 		});
-		if (!invoice.success) {
+		if (!invoice.ok) {
 			return;
 		}
 		expect(
-			Buffer.from(invoice.base64, "base64").subarray(0, 5).toString(),
+			Buffer.from(invoice.data.base64, "base64").subarray(0, 5).toString(),
 		).toBe("%PDF-");
 	});
 
@@ -842,10 +848,10 @@ describe("downloadChargePdf", () => {
 		});
 		const pdfText = async (chargeId: string) => {
 			const pdf = await downloadChargePdf(chargeId, { isMahnung: true });
-			if (!pdf.success) {
+			if (!pdf.ok) {
 				throw new Error(pdf.error);
 			}
-			return Buffer.from(pdf.base64, "base64").toString("latin1");
+			return Buffer.from(pdf.data.base64, "base64").toString("latin1");
 		};
 
 		const openText = await pdfText(open.id);
@@ -868,10 +874,10 @@ describe("downloadChargePdf", () => {
 		const charge = await createCharge(run.id, await createMember());
 		const pdfText = async (isMahnung: boolean) => {
 			const pdf = await downloadChargePdf(charge.id, { isMahnung });
-			if (!pdf.success) {
+			if (!pdf.ok) {
 				throw new Error(pdf.error);
 			}
-			return Buffer.from(pdf.base64, "base64").toString("latin1");
+			return Buffer.from(pdf.data.base64, "base64").toString("latin1");
 		};
 
 		const invoice = await pdfText(false);
@@ -888,12 +894,14 @@ describe("downloadChargePdf", () => {
 		const charge = await createCharge(run.id, await createMember());
 
 		expect(await downloadChargePdf(charge.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Kein aktives CC-Kasse-Konto hinterlegt.",
+			code: "NOT_FOUND",
 		});
 		expect(await downloadChargePdf("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Beitrag nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });

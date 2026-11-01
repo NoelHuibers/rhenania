@@ -44,8 +44,8 @@ describe("createKonto", () => {
 			paypalLink: "https://paypal.me/kasse",
 		});
 
-		expect(result.success).toBe(true);
-		const row = await kontoById(result.success ? result.id : "");
+		expect(result.ok).toBe(true);
+		const row = await kontoById(result.ok ? result.data.id : "");
 		expect(row).toMatchObject({
 			kasseType: "Getränkekasse",
 			iban: VALID_IBAN,
@@ -61,8 +61,9 @@ describe("createKonto", () => {
 
 		for (const iban of ["DE89370400440532013001", "DE8937040044053201300"]) {
 			expect(await createKonto({ ...input, iban })).toEqual({
-				success: false,
+				ok: false,
 				error: INVALID_IBAN,
+				code: "INVALID_INPUT",
 			});
 		}
 		expect(await tenantDb().select().from(kontos)).toHaveLength(0);
@@ -73,8 +74,9 @@ describe("createKonto", () => {
 		signInAs(await createUser({ roles: ["Getränkewart"] }));
 
 		expect(await createKonto(input)).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect(await tenantDb().select().from(kontos)).toHaveLength(0);
 	});
@@ -89,7 +91,7 @@ describe("getKontos", () => {
 
 		signInAs(await createUser({ roles: ["Admin"] }));
 		const asAdmin = await getKontos();
-		expect(asAdmin.success && asAdmin.kontos.map((k) => k.kasseType)).toEqual([
+		expect(asAdmin.map((k) => k.kasseType)).toEqual([
 			"AHV Kasse",
 			"CC-Kasse",
 			"Getränkekasse",
@@ -97,25 +99,17 @@ describe("getKontos", () => {
 
 		signInAs(await createUser({ roles: ["Getränkewart"] }));
 		const asWart = await getKontos();
-		expect(asWart.success && asWart.kontos.map((k) => k.kasseType)).toEqual([
-			"Getränkekasse",
-		]);
+		expect(asWart.map((k) => k.kasseType)).toEqual(["Getränkekasse"]);
 
 		signInAs(await createUser({ roles: ["CC-Kasse"] }));
 		const asCc = await getKontos();
-		expect(asCc.success && asCc.kontos.map((k) => k.kasseType)).toEqual([
-			"CC-Kasse",
-		]);
+		expect(asCc.map((k) => k.kasseType)).toEqual(["CC-Kasse"]);
 
 		signInAs(await createUser());
-		const asMember = await getKontos();
-		expect(asMember.success && asMember.kontos).toEqual([]);
+		expect(await getKontos()).toEqual([]);
 
 		signOut();
-		expect(await getKontos()).toEqual({
-			success: false,
-			error: "Nicht angemeldet",
-		});
+		await expect(getKontos()).rejects.toThrow("Nicht angemeldet");
 	});
 });
 
@@ -132,7 +126,7 @@ describe("updateKonto", () => {
 			kasseType: "AHV Kasse",
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true, data: undefined });
 		expect(await kontoById(konto.id)).toMatchObject({
 			kasseType: "Getränkekasse",
 			iban: OTHER_VALID_IBAN,
@@ -159,16 +153,19 @@ describe("updateKonto", () => {
 		signInAs(await createUser({ roles: ["Getränkewart"] }));
 
 		expect(await updateKonto(foreign.id, { bankName: "X" })).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect(await updateKonto(own.id, { iban: "DE00123" })).toEqual({
-			success: false,
+			ok: false,
 			error: INVALID_IBAN,
+			code: "INVALID_INPUT",
 		});
 		expect(await updateKonto("missing", { bankName: "X" })).toEqual({
-			success: false,
+			ok: false,
 			error: "Konto nicht gefunden",
+			code: "NOT_FOUND",
 		});
 		expect(await kontoById(foreign.id)).toMatchObject({ bankName: "Testbank" });
 		expect(await kontoById(own.id)).toMatchObject({ iban: VALID_IBAN });
@@ -182,13 +179,14 @@ describe("deleteKonto", () => {
 
 		signInAs(await createUser({ roles: ["Getränkewart"] }));
 		expect(await deleteKonto(konto.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect(await kontoById(konto.id)).toBeDefined();
 
 		signInAs(await createUser({ roles: ["Admin"] }));
-		expect(await deleteKonto(konto.id)).toEqual({ success: true });
+		expect(await deleteKonto(konto.id)).toEqual({ ok: true, data: undefined });
 		expect(await kontoById(konto.id)).toBeUndefined();
 	});
 });

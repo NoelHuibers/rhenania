@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
+import type { ActionResult } from "~/lib/action-result";
 import {
 	type ChallengeView,
 	cancelChallenge,
@@ -123,13 +124,13 @@ export function ChallengeCard({
 		c.challengerId,
 	);
 
-	const run = (fn: () => Promise<{ success: boolean; error?: string }>) => {
+	const run = (fn: () => Promise<ActionResult<unknown>>) => {
 		startTransition(async () => {
 			const res = await fn();
-			if (res.success) {
+			if (res.ok) {
 				await refresh();
 			} else {
-				toast.error(res.error || "Fehler");
+				toast.error(res.error);
 			}
 		});
 	};

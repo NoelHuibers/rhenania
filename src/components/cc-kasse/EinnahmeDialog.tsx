@@ -121,7 +121,7 @@ export function EinnahmeDialog({
 				? await updateEinnahme(editing.id, input)
 				: await createEinnahme(input);
 
-			if (res.success) {
+			if (res.ok) {
 				toast.success(isEdit ? "Einnahme gespeichert" : "Einnahme gebucht");
 				onSaved();
 				onOpenChange(false);

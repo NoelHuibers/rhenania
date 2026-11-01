@@ -64,11 +64,11 @@ export function BillingOverview({
 
 			const result = await downloadUserBillPDF(billData.billId);
 
-			if (result.success && result.downloadUrl) {
+			if (result.ok) {
 				const link = document.createElement("a");
-				link.href = result.downloadUrl;
+				link.href = result.data.downloadUrl;
 				link.download =
-					result.fileName || `Rechnung_${billData.billNumber}.pdf`;
+					result.data.fileName || `Rechnung_${billData.billNumber}.pdf`;
 				link.target = "_blank";
 				document.body.appendChild(link);
 				link.click();
@@ -76,7 +76,7 @@ export function BillingOverview({
 
 				toast.success("PDF downloaded successfully");
 			} else {
-				toast.error(result.error || "Failed to download PDF");
+				toast.error(result.error);
 			}
 		} catch (error) {
 			console.error("Error downloading PDF:", error);

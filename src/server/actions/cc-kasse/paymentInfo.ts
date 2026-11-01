@@ -4,8 +4,9 @@ import { sql } from "drizzle-orm";
 import { z } from "zod";
 import { ibanSchema } from "~/lib/iban";
 import { auth } from "~/server/auth";
-import { db } from "~/server/db";
 import { userPaymentInfo } from "~/server/db/schema";
+import { defineAction } from "~/server/lib/define-action";
+import { scopeOf } from "~/server/lib/tenant-scope";
 
 const paymentInfoSchema = z.object({
 	accountHolder: z
@@ -24,6 +25,7 @@ export async function getMyPaymentInfo(): Promise<MyPaymentInfo | null> {
 		return null;
 	}
 
+	const { db } = await scopeOf(session.tenantId);
 	const row = await db.query.userPaymentInfo.findFirst({
 		where: (t, { eq }) => eq(t.userId, userId),
 		columns: { accountHolder: true, iban: true },
@@ -31,44 +33,26 @@ export async function getMyPaymentInfo(): Promise<MyPaymentInfo | null> {
 	return row ?? null;
 }
 
-export async function setMyPaymentInfo(input: {
-	accountHolder: string;
-	iban: string;
-}): Promise<{ success: true } | { success: false; error: string }> {
-	const session = await auth();
-	const userId = session?.user?.id;
-	if (!userId) {
-		return { success: false, error: "Nicht angemeldet" };
-	}
-
-	try {
-		const parsed = paymentInfoSchema.parse(input);
-
-		await db
+export const setMyPaymentInfo = defineAction(
+	{
+		schema: z.tuple([paymentInfoSchema]),
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([input], { tenant, user }) => {
+		await tenant.db
 			.insert(userPaymentInfo)
 			.values({
-				userId,
-				accountHolder: parsed.accountHolder,
-				iban: parsed.iban,
+				userId: user.id,
+				accountHolder: input.accountHolder,
+				iban: input.iban,
 			})
 			.onConflictDoUpdate({
 				target: userPaymentInfo.userId,
 				set: {
-					accountHolder: parsed.accountHolder,
-					iban: parsed.iban,
+					accountHolder: input.accountHolder,
+					iban: input.iban,
 					updatedAt: sql`(unixepoch())`,
 				},
 			});
-
-		return { success: true };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error saving payment info:", error);
-		return { success: false, error: "Fehler beim Speichern" };
-	}
-}
+	},
+);

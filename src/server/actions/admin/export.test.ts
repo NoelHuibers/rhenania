@@ -75,15 +75,17 @@ describe("who may export", () => {
 		const result = await exportTenantData();
 
 		expect(result).toMatchObject({
-			success: true,
-			url: expect.stringMatching(
-				/^https:\/\/store1\.public\.blob\.vercel-storage\.com\/tenants\/rhenania\/exports\/rhenania-export-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ-AbC123\.zip\?download=1$/,
-			),
-			fileName: expect.stringMatching(/^rhenania-export-.*\.zip$/),
-			files: 0,
-			missingFiles: 0,
+			ok: true,
+			data: {
+				url: expect.stringMatching(
+					/^https:\/\/store1\.public\.blob\.vercel-storage\.com\/tenants\/rhenania\/exports\/rhenania-export-\d{4}-\d\d-\d\dT\d\d-\d\d-\d\dZ-AbC123\.zip\?download=1$/,
+				),
+				fileName: expect.stringMatching(/^rhenania-export-.*\.zip$/),
+				files: 0,
+				missingFiles: 0,
+			},
 		});
-		expect(result.success && result.tables).toBeGreaterThan(40);
+		expect(result.ok && result.data.tables).toBeGreaterThan(40);
 		expect(putMock).toHaveBeenCalledTimes(1);
 		const [pathname, , options] = putMock.mock.calls[0] ?? [];
 		expect(pathname).toMatch(/^tenants\/rhenania\/exports\//);
@@ -103,8 +105,9 @@ describe("who may export", () => {
 		signInAs(await createUser({ roles: ["Getränkewart", "Senior"] }));
 
 		expect(await exportTenantData()).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect(putMock).not.toHaveBeenCalled();
 		expect(listMock).not.toHaveBeenCalled();
@@ -118,8 +121,9 @@ describe("who may export", () => {
 		signInAs(admin);
 
 		expect(await exportTenantData()).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect(putMock).not.toHaveBeenCalled();
 	});
@@ -127,8 +131,9 @@ describe("who may export", () => {
 	test("nobody signed in is refused", async () => {
 		await createTenant();
 		expect(await exportTenantData()).toEqual({
-			success: false,
+			ok: false,
 			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
 		});
 	});
 
@@ -139,7 +144,7 @@ describe("who may export", () => {
 		signInAs(superadmin);
 
 		const result = await exportTenantData();
-		expect(result.success).toBe(true);
+		expect(result.ok).toBe(true);
 		expect(putMock.mock.calls[0]?.[0]).toMatch(/^tenants\/hassia\/exports\//);
 	});
 });
@@ -184,7 +189,10 @@ describe("what is exported", () => {
 
 		const result = await exportTenantData();
 
-		expect(result).toMatchObject({ success: true, files: 0, missingFiles: 1 });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { files: 0, missingFiles: 1 },
+		});
 		expect(fetchMock).toHaveBeenCalledWith(
 			blobUrl,
 			expect.objectContaining({ redirect: "error" }),
@@ -222,7 +230,7 @@ describe("expiry and failures", () => {
 
 		const result = await exportTenantData();
 
-		expect(result.success).toBe(true);
+		expect(result.ok).toBe(true);
 		expect(listMock).toHaveBeenNthCalledWith(1, {
 			prefix: "tenants/corps/exports/",
 			cursor: undefined,
@@ -242,7 +250,7 @@ describe("expiry and failures", () => {
 		signInAs(await createUser({ roles: ["Admin"] }));
 		listMock.mockRejectedValueOnce(new Error("blob down"));
 
-		expect((await exportTenantData()).success).toBe(true);
+		expect((await exportTenantData()).ok).toBe(true);
 		expect(delMock).not.toHaveBeenCalled();
 		expect(console.warn).toHaveBeenCalledWith(
 			expect.stringContaining("cleanup failed"),
@@ -255,8 +263,9 @@ describe("expiry and failures", () => {
 		putMock.mockRejectedValueOnce(new Error("quota exceeded"));
 
 		expect(await exportTenantData()).toEqual({
-			success: false,
+			ok: false,
 			error: "Der Export ist fehlgeschlagen. Bitte später erneut versuchen.",
+			code: "INTERNAL",
 		});
 		expect(console.error).toHaveBeenCalledWith(
 			expect.stringContaining("quota exceeded"),

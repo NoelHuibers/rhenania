@@ -3,6 +3,7 @@
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import {
 	AlertDialog,
@@ -92,8 +93,8 @@ export function KontenPage({
 			: await createKonto(input);
 
 		setLoading(false);
-		if (!result.success) {
-			setError(result.error ?? "Fehler aufgetreten");
+		if (!result.ok) {
+			setError(result.error);
 			return;
 		}
 		closeForm();
@@ -104,8 +105,12 @@ export function KontenPage({
 		if (!deleteId) {
 			return;
 		}
-		await deleteKonto(deleteId);
+		const result = await deleteKonto(deleteId);
 		setDeleteId(null);
+		if (!result.ok) {
+			toast.error(result.error);
+			return;
+		}
 		router.refresh();
 	}
 

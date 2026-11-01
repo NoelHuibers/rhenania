@@ -108,6 +108,16 @@ async function twoCorps(): Promise<{ a: Corps; b: Corps }> {
 	return { a: { tenant: ta, player: pa }, b: { tenant: tb, player: pb } };
 }
 
+/** The id of a challenge that was created; fails the test otherwise. */
+function idOf(
+	result: Awaited<ReturnType<typeof createCrossTenantChallenge>>,
+): string {
+	if (!result.ok) {
+		throw new Error(result.error);
+	}
+	return result.data.challengeId;
+}
+
 async function crossRow(id: string) {
 	const [row] = await controlDb()
 		.select()
@@ -135,7 +145,7 @@ async function proposedCrossChallenge(
 		opponentId: b.player.id,
 		opponentTenantId: b.tenant.id,
 	});
-	const id = created.challengeId as string;
+	const id = idOf(created);
 	actAs(b);
 	await respondToCrossTenantChallenge({ challengeId: id, response: "accept" });
 	const [proposer, confirmer] = proposedBy === "challenger" ? [a, b] : [b, a];
@@ -156,8 +166,8 @@ describe("createCrossTenantChallenge", () => {
 			drinkName: "Pils",
 		});
 
-		expect(result.success).toBe(true);
-		expect(await crossRow(result.challengeId as string)).toMatchObject({
+		expect(result.ok).toBe(true);
+		expect(await crossRow(idOf(result))).toMatchObject({
 			challengerId: a.player.id,
 			challengerTenantId: a.tenant.id,
 			opponentId: b.player.id,
@@ -168,6 +178,23 @@ describe("createCrossTenantChallenge", () => {
 			quantity: 2,
 			respondDeadline: new Date("2026-10-26T20:30:00Z"),
 		});
+	});
+
+	test("a member of two Corps plays for the one they are signed in to", async () => {
+		const { a, b } = await twoCorps();
+		const tc = await createTenant({ slug: "alemannia" });
+		await controlDb()
+			.insert(tenantMemberships)
+			.values({ userId: a.player.id, tenantId: tc.id, status: "active" });
+		switchTenant(tc);
+		signInAs(a.player);
+
+		const result = await createCrossTenantChallenge({
+			opponentId: b.player.id,
+			opponentTenantId: b.tenant.id,
+		});
+
+		expect((await crossRow(idOf(result)))?.challengerTenantId).toBe(tc.id);
 	});
 
 	test("clamps the quantity to 1..100", async () => {
@@ -186,8 +213,8 @@ describe("createCrossTenantChallenge", () => {
 			quantity: 500,
 		});
 
-		expect((await crossRow(low.challengeId as string))?.quantity).toBe(1);
-		expect((await crossRow(high.challengeId as string))?.quantity).toBe(100);
+		expect((await crossRow(idOf(low)))?.quantity).toBe(1);
+		expect((await crossRow(idOf(high)))?.quantity).toBe(100);
 	});
 
 	test("rejects own-Corps opponents and non-members of the chosen Corps", async () => {
@@ -205,8 +232,9 @@ describe("createCrossTenantChallenge", () => {
 				opponentTenantId: a.tenant.id,
 			}),
 		).toMatchObject({
-			success: false,
+			ok: false,
 			error: expect.stringMatching(/normale Herausforderung/),
+			code: "INVALID_INPUT",
 		});
 		expect(
 			await createCrossTenantChallenge({
@@ -214,15 +242,20 @@ describe("createCrossTenantChallenge", () => {
 				opponentTenantId: b.tenant.id,
 			}),
 		).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Spieler ist kein aktives Mitglied dieses Corps",
+			code: "NOT_A_MEMBER",
 		});
 		expect(
 			await createCrossTenantChallenge({
 				opponentId: a.player.id,
 				opponentTenantId: b.tenant.id,
 			}),
-		).toMatchObject({ success: false, error: expect.stringMatching(/selbst/) });
+		).toMatchObject({
+			ok: false,
+			error: expect.stringMatching(/selbst/),
+			code: "INVALID_INPUT",
+		});
 
 		expect(await controlDb().select().from(crossTenantChallenges)).toHaveLength(
 			0,
@@ -240,8 +273,9 @@ describe("createCrossTenantChallenge", () => {
 				opponentTenantId: b.tenant.id,
 			}),
 		).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Aktiviere Eloranking in deinen Einstellungen",
+			code: "ELO_DISABLED",
 		});
 	});
 
@@ -256,8 +290,9 @@ describe("createCrossTenantChallenge", () => {
 		});
 
 		expect(result).toMatchObject({
-			success: false,
+			ok: false,
 			error: "Dieser Spieler nimmt nicht am Eloranking teil",
+			code: "ELO_DISABLED",
 		});
 	});
 
@@ -277,8 +312,9 @@ describe("createCrossTenantChallenge", () => {
 				opponentTenantId: a.tenant.id,
 			}),
 		).toMatchObject({
-			success: false,
+			ok: false,
 			error: expect.stringMatching(/bereits eine offene/),
+			code: "CONFLICT",
 		});
 
 		advanceClock(31 * MINUTE);
@@ -288,7 +324,7 @@ describe("createCrossTenantChallenge", () => {
 					opponentId: a.player.id,
 					opponentTenantId: a.tenant.id,
 				})
-			).success,
+			).ok,
 		).toBe(true);
 	});
 });
@@ -306,10 +342,13 @@ describe("cross-Corps lifecycle", () => {
 
 		const result = await confirmCrossTenantResult(id);
 
-		expect(result).toMatchObject({ success: true, gameId: expect.any(String) });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { gameId: expect.any(String) },
+		});
 		const [game] = await controlDb().select().from(crossTenantGames);
 		expect(game).toMatchObject({
-			id: result.gameId,
+			id: result.ok ? result.data.gameId : undefined,
 			challengeId: id,
 			player1Id: a.player.id,
 			player1TenantId: a.tenant.id,
@@ -368,15 +407,16 @@ describe("cross-Corps lifecycle", () => {
 
 		switchTenant(a.tenant);
 		signInAs(a.player);
-		expect((await confirmCrossTenantResult(id)).success).toBe(false);
-		expect((await disputeCrossTenantResult(id)).success).toBe(false);
+		expect((await confirmCrossTenantResult(id)).ok).toBe(false);
+		expect((await disputeCrossTenantResult(id)).ok).toBe(false);
 
 		advanceClock(11 * MINUTE);
 		switchTenant(b.tenant);
 		signInAs(b.player);
 		expect(await confirmCrossTenantResult(id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Bestätigungsfrist abgelaufen",
+			code: "EXPIRED",
 		});
 		expect((await crossRow(id))?.status).toBe("expired");
 		expect(await controlDb().select().from(crossTenantGames)).toHaveLength(0);
@@ -405,20 +445,20 @@ describe("cross-Corps lifecycle", () => {
 		signInAs(b.player);
 		expect(
 			await respondToCrossTenantChallenge({
-				challengeId: declined.challengeId as string,
+				challengeId: idOf(declined),
 				response: "decline",
 			}),
-		).toEqual({ success: true });
-		expect(await crossRow(declined.challengeId as string)).toMatchObject({
+		).toEqual({ ok: true });
+		expect(await crossRow(idOf(declined))).toMatchObject({
 			status: "declined",
 			declinedAt: new Date(START),
 		});
 
 		const disputed = await proposedCrossChallenge(a, b, a.player);
 		expect(await cancelCrossTenantChallenge(disputed)).toMatchObject({
-			success: false,
+			ok: false,
 		});
-		expect(await disputeCrossTenantResult(disputed)).toEqual({ success: true });
+		expect(await disputeCrossTenantResult(disputed)).toEqual({ ok: true });
 		expect((await crossRow(disputed))?.status).toBe("disputed");
 
 		switchTenant(a.tenant);
@@ -428,14 +468,10 @@ describe("cross-Corps lifecycle", () => {
 			opponentId: b.player.id,
 			opponentTenantId: b.tenant.id,
 		});
-		expect(
-			await cancelCrossTenantChallenge(cancelled.challengeId as string),
-		).toEqual({
-			success: true,
+		expect(await cancelCrossTenantChallenge(idOf(cancelled))).toEqual({
+			ok: true,
 		});
-		expect((await crossRow(cancelled.challengeId as string))?.status).toBe(
-			"cancelled",
-		);
+		expect((await crossRow(idOf(cancelled)))?.status).toBe("cancelled");
 	});
 
 	test("once a result is proposed, neither player can cancel (#142)", async () => {
@@ -443,14 +479,10 @@ describe("cross-Corps lifecycle", () => {
 		const id = await proposedCrossChallenge(a, b, a.player);
 
 		// B, the reported loser, is signed in.
-		expect(await cancelCrossTenantChallenge(id)).toMatchObject({
-			success: false,
-		});
+		expect(await cancelCrossTenantChallenge(id)).toMatchObject({ ok: false });
 		switchTenant(a.tenant);
 		signInAs(a.player);
-		expect(await cancelCrossTenantChallenge(id)).toMatchObject({
-			success: false,
-		});
+		expect(await cancelCrossTenantChallenge(id)).toMatchObject({ ok: false });
 		expect((await crossRow(id))?.status).toBe("result_proposed");
 	});
 
@@ -461,7 +493,7 @@ describe("cross-Corps lifecycle", () => {
 			opponentId: b.player.id,
 			opponentTenantId: b.tenant.id,
 		});
-		const id = created.challengeId as string;
+		const id = idOf(created);
 		switchTenant(b.tenant);
 		signInAs(b.player);
 		await respondToCrossTenantChallenge({
@@ -474,19 +506,21 @@ describe("cross-Corps lifecycle", () => {
 			proposeCrossTenantResult({ challengeId: id, winnerId: a.player.id }),
 		]);
 
-		expect(proposed.success).not.toBe(cancelled.success);
+		expect(proposed.ok).not.toBe(cancelled.ok);
 		expect((await crossRow(id))?.status).toBe(
-			proposed.success ? "result_proposed" : "cancelled",
+			proposed.ok ? "result_proposed" : "cancelled",
 		);
 	});
 
 	test("a late reply expires the challenge", async () => {
 		const { a, b } = await twoCorps();
 		signInAs(a.player);
-		const { challengeId } = await createCrossTenantChallenge({
-			opponentId: b.player.id,
-			opponentTenantId: b.tenant.id,
-		});
+		const challengeId = idOf(
+			await createCrossTenantChallenge({
+				opponentId: b.player.id,
+				opponentTenantId: b.tenant.id,
+			}),
+		);
 
 		advanceClock(31 * MINUTE);
 		switchTenant(b.tenant);
@@ -494,16 +528,20 @@ describe("cross-Corps lifecycle", () => {
 
 		expect(
 			await respondToCrossTenantChallenge({
-				challengeId: challengeId as string,
+				challengeId,
 				response: "accept",
 			}),
-		).toEqual({ success: false, error: "Herausforderung ist abgelaufen" });
+		).toEqual({
+			ok: false,
+			error: "Herausforderung ist abgelaufen",
+			code: "EXPIRED",
+		});
 		expect(
 			await proposeCrossTenantResult({
-				challengeId: challengeId as string,
+				challengeId,
 				winnerId: b.player.id,
 			}),
-		).toMatchObject({ success: false });
+		).toMatchObject({ ok: false });
 	});
 
 	test("the feed shows both Corps and sorts by the caller's role", async () => {
@@ -610,10 +648,11 @@ describe("cross-Corps lifecycle", () => {
 			confirmCrossTenantResult(id),
 		]);
 
-		expect(results.filter((r) => r.success)).toHaveLength(1);
-		expect(results.find((r) => !r.success)).toEqual({
-			success: false,
+		expect(results.filter((r) => r.ok)).toHaveLength(1);
+		expect(results.find((r) => !r.ok)).toEqual({
+			ok: false,
 			error: "Es liegt kein Ergebnisvorschlag vor",
+			code: "CONFLICT",
 		});
 	});
 
@@ -626,12 +665,12 @@ describe("cross-Corps lifecycle", () => {
 			disputeCrossTenantResult(id),
 		]);
 
-		expect(confirmed.success).not.toBe(disputed.success);
+		expect(confirmed.ok).not.toBe(disputed.ok);
 		expect((await crossRow(id))?.status).toBe(
-			confirmed.success ? "settled" : "disputed",
+			confirmed.ok ? "settled" : "disputed",
 		);
 		expect(await controlDb().select().from(crossTenantGames)).toHaveLength(
-			confirmed.success ? 1 : 0,
+			confirmed.ok ? 1 : 0,
 		);
 	});
 
@@ -643,8 +682,16 @@ describe("cross-Corps lifecycle", () => {
 			.spyOn(controlDb(), "batch")
 			.mockRejectedValueOnce(new Error("connection reset"));
 
-		await expect(confirmCrossTenantResult(id)).rejects.toThrow(
-			"connection reset",
+		const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		expect(await confirmCrossTenantResult(id)).toEqual({
+			ok: false,
+			error:
+				"Das Ergebnis konnte nicht gebucht werden. Bitte versuche es erneut.",
+			code: "INTERNAL",
+		});
+		expect(logged).toHaveBeenCalledWith(
+			expect.stringContaining("connection reset"),
 		);
 
 		expect((await crossRow(id))?.status).toBe("result_proposed");
@@ -661,7 +708,7 @@ describe("cross-Corps lifecycle", () => {
 		});
 
 		batch.mockRestore();
-		expect((await confirmCrossTenantResult(id)).success).toBe(true);
+		expect((await confirmCrossTenantResult(id)).ok).toBe(true);
 		expect((await getUserStatsRow(a.player.id))?.totalGames).toBe(6);
 	});
 });

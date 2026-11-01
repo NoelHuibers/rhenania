@@ -40,7 +40,7 @@ describe("createOrder", () => {
 
 		const result = await createOrder({ ...baseOrder, drinkId: drink.id });
 
-		expect(result.success).toBe(false);
+		expect(result).toMatchObject({ ok: false, code: "UNAUTHENTICATED" });
 		expect(await tenantDb().select().from(orders)).toHaveLength(0);
 	});
 
@@ -52,7 +52,7 @@ describe("createOrder", () => {
 
 		const result = await createOrder({ ...baseOrder, drinkId: drink.id });
 
-		expect(result).toMatchObject({ success: true });
+		expect(result).toMatchObject({ ok: true });
 		const [row] = await tenantDb().select().from(orders);
 		expect(row).toMatchObject({
 			userId: member.id,
@@ -117,12 +117,13 @@ describe("createOrder", () => {
 		signInAs(await createUser());
 		const drink = await createDrink();
 
-		expect((await createOrder({ ...baseOrder, drinkId: "nope" })).success).toBe(
-			false,
-		);
+		expect(await createOrder({ ...baseOrder, drinkId: "nope" })).toEqual({
+			ok: false,
+			error: "Getränk nicht gefunden",
+			code: "NOT_FOUND",
+		});
 		expect(
-			(await createOrder({ ...baseOrder, drinkId: drink.id, amount: 0 }))
-				.success,
+			(await createOrder({ ...baseOrder, drinkId: drink.id, amount: 0 })).ok,
 		).toBe(false);
 		expect(await tenantDb().select().from(orders)).toHaveLength(0);
 	});
@@ -141,10 +142,10 @@ describe("createOrder", () => {
 		};
 
 		signInAs(member);
-		expect((await createOrder(forOther)).success).toBe(false);
+		expect((await createOrder(forOther)).ok).toBe(false);
 
 		signInAs(admin);
-		expect((await createOrder(forOther)).success).toBe(true);
+		expect((await createOrder(forOther)).ok).toBe(true);
 		const [row] = await tenantDb().select().from(orders);
 		expect(row).toMatchObject({
 			userId: other.id,
@@ -175,7 +176,7 @@ describe("createOrder", () => {
 
 		const result = await createOrder({ ...baseOrder, drinkId: drink.id });
 
-		expect(result.success).toBe(true);
+		expect(result.ok).toBe(true);
 	});
 
 	test("books only on the Getränkewart's active accounts", async () => {
@@ -193,13 +194,14 @@ describe("createOrder", () => {
 		const book = (bookingFor: string) =>
 			createOrder({ ...baseOrder, drinkId: drink.id, bookingFor });
 
-		expect(await book("Kneipe mit Hassia")).toMatchObject({ success: true });
-		expect(await book("CBesuch")).toMatchObject({ success: true });
+		expect(await book("Kneipe mit Hassia")).toMatchObject({ ok: true });
+		expect(await book("CBesuch")).toMatchObject({ ok: true });
 		expect(await book("RC")).toEqual({
-			success: false,
+			ok: false,
 			error: "Unbekanntes Abrechnungskonto",
+			code: "INVALID_INPUT",
 		});
-		expect(await book("cbesuch")).toMatchObject({ success: false });
+		expect(await book("cbesuch")).toMatchObject({ ok: false });
 		expect(
 			(await tenantDb().select().from(orders)).map((o) => o.bookingFor).sort(),
 		).toEqual(["CBesuch", "Kneipe mit Hassia"]);

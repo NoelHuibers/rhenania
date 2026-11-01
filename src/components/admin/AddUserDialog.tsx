@@ -59,16 +59,15 @@ export function AddUserDialog({
 					name: name.trim() || null,
 				});
 
-				if (result.success && result.user) {
-					onUserCreated(result.user);
+				if (result.ok) {
+					onUserCreated(result.data);
 					handleClose();
 					toast.success("Benutzer erstellt", {
 						description: `Registrierungslink wurde an ${email} gesendet.`,
 					});
 				} else {
 					toast.error("Fehler", {
-						description:
-							result.error || "Benutzer konnte nicht erstellt werden.",
+						description: result.error,
 					});
 				}
 			} catch {

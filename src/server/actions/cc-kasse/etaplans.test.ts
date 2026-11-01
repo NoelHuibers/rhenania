@@ -38,7 +38,7 @@ describe("createEtaplan", () => {
 			startDate: start,
 		});
 
-		expect(result).toMatchObject({ success: true, warning: undefined });
+		expect(result).toMatchObject({ ok: true, data: { warning: undefined } });
 		const [row] = await tenantDb().select().from(etaplans);
 		expect(row).toMatchObject({
 			name: "WS 2026/27",
@@ -62,8 +62,8 @@ describe("createEtaplan", () => {
 			year: 2026,
 		});
 
-		expect(result.success).toBe(true);
-		expect(result.success && result.warning).toBe(
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.data.warning).toBe(
 			"Es existiert bereits ein Etatplan für SS 2026.",
 		);
 		expect(await tenantDb().select().from(etaplans)).toHaveLength(2);
@@ -79,7 +79,11 @@ describe("createEtaplan", () => {
 
 		const result = await createEtaplan({ semesterType: "WS", ...input });
 
-		expect(result).toMatchObject({ success: false, error: message });
+		expect(result).toEqual({
+			ok: false,
+			error: message,
+			code: "INVALID_INPUT",
+		});
 		expect(await tenantDb().select().from(etaplans)).toHaveLength(0);
 	});
 });
@@ -91,7 +95,10 @@ describe("updateEtaplan", () => {
 
 		const result = await updateEtaplan(plan.id, { name: "Neu" });
 
-		expect(result).toMatchObject({ success: true, data: { name: "Neu" } });
+		expect(result).toMatchObject({
+			ok: true,
+			data: { etaplan: { name: "Neu" } },
+		});
 		expect(await getEtaplanById(plan.id)).toMatchObject({
 			name: "Neu",
 			notes: "bleibt",
@@ -102,8 +109,9 @@ describe("updateEtaplan", () => {
 	test("reports an unknown plan", async () => {
 		await signInSenior();
 		expect(await updateEtaplan("missing", { name: "X" })).toEqual({
-			success: false,
+			ok: false,
 			error: "Etatplan nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 
@@ -112,8 +120,9 @@ describe("updateEtaplan", () => {
 		const plan = await seedEtaplan({ year: 2026 });
 
 		expect(await updateEtaplan(plan.id, { year: 1800 })).toEqual({
-			success: false,
+			ok: false,
 			error: "Jahr ist zu klein",
+			code: "INVALID_INPUT",
 		});
 		expect((await getEtaplanById(plan.id))?.year).toBe(2026);
 	});
@@ -127,7 +136,7 @@ describe("updateEtaplan", () => {
 		expect(
 			await updateEtaplan(newer.id, { status: "Abgeschlossen" }),
 		).toMatchObject({
-			success: true,
+			ok: true,
 		});
 
 		expect((await getActiveEtaplan())?.id).toBe(older.id);

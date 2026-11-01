@@ -97,8 +97,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getUsersWithRoles: ADMIN,
 		getRolesWithUserCount: ADMIN,
 		initializeRoles: ADMIN,
-		assignUserRole: ADMIN,
-		removeUserRole: ADMIN,
 		toggleUserRole: ADMIN,
 		updateUser: ADMIN,
 		bulkSetRoleUsers: ADMIN,
@@ -358,7 +356,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	},
 	"src/server/actions/profile/preferences.ts": {
 		getUserPreference: "member",
-		setUserPreference: "member",
 		setEloPreferenceAction: {
 			access: "member",
 			args: () => [{ enabled: true }],

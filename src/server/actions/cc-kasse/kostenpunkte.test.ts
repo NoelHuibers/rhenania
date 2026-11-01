@@ -73,8 +73,8 @@ describe("createKostenpunkt", () => {
 			],
 		});
 
-		expect(result.success).toBe(true);
-		const id = result.success ? result.data.id : "";
+		expect(result.ok).toBe(true);
+		const id = result.ok ? result.data.id : "";
 		expect(await kp(id)).toMatchObject({
 			etaplanId: plan.id,
 			category: "Kneipen",
@@ -101,7 +101,7 @@ describe("createKostenpunkt", () => {
 			name: "Reserve",
 		});
 
-		const id = result.success ? result.data.id : "";
+		const id = result.ok ? result.data.id : "";
 		expect(await kp(id)).toMatchObject({ budget: 0, income: 0 });
 		expect(await positionsOf(id)).toEqual([]);
 	});
@@ -119,7 +119,11 @@ describe("createKostenpunkt", () => {
 			...patch,
 		});
 
-		expect(result).toMatchObject({ success: false, error: message });
+		expect(result).toEqual({
+			ok: false,
+			error: message,
+			code: "INVALID_INPUT",
+		});
 		expect(await tenantDb().select().from(kostenpunkte)).toHaveLength(0);
 	});
 
@@ -133,7 +137,7 @@ describe("createKostenpunkt", () => {
 			positionen: [{ ausgaben: -5 }],
 		});
 
-		expect(result.success).toBe(false);
+		expect(result).toMatchObject({ ok: false, code: "INVALID_INPUT" });
 		expect(await tenantDb().select().from(kostenpunkte)).toHaveLength(0);
 		expect(await tenantDb().select().from(kostenpunktPositionen)).toHaveLength(
 			0,
@@ -150,7 +154,11 @@ describe("createKostenpunkt", () => {
 			positionen: [{ ausgaben: 1 }],
 		});
 
-		expect(result).toEqual({ success: false, error: "Fehler beim Erstellen" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Fehler beim Erstellen",
+			code: "INTERNAL",
+		});
 		expect(await tenantDb().select().from(kostenpunktPositionen)).toHaveLength(
 			0,
 		);
@@ -174,7 +182,7 @@ describe("updateKostenpunkt", () => {
 			positionen: [{ bemerkung: "neu", ausgaben: 19.999, einnahmen: 5 }],
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await kp(existing.id)).toMatchObject({
 			category: "Neu",
 			name: "Umbenannt",
@@ -211,7 +219,7 @@ describe("deleteKostenpunkt", () => {
 			positionen: [{ ausgaben: 1 }, { ausgaben: 2 }],
 		});
 
-		expect(await deleteKostenpunkt(target.id)).toEqual({ success: true });
+		expect(await deleteKostenpunkt(target.id)).toEqual({ ok: true });
 		expect(await kp(target.id)).toBeUndefined();
 		expect(await positionsOf(target.id)).toEqual([]);
 	});
@@ -224,8 +232,9 @@ describe("deleteKostenpunkt", () => {
 		const result = await deleteKostenpunkt(target.id);
 
 		expect(result).toEqual({
-			success: false,
+			ok: false,
 			error: "Kostenpunkt hat Erstattungen und kann nicht gelöscht werden.",
+			code: "CONFLICT",
 		});
 		expect(await kp(target.id)).toBeDefined();
 	});
@@ -237,8 +246,8 @@ describe("deleteKostenpunkt", () => {
 
 		const result = await deleteKostenpunkt(target.id);
 
-		expect(result.success).toBe(false);
-		expect(result.success === false && result.error).toMatch(/Einnahmen/);
+		expect(result.ok).toBe(false);
+		expect(result.ok === false && result.error).toMatch(/Einnahmen/);
 		expect(await kp(target.id)).toBeDefined();
 	});
 });

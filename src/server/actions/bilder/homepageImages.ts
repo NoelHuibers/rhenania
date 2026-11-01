@@ -3,39 +3,43 @@
 
 import { del } from "@vercel/blob";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
-import { auth } from "~/server/auth";
+import { z } from "zod";
 import { homepageImages } from "~/server/db/schema";
-import { getCurrentTenantDb } from "~/server/db/tenants";
-import { ROLES, requireRole } from "~/server/lib/authz";
+import { ROLES } from "~/server/lib/authz";
+import { defineAction } from "~/server/lib/define-action";
+import { NotFoundError } from "~/server/lib/domain-error";
 
 // Per-tenant configurable; valid values come from the tenant's
 // `homepage_section` table. Kept as `string` for type-level openness.
 export type HomepageSection = string;
 
-interface SaveHomepageImageData {
-	section: HomepageSection;
-	imageUrl: string;
-	imageName: string;
-	fileSize?: number;
-	mimeType?: string;
+/** Sections with several active images; the others show one at a time. */
+function allowsMultiple(section: string) {
+	return section === "aktive" || section === "haus";
 }
 
+const IMAGE_PAGES = ["/", "/admin"];
+const IMAGE_NOT_FOUND = "Bild nicht gefunden";
+
 // Save a new homepage image
-export async function saveHomepageImage(data: SaveHomepageImageData) {
-	await requireRole(ROLES.fotos);
-	const db = await getCurrentTenantDb();
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			throw new Error("Nicht autorisiert");
-		}
-
-		// Check if section allows multiple images
-		const isMultipleAllowed =
-			data.section === "aktive" || data.section === "haus";
-
-		if (!isMultipleAllowed) {
+export const saveHomepageImage = defineAction(
+	{
+		roles: ROLES.fotos,
+		schema: z.tuple([
+			z.object({
+				section: z.string(),
+				imageUrl: z.string(),
+				imageName: z.string(),
+				fileSize: z.number().optional(),
+				mimeType: z.string().optional(),
+			}),
+		]),
+		revalidate: IMAGE_PAGES,
+		errorMessage: "Fehler beim Speichern des Bildes",
+	},
+	async ([data], { tenant, user }) => {
+		const { db } = tenant;
+		if (!allowsMultiple(data.section)) {
 			// Deactivate existing images for single-image sections
 			await db
 				.update(homepageImages)
@@ -58,7 +62,6 @@ export async function saveHomepageImage(data: SaveHomepageImageData) {
 
 		const nextOrder = (maxOrder[0]?.maxOrder ?? -1) + 1;
 
-		// Insert new image
 		const [newImage] = await db
 			.insert(homepageImages)
 			.values({
@@ -69,46 +72,23 @@ export async function saveHomepageImage(data: SaveHomepageImageData) {
 				mimeType: data.mimeType,
 				displayOrder: nextOrder,
 				isActive: true,
-				uploadedBy: session.user.id,
+				uploadedBy: user.id,
 			})
 			.returning();
-
-		revalidatePath("/");
-		revalidatePath("/admin");
-
-		return {
-			success: true,
-			data: newImage,
-			message: "Bild erfolgreich hochgeladen",
-		};
-	} catch (error) {
-		console.error("Error saving homepage image:", error);
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Fehler beim Speichern des Bildes",
-		};
-	}
-}
+		return newImage;
+	},
+);
 
 // Get all images (including inactive) for admin panel
-export async function getAllHomepageImages() {
-	await requireRole(ROLES.fotos);
-	const db = await getCurrentTenantDb();
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			throw new Error("Nicht autorisiert");
-		}
-
-		const images = await db
+export const getAllHomepageImages = defineAction(
+	{ roles: ROLES.fotos, errorMessage: "Fehler beim Laden der Bilder" },
+	async ({ tenant }) => {
+		const images = await tenant.db
 			.select()
 			.from(homepageImages)
 			.orderBy(homepageImages.section, homepageImages.displayOrder);
 
-		const grouped = images.reduce(
+		return images.reduce(
 			(acc, img) => {
 				const list = acc[img.section] ?? [];
 				list.push(img);
@@ -117,32 +97,22 @@ export async function getAllHomepageImages() {
 			},
 			{} as Record<HomepageSection, typeof images>,
 		);
+	},
+);
 
-		return {
-			success: true,
-			data: grouped,
-		};
-	} catch (error) {
-		console.error("Error fetching all homepage images:", error);
-		return {
-			success: false,
-			error:
-				error instanceof Error ? error.message : "Fehler beim Laden der Bilder",
-			data: {},
-		};
-	}
-}
-
-// Toggle image active status
-export async function toggleImageActive(imageId: string) {
-	await requireRole(ROLES.fotos);
-	const db = await getCurrentTenantDb();
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			throw new Error("Nicht autorisiert");
-		}
-
+/**
+ * Toggles an image; activating one in a single-image section deactivates
+ * the others, whose ids come back in `deactivatedIds`.
+ */
+export const toggleImageActive = defineAction(
+	{
+		roles: ROLES.fotos,
+		schema: z.tuple([z.string()]),
+		revalidate: IMAGE_PAGES,
+		errorMessage: "Fehler beim Ändern des Status",
+	},
+	async ([imageId], { tenant }) => {
+		const { db } = tenant;
 		const [image] = await db
 			.select()
 			.from(homepageImages)
@@ -150,17 +120,12 @@ export async function toggleImageActive(imageId: string) {
 			.limit(1);
 
 		if (!image) {
-			throw new Error("Bild nicht gefunden");
+			throw new NotFoundError(IMAGE_NOT_FOUND);
 		}
-
-		// Check if section allows multiple active images
-		const isMultipleAllowed =
-			image.section === "aktive" || image.section === "haus";
 
 		let deactivatedIds: string[] = [];
 
-		if (!isMultipleAllowed && !image.isActive) {
-			// Get IDs of images that will be deactivated
+		if (!allowsMultiple(image.section) && !image.isActive) {
 			const toDeactivate = await db
 				.select({ id: homepageImages.id })
 				.from(homepageImages)
@@ -189,89 +154,54 @@ export async function toggleImageActive(imageId: string) {
 			.returning();
 
 		if (!updated) {
-			throw new Error("Fehler beim Aktualisieren des Bildes");
+			throw new NotFoundError(IMAGE_NOT_FOUND);
 		}
-
-		revalidatePath("/");
-		revalidatePath("/admin");
-
-		return {
-			success: true,
-			data: updated,
-			deactivatedIds, // Return IDs that were deactivated
-			message: `Bild ${updated.isActive ? "aktiviert" : "deaktiviert"}`,
-		};
-	} catch (error) {
-		console.error("Error toggling image active status:", error);
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Fehler beim Ändern des Status",
-		};
-	}
-}
+		return { image: updated, deactivatedIds };
+	},
+);
 
 // Delete image
-export async function deleteHomepageImage(imageId: string) {
-	await requireRole(ROLES.fotos);
-	const db = await getCurrentTenantDb();
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			throw new Error("Nicht autorisiert");
-		}
-
-		const [image] = await db
+export const deleteHomepageImage = defineAction(
+	{
+		roles: ROLES.fotos,
+		schema: z.tuple([z.string()]),
+		revalidate: IMAGE_PAGES,
+		errorMessage: "Fehler beim Löschen des Bildes",
+	},
+	async ([imageId], { tenant }) => {
+		const [image] = await tenant.db
 			.select()
 			.from(homepageImages)
 			.where(eq(homepageImages.id, imageId))
 			.limit(1);
 
 		if (!image) {
-			throw new Error("Bild nicht gefunden");
+			throw new NotFoundError(IMAGE_NOT_FOUND);
 		}
 
 		// Delete from database first
-		await db.delete(homepageImages).where(eq(homepageImages.id, imageId));
+		await tenant.db
+			.delete(homepageImages)
+			.where(eq(homepageImages.id, imageId));
 
 		// Try to delete from blob storage (non-blocking)
 		del(image.imageUrl).catch((error) => {
 			console.error("Error deleting from blob storage:", error);
 		});
-
-		revalidatePath("/");
-		revalidatePath("/admin");
-
-		return {
-			success: true,
-			message: "Bild erfolgreich gelöscht",
-		};
-	} catch (error) {
-		console.error("Error deleting homepage image:", error);
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Fehler beim Löschen des Bildes",
-		};
-	}
-}
+	},
+);
 
 // Update display order for multiple images at once
-export async function updateImageOrder(imageIds: string[]) {
-	await requireRole(ROLES.fotos);
-	const db = await getCurrentTenantDb();
-	try {
-		const session = await auth();
-		if (!session?.user?.id) {
-			throw new Error("Nicht autorisiert");
-		}
-
+export const updateImageOrder = defineAction(
+	{
+		roles: ROLES.fotos,
+		schema: z.tuple([z.array(z.string())]),
+		revalidate: IMAGE_PAGES,
+		errorMessage: "Fehler beim Aktualisieren der Reihenfolge",
+	},
+	async ([imageIds], { tenant }) => {
 		// Use a transaction to ensure all updates happen together
-		await db.transaction(async (tx) => {
+		await tenant.db.transaction(async (tx) => {
 			const updates = imageIds.map((id, index) =>
 				tx
 					.update(homepageImages)
@@ -281,22 +211,5 @@ export async function updateImageOrder(imageIds: string[]) {
 
 			await Promise.all(updates);
 		});
-
-		revalidatePath("/");
-		revalidatePath("/admin");
-
-		return {
-			success: true,
-			message: "Reihenfolge erfolgreich aktualisiert",
-		};
-	} catch (error) {
-		console.error("Error updating image order:", error);
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Fehler beim Aktualisieren der Reihenfolge",
-		};
-	}
-}
+	},
+);

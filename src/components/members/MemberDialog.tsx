@@ -100,9 +100,9 @@ export function MemberDialog({
 			const res = member
 				? await updateMember(member.id, f)
 				: await createMember(f);
-			if (res.success) {
+			if (res.ok) {
 				toast.success(isEdit ? "Mitglied gespeichert" : "Mitglied erstellt");
-				if (res.linkedNow) {
+				if (res.data.linkedNow) {
 					toast.success("E-Mail passt zu einem App-Account — verknüpft.");
 				}
 				onSaved();

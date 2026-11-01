@@ -44,7 +44,7 @@ describe("createEinnahme", () => {
 			incomeDate,
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		const [row] = await tenantDb().select().from(einnahmen);
 		expect(row).toMatchObject({
 			kostenpunktId: kp.id,
@@ -72,7 +72,11 @@ describe("createEinnahme", () => {
 			...patch,
 		});
 
-		expect(result).toEqual({ success: false, error: message });
+		expect(result).toEqual({
+			ok: false,
+			error: message,
+			code: "INVALID_INPUT",
+		});
 		expect(await tenantDb().select().from(einnahmen)).toHaveLength(0);
 	});
 
@@ -85,8 +89,9 @@ describe("createEinnahme", () => {
 			incomeDate,
 		});
 		expect(result).toEqual({
-			success: false,
+			ok: false,
 			error: "Kostenpunkt nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 
@@ -100,7 +105,11 @@ describe("createEinnahme", () => {
 			incomeDate,
 		});
 
-		expect(result).toEqual({ success: false, error: "Keine Berechtigung" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
+		});
 		expect(await tenantDb().select().from(einnahmen)).toHaveLength(0);
 	});
 });
@@ -119,7 +128,7 @@ describe("updateEinnahme", () => {
 			incomeDate,
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		const [row] = await tenantDb().select().from(einnahmen);
 		expect(row).toMatchObject({
 			kostenpunktId: otherKp.id,
@@ -140,12 +149,17 @@ describe("updateEinnahme", () => {
 		};
 
 		expect(await updateEinnahme("missing", input)).toEqual({
-			success: false,
+			ok: false,
 			error: "Einnahme nicht gefunden",
+			code: "NOT_FOUND",
 		});
 		expect(
 			await updateEinnahme(booked.id, { ...input, kostenpunktId: "missing" }),
-		).toEqual({ success: false, error: "Kostenpunkt nicht gefunden" });
+		).toEqual({
+			ok: false,
+			error: "Kostenpunkt nicht gefunden",
+			code: "NOT_FOUND",
+		});
 		const [row] = await tenantDb().select().from(einnahmen);
 		expect(row?.amount).toBe(5);
 	});
@@ -191,7 +205,7 @@ describe("deleteEinnahme / listEinnahmen", () => {
 		const keep = await seedEinnahme(kp, { description: "bleibt" });
 		const drop = await seedEinnahme(kp, { description: "weg" });
 
-		expect(await deleteEinnahme(drop.id)).toEqual({ success: true });
+		expect(await deleteEinnahme(drop.id)).toEqual({ ok: true });
 
 		expect((await listEinnahmen(plan.id)).map((e) => e.id)).toEqual([keep.id]);
 	});
