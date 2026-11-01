@@ -70,10 +70,10 @@ export function AdresslistePage({
 	const onExport = () => {
 		startTransition(async () => {
 			const res = await exportMembersXlsx();
-			if (res.success && res.base64) {
-				downloadBase64(res.base64, res.fileName, XLSX_MIME);
+			if (res.ok) {
+				downloadBase64(res.data.base64, res.data.fileName, XLSX_MIME);
 			} else {
-				toast.error(res.error ?? "Export fehlgeschlagen");
+				toast.error(res.error);
 			}
 		});
 	};
@@ -87,12 +87,13 @@ export function AdresslistePage({
 		const base64 = await fileToBase64(file);
 		startTransition(async () => {
 			const res = await importMembersXlsx({ base64 });
-			if (res.success) {
+			if (res.ok) {
+				const { created, updated, linked, skipped } = res.data;
 				toast.success(
-					`Import: ${res.created} neu, ${res.updated} aktualisiert, ${res.linked} verknüpft`,
+					`Import: ${created} neu, ${updated} aktualisiert, ${linked} verknüpft`,
 				);
-				if (res.skipped > 0) {
-					toast.warning(`${res.skipped} Zeilen übersprungen`);
+				if (skipped > 0) {
+					toast.warning(`${skipped} Zeilen übersprungen`);
 				}
 				router.refresh();
 			} else {
@@ -104,14 +105,15 @@ export function AdresslistePage({
 	const onRelink = () => {
 		startTransition(async () => {
 			const res = await relinkMemberAccounts();
-			if (!res.success) {
+			if (!res.ok) {
 				toast.error(res.error);
 				return;
 			}
-			if (res.linked > 0) {
-				const names = res.linkedNames.slice(0, 3).join(", ");
+			const { linked, linkedNames, ambiguous } = res.data;
+			if (linked > 0) {
+				const names = linkedNames.slice(0, 3).join(", ");
 				toast.success(
-					`${res.linked} ${res.linked === 1 ? "Konto" : "Konten"} verknüpft: ${names}${res.linked > 3 ? ", …" : ""}`,
+					`${linked} ${linked === 1 ? "Konto" : "Konten"} verknüpft: ${names}${linked > 3 ? ", …" : ""}`,
 				);
 				router.refresh();
 			} else {
@@ -119,9 +121,9 @@ export function AdresslistePage({
 					"Keine neuen Verknüpfungen — alle passenden Accounts sind schon verbunden.",
 				);
 			}
-			if (res.ambiguous > 0) {
+			if (ambiguous > 0) {
 				toast.warning(
-					`${res.ambiguous} ${res.ambiguous === 1 ? "Eintrag" : "Einträge"} übersprungen: E-Mail passt auf mehrere Accounts/Mitglieder.`,
+					`${ambiguous} ${ambiguous === 1 ? "Eintrag" : "Einträge"} übersprungen: E-Mail passt auf mehrere Accounts/Mitglieder.`,
 				);
 			}
 		});
@@ -135,7 +137,7 @@ export function AdresslistePage({
 		setDeleteTarget(null);
 		startTransition(async () => {
 			const res = await deleteMember(id);
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Mitglied gelöscht");
 				router.refresh();
 			} else {

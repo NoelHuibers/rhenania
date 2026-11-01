@@ -2,11 +2,12 @@
 
 import { eq } from "drizzle-orm";
 import ExcelJS from "exceljs";
-import { revalidatePath } from "next/cache";
-import { db } from "~/server/db";
+import { z } from "zod";
 import { members } from "~/server/db/schema";
+import { defineAction } from "~/server/lib/define-action";
+import { NotFoundError } from "~/server/lib/domain-error";
 import { protectFormulaLikeText } from "~/server/lib/xlsx-safe";
-import { MEMBER_EDIT_ROLES, requireRoles } from "./_guards";
+import { MEMBER_EDIT_ROLES } from "./_guards";
 import { applyLink, computeLinkablePairs } from "./link-helpers";
 import {
 	BODY_START_ROW,
@@ -57,14 +58,10 @@ function exportCell(m: Member, def: ColDef): string {
 	return value == null ? "" : String(value);
 }
 
-export async function exportMembersXlsx() {
-	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	try {
-		const rows = await db
+export const exportMembersXlsx = defineAction(
+	{ roles: MEMBER_EDIT_ROLES, errorMessage: "Export fehlgeschlagen" },
+	async ({ tenant }) => {
+		const rows = await tenant.db
 			.select()
 			.from(members)
 			.orderBy(members.lastName, members.firstName);
@@ -96,15 +93,11 @@ export async function exportMembersXlsx() {
 		protectFormulaLikeText(ws);
 		const buffer = await wb.xlsx.writeBuffer();
 		return {
-			success: true as const,
 			base64: Buffer.from(buffer).toString("base64"),
 			fileName: "Adressliste.xlsx",
 		};
-	} catch (error) {
-		console.error("Error exporting members:", error);
-		return { success: false as const, error: "Export fehlgeschlagen" };
-	}
-}
+	},
+);
 
 type FieldCol = { def: Extract<ColDef, { field: MemberField }>; col: number };
 type ExtraCol = { key: string; col: number };
@@ -219,13 +212,15 @@ function toRecord(v: RowValues, firstName: string, lastName: string) {
 	} satisfies Record<MemberField, unknown>;
 }
 
-export async function importMembersXlsx(input: { base64: string }) {
-	const guard = await requireRoles(MEMBER_EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	try {
+export const importMembersXlsx = defineAction(
+	{
+		roles: MEMBER_EDIT_ROLES,
+		schema: z.tuple([z.object({ base64: z.string() })]),
+		revalidate: ["/adressliste"],
+		errorMessage: "Import fehlgeschlagen",
+	},
+	async ([input], { tenant, user }) => {
+		const { db } = tenant;
 		const wb = new ExcelJS.Workbook();
 		await wb.xlsx.load(
 			Buffer.from(input.base64, "base64") as unknown as Parameters<
@@ -234,7 +229,7 @@ export async function importMembersXlsx(input: { base64: string }) {
 		);
 		const ws = wb.getWorksheet(SHEET_NAME) ?? wb.worksheets[0];
 		if (!ws) {
-			return { success: false as const, error: "Tabellenblatt nicht gefunden" };
+			throw new NotFoundError("Tabellenblatt nicht gefunden");
 		}
 
 		const { fieldCols, extraCols } = mapSheetColumns(ws);
@@ -304,7 +299,7 @@ export async function importMembersXlsx(input: { base64: string }) {
 				}
 				await db
 					.update(members)
-					.set({ ...patch, updatedBy: guard.userId })
+					.set({ ...patch, updatedBy: user.id })
 					.where(eq(members.id, matchId));
 				updated++;
 			} else {
@@ -314,8 +309,8 @@ export async function importMembersXlsx(input: { base64: string }) {
 					.values({
 						...record,
 						extra: extraValue,
-						createdBy: guard.userId,
-						updatedBy: guard.userId,
+						createdBy: user.id,
+						updatedBy: user.id,
 					})
 					.returning({ id: members.id });
 				if (ins) {
@@ -342,17 +337,6 @@ export async function importMembersXlsx(input: { base64: string }) {
 		}
 		const linked = pairs.length;
 
-		revalidatePath("/adressliste");
-		return {
-			success: true as const,
-			created,
-			updated,
-			skipped,
-			linked,
-			errors,
-		};
-	} catch (error) {
-		console.error("Error importing members:", error);
-		return { success: false as const, error: "Import fehlgeschlagen" };
-	}
-}
+		return { created, updated, skipped, linked, errors };
+	},
+);

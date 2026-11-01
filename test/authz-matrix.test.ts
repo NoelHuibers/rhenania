@@ -97,8 +97,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getUsersWithRoles: ADMIN,
 		getRolesWithUserCount: ADMIN,
 		initializeRoles: ADMIN,
-		assignUserRole: ADMIN,
-		removeUserRole: ADMIN,
 		toggleUserRole: ADMIN,
 		updateUser: ADMIN,
 		bulkSetRoleUsers: ADMIN,
@@ -324,7 +322,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	},
 	"src/server/actions/profile/preferences.ts": {
 		getUserPreference: "member",
-		setUserPreference: "member",
 		setEloPreferenceAction: {
 			access: "member",
 			args: () => [{ enabled: true }],
@@ -389,6 +386,15 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		saveBillPeriodCSV: "member",
 		getUserBillingData: "member",
 		downloadUserBillPDF: "member",
+	},
+	"src/server/modules/booking-accounts/actions.ts": {
+		getBookingAccounts: "member",
+		getManagedBookingAccounts: GETRAENKE,
+		addBookingAccount: { access: GETRAENKE, args: () => ["Matrix", false] },
+		setBookingAccountPinned: { access: GETRAENKE, args: () => ["x", true] },
+		setBookingAccountArchived: { access: GETRAENKE, args: () => ["x", true] },
+		moveBookingAccount: { access: GETRAENKE, args: () => ["x", "up"] },
+		deleteBookingAccount: { access: GETRAENKE, args: () => ["x"] },
 	},
 	"src/server/modules/fuchsenladen/actions.ts": {
 		createNewFuchsenBilling: FUCHSEN,

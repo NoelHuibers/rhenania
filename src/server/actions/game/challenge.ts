@@ -1,23 +1,34 @@
 "use server";
 
+// Intra-Corps challenges: one player challenges another for a drink, the
+// result is proposed by one and confirmed by the other, and settling books
+// the drinks and moves the unified ELO. The mutations answer with an
+// ActionResult (#216); the feed is polled by the challenge badge.
+
 import { and, desc, eq, inArray, lt, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { z } from "zod";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
-import { db } from "~/server/db";
+import { auth } from "~/server/auth";
 import { challenges, drinks, games, orders, users } from "~/server/db/schema";
-import { getCurrentTenantDb } from "~/server/db/tenants";
-import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
+import { ActionError, defineAction } from "~/server/lib/define-action";
+import {
+	ConflictError,
+	DomainError,
+	NotFoundError,
+	ValidationError,
+} from "~/server/lib/domain-error";
+import { readEloEnabled } from "~/server/lib/elo-preference";
 import { log } from "~/server/lib/log";
-import { isEloEnabledForUser } from "~/server/lib/preferences";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import { scopeOf, type TenantScope } from "~/server/lib/tenant-scope";
 import {
 	applyEloOutcome,
 	type EloOutcome,
 	revertEloOutcome,
 } from "~/server/lib/user-stats";
-import { auth } from "../../auth";
+import { drinkPricing } from "~/server/modules/getraenkekasse/service";
 import { checkAndUnlockAchievements } from "../achievements/tracking";
 
 const RESPOND_WINDOW_MS = 30 * 60 * 1000; // 30 min to accept
@@ -78,381 +89,372 @@ export interface ChallengeFeed {
 	history: ChallengeView[];
 }
 
+/** Pages that show challenges; revalidated after every change. */
+const CHALLENGE_PATHS = ["/eloranking", "/challenges"];
+
+const NOT_FOUND = "Herausforderung nicht gefunden";
+const NOT_A_PLAYER = "Keine Berechtigung";
+
 // ---------- Create ----------
 
-export async function createChallenge(input: {
-	opponentId: string;
-	drinkId: string;
-	payment: PaymentRule;
-}): Promise<{ success: boolean; challengeId?: string; error?: string }> {
-	const db = await getCurrentTenantDb();
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const challengerId = session.user.id;
+const createChallengeInput = z.object({
+	opponentId: z.string(),
+	drinkId: z.string(),
+	payment: z.enum(["challenger", "loser", "split"]),
+});
 
-	if (challengerId === input.opponentId) {
-		return {
-			success: false,
-			error: "Du kannst dich nicht selbst herausfordern",
-		};
-	}
+export const createChallenge = defineAction(
+	{
+		schema: z.tuple([createChallengeInput]),
+		revalidate: CHALLENGE_PATHS,
+		errorMessage: "Herausforderung fehlgeschlagen",
+	},
+	async ([input], { tenant, user }) => {
+		const { db } = tenant;
+		const challengerId = user.id;
 
-	// Both players must have ELO enabled
-	const [challengerEnabled, opponentEnabled] = await Promise.all([
-		isEloEnabledForUser(challengerId),
-		isEloEnabledForUser(input.opponentId),
-	]);
-	if (!challengerEnabled) {
-		return {
-			success: false,
-			error: "Aktiviere Eloranking in deinen Einstellungen",
-		};
-	}
-	if (!opponentEnabled) {
-		return {
-			success: false,
-			error: "Dieser Spieler nimmt nicht am Eloranking teil",
-		};
-	}
+		if (challengerId === input.opponentId) {
+			throw new ValidationError("Du kannst dich nicht selbst herausfordern");
+		}
 
-	// Drink must exist and be available
-	const drink = await db.query.drinks.findFirst({
-		where: (t, { eq }) => eq(t.id, input.drinkId),
-		columns: { id: true, isCurrentlyAvailable: true },
-	});
-	if (!drink) {
-		return { success: false, error: "Getränk nicht gefunden" };
-	}
-	if (!drink.isCurrentlyAvailable) {
-		return { success: false, error: "Getränk ist nicht verfügbar" };
-	}
+		// Both players must have ELO enabled
+		const [challengerEnabled, opponentEnabled] = await Promise.all([
+			readEloEnabled(db, challengerId),
+			readEloEnabled(db, input.opponentId),
+		]);
+		if (!challengerEnabled) {
+			throw new ActionError(
+				"Aktiviere Eloranking in deinen Einstellungen",
+				"ELO_DISABLED",
+			);
+		}
+		if (!opponentEnabled) {
+			throw new ActionError(
+				"Dieser Spieler nimmt nicht am Eloranking teil",
+				"ELO_DISABLED",
+			);
+		}
 
-	// Lazy sweep expired challenges so stale rows don't block
-	await sweepExpiredChallenges();
+		// Drink must exist and be available
+		const drink = await db.query.drinks.findFirst({
+			where: (t, { eq }) => eq(t.id, input.drinkId),
+			columns: { id: true, isCurrentlyAvailable: true },
+		});
+		if (!drink) {
+			throw new NotFoundError("Getränk nicht gefunden");
+		}
+		if (!drink.isCurrentlyAvailable) {
+			throw new ConflictError("Getränk ist nicht verfügbar");
+		}
 
-	// At most one open challenge in the same direction
-	const existingOpen = await db.query.challenges.findFirst({
-		where: (t, { and, eq, inArray }) =>
-			and(
-				eq(t.challengerId, challengerId),
-				eq(t.opponentId, input.opponentId),
-				inArray(t.status, [...OPEN_STATUSES]),
-			),
-		columns: { id: true },
-	});
-	if (existingOpen) {
-		return {
-			success: false,
-			error: "Du hast bereits eine offene Herausforderung an diesen Spieler",
-		};
-	}
+		// Lazy sweep expired challenges so stale rows don't block
+		await sweepExpiredChallenges(tenant);
 
-	// Cooldown after decline (same direction)
-	const cooldownCutoff = new Date(Date.now() - DECLINE_COOLDOWN_MS);
-	const recentDecline = await db.query.challenges.findFirst({
-		where: (t, { and, eq, gt }) =>
-			and(
-				eq(t.challengerId, challengerId),
-				eq(t.opponentId, input.opponentId),
-				eq(t.status, "declined"),
-				gt(t.declinedAt, cooldownCutoff),
-			),
-		columns: { declinedAt: true },
-		orderBy: (t, { desc }) => [desc(t.declinedAt)],
-	});
-	if (recentDecline) {
-		return {
-			success: false,
-			error: "Bitte warte eine Stunde bevor du erneut herausforderst",
-		};
-	}
+		// At most one open challenge in the same direction
+		const existingOpen = await db.query.challenges.findFirst({
+			where: (t, { and, eq, inArray }) =>
+				and(
+					eq(t.challengerId, challengerId),
+					eq(t.opponentId, input.opponentId),
+					inArray(t.status, [...OPEN_STATUSES]),
+				),
+			columns: { id: true },
+		});
+		if (existingOpen) {
+			throw new ConflictError(
+				"Du hast bereits eine offene Herausforderung an diesen Spieler",
+			);
+		}
 
-	const [row] = await db
-		.insert(challenges)
-		.values({
-			challengerId,
-			opponentId: input.opponentId,
-			drinkId: input.drinkId,
-			payment: input.payment,
-			quantity: 2,
-			status: "pending",
-			respondDeadline: new Date(Date.now() + RESPOND_WINDOW_MS),
-		})
-		.returning({ id: challenges.id });
+		// Cooldown after decline (same direction)
+		const now = tenant.now().getTime();
+		const cooldownCutoff = new Date(now - DECLINE_COOLDOWN_MS);
+		const recentDecline = await db.query.challenges.findFirst({
+			where: (t, { and, eq, gt }) =>
+				and(
+					eq(t.challengerId, challengerId),
+					eq(t.opponentId, input.opponentId),
+					eq(t.status, "declined"),
+					gt(t.declinedAt, cooldownCutoff),
+				),
+			columns: { declinedAt: true },
+			orderBy: (t, { desc }) => [desc(t.declinedAt)],
+		});
+		if (recentDecline) {
+			throw new ConflictError(
+				"Bitte warte eine Stunde bevor du erneut herausforderst",
+				"COOLDOWN",
+			);
+		}
 
-	revalidatePath("/eloranking");
-	revalidatePath("/challenges");
-
-	return { success: true, challengeId: row?.id };
-}
+		const [row] = await db
+			.insert(challenges)
+			.values({
+				challengerId,
+				opponentId: input.opponentId,
+				drinkId: input.drinkId,
+				payment: input.payment,
+				quantity: 2,
+				status: "pending",
+				respondDeadline: new Date(now + RESPOND_WINDOW_MS),
+			})
+			.returning({ id: challenges.id });
+		if (!row) {
+			throw new Error("challenge insert returned no row");
+		}
+		return { challengeId: row.id };
+	},
+);
 
 // ---------- Respond ----------
 
-export async function respondToChallenge(input: {
-	challengeId: string;
-	response: "accept" | "decline";
-}): Promise<{ success: boolean; error?: string }> {
-	const db = await getCurrentTenantDb();
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
+export const respondToChallenge = defineAction(
+	{
+		schema: z.tuple([
+			z.object({
+				challengeId: z.string(),
+				response: z.enum(["accept", "decline"]),
+			}),
+		]),
+		revalidate: CHALLENGE_PATHS,
+	},
+	async ([input], { tenant, user }) => {
+		const { db } = tenant;
+		const row = await db.query.challenges.findFirst({
+			where: (t, { eq }) => eq(t.id, input.challengeId),
+		});
+		if (!row) {
+			throw new NotFoundError(NOT_FOUND);
+		}
+		if (row.opponentId !== user.id) {
+			throw new ActionError(
+				"Nur der Herausgeforderte kann antworten",
+				"FORBIDDEN",
+			);
+		}
+		if (row.status !== "pending") {
+			throw new ConflictError(
+				"Diese Herausforderung kann nicht mehr beantwortet werden",
+			);
+		}
+		const now = tenant.now();
+		if (row.respondDeadline.getTime() < now.getTime()) {
+			await db
+				.update(challenges)
+				.set({ status: "expired" })
+				.where(eq(challenges.id, row.id));
+			throw new ConflictError("Herausforderung ist abgelaufen", "EXPIRED");
+		}
 
-	const row = await db.query.challenges.findFirst({
-		where: (t, { eq }) => eq(t.id, input.challengeId),
-	});
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.opponentId !== userId) {
-		return { success: false, error: "Nur der Herausgeforderte kann antworten" };
-	}
-	if (row.status !== "pending") {
-		return {
-			success: false,
-			error: "Diese Herausforderung kann nicht mehr beantwortet werden",
-		};
-	}
-	if (row.respondDeadline.getTime() < Date.now()) {
-		await db
-			.update(challenges)
-			.set({ status: "expired" })
-			.where(eq(challenges.id, row.id));
-		return { success: false, error: "Herausforderung ist abgelaufen" };
-	}
-
-	if (input.response === "accept") {
-		await db
-			.update(challenges)
-			.set({
-				status: "accepted",
-				acceptedAt: new Date(),
-				playDeadline: new Date(Date.now() + PLAY_WINDOW_MS),
-			})
-			.where(eq(challenges.id, row.id));
-	} else {
-		await db
-			.update(challenges)
-			.set({ status: "declined", declinedAt: new Date() })
-			.where(eq(challenges.id, row.id));
-	}
-
-	revalidatePath("/eloranking");
-	revalidatePath("/challenges");
-	return { success: true };
-}
+		if (input.response === "accept") {
+			await db
+				.update(challenges)
+				.set({
+					status: "accepted",
+					acceptedAt: now,
+					playDeadline: new Date(now.getTime() + PLAY_WINDOW_MS),
+				})
+				.where(eq(challenges.id, row.id));
+		} else {
+			await db
+				.update(challenges)
+				.set({ status: "declined", declinedAt: now })
+				.where(eq(challenges.id, row.id));
+		}
+	},
+);
 
 // ---------- Cancel ----------
 
 const RESULT_PROPOSED_ERROR =
 	"Ein Ergebnis wurde gemeldet: bestätigen oder anfechten";
+const NOT_CANCELLABLE = "Kann nicht mehr abgebrochen werden";
 
-export async function cancelChallenge(
-	challengeId: string,
-): Promise<{ success: boolean; error?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
+export const cancelChallenge = defineAction(
+	{ schema: z.tuple([z.string()]), revalidate: CHALLENGE_PATHS },
+	async ([challengeId], { tenant, user }) => {
+		const { db } = tenant;
+		const row = await db.query.challenges.findFirst({
+			where: (t, { eq }) => eq(t.id, challengeId),
+			columns: {
+				id: true,
+				challengerId: true,
+				opponentId: true,
+				status: true,
+			},
+		});
+		if (!row) {
+			throw new NotFoundError(NOT_FOUND);
+		}
+		if (row.challengerId !== user.id && row.opponentId !== user.id) {
+			throw new ActionError(NOT_A_PLAYER, "FORBIDDEN");
+		}
+		if (row.status === "result_proposed") {
+			throw new ConflictError(RESULT_PROPOSED_ERROR);
+		}
+		if (
+			!CANCELLABLE_STATUSES.includes(
+				row.status as (typeof CANCELLABLE_STATUSES)[number],
+			)
+		) {
+			throw new ConflictError(NOT_CANCELLABLE);
+		}
 
-	const row = await db.query.challenges.findFirst({
-		where: (t, { eq }) => eq(t.id, challengeId),
-		columns: {
-			id: true,
-			challengerId: true,
-			opponentId: true,
-			status: true,
-		},
-	});
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.challengerId !== userId && row.opponentId !== userId) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
-	if (row.status === "result_proposed") {
-		return { success: false, error: RESULT_PROPOSED_ERROR };
-	}
-	if (
-		!CANCELLABLE_STATUSES.includes(
-			row.status as (typeof CANCELLABLE_STATUSES)[number],
-		)
-	) {
-		return { success: false, error: "Kann nicht mehr abgebrochen werden" };
-	}
-
-	// Only from the status checked above: a proposal or the sweep may move it
-	// on meanwhile.
-	const [cancelled] = await db
-		.update(challenges)
-		.set({ status: "cancelled" })
-		.where(
-			and(
-				eq(challenges.id, challengeId),
-				inArray(challenges.status, [...CANCELLABLE_STATUSES]),
-			),
-		)
-		.returning({ id: challenges.id });
-	if (!cancelled) {
-		return { success: false, error: "Kann nicht mehr abgebrochen werden" };
-	}
-
-	revalidatePath("/eloranking");
-	revalidatePath("/challenges");
-	return { success: true };
-}
+		// Only from the status checked above: a proposal or the sweep may move
+		// it on meanwhile.
+		const [cancelled] = await db
+			.update(challenges)
+			.set({ status: "cancelled" })
+			.where(
+				and(
+					eq(challenges.id, challengeId),
+					inArray(challenges.status, [...CANCELLABLE_STATUSES]),
+				),
+			)
+			.returning({ id: challenges.id });
+		if (!cancelled) {
+			throw new ConflictError(NOT_CANCELLABLE);
+		}
+	},
+);
 
 // ---------- Propose result ----------
 
-export async function proposeResult(input: {
-	challengeId: string;
-	winnerId: string;
-}): Promise<{ success: boolean; error?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
+const NOT_RUNNING = "Ergebnis kann nur in laufenden Spielen gemeldet werden";
 
-	const row = await db.query.challenges.findFirst({
-		where: (t, { eq }) => eq(t.id, input.challengeId),
-	});
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.challengerId !== userId && row.opponentId !== userId) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
-	if (row.status !== "accepted") {
-		return {
-			success: false,
-			error: "Ergebnis kann nur in laufenden Spielen gemeldet werden",
-		};
-	}
-	if (
-		input.winnerId !== row.challengerId &&
-		input.winnerId !== row.opponentId
-	) {
-		return { success: false, error: "Ungültiger Gewinner" };
-	}
+export const proposeResult = defineAction(
+	{
+		schema: z.tuple([
+			z.object({ challengeId: z.string(), winnerId: z.string() }),
+		]),
+		revalidate: CHALLENGE_PATHS,
+	},
+	async ([input], { tenant, user }) => {
+		const { db } = tenant;
+		const row = await db.query.challenges.findFirst({
+			where: (t, { eq }) => eq(t.id, input.challengeId),
+		});
+		if (!row) {
+			throw new NotFoundError(NOT_FOUND);
+		}
+		if (row.challengerId !== user.id && row.opponentId !== user.id) {
+			throw new ActionError(NOT_A_PLAYER, "FORBIDDEN");
+		}
+		if (row.status !== "accepted") {
+			throw new ConflictError(NOT_RUNNING);
+		}
+		if (
+			input.winnerId !== row.challengerId &&
+			input.winnerId !== row.opponentId
+		) {
+			throw new ValidationError("Ungültiger Gewinner");
+		}
 
-	// Only from "accepted": a cancel or the sweep may have closed it meanwhile.
-	const [proposed] = await db
-		.update(challenges)
-		.set({
-			status: "result_proposed",
-			proposedWinnerId: input.winnerId,
-			proposedById: userId,
-			proposedAt: new Date(),
-			confirmDeadline: new Date(Date.now() + CONFIRM_WINDOW_MS),
-		})
-		.where(and(eq(challenges.id, row.id), eq(challenges.status, "accepted")))
-		.returning({ id: challenges.id });
-	if (!proposed) {
-		return {
-			success: false,
-			error: "Ergebnis kann nur in laufenden Spielen gemeldet werden",
-		};
-	}
-
-	revalidatePath("/eloranking");
-	revalidatePath("/challenges");
-	return { success: true };
-}
+		// Only from "accepted": a cancel or the sweep may have closed it
+		// meanwhile.
+		const now = tenant.now();
+		const [proposed] = await db
+			.update(challenges)
+			.set({
+				status: "result_proposed",
+				proposedWinnerId: input.winnerId,
+				proposedById: user.id,
+				proposedAt: now,
+				confirmDeadline: new Date(now.getTime() + CONFIRM_WINDOW_MS),
+			})
+			.where(and(eq(challenges.id, row.id), eq(challenges.status, "accepted")))
+			.returning({ id: challenges.id });
+		if (!proposed) {
+			throw new ConflictError(NOT_RUNNING);
+		}
+	},
+);
 
 // ---------- Confirm result ----------
 
-export async function confirmResult(
-	challengeId: string,
-): Promise<{ success: boolean; error?: string; gameId?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
+const NOTHING_TO_CONFIRM = "Kein Ergebnis zum Bestätigen";
 
-	const row = await db.query.challenges.findFirst({
-		where: (t, { eq }) => eq(t.id, challengeId),
-	});
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.status !== "result_proposed") {
-		return { success: false, error: "Kein Ergebnis zum Bestätigen" };
-	}
-	// Only the non-proposer can confirm
-	if (row.proposedById === userId) {
-		return {
-			success: false,
-			error: "Der Gegenspieler muss das Ergebnis bestätigen",
-		};
-	}
-	if (row.challengerId !== userId && row.opponentId !== userId) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
+export const confirmResult = defineAction(
+	{
+		schema: z.tuple([z.string()]),
+		errorMessage:
+			"Das Ergebnis konnte nicht gebucht werden. Bitte versuche es erneut.",
+	},
+	async ([challengeId], { tenant, user }) => {
+		const row = await tenant.db.query.challenges.findFirst({
+			where: (t, { eq }) => eq(t.id, challengeId),
+		});
+		if (!row) {
+			throw new NotFoundError(NOT_FOUND);
+		}
+		if (row.status !== "result_proposed") {
+			throw new ConflictError(NOTHING_TO_CONFIRM);
+		}
+		// Only the non-proposer can confirm
+		if (row.proposedById === user.id) {
+			throw new ActionError(
+				"Der Gegenspieler muss das Ergebnis bestätigen",
+				"FORBIDDEN",
+			);
+		}
+		if (row.challengerId !== user.id && row.opponentId !== user.id) {
+			throw new ActionError(NOT_A_PLAYER, "FORBIDDEN");
+		}
 
-	return await settleChallenge(row.id);
-}
+		// Revalidates the pages itself: the sweep settles too.
+		return await settleChallenge(tenant, row.id);
+	},
+);
 
 // ---------- Dispute result ----------
 
-export async function disputeResult(
-	challengeId: string,
-): Promise<{ success: boolean; error?: string }> {
-	const session = await auth();
-	if (!session?.user?.id) {
-		return { success: false, error: "Nicht authentifiziert" };
-	}
-	const userId = session.user.id;
+const NOTHING_TO_DISPUTE = "Nichts anzufechten";
 
-	const row = await db.query.challenges.findFirst({
-		where: (t, { eq }) => eq(t.id, challengeId),
-		columns: {
-			id: true,
-			proposedById: true,
-			challengerId: true,
-			opponentId: true,
-			status: true,
-		},
-	});
-	if (!row) {
-		return { success: false, error: "Herausforderung nicht gefunden" };
-	}
-	if (row.status !== "result_proposed") {
-		return { success: false, error: "Nichts anzufechten" };
-	}
-	if (row.proposedById === userId) {
-		return {
-			success: false,
-			error: "Du kannst dein eigenes Ergebnis nicht anfechten",
-		};
-	}
-	if (row.challengerId !== userId && row.opponentId !== userId) {
-		return { success: false, error: "Keine Berechtigung" };
-	}
+export const disputeResult = defineAction(
+	{ schema: z.tuple([z.string()]), revalidate: CHALLENGE_PATHS },
+	async ([challengeId], { tenant, user }) => {
+		const { db } = tenant;
+		const row = await db.query.challenges.findFirst({
+			where: (t, { eq }) => eq(t.id, challengeId),
+			columns: {
+				id: true,
+				proposedById: true,
+				challengerId: true,
+				opponentId: true,
+				status: true,
+			},
+		});
+		if (!row) {
+			throw new NotFoundError(NOT_FOUND);
+		}
+		if (row.status !== "result_proposed") {
+			throw new ConflictError(NOTHING_TO_DISPUTE);
+		}
+		if (row.proposedById === user.id) {
+			throw new ActionError(
+				"Du kannst dein eigenes Ergebnis nicht anfechten",
+				"FORBIDDEN",
+			);
+		}
+		if (row.challengerId !== user.id && row.opponentId !== user.id) {
+			throw new ActionError(NOT_A_PLAYER, "FORBIDDEN");
+		}
 
-	const [disputed] = await db
-		.update(challenges)
-		.set({ status: "disputed" })
-		.where(
-			and(
-				eq(challenges.id, challengeId),
-				eq(challenges.status, "result_proposed"),
-			),
-		)
-		.returning({ id: challenges.id });
-	if (!disputed) {
-		return { success: false, error: "Nichts anzufechten" };
-	}
-
-	revalidatePath("/eloranking");
-	revalidatePath("/challenges");
-	return { success: true };
-}
+		const [disputed] = await db
+			.update(challenges)
+			.set({ status: "disputed" })
+			.where(
+				and(
+					eq(challenges.id, challengeId),
+					eq(challenges.status, "result_proposed"),
+				),
+			)
+			.returning({ id: challenges.id });
+		if (!disputed) {
+			throw new ConflictError(NOTHING_TO_DISPUTE);
+		}
+	},
+);
 
 // ---------- Settle (internal) ----------
 
@@ -461,8 +463,8 @@ export async function disputeResult(
  * concurrent callers (double-tapped confirm, two auto-settle sweeps) exactly
  * one gets the row back; everyone else gets `undefined` and books nothing.
  */
-async function claimProposedResult(challengeId: string) {
-	const [row] = await db
+async function claimProposedResult(scope: TenantScope, challengeId: string) {
+	const [row] = await scope.db
 		.update(challenges)
 		.set({ status: "confirmed" })
 		.where(
@@ -476,8 +478,8 @@ async function claimProposedResult(challengeId: string) {
 }
 
 /** Hands a claimed challenge back so the result can be confirmed again. */
-async function releaseClaim(challengeId: string) {
-	await db
+async function releaseClaim(scope: TenantScope, challengeId: string) {
+	await scope.db
 		.update(challenges)
 		.set({ status: "result_proposed" })
 		.where(
@@ -489,11 +491,12 @@ type ClaimedChallenge = typeof challenges.$inferSelect;
 
 type PlannedOrder = { userId: string; userName: string; amount: number };
 
-/** Reads what settling needs; returns an error message if something is missing. */
-async function planSettlement(row: ClaimedChallenge) {
+/** Reads what settling needs; throws a DomainError if something is missing. */
+async function planSettlement(scope: TenantScope, row: ClaimedChallenge) {
 	if (row.proposedWinnerId == null) {
-		return { error: "Kein Gewinner vorgeschlagen" } as const;
+		throw new ConflictError("Kein Gewinner vorgeschlagen");
 	}
+	const { db } = scope;
 	const winnerId = row.proposedWinnerId;
 	const loserId =
 		winnerId === row.challengerId ? row.opponentId : row.challengerId;
@@ -510,13 +513,13 @@ async function planSettlement(row: ClaimedChallenge) {
 			where: (t, { eq }) => eq(t.id, loserId),
 			columns: { id: true, name: true, email: true },
 		}),
-		getDrinkPricingConfig(),
+		drinkPricing(scope),
 	]);
 	if (!drink) {
-		return { error: "Getränk nicht gefunden" } as const;
+		throw new NotFoundError("Getränk nicht gefunden");
 	}
 	if (!winner || !loser) {
-		return { error: "Spieler nicht gefunden" } as const;
+		throw new NotFoundError("Spieler nicht gefunden");
 	}
 
 	// Orders per payment rule
@@ -580,38 +583,38 @@ async function planSettlement(row: ClaimedChallenge) {
 	return { winnerId, loserId, challengerIsWinner, orderRows } as const;
 }
 
+/**
+ * Books a proposed result: game row, unified ELO, the drinks. Throws a
+ * DomainError when there is nothing (left) to settle.
+ */
 async function settleChallenge(
+	scope: TenantScope,
 	challengeId: string,
-): Promise<{ success: boolean; error?: string; gameId?: string }> {
-	const tenantId = await requireTenantId();
-	const row = await claimProposedResult(challengeId);
+): Promise<{ gameId: string }> {
+	const { tenantId, db } = scope;
+	const row = await claimProposedResult(scope, challengeId);
 	if (!row) {
-		return { success: false, error: "Kein Ergebnis zum Bestätigen" };
+		throw new ConflictError(NOTHING_TO_CONFIRM);
 	}
 
 	// Until the ELO is applied, giving the claim back undoes everything.
 	let plan: Awaited<ReturnType<typeof planSettlement>>;
 	let elo: EloOutcome;
 	try {
-		plan = await planSettlement(row);
-		if ("error" in plan) {
-			await releaseClaim(row.id);
-			return { success: false, error: plan.error };
-		}
+		plan = await planSettlement(scope, row);
 		// Unified userStats (control DB), atomic for both players.
 		elo = await applyEloOutcome(plan.winnerId, plan.loserId);
 	} catch (error) {
-		await releaseClaim(row.id);
+		await releaseClaim(scope, row.id);
 		throw error;
 	}
 
 	const { winnerId, loserId, challengerIsWinner, orderRows } = plan;
 	const gameId = crypto.randomUUID();
-	const tenantDb = await getCurrentTenantDb();
 	try {
 		// Orders, game and final status land together or not at all.
-		await tenantDb.batch([
-			tenantDb.insert(games).values({
+		await db.batch([
+			db.insert(games).values({
 				id: gameId,
 				player1Id: row.challengerId,
 				player2Id: row.opponentId,
@@ -630,19 +633,19 @@ async function settleChallenge(
 					: elo.winnerEloAfter,
 				challengeId: row.id,
 			}),
-			tenantDb
+			db
 				.update(challenges)
 				.set({ status: "settled", gameId })
 				.where(
 					and(eq(challenges.id, row.id), eq(challenges.status, "confirmed")),
 				),
-			...orderRows.map((o) => tenantDb.insert(orders).values(o)),
+			...orderRows.map((o) => db.insert(orders).values(o)),
 		]);
 	} catch (error) {
 		// Take the ELO back first; if that fails too, the claim stays so
 		// nobody applies it a second time.
 		await revertEloOutcome(winnerId, loserId, elo);
-		await releaseClaim(row.id);
+		await releaseClaim(scope, row.id);
 		throw error;
 	}
 
@@ -664,7 +667,7 @@ async function settleChallenge(
 	revalidatePath("/challenges");
 	revalidatePath("/rechnung");
 
-	return { success: true, gameId };
+	return { gameId };
 }
 
 // Local `getOrCreateUserStats` / `updateUserStats` helpers were removed —
@@ -684,17 +687,18 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
 	};
 
 	const session = await auth();
-	if (!session?.user?.id) {
+	if (!session) {
 		return empty;
 	}
 	const userId = session.user.id;
+	const scope = await scopeOf(session.tenantId);
 
-	await sweepExpiredChallenges();
+	await sweepExpiredChallenges(scope);
 
 	// Challenge, drink and both players in one query.
 	const challenger = alias(users, "challenger");
 	const opponent = alias(users, "opponent");
-	const rows = await db
+	const rows = await scope.db
 		.select({
 			id: challenges.id,
 			status: challenges.status,
@@ -808,8 +812,9 @@ export async function getMyChallenges(): Promise<ChallengeFeed> {
  * first looks (one indexed read) and only writes when something is due: an
  * UPDATE that matches nothing still takes the write lock on the primary.
  */
-async function sweepExpiredChallenges(): Promise<void> {
-	const now = new Date();
+async function sweepExpiredChallenges(scope: TenantScope): Promise<void> {
+	const { db } = scope;
+	const now = scope.now();
 	const respondMissed = and(
 		eq(challenges.status, "pending"),
 		lt(challenges.respondDeadline, now),
@@ -848,8 +853,12 @@ async function sweepExpiredChallenges(): Promise<void> {
 			continue;
 		}
 		try {
-			await settleChallenge(id);
+			await settleChallenge(scope, id);
 		} catch (error) {
+			// Settled by a concurrent sweep, or not settleable: nothing to log.
+			if (error instanceof DomainError) {
+				continue;
+			}
 			await log.error("challenge auto-settle failed", {
 				challengeId: id,
 				error: error instanceof Error ? error.message : String(error),

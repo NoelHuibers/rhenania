@@ -14,6 +14,7 @@ import {
 	listEtaplansWithKostenpunkte,
 	listInventurEvents,
 } from "~/server/actions/inventur/inventur";
+import { getManagedBookingAccounts } from "~/server/modules/booking-accounts/actions";
 import {
 	getBankEntries,
 	getExternalBills,
@@ -62,6 +63,7 @@ async function KasseTabData() {
 		pfandWert,
 		getraenkeSettings,
 		getraenkeBilling,
+		bookingAccounts,
 	] = await Promise.all([
 		getKasseSummary(),
 		getBankEntries(),
@@ -71,6 +73,7 @@ async function KasseTabData() {
 		getPfandWert(),
 		getGetraenkeSettings(),
 		getGetraenkeBillingSettings(),
+		getManagedBookingAccounts(),
 	]);
 	return (
 		<KasseTab
@@ -80,6 +83,7 @@ async function KasseTabData() {
 			entityBills={entityBills}
 			memberBills={memberBills}
 			pfandWert={pfandWert}
+			bookingAccounts={bookingAccounts}
 			settings={getraenkeSettings}
 			billing={getraenkeBilling}
 		/>

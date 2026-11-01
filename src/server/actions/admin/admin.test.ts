@@ -34,13 +34,11 @@ import {
 	tenantDb,
 } from "../../../../test/harness";
 import {
-	assignUserRole,
 	bulkSetRoleUsers,
 	deleteUser,
 	getRolesWithUserCount,
 	getUsersWithRoles,
 	initializeRoles,
-	removeUserRole,
 	toggleUserRole,
 	updateUser,
 } from "./admin";
@@ -140,18 +138,10 @@ describe("initializeRoles", () => {
 });
 
 describe("role assignment", () => {
-	test("assign, remove and toggle are idempotent per user and role", async () => {
+	test("toggle assigns a missing role and removes a held one", async () => {
 		await asAdmin();
 		const member = await createUser();
 		const senior = await ensureRole("Senior");
-
-		await assignUserRole(member.id, senior);
-		await assignUserRole(member.id, senior);
-		expect(await roleIdsOf(member.id)).toEqual([senior]);
-
-		await removeUserRole(member.id, senior);
-		await removeUserRole(member.id, senior);
-		expect(await roleIdsOf(member.id)).toEqual([]);
 
 		await toggleUserRole(member.id, senior);
 		expect(await roleIdsOf(member.id)).toEqual([senior]);
@@ -163,12 +153,11 @@ describe("role assignment", () => {
 		await asAdmin();
 		const member = await createUser();
 
-		await expect(assignUserRole(member.id, "nope")).rejects.toThrow(
-			"Failed to assign role",
-		);
-		await expect(toggleUserRole(member.id, "nope")).rejects.toThrow(
-			"Failed to toggle role",
-		);
+		expect(await toggleUserRole(member.id, "nope")).toEqual({
+			ok: false,
+			error: "Rolle konnte nicht geändert werden",
+			code: "INTERNAL",
+		});
 	});
 
 	test("bulkSetRoleUsers makes the role's member list match the selection", async () => {
@@ -220,9 +209,14 @@ describe("updateUser", () => {
 		await asAdmin();
 		const member = await createUser({ email: "a@example.test" });
 
-		await expect(
-			updateUser(member.id, { email: "attacker@example.test" }),
-		).rejects.toThrow("nur von der Person selbst");
+		expect(
+			await updateUser(member.id, { email: "attacker@example.test" }),
+		).toEqual({
+			ok: false,
+			error:
+				"Die E-Mail-Adresse kann nur von der Person selbst geändert werden.",
+			code: "FORBIDDEN",
+		});
 		const [identity] = await controlDb()
 			.select()
 			.from(controlUsers)
@@ -237,10 +231,15 @@ describe("updateUser", () => {
 		switchTenant(home);
 		signInAs(await createUser({ roles: ["Admin"], tenantId: home.id }));
 
-		await expect(updateUser(outsider.id, { name: "Gekapert" })).rejects.toThrow(
-			"kein Mitglied",
+		const outOfReach = {
+			ok: false,
+			error: "Diese Person ist kein Mitglied dieses Corps.",
+			code: "NOT_A_MEMBER",
+		};
+		expect(await updateUser(outsider.id, { name: "Gekapert" })).toEqual(
+			outOfReach,
 		);
-		await expect(deleteUser(outsider.id)).rejects.toThrow("kein Mitglied");
+		expect(await deleteUser(outsider.id)).toEqual(outOfReach);
 		const [identity] = await controlDb()
 			.select()
 			.from(controlUsers)

@@ -78,13 +78,15 @@ export function ProfileIdentity({ initial }: { initial: User | null }) {
 
 				const result = await updateUserName(formData);
 
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					toast.success("Name aktualisiert");
 					setNameDialogOpen(false);
 					// Update local state
 					if (user) {
 						setUser({ ...user, name: newName.trim() });
 					}
+				} else {
+					toast.error(result.error);
 				}
 			} catch (error) {
 				toast.error(
@@ -99,14 +101,14 @@ export function ProfileIdentity({ initial }: { initial: User | null }) {
 			try {
 				const result = await deleteUserAvatar();
 
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					toast.success("Profilbild gelöscht");
 					// Update local state
 					if (user) {
 						setUser({ ...user, image: null });
 					}
 				} else {
-					toast.error(result.message ?? "Fehler beim Löschen des Profilbilds");
+					toast.error(result.error);
 				}
 			} catch (error) {
 				toast.error(
@@ -123,12 +125,14 @@ export function ProfileIdentity({ initial }: { initial: User | null }) {
 			try {
 				const result = await syncFromMicrosoft();
 
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					toast.success(result.data.message);
 					// Refetch user data after sync
 					const userData = await getUserProfile();
 					setUser(userData);
 					setNewName(userData.name || "");
+				} else {
+					toast.error(result.error);
 				}
 			} catch (error) {
 				toast.error(
@@ -145,13 +149,15 @@ export function ProfileIdentity({ initial }: { initial: User | null }) {
 			try {
 				const result = await refreshProfile();
 
-				if (result.success) {
-					toast.success(result.message);
+				if (result.ok) {
+					toast.success("Profil aktualisiert");
 					// Refetch user data after refresh
 					const userData = await getUserProfile();
 					setUser(userData);
 					setNewName(userData.name || "");
 					router.refresh(); // Refresh the page data
+				} else {
+					toast.error(result.error);
 				}
 			} catch (error) {
 				toast.error(

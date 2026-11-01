@@ -76,10 +76,18 @@ describe("getUserProfile", () => {
 	test("redirects anonymous visitors to the sign-in page", async () => {
 		await createTenant();
 		await expect(getUserProfile()).rejects.toThrow("NEXT_REDIRECT");
-		await expect(updateUserName(form({ name: "x" }))).rejects.toThrow(
-			"NEXT_REDIRECT",
-		);
-		await expect(refreshProfile()).rejects.toThrow("NEXT_REDIRECT");
+	});
+
+	test("turns anonymous callers of the mutations away", async () => {
+		await createTenant();
+		const denied = {
+			ok: false,
+			error: "Nicht angemeldet",
+			code: "UNAUTHENTICATED",
+		};
+		expect(await updateUserName(form({ name: "x" }))).toEqual(denied);
+		expect(await refreshProfile()).toEqual(denied);
+		expect(await syncFromMicrosoft()).toEqual(denied);
 	});
 
 	test("fails when the member has no mirror in this tenant", async () => {
@@ -101,8 +109,7 @@ describe("updateUserName", () => {
 		signInAs(member);
 
 		expect(await updateUserName(form({ name: "  Max Muster  " }))).toEqual({
-			success: true,
-			message: "Name updated successfully",
+			ok: true,
 		});
 		expect((await mirrorOf(member.id))?.name).toBe("Max Muster");
 	});
@@ -112,15 +119,18 @@ describe("updateUserName", () => {
 		const member = await createUser({ name: "Alt" });
 		signInAs(member);
 
-		await expect(updateUserName(form({ name: "   " }))).rejects.toThrow(
-			"Name is required",
-		);
-		await expect(updateUserName(new FormData())).rejects.toThrow(
-			"Name is required",
-		);
-		await expect(
-			updateUserName(form({ name: "x".repeat(256) })),
-		).rejects.toThrow("Name is too long");
+		const required = {
+			ok: false,
+			error: "Bitte gib einen Namen ein",
+			code: "INVALID_INPUT",
+		};
+		expect(await updateUserName(form({ name: "   " }))).toEqual(required);
+		expect(await updateUserName(new FormData())).toEqual(required);
+		expect(await updateUserName(form({ name: "x".repeat(256) }))).toEqual({
+			ok: false,
+			error: "Der Name darf höchstens 255 Zeichen lang sein",
+			code: "INVALID_INPUT",
+		});
 		expect((await mirrorOf(member.id))?.name).toBe("Alt");
 	});
 
@@ -183,14 +193,16 @@ describe("syncFromMicrosoft", () => {
 			{ headers: { Authorization: "Bearer graph-token" } },
 		);
 		expect(result).toMatchObject({
-			success: true,
-			message:
-				"Profile synced from Microsoft successfully. Updated: name, image",
-			syncedData: {
-				name: "Max Muster",
-				hasPhoto: true,
-				email: "max@corps.example",
-				jobTitle: "Senior",
+			ok: true,
+			data: {
+				message:
+					"Profil mit Microsoft abgeglichen. Aktualisiert: Name, Profilbild",
+				syncedData: {
+					name: "Max Muster",
+					hasPhoto: true,
+					email: "max@corps.example",
+					jobTitle: "Senior",
+				},
 			},
 		});
 		expect(await mirrorOf(member.id)).toMatchObject({
@@ -208,7 +220,10 @@ describe("syncFromMicrosoft", () => {
 
 		const result = await syncFromMicrosoft();
 
-		expect(result.syncedData).toMatchObject({ name: "Neu", hasPhoto: false });
+		expect(result.ok && result.data.syncedData).toMatchObject({
+			name: "Neu",
+			hasPhoto: false,
+		});
 		expect(await mirrorOf(member.id)).toMatchObject({
 			name: "Neu",
 			image: null,
@@ -229,7 +244,7 @@ describe("syncFromMicrosoft", () => {
 
 		const result = await syncFromMicrosoft();
 
-		expect(result.syncedData.hasPhoto).toBe(true);
+		expect(result.ok && result.data.syncedData.hasPhoto).toBe(true);
 	});
 
 	test("reports Graph failures without touching the profile", async () => {
@@ -247,9 +262,11 @@ describe("syncFromMicrosoft", () => {
 			}),
 		} as never);
 
-		await expect(syncFromMicrosoft()).rejects.toThrow(
-			"Failed to sync from Microsoft: Failed to fetch user profile from Microsoft Graph",
-		);
+		expect(await syncFromMicrosoft()).toEqual({
+			ok: false,
+			error: "Abgleich mit Microsoft fehlgeschlagen",
+			code: "INTERNAL",
+		});
 		expect((await mirrorOf(member.id))?.name).toBe("Alt");
 	});
 });

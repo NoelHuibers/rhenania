@@ -1,8 +1,6 @@
 import { describe, expect, test } from "vitest";
 
 import {
-	BOOKING_ACCOUNTS,
-	COMMON_BOOKING_ACCOUNTS,
 	clampOrderAmount,
 	confirmLabel,
 	createOrderGate,
@@ -13,16 +11,6 @@ import {
 	splitMenu,
 	withRecentDrink,
 } from "./drink-order";
-
-describe("booking accounts", () => {
-	test("the chips are a subset of the fixed list", () => {
-		expect(BOOKING_ACCOUNTS).toContain("CC");
-		expect(BOOKING_ACCOUNTS).toContain("AKN");
-		for (const a of COMMON_BOOKING_ACCOUNTS) {
-			expect(BOOKING_ACCOUNTS).toContain(a);
-		}
-	});
-});
 
 describe("clampOrderAmount", () => {
 	test.each([

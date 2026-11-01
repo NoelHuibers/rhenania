@@ -3,12 +3,19 @@
 
 import { del } from "@vercel/blob";
 import { desc, eq, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "~/server/db";
 import { drinks } from "~/server/db/schema";
 import { ROLES, requireRole } from "~/server/lib/authz";
 import { isForeignKeyViolation } from "~/server/lib/db-errors";
+import { defineAction } from "~/server/lib/define-action";
+import {
+	ConflictError,
+	NotFoundError,
+	ValidationError,
+} from "~/server/lib/domain-error";
+
+const INVALID_PICTURE_URL = "Ungültige Bild-Adresse";
 
 const addDrinkSchema = z.object({
 	name: z.string().min(1, "Name ist erforderlich").max(255, "Name ist zu lang"),
@@ -27,7 +34,7 @@ const addDrinkSchema = z.object({
 		.positive("Kastengröße muss positiv sein")
 		.max(999, "Kastengröße ist zu hoch")
 		.optional(),
-	pictureUrl: z.string().url().optional(), // Changed from File to URL string
+	pictureUrl: z.string().url(INVALID_PICTURE_URL).optional(),
 	isCurrentlyAvailable: z.boolean().default(true),
 });
 
@@ -54,94 +61,59 @@ const updateDrinkSchema = z.object({
 		.max(999, "Kastengröße ist zu hoch")
 		.optional(),
 	isCurrentlyAvailable: z.boolean().optional(),
-	pictureUrl: z.string().url().optional(), // Added for image updates
+	pictureUrl: z.string().url(INVALID_PICTURE_URL).optional(),
 });
-
-export type UpdateDrinkInput = z.infer<typeof updateDrinkSchema>;
 
 // Type for database drinks
 export type Drink = typeof drinks.$inferSelect;
 
-export async function addDrink(data: {
-	name: string;
-	price: number;
-	volume?: number;
-	kastengroesse?: number;
-	pictureUrl?: string;
-	isCurrentlyAvailable: boolean;
-}) {
-	await requireRole(ROLES.getraenke);
-	try {
-		// Validate input
-		const validatedInput = addDrinkSchema.parse(data);
-
-		// Insert the drink into the database
-		const [newDrink] = await db
+export const addDrink = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([addDrinkSchema]),
+		revalidate: ["/getraenkewart"],
+		errorMessage: "Fehler beim Hinzufügen des Getränks",
+	},
+	async ([input], { tenant }) => {
+		const [newDrink] = await tenant.db
 			.insert(drinks)
 			.values({
-				name: validatedInput.name,
-				price: validatedInput.price,
-				volume: validatedInput.volume || null,
-				kastengroesse: validatedInput.kastengroesse || null,
-				picture: validatedInput.pictureUrl || null,
-				isCurrentlyAvailable: validatedInput.isCurrentlyAvailable,
+				name: input.name,
+				price: input.price,
+				volume: input.volume || null,
+				kastengroesse: input.kastengroesse || null,
+				picture: input.pictureUrl || null,
+				isCurrentlyAvailable: input.isCurrentlyAvailable,
 			})
 			.returning();
+		return newDrink;
+	},
+);
 
-		revalidatePath("/getraenkewart");
-
-		return {
-			success: true,
-			data: newDrink,
-			message: "Getränk erfolgreich hinzugefügt",
-		};
-	} catch (error) {
-		console.error("Error adding drink:", error);
-
-		if (error instanceof z.ZodError) {
-			return {
-				success: false,
-				error: "Validierungsfehler",
-				details: error.issues,
-			};
+/** Inline editing on the Getränkewart page; replacing the picture drops the old blob. */
+export const updateDrink = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([z.string(), updateDrinkSchema]),
+		revalidate: ["/getraenkewart"],
+		errorMessage: "Fehler beim Aktualisieren des Getränks",
+	},
+	async ([id, input], { tenant }) => {
+		if (Object.keys(input).length === 0) {
+			throw new ValidationError("Keine Daten zum Aktualisieren angegeben");
 		}
-
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Fehler beim Hinzufügen des Getränks",
-		};
-	}
-}
-
-// Simple update function for inline editing
-export async function updateDrink(id: string, input: UpdateDrinkInput) {
-	await requireRole(ROLES.getraenke);
-	try {
-		// Validate input
-		const validatedInput = updateDrinkSchema.parse(input);
-
-		if (Object.keys(validatedInput).length === 0) {
-			return {
-				success: false,
-				error: "Keine Daten zum Aktualisieren angegeben",
-			};
-		}
+		const { db } = tenant;
+		const { pictureUrl, ...fields } = input;
 
 		// If there's a new picture URL and an old one exists, delete the old one
-		if (validatedInput.pictureUrl) {
+		if (pictureUrl) {
 			const [currentDrink] = await db
 				.select()
 				.from(drinks)
 				.where(eq(drinks.id, id))
 				.limit(1);
 
-			if (
-				currentDrink?.picture &&
-				currentDrink.picture !== validatedInput.pictureUrl
-			) {
+			if (currentDrink?.picture && currentDrink.picture !== pictureUrl) {
 				try {
 					await del(currentDrink.picture);
 				} catch (error) {
@@ -150,71 +122,49 @@ export async function updateDrink(id: string, input: UpdateDrinkInput) {
 			}
 		}
 
-		// biome-ignore lint/suspicious/noExplicitAny: dynamic property mapping for drink update
-		const updateData: any = {
-			...validatedInput,
-			updatedAt: new Date(),
-		};
-
-		// Map pictureUrl to picture field
-		if ("pictureUrl" in updateData) {
-			updateData.picture = updateData.pictureUrl;
-			delete updateData.pictureUrl;
-		}
-
 		const [updatedDrink] = await db
 			.update(drinks)
-			.set(updateData)
+			.set({
+				...fields,
+				...(pictureUrl !== undefined && { picture: pictureUrl }),
+				updatedAt: tenant.now(),
+			})
 			.where(eq(drinks.id, id))
 			.returning();
 
 		if (!updatedDrink) {
-			return {
-				success: false,
-				error: "Getränk nicht gefunden",
-			};
+			throw new NotFoundError(DRINK_NOT_FOUND);
 		}
+		return updatedDrink;
+	},
+);
 
-		revalidatePath("/getraenkewart");
-
-		return {
-			success: true,
-			data: updatedDrink,
-			message: "Getränk erfolgreich aktualisiert",
-		};
-	} catch (error) {
-		console.error("Error updating drink:", error);
-
-		if (error instanceof z.ZodError) {
-			return {
-				success: false,
-				error: "Validierungsfehler",
-				details: error.issues,
-			};
-		}
-
-		return {
-			success: false,
-			error:
-				error instanceof Error
-					? error.message
-					: "Fehler beim Aktualisieren des Getränks",
-		};
-	}
-}
-
+const DRINK_NOT_FOUND = "Getränk nicht gefunden";
 const DRINK_IN_USE_ERROR =
 	"Das Getränk wurde schon bestellt oder gezählt und kann deshalb nicht gelöscht werden. Setze es stattdessen auf „Nicht verfügbar“.";
 
-export async function deleteDrink(id: string) {
-	await requireRole(ROLES.getraenke);
-	try {
+export const deleteDrink = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/getraenkewart"],
+		errorMessage: "Fehler beim Löschen des Getränks",
+	},
+	async ([id], { tenant }) => {
 		// Delete the row first: orders and inventory counts reference it, and the
 		// picture must survive when the database refuses the delete.
-		const [deleted] = await db
-			.delete(drinks)
-			.where(eq(drinks.id, id))
-			.returning({ picture: drinks.picture });
+		let deleted: { picture: string | null } | undefined;
+		try {
+			[deleted] = await tenant.db
+				.delete(drinks)
+				.where(eq(drinks.id, id))
+				.returning({ picture: drinks.picture });
+		} catch (error) {
+			if (isForeignKeyViolation(error)) {
+				throw new ConflictError(DRINK_IN_USE_ERROR, "DRINK_IN_USE");
+			}
+			throw error;
+		}
 
 		if (deleted?.picture) {
 			try {
@@ -223,28 +173,18 @@ export async function deleteDrink(id: string) {
 				console.error("Error deleting image:", error);
 			}
 		}
+	},
+);
 
-		revalidatePath("/getraenkewart");
-
-		return {
-			success: true,
-			message: "Getränk erfolgreich gelöscht",
-		};
-	} catch (error) {
-		if (isForeignKeyViolation(error)) {
-			return { success: false, error: DRINK_IN_USE_ERROR };
-		}
-		console.error("Error deleting drink:", error);
-		return {
-			success: false,
-			error: "Fehler beim Löschen des Getränks",
-		};
-	}
-}
-
-export async function toggleDrinkAvailability(id: string) {
-	await requireRole(ROLES.getraenke);
-	try {
+export const toggleDrinkAvailability = defineAction(
+	{
+		roles: ROLES.getraenke,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/getraenkewart"],
+		errorMessage: "Fehler beim Ändern der Verfügbarkeit",
+	},
+	async ([id], { tenant }) => {
+		const { db } = tenant;
 		const [currentDrink] = await db
 			.select()
 			.from(drinks)
@@ -252,36 +192,20 @@ export async function toggleDrinkAvailability(id: string) {
 			.limit(1);
 
 		if (!currentDrink) {
-			return {
-				success: false,
-				error: "Getränk nicht gefunden",
-			};
+			throw new NotFoundError(DRINK_NOT_FOUND);
 		}
 
 		const [updatedDrink] = await db
 			.update(drinks)
 			.set({
 				isCurrentlyAvailable: !currentDrink.isCurrentlyAvailable,
-				updatedAt: new Date(),
+				updatedAt: tenant.now(),
 			})
 			.where(eq(drinks.id, id))
 			.returning();
-
-		revalidatePath("/getraenkewart");
-
-		return {
-			success: true,
-			data: updatedDrink,
-			message: "Verfügbarkeit erfolgreich geändert",
-		};
-	} catch (error) {
-		console.error("Error toggling drink availability:", error);
-		return {
-			success: false,
-			error: "Fehler beim Ändern der Verfügbarkeit",
-		};
-	}
-}
+		return updatedDrink;
+	},
+);
 
 export async function getDrinks() {
 	await requireRole(ROLES.getraenke);

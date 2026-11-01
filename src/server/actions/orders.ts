@@ -2,115 +2,94 @@
 "use server";
 
 import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { z } from "zod";
-import {
-	isBookingAccount,
-	isValidOrderAmount,
-	MAX_ORDER_AMOUNT,
-} from "~/lib/drink-order";
+import { isValidOrderAmount, MAX_ORDER_AMOUNT } from "~/lib/drink-order";
 import { MY_ORDERS_PAGE_SIZE } from "~/lib/my-orders";
 import { orderTotal, unitPriceFor } from "~/lib/pricing";
-import { auth } from "~/server/auth";
-import { drinks, orders } from "~/server/db/schema";
+import { drinks, orders, users } from "~/server/db/schema";
 import { getCurrentTenantDb } from "~/server/db/tenants";
 import { requireMember } from "~/server/lib/authz";
-import { getDrinkPricingConfig } from "~/server/lib/getraenke-settings";
-import { log } from "~/server/lib/log";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import { ActionError, defineAction } from "~/server/lib/define-action";
+import { NotFoundError } from "~/server/lib/domain-error";
+import { isBookableAccount } from "~/server/modules/booking-accounts/service";
+import { drinkPricing } from "~/server/modules/getraenkekasse/service";
 import { checkAndUnlockAchievements } from "./achievements/tracking";
-import { getUserName } from "./getUserName";
 
-export interface CreateOrderRequest {
-	drinkId: string;
-	drinkName: string;
-	amount: number;
-	// Display values from the menu. The server recomputes name, price and
-	// total from the drinks table, so these are never trusted.
-	pricePerUnit: number;
-	total: number;
-	bookingFor: string | null;
-	targetUserId?: string;
-	targetUserName?: string;
-}
+const INVALID_AMOUNT = `Bitte eine ganze Anzahl zwischen 1 und ${MAX_ORDER_AMOUNT} wählen`;
 
-export interface OrderResult {
-	success: boolean;
-	error?: string;
-	orderId?: string;
-}
+const createOrderSchema = z.object({
+	drinkId: z.string(),
+	// Display values from the menu (name, price, total) are accepted but
+	// never trusted: the server recomputes them from the drinks table.
+	drinkName: z.string().optional(),
+	pricePerUnit: z.number().optional(),
+	total: z.number().optional(),
+	amount: z.number({ error: INVALID_AMOUNT }),
+	bookingFor: z.string().nullable(),
+	targetUserId: z.string().optional(),
+	targetUserName: z.string().optional(),
+});
 
-export async function createOrder(
-	orderData: CreateOrderRequest,
-): Promise<OrderResult> {
-	try {
-		const db = await getCurrentTenantDb();
-		const session = await auth();
+/** Books a drink for the caller, or (Admin) for another member. */
+export const createOrder = defineAction(
+	{
+		schema: z.tuple([createOrderSchema]),
+		revalidate: ["/leaderboard", "/rechnung"],
+		errorMessage:
+			"Die Bestellung konnte nicht gebucht werden. Bitte versuche es erneut.",
+	},
+	async ([orderData], { tenant, user }) => {
+		const { db } = tenant;
+		const adminId = user.id;
 
-		if (!session?.user?.id) {
-			return {
-				success: false,
-				error: "User must be authenticated to place an order",
-			};
+		const [caller] = await db
+			.select({ name: users.name })
+			.from(users)
+			.where(eq(users.id, adminId))
+			.limit(1);
+		const adminName = caller?.name;
+		if (!adminName) {
+			throw new ActionError("Dein Name konnte nicht ermittelt werden");
 		}
 
-		const adminId = session.user.id;
-		const adminName = await getUserName();
+		// Faxe orders always go on the AHV account.
+		const isFaxe = user.roles.includes("Faxe");
+		const bookingFor = isFaxe ? "AHV" : orderData.bookingFor;
 
-		const isFaxe = session.user.roles.includes("Faxe");
-		const isAdmin = session.user.roles.includes("Admin");
-
-		if (isFaxe) {
-			orderData.bookingFor = "AHV";
-		}
-
-		if (!adminName || typeof adminName !== "string") {
-			return {
-				success: false,
-				error: "Failed to retrieve user name",
-			};
-		}
-
-		// Admin booking: validate that the current user is actually an admin
-		if (orderData.targetUserId && orderData.targetUserId !== adminId) {
-			if (!isAdmin) {
-				return {
-					success: false,
-					error: "Only admins can book orders for other users",
-				};
-			}
-			if (!orderData.targetUserName) {
-				return {
-					success: false,
-					error: "Target user name is required when booking for another user",
-				};
-			}
-		}
-
+		// Admin booking: only admins may book for somebody else.
 		const isBookingForOther =
 			!!orderData.targetUserId && orderData.targetUserId !== adminId;
+		if (isBookingForOther) {
+			if (!user.roles.includes("Admin")) {
+				throw new ActionError(
+					"Nur Admins dürfen für andere Mitglieder buchen",
+					"FORBIDDEN",
+				);
+			}
+			if (!orderData.targetUserName) {
+				throw new ActionError("Für wen gebucht wird, fehlt", "INVALID_INPUT");
+			}
+		}
 		const userId = isBookingForOther
 			? (orderData.targetUserId ?? adminId)
 			: adminId;
 		const userName = isBookingForOther
-			? // targetUserName is validated above when isBookingForOther
-				(orderData.targetUserName ?? adminName)
+			? (orderData.targetUserName ?? adminName)
 			: adminName;
 		const bookedByAdminId = isBookingForOther ? adminId : null;
 		const bookedByAdminName = isBookingForOther ? adminName : null;
 
 		if (!isValidOrderAmount(orderData.amount)) {
-			return {
-				success: false,
-				error: `Bitte eine ganze Anzahl zwischen 1 und ${MAX_ORDER_AMOUNT} wählen`,
-			};
+			throw new ActionError(INVALID_AMOUNT, "INVALID_INPUT");
 		}
+		// Faxe always book on AHV, whatever the Getränkewart did to that account.
 		if (
-			orderData.bookingFor !== null &&
-			!isBookingAccount(orderData.bookingFor)
+			!isFaxe &&
+			bookingFor !== null &&
+			!(await isBookableAccount(tenant, bookingFor))
 		) {
-			return { success: false, error: "Unbekanntes Abrechnungskonto" };
+			throw new ActionError("Unbekanntes Abrechnungskonto", "INVALID_INPUT");
 		}
 
 		// The server decides the price: purchase price from the drinks table,
@@ -122,14 +101,14 @@ export async function createOrder(
 			.where(eq(drinks.id, orderData.drinkId))
 			.limit(1);
 		if (!drink) {
-			return { success: false, error: "Getränk nicht gefunden" };
+			throw new NotFoundError("Getränk nicht gefunden");
 		}
 
-		const pricing = await getDrinkPricingConfig();
+		const pricing = await drinkPricing(tenant);
 		const pricePerUnit = unitPriceFor(
 			drink.price,
 			pricing.markupPercent,
-			orderData.bookingFor,
+			bookingFor,
 		);
 		const total = orderTotal(
 			pricePerUnit,
@@ -137,7 +116,6 @@ export async function createOrder(
 			pricing.markupPercent,
 		);
 
-		// Create the order
 		const [newOrder] = await db
 			.insert(orders)
 			.values({
@@ -149,42 +127,29 @@ export async function createOrder(
 				pricePerUnit,
 				costPerUnit: pricing.enabled ? drink.price : null,
 				total,
-				bookingFor: orderData.bookingFor,
+				bookingFor,
 				bookedByAdminId,
 				bookedByAdminName,
 			})
-			.returning();
-
-		revalidatePath("/leaderboard");
-		revalidatePath("/rechnung");
+			.returning({ id: orders.id });
 
 		// Achievements run after the response, against this Corps explicitly.
-		const tenantId = await requireTenantId();
 		const achievementContext = {
 			drinkName: drink.name,
 			drinkId: drink.id,
 			amount: orderData.amount,
 			total,
-			bookingFor: orderData.bookingFor,
+			bookingFor,
 		};
 		after(() =>
 			checkAndUnlockAchievements(userId, "order_created", achievementContext, {
-				tenantId,
+				tenantId: tenant.tenantId,
 			}),
 		);
 
-		return {
-			success: true,
-			orderId: newOrder?.id,
-		};
-	} catch (error) {
-		await log.error("Error creating order", { err: error });
-		return {
-			success: false,
-			error: "Failed to create order. Please try again.",
-		};
-	}
-}
+		return { orderId: newOrder?.id };
+	},
+);
 
 const ordersPageSchema = z.object({
 	page: z.number().int().min(1).max(100_000).default(1),

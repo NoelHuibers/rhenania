@@ -1,8 +1,16 @@
 "use server";
 
+// The platform console (/superadmin). Superadmins need not be members of
+// any Corps, so these actions guard themselves with requireSuperAdmin()
+// instead of defineAction, and answer with the same ActionResult (#216).
+// The console is for operators: an unexpected failure shows its own
+// message (e.g. why provisioning stopped) instead of a generic one.
+
 import { and, count, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 
+import { type ActionResult, fail, ok } from "~/lib/action-result";
 import {
 	type FeatureFlags,
 	isFeatureKey,
@@ -16,6 +24,13 @@ import {
 	tenantMemberships,
 	tenants,
 } from "~/server/db/control-schema";
+import {
+	ConflictError,
+	DomainError,
+	NotFoundError,
+	ValidationError,
+} from "~/server/lib/domain-error";
+import { log } from "~/server/lib/log";
 import { requireSuperAdmin } from "~/server/lib/super-admin";
 import { commitTenantConfigChange } from "~/server/lib/tenant-config";
 import {
@@ -25,11 +40,24 @@ import {
 	type UnfinishedProvisioning,
 } from "~/server/lib/tenant-provisioning";
 
-type ActionResult<T = void> = {
-	success: boolean;
-	error?: string;
-	data?: T;
-};
+/** Runs `body` and answers with its data, or with why it failed. */
+async function asResult<T>(
+	action: string,
+	body: () => Promise<T>,
+): Promise<ActionResult<T>> {
+	try {
+		return ok(await body());
+	} catch (error) {
+		unstable_rethrow(error);
+		if (error instanceof DomainError) {
+			return fail(error.message, error.code);
+		}
+		await log.error(`${action} failed`, { err: error });
+		return fail(error instanceof Error ? error.message : "Unknown error");
+	}
+}
+
+const TENANT_NOT_FOUND = "Tenant not found";
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
@@ -48,7 +76,7 @@ export type SuperadminTenantRow = {
 export async function listTenantsAction(): Promise<
 	ActionResult<SuperadminTenantRow[]>
 > {
-	try {
+	return asResult("listTenantsAction", async () => {
 		await requireSuperAdmin();
 
 		// Three queries in one round trip, however many tenants there are.
@@ -77,26 +105,20 @@ export async function listTenantsAction(): Promise<
 		const domainsByTenant = new Map(domainCounts.map((r) => [r.tenantId, r.n]));
 		const membersByTenant = new Map(memberCounts.map((r) => [r.tenantId, r.n]));
 
-		const result: SuperadminTenantRow[] = tenantRows.map((t) => ({
-			id: t.id,
-			slug: t.slug,
-			displayName: t.displayName,
-			status: t.status,
-			dbUrl: t.dbUrl,
-			createdAt: t.createdAt,
-			domainCount: domainsByTenant.get(t.id) ?? 0,
-			memberCount: membersByTenant.get(t.id) ?? 0,
-			microsoftEnabled: Boolean(t.microsoftEnabled),
-		}));
-
-		return { success: true, data: result };
-	} catch (e) {
-		console.error("listTenantsAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+		return tenantRows.map(
+			(t): SuperadminTenantRow => ({
+				id: t.id,
+				slug: t.slug,
+				displayName: t.displayName,
+				status: t.status,
+				dbUrl: t.dbUrl,
+				createdAt: t.createdAt,
+				domainCount: domainsByTenant.get(t.id) ?? 0,
+				memberCount: membersByTenant.get(t.id) ?? 0,
+				microsoftEnabled: Boolean(t.microsoftEnabled),
+			}),
+		);
+	});
 }
 
 // ─── Create ───────────────────────────────────────────────────────────────────
@@ -111,31 +133,22 @@ export async function createTenantAction(input: {
 	primaryHostname?: string | null;
 	firstAdminEmail?: string | null;
 }): Promise<ActionResult<{ tenantId: string; dbUrl: string }>> {
-	try {
-		await requireSuperAdmin();
-	} catch (e) {
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
+	const denied = await asResult("createTenantAction", () =>
+		requireSuperAdmin(),
+	);
+	if (!denied.ok) {
+		return denied;
 	}
 	try {
-		const result = await provisionTenant({
-			slug: input.slug,
-			displayName: input.displayName,
-			primaryHostname: input.primaryHostname,
-			firstAdminEmail: input.firstAdminEmail,
+		return await asResult("createTenantAction", async () => {
+			const result = await provisionTenant({
+				slug: input.slug,
+				displayName: input.displayName,
+				primaryHostname: input.primaryHostname,
+				firstAdminEmail: input.firstAdminEmail,
+			});
+			return { tenantId: result.tenantId, dbUrl: result.dbUrl };
 		});
-		return {
-			success: true,
-			data: { tenantId: result.tenantId, dbUrl: result.dbUrl },
-		};
-	} catch (e) {
-		console.error("createTenantAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
 	} finally {
 		// A failed run shows up as unfinished (and maybe a pending tenant).
 		revalidatePath("/superadmin");
@@ -145,34 +158,21 @@ export async function createTenantAction(input: {
 export async function listTenantProvisioningsAction(): Promise<
 	ActionResult<UnfinishedProvisioning[]>
 > {
-	try {
+	return asResult("listTenantProvisioningsAction", async () => {
 		await requireSuperAdmin();
-		return { success: true, data: await listUnfinishedProvisionings() };
-	} catch (e) {
-		console.error("listTenantProvisioningsAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+		return listUnfinishedProvisionings();
+	});
 }
 
 /** Deletes an unfinished run's Turso DB and control rows. */
 export async function abandonTenantProvisioningAction(
 	slug: string,
 ): Promise<ActionResult> {
-	try {
+	return asResult("abandonTenantProvisioningAction", async () => {
 		await requireSuperAdmin();
 		await abandonTenantProvisioning(slug);
 		revalidatePath("/superadmin");
-		return { success: true };
-	} catch (e) {
-		console.error("abandonTenantProvisioningAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+	});
 }
 
 // ─── Detail ───────────────────────────────────────────────────────────────────
@@ -205,10 +205,11 @@ export type SuperadminTenantDetail = {
 	features: FeatureFlags;
 };
 
+/** The tenant's detail; fails with code NOT_FOUND for an unknown id. */
 export async function getTenantDetailAction(
 	tenantId: string,
 ): Promise<ActionResult<SuperadminTenantDetail>> {
-	try {
+	return asResult("getTenantDetailAction", async () => {
 		await requireSuperAdmin();
 
 		const [[t], domains, [cfg], [members], featureRows] = await controlDb.batch(
@@ -238,48 +239,39 @@ export async function getTenantDetailAction(
 			],
 		);
 		if (!t) {
-			return { success: false, error: "Tenant not found" };
+			throw new NotFoundError(TENANT_NOT_FOUND);
 		}
 
 		return {
-			success: true,
-			data: {
-				tenant: {
-					id: t.id,
-					slug: t.slug,
-					displayName: t.displayName,
-					status: t.status,
-					dbUrl: t.dbUrl,
-					createdAt: t.createdAt,
-				},
-				domains: domains.map((d) => ({
-					id: d.id,
-					hostname: d.hostname,
-					isPrimary: d.isPrimary,
-					isCustom: d.isCustom,
-					verifiedAt: d.verifiedAt ?? null,
-				})),
-				authConfig: cfg
-					? {
-							emailPasswordEnabled: cfg.emailPasswordEnabled,
-							microsoftEnabled: cfg.microsoftEnabled,
-							azureClientId: cfg.azureClientId,
-							azureTenantId: cfg.azureTenantId,
-							hasAzureSecret: Boolean(cfg.azureClientSecret),
-							mailSenderEmail: cfg.mailSenderEmail,
-						}
-					: null,
-				memberCount: members?.n ?? 0,
-				features: resolveFeatureFlags(featureRows),
+			tenant: {
+				id: t.id,
+				slug: t.slug,
+				displayName: t.displayName,
+				status: t.status,
+				dbUrl: t.dbUrl,
+				createdAt: t.createdAt,
 			},
+			domains: domains.map((d) => ({
+				id: d.id,
+				hostname: d.hostname,
+				isPrimary: d.isPrimary,
+				isCustom: d.isCustom,
+				verifiedAt: d.verifiedAt ?? null,
+			})),
+			authConfig: cfg
+				? {
+						emailPasswordEnabled: cfg.emailPasswordEnabled,
+						microsoftEnabled: cfg.microsoftEnabled,
+						azureClientId: cfg.azureClientId,
+						azureTenantId: cfg.azureTenantId,
+						hasAzureSecret: Boolean(cfg.azureClientSecret),
+						mailSenderEmail: cfg.mailSenderEmail,
+					}
+				: null,
+			memberCount: members?.n ?? 0,
+			features: resolveFeatureFlags(featureRows),
 		};
-	} catch (e) {
-		console.error("getTenantDetailAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+	});
 }
 
 // ─── Feature flags ────────────────────────────────────────────────────────────
@@ -289,10 +281,10 @@ export async function setTenantFeatureAction(
 	key: string,
 	enabled: boolean,
 ): Promise<ActionResult> {
-	try {
+	return asResult("setTenantFeatureAction", async () => {
 		const { userId } = await requireSuperAdmin();
 		if (!isFeatureKey(key)) {
-			return { success: false, error: `Unknown feature: ${key}` };
+			throw new ValidationError(`Unknown feature: ${key}`);
 		}
 
 		const [tenant] = await controlDb
@@ -301,7 +293,7 @@ export async function setTenantFeatureAction(
 			.where(eq(tenants.id, tenantId))
 			.limit(1);
 		if (!tenant) {
-			return { success: false, error: "Tenant not found" };
+			throw new NotFoundError(TENANT_NOT_FOUND);
 		}
 
 		// Other instances see the change within one config revalidation
@@ -316,14 +308,7 @@ export async function setTenantFeatureAction(
 				}),
 		]);
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
-		return { success: true };
-	} catch (e) {
-		console.error("setTenantFeatureAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+	});
 }
 
 // ─── Status ───────────────────────────────────────────────────────────────────
@@ -332,32 +317,25 @@ export async function setTenantStatusAction(
 	tenantId: string,
 	status: "active" | "suspended",
 ): Promise<ActionResult> {
-	try {
+	return asResult("setTenantStatusAction", async () => {
 		await requireSuperAdmin();
 		await commitTenantConfigChange(tenantId, [
 			controlDb.update(tenants).set({ status }).where(eq(tenants.id, tenantId)),
 		]);
 		revalidatePath("/superadmin");
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
-		return { success: true };
-	} catch (e) {
-		console.error("setTenantStatusAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+	});
 }
 
 export async function updateTenantDisplayNameAction(
 	tenantId: string,
 	displayName: string,
 ): Promise<ActionResult> {
-	try {
+	return asResult("updateTenantDisplayNameAction", async () => {
 		await requireSuperAdmin();
 		const trimmed = displayName.trim();
 		if (!trimmed) {
-			return { success: false, error: "Display name is required" };
+			throw new ValidationError("Display name is required");
 		}
 		await commitTenantConfigChange(tenantId, [
 			controlDb
@@ -366,14 +344,7 @@ export async function updateTenantDisplayNameAction(
 				.where(eq(tenants.id, tenantId)),
 		]);
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
-		return { success: true };
-	} catch (e) {
-		console.error("updateTenantDisplayNameAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+	});
 }
 
 // ─── Domains ──────────────────────────────────────────────────────────────────
@@ -383,14 +354,14 @@ export async function addTenantDomainAction(
 	hostname: string,
 	opts: { isPrimary?: boolean; isCustom?: boolean } = {},
 ): Promise<ActionResult> {
-	try {
+	return asResult("addTenantDomainAction", async () => {
 		await requireSuperAdmin();
 		const host = hostname.trim().toLowerCase();
 		if (!host) {
-			return { success: false, error: "Hostname is required" };
+			throw new ValidationError("Hostname is required");
 		}
 		if (!/^[a-z0-9.-]+$/.test(host)) {
-			return { success: false, error: "Invalid hostname characters" };
+			throw new ValidationError("Invalid hostname characters");
 		}
 
 		const [conflict] = await controlDb
@@ -399,13 +370,11 @@ export async function addTenantDomainAction(
 			.where(eq(tenantDomains.hostname, host))
 			.limit(1);
 		if (conflict) {
-			return {
-				success: false,
-				error:
-					conflict.tenantId === tenantId
-						? "Hostname already registered for this tenant"
-						: "Hostname already registered to another tenant",
-			};
+			throw new ConflictError(
+				conflict.tenantId === tenantId
+					? "Hostname already registered for this tenant"
+					: "Hostname already registered to another tenant",
+			);
 		}
 
 		await commitTenantConfigChange(tenantId, [
@@ -419,21 +388,14 @@ export async function addTenantDomainAction(
 		]);
 
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
-		return { success: true };
-	} catch (e) {
-		console.error("addTenantDomainAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+	});
 }
 
 export async function removeTenantDomainAction(
 	tenantId: string,
 	domainId: string,
 ): Promise<ActionResult> {
-	try {
+	return asResult("removeTenantDomainAction", async () => {
 		await requireSuperAdmin();
 		await commitTenantConfigChange(tenantId, [
 			controlDb
@@ -446,14 +408,7 @@ export async function removeTenantDomainAction(
 				),
 		]);
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
-		return { success: true };
-	} catch (e) {
-		console.error("removeTenantDomainAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+	});
 }
 
 // ─── Auth config ──────────────────────────────────────────────────────────────
@@ -470,7 +425,7 @@ export async function updateTenantAuthConfigAction(
 	tenantId: string,
 	patch: AuthConfigPatch,
 ): Promise<ActionResult> {
-	try {
+	return asResult("updateTenantAuthConfigAction", async () => {
 		await requireSuperAdmin();
 
 		const [existing] = await controlDb
@@ -521,12 +476,5 @@ export async function updateTenantAuthConfigAction(
 		}
 
 		revalidatePath(`/superadmin/tenants/${tenantId}`);
-		return { success: true };
-	} catch (e) {
-		console.error("updateTenantAuthConfigAction failed:", e);
-		return {
-			success: false,
-			error: e instanceof Error ? e.message : "Unknown error",
-		};
-	}
+	});
 }

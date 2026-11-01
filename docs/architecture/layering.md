@@ -167,8 +167,11 @@ src/server/domain/fuchsenladen/csv.ts        the period CSV layout
 - Reads that used to answer a signed-out caller or an outage with `[]`,
   zero totals or the empty payment details (orders, order summary, bills,
   items, periods) now throw; the pages show their error (#216).
-- `actions/fuchsenladen/orders.ts` only re-exports `getMyFuchsenOrders` and
-  `getMyFuchsenSummary` for the profile code that still imports them from
-  there. Delete it once the profile imports the module.
-- `actions/members/semesterbeitrag.ts` (phase 4) builds its scope with
-  `currentTenantScope()` for the Beitrag and Mahnung mails.
+- `actions/fuchsenladen/` and `actions/getUserName.ts` are gone; the
+  profile reads its Fuchsenladen cards from the module.
+- `actions/members/semesterbeitrag.ts` (phase 4) passes its action's scope
+  to the Beitrag and Mahnung mails.
+- Known gap: `sendTenantMail` (`lib/mailer.ts`) still picks the sending
+  mailbox and From name from the request host (`getCurrentTenant()`), not
+  from the scope. Every current caller runs in its tenant's request; a
+  caller without one (a cron job) would need the scope passed down.

@@ -97,7 +97,7 @@ export function BeitragRunDialog({
 				mahnungFee: num(mahnungFee),
 				dueDate,
 			});
-			if (res.success) {
+			if (res.ok) {
 				toast.success(
 					`Beitragslauf erstellt — ${res.data.chargesCreated} Mitglieder`,
 				);

@@ -1,11 +1,12 @@
 "use server";
 
 import { desc, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { roundToCent } from "~/lib/money";
-import { db } from "~/server/db";
 import { einnahmen } from "~/server/db/schema";
+import { defineAction } from "~/server/lib/define-action";
+import { NotFoundError } from "~/server/lib/domain-error";
+import { scopeOf, type TenantScope } from "~/server/lib/tenant-scope";
 import { EDIT_ROLES, requireRoles, TREASURY_ROLES } from "./_guards";
 
 const einnahmeSchema = z.object({
@@ -21,121 +22,79 @@ const einnahmeSchema = z.object({
 	incomeDate: z.date(),
 });
 
-export async function createEinnahme(input: {
-	kostenpunktId: string;
-	description: string;
-	amount: number;
-	incomeDate: Date;
-}) {
-	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
+/** The Kostenpunkt to book against, with the plan it belongs to. */
+async function bookableKostenpunkt({ db }: TenantScope, id: string) {
+	const kp = await db.query.kostenpunkte.findFirst({
+		where: (t, { eq }) => eq(t.id, id),
+		columns: { id: true, etaplanId: true },
+	});
+	if (!kp) {
+		throw new NotFoundError("Kostenpunkt nicht gefunden");
 	}
-
-	try {
-		const parsed = einnahmeSchema.parse(input);
-		const kp = await db.query.kostenpunkte.findFirst({
-			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
-			columns: { id: true, etaplanId: true },
-		});
-		if (!kp) {
-			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
-		}
-
-		await db.insert(einnahmen).values({
-			kostenpunktId: kp.id,
-			etaplanId: kp.etaplanId,
-			description: parsed.description,
-			amount: roundToCent(parsed.amount),
-			incomeDate: parsed.incomeDate,
-			bookedBy: guard.userId,
-		});
-
-		revalidatePath("/cc-kasse");
-		return { success: true as const };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error creating einnahme:", error);
-		return { success: false as const, error: "Fehler beim Buchen" };
-	}
+	return kp;
 }
 
-export async function updateEinnahme(
-	id: string,
-	input: {
-		kostenpunktId: string;
-		description: string;
-		amount: number;
-		incomeDate: Date;
+export const createEinnahme = defineAction(
+	{
+		roles: TREASURY_ROLES,
+		schema: z.tuple([einnahmeSchema]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Fehler beim Buchen",
 	},
-) {
-	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
+	async ([input], { tenant, user }) => {
+		const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
+		await tenant.db.insert(einnahmen).values({
+			kostenpunktId: kp.id,
+			etaplanId: kp.etaplanId,
+			description: input.description,
+			amount: roundToCent(input.amount),
+			incomeDate: input.incomeDate,
+			bookedBy: user.id,
+		});
+	},
+);
 
-	try {
-		const parsed = einnahmeSchema.parse(input);
-		const row = await db.query.einnahmen.findFirst({
+export const updateEinnahme = defineAction(
+	{
+		roles: TREASURY_ROLES,
+		schema: z.tuple([z.string(), einnahmeSchema]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([id, input], { tenant }) => {
+		const row = await tenant.db.query.einnahmen.findFirst({
 			where: (t, { eq }) => eq(t.id, id),
 			columns: { id: true },
 		});
 		if (!row) {
-			return { success: false as const, error: "Einnahme nicht gefunden" };
+			throw new NotFoundError("Einnahme nicht gefunden");
 		}
-		const kp = await db.query.kostenpunkte.findFirst({
-			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
-			columns: { id: true, etaplanId: true },
-		});
-		if (!kp) {
-			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
-		}
+		const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
 
-		await db
+		await tenant.db
 			.update(einnahmen)
 			.set({
 				kostenpunktId: kp.id,
 				etaplanId: kp.etaplanId,
-				description: parsed.description,
-				amount: roundToCent(parsed.amount),
-				incomeDate: parsed.incomeDate,
+				description: input.description,
+				amount: roundToCent(input.amount),
+				incomeDate: input.incomeDate,
 			})
 			.where(eq(einnahmen.id, id));
+	},
+);
 
-		revalidatePath("/cc-kasse");
-		return { success: true as const };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error updating einnahme:", error);
-		return { success: false as const, error: "Fehler beim Speichern" };
-	}
-}
-
-export async function deleteEinnahme(id: string) {
-	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	try {
-		await db.delete(einnahmen).where(eq(einnahmen.id, id));
-		revalidatePath("/cc-kasse");
-		return { success: true as const };
-	} catch (error) {
-		console.error("Error deleting einnahme:", error);
-		return { success: false as const, error: "Fehler beim Löschen" };
-	}
-}
+export const deleteEinnahme = defineAction(
+	{
+		roles: TREASURY_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Fehler beim Löschen",
+	},
+	async ([id], { tenant }) => {
+		await tenant.db.delete(einnahmen).where(eq(einnahmen.id, id));
+	},
+);
 
 export async function listEinnahmen(etaplanId: string) {
 	// Read access for all Etaplan editors; booking/editing is treasury-only.
@@ -144,6 +103,7 @@ export async function listEinnahmen(etaplanId: string) {
 		return [];
 	}
 
+	const { db } = await scopeOf(guard.tenantId);
 	return db.query.einnahmen.findMany({
 		where: (t, { eq }) => eq(t.etaplanId, etaplanId),
 		orderBy: (t) => [desc(t.incomeDate), desc(t.createdAt)],

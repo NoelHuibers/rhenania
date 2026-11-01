@@ -127,12 +127,12 @@ export function CreateChallengeForm({ onCreated }: CreateChallengeFormProps) {
 				drinkId: selectedDrinkId,
 				payment,
 			});
-			if (res.success) {
+			if (res.ok) {
 				toast.success("Herausforderung gesendet!");
 				reset();
 				onCreated?.();
 			} else {
-				toast.error(res.error || "Herausforderung fehlgeschlagen");
+				toast.error(res.error);
 			}
 		});
 	};

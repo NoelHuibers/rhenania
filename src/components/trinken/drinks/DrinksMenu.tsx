@@ -11,6 +11,7 @@ import {
 import { EmptyState } from "~/components/ui/empty-state";
 import { IconButton } from "~/components/ui/icon-button";
 import { statusClass } from "~/components/ui/status-badge";
+import type { BookingAccountOption } from "~/lib/booking-accounts";
 import {
 	createOrderGate,
 	orderToastMessage,
@@ -31,6 +32,8 @@ interface DrinksMenuProps {
 	markupPercent: number;
 	/** The member's most ordered drinks of the last 30 days. */
 	recentDrinkIds: string[];
+	/** The group accounts an order can be booked on. */
+	bookingAccounts: BookingAccountOption[];
 }
 
 /**
@@ -43,6 +46,7 @@ export function DrinksMenu({
 	drinks,
 	markupPercent,
 	recentDrinkIds,
+	bookingAccounts,
 }: DrinksMenuProps) {
 	const [gate] = useState(() => createOrderGate());
 	const [selectedBilling, setSelectedBilling] = useState<BillingOption>(null);
@@ -114,12 +118,12 @@ export function DrinksMenu({
 				total,
 				bookingFor: billing,
 			});
-			if (result.success) {
+			if (result.ok) {
 				toast.success(orderToastMessage(quantity, drink.name, total, billing), {
 					id: toastId,
 				});
 			} else {
-				rollback(result.error || "Ein Fehler ist aufgetreten.");
+				rollback(result.error);
 			}
 		} catch (error) {
 			console.error("Order error:", error);
@@ -185,6 +189,7 @@ export function DrinksMenu({
 						Getränke
 					</h2>
 					<BillingSelector
+						accounts={bookingAccounts}
 						selectedBilling={selectedBilling}
 						onBillingChange={setSelectedBilling}
 					/>

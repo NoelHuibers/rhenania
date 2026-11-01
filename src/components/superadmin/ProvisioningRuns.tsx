@@ -28,11 +28,11 @@ export function ProvisioningRuns({ runs }: { runs: UnfinishedProvisioning[] }) {
 				slug: run.slug,
 				displayName: run.displayName,
 			});
-			if (result.success) {
+			if (result.ok) {
 				toast.success(`Tenant '${run.slug}' created`);
 			} else {
 				toast.error("Provisioning stopped again", {
-					description: result.error ?? "Unknown error",
+					description: result.error,
 				});
 			}
 			router.refresh();
@@ -41,11 +41,11 @@ export function ProvisioningRuns({ runs }: { runs: UnfinishedProvisioning[] }) {
 	const abandon = (run: UnfinishedProvisioning) =>
 		startTransition(async () => {
 			const result = await abandonTenantProvisioningAction(run.slug);
-			if (result.success) {
+			if (result.ok) {
 				toast.success(`Provisioning of '${run.slug}' abandoned`);
 			} else {
 				toast.error("Could not abandon", {
-					description: result.error ?? "Unknown error",
+					description: result.error,
 				});
 			}
 			router.refresh();

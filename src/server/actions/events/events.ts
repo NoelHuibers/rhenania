@@ -1,28 +1,15 @@
 "use server";
 
 import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { db } from "~/server/db";
 import { eventRsvps, events } from "~/server/db/schema";
-import { ROLES, requireMember, requireRole } from "~/server/lib/authz";
+import { ROLES, requireMember } from "~/server/lib/authz";
+import { defineAction } from "~/server/lib/define-action";
 
 // Per-tenant configurable; valid values come from the tenant's
 // `event_type` table. Kept as `string` for type-level openness.
 export type EventType = string;
-
-export type EventInput = {
-	title: string;
-	description?: string;
-	date: Date;
-	endDate?: Date;
-	location?: string;
-	type: EventType;
-	isPublic: boolean;
-	rsvpDeadline?: Date | null;
-	maxAttendees?: number | null;
-	meetingUrl?: string | null;
-	createdBy?: string;
-};
 
 export async function getUpcomingEvents(limit?: number) {
 	await requireMember();
@@ -107,10 +94,31 @@ export async function getAllEvents() {
 	}
 }
 
-export async function createEvent(input: EventInput) {
-	await requireRole(ROLES.events);
-	try {
-		await db.insert(events).values({
+const eventInputSchema = z.object({
+	title: z.string(),
+	description: z.string().optional(),
+	date: z.date(),
+	endDate: z.date().optional(),
+	location: z.string().optional(),
+	type: z.string(),
+	isPublic: z.boolean(),
+	rsvpDeadline: z.date().nullable().optional(),
+	maxAttendees: z.number().nullable().optional(),
+	meetingUrl: z.string().nullable().optional(),
+	createdBy: z.string().optional(),
+});
+
+const EVENT_PAGES = ["/", "/semesterprogramm", "/admin/semesterprogramm"];
+
+export const createEvent = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([eventInputSchema]),
+		revalidate: EVENT_PAGES,
+		errorMessage: "Veranstaltung konnte nicht erstellt werden",
+	},
+	async ([input], { tenant }) => {
+		await tenant.db.insert(events).values({
 			title: input.title,
 			description: input.description,
 			date: input.date,
@@ -123,24 +131,18 @@ export async function createEvent(input: EventInput) {
 			meetingUrl: input.meetingUrl ?? null,
 			createdBy: input.createdBy,
 		});
+	},
+);
 
-		revalidatePath("/");
-		revalidatePath("/semesterprogramm");
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error creating event:", error);
-		return {
-			success: false,
-			error: "Veranstaltung konnte nicht erstellt werden",
-		};
-	}
-}
-
-export async function updateEvent(id: string, input: Partial<EventInput>) {
-	await requireRole(ROLES.events);
-	try {
-		await db
+export const updateEvent = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([z.string(), eventInputSchema.partial()]),
+		revalidate: EVENT_PAGES,
+		errorMessage: "Veranstaltung konnte nicht aktualisiert werden",
+	},
+	async ([id, input], { tenant }) => {
+		await tenant.db
 			.update(events)
 			.set({
 				...(input.title !== undefined && { title: input.title }),
@@ -163,34 +165,17 @@ export async function updateEvent(id: string, input: Partial<EventInput>) {
 				}),
 			})
 			.where(eq(events.id, id));
+	},
+);
 
-		revalidatePath("/");
-		revalidatePath("/semesterprogramm");
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error updating event:", error);
-		return {
-			success: false,
-			error: "Veranstaltung konnte nicht aktualisiert werden",
-		};
-	}
-}
-
-export async function deleteEvent(id: string) {
-	await requireRole(ROLES.events);
-	try {
-		await db.delete(events).where(eq(events.id, id));
-
-		revalidatePath("/");
-		revalidatePath("/semesterprogramm");
-		revalidatePath("/admin/semesterprogramm");
-		return { success: true };
-	} catch (error) {
-		console.error("Error deleting event:", error);
-		return {
-			success: false,
-			error: "Veranstaltung konnte nicht gelöscht werden",
-		};
-	}
-}
+export const deleteEvent = defineAction(
+	{
+		roles: ROLES.events,
+		schema: z.tuple([z.string()]),
+		revalidate: EVENT_PAGES,
+		errorMessage: "Veranstaltung konnte nicht gelöscht werden",
+	},
+	async ([id], { tenant }) => {
+		await tenant.db.delete(events).where(eq(events.id, id));
+	},
+);

@@ -36,7 +36,7 @@ describe("semester config", () => {
 			endDate: new Date("2027-02-14T00:00:00Z"),
 		});
 
-		expect(result).toEqual({ success: true });
+		expect(result).toEqual({ ok: true });
 		expect(await tenantDb().select().from(semesterConfig)).toHaveLength(1);
 		expect(await getSemesterConfig()).toMatchObject({
 			name: "Wintersemester 2026/27",

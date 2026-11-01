@@ -1,14 +1,19 @@
 "use server";
 
 import { and, desc, eq, type SQL } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { ibanSchema } from "~/lib/iban";
 import { roundToCent } from "~/lib/money";
-import { db } from "~/server/db";
 import { kostenerstattungen } from "~/server/db/schema";
 import { isTenantReceiptUrl } from "~/server/lib/blob-url";
+import { defineAction } from "~/server/lib/define-action";
+import {
+	ConflictError,
+	NotFoundError,
+	ValidationError,
+} from "~/server/lib/domain-error";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
+import { scopeOf, type TenantScope } from "~/server/lib/tenant-scope";
 import {
 	EDIT_ROLES,
 	requireAuth,
@@ -40,24 +45,39 @@ const receiptsSchema = z
 type Receipt = { url: string; name: string };
 
 const INVALID_RECEIPT = "Ungültiger Beleg";
+const REQUEST_NOT_FOUND = "Antrag nicht gefunden";
 
 /**
  * Receipts must be files uploaded to this Corps' receipt folder. Links already
  * stored on the row (`stored`) stay accepted, so older entries can still be
- * edited without re-uploading their receipts.
+ * edited without re-uploading their receipts. Throws otherwise.
  */
-async function receiptsAllowed(
+async function checkReceipts(
 	receipts: Receipt[] | undefined,
 	stored: Receipt[] | null = null,
-): Promise<boolean> {
+): Promise<void> {
 	if (!receipts?.length) {
-		return true;
+		return;
 	}
 	const { slug } = await requireCurrentTenant();
 	const kept = new Set(stored?.map((r) => r.url));
-	return receipts.every(
-		(r) => kept.has(r.url) || isTenantReceiptUrl(r.url, slug),
-	);
+	if (
+		!receipts.every((r) => kept.has(r.url) || isTenantReceiptUrl(r.url, slug))
+	) {
+		throw new ValidationError(INVALID_RECEIPT);
+	}
+}
+
+/** The Kostenpunkt to book against, with the plan it belongs to. */
+async function bookableKostenpunkt({ db }: TenantScope, id: string) {
+	const kp = await db.query.kostenpunkte.findFirst({
+		where: (t, { eq }) => eq(t.id, id),
+		columns: { id: true, etaplanId: true },
+	});
+	if (!kp) {
+		throw new NotFoundError("Kostenpunkt nicht gefunden");
+	}
+	return kp;
 }
 
 const submitSchema = z.object({
@@ -81,67 +101,38 @@ const submitSchema = z.object({
 
 // ─── Member: submit / list own / cancel ──────────────────────────────────────
 
-export async function submitReimbursement(input: {
-	kostenpunktId: string;
-	description: string;
-	amount: number;
-	recipientName: string;
-	iban: string;
-	receipts?: { url: string; name: string }[];
-	expenseDate?: Date;
-}) {
-	const guard = await requireAuth();
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
+export const submitReimbursement = defineAction(
+	{
+		schema: z.tuple([submitSchema]),
+		revalidate: ["/kostenerstattung", "/cc-kasse"],
+		errorMessage: "Fehler beim Einreichen",
+	},
+	async ([input], { tenant, user }) => {
+		await checkReceipts(input.receipts);
+		const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
 
-	try {
-		const parsed = submitSchema.parse(input);
-		if (!(await receiptsAllowed(parsed.receipts))) {
-			return { success: false as const, error: INVALID_RECEIPT };
-		}
-		const kp = await db.query.kostenpunkte.findFirst({
-			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
-			columns: { id: true, etaplanId: true },
-		});
-		if (!kp) {
-			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
-		}
-
-		await db.insert(kostenerstattungen).values({
+		await tenant.db.insert(kostenerstattungen).values({
 			kostenpunktId: kp.id,
 			etaplanId: kp.etaplanId,
 			source: "Antrag",
 			status: "Eingereicht",
-			description: parsed.description,
-			amount: roundToCent(parsed.amount),
-			submittedBy: guard.userId,
-			recipientName: parsed.recipientName,
-			iban: parsed.iban,
-			receipts: parsed.receipts ?? null,
-			expenseDate: parsed.expenseDate ?? new Date(),
+			description: input.description,
+			amount: roundToCent(input.amount),
+			submittedBy: user.id,
+			recipientName: input.recipientName,
+			iban: input.iban,
+			receipts: input.receipts ?? null,
+			expenseDate: input.expenseDate ?? tenant.now(),
 		});
-
-		revalidatePath("/kostenerstattung");
-		revalidatePath("/cc-kasse");
-		return { success: true as const };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error submitting reimbursement:", error);
-		return { success: false as const, error: "Fehler beim Einreichen" };
-	}
-}
+	},
+);
 
 export async function listMyReimbursements() {
 	const guard = await requireAuth();
 	if (!guard.ok) {
 		return [];
 	}
+	const { db } = await scopeOf(guard.tenantId);
 	return db.query.kostenerstattungen.findMany({
 		where: (t, { eq }) => eq(t.submittedBy, guard.userId),
 		orderBy: (t, { desc }) => [desc(t.createdAt)],
@@ -156,200 +147,158 @@ export type MyReimbursement = Awaited<
 	ReturnType<typeof listMyReimbursements>
 >[number];
 
-export async function cancelMyReimbursement(id: string) {
-	const guard = await requireAuth();
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
+export const cancelMyReimbursement = defineAction(
+	{
+		schema: z.tuple([z.string()]),
+		revalidate: ["/kostenerstattung"],
+		errorMessage: "Fehler beim Stornieren",
+	},
+	async ([id], { tenant, user }) => {
+		const row = await tenant.db.query.kostenerstattungen.findFirst({
+			where: (t, { eq }) => eq(t.id, id),
+			columns: { id: true, submittedBy: true, status: true },
+		});
+		if (!row || row.submittedBy !== user.id) {
+			throw new NotFoundError(REQUEST_NOT_FOUND);
+		}
+		if (row.status !== "Eingereicht") {
+			throw new ConflictError(
+				"Nur eingereichte Anträge können storniert werden",
+			);
+		}
 
-	const row = await db.query.kostenerstattungen.findFirst({
-		where: (t, { eq }) => eq(t.id, id),
-		columns: { id: true, submittedBy: true, status: true },
-	});
-	if (!row || row.submittedBy !== guard.userId) {
-		return { success: false as const, error: "Antrag nicht gefunden" };
-	}
-	if (row.status !== "Eingereicht") {
-		return {
-			success: false as const,
-			error: "Nur eingereichte Anträge können storniert werden",
-		};
-	}
-
-	await db.delete(kostenerstattungen).where(eq(kostenerstattungen.id, id));
-	revalidatePath("/kostenerstattung");
-	return { success: true as const };
-}
+		await tenant.db
+			.delete(kostenerstattungen)
+			.where(eq(kostenerstattungen.id, id));
+	},
+);
 
 // Member edits their own request — only while still "Eingereicht".
-export async function updateMyReimbursement(
-	id: string,
-	input: {
-		kostenpunktId: string;
-		description: string;
-		amount: number;
-		recipientName: string;
-		iban: string;
-		receipts?: { url: string; name: string }[];
+export const updateMyReimbursement = defineAction(
+	{
+		schema: z.tuple([z.string(), submitSchema]),
+		revalidate: ["/kostenerstattung", "/cc-kasse"],
+		errorMessage: "Fehler beim Speichern",
 	},
-) {
-	const guard = await requireAuth();
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	try {
-		const parsed = submitSchema.parse(input);
-		const row = await db.query.kostenerstattungen.findFirst({
+	async ([id, input], { tenant, user }) => {
+		const row = await tenant.db.query.kostenerstattungen.findFirst({
 			where: (t, { eq }) => eq(t.id, id),
 			columns: { id: true, submittedBy: true, status: true, receipts: true },
 		});
-		if (!row || row.submittedBy !== guard.userId) {
-			return { success: false as const, error: "Antrag nicht gefunden" };
+		if (!row || row.submittedBy !== user.id) {
+			throw new NotFoundError(REQUEST_NOT_FOUND);
 		}
 		if (row.status !== "Eingereicht") {
-			return {
-				success: false as const,
-				error: "Nur eingereichte Anträge können bearbeitet werden",
-			};
+			throw new ConflictError(
+				"Nur eingereichte Anträge können bearbeitet werden",
+			);
 		}
-		if (!(await receiptsAllowed(parsed.receipts, row.receipts))) {
-			return { success: false as const, error: INVALID_RECEIPT };
-		}
-		const kp = await db.query.kostenpunkte.findFirst({
-			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
-			columns: { id: true, etaplanId: true },
-		});
-		if (!kp) {
-			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
-		}
+		await checkReceipts(input.receipts, row.receipts);
+		const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
 
-		await db
+		await tenant.db
 			.update(kostenerstattungen)
 			.set({
 				kostenpunktId: kp.id,
 				etaplanId: kp.etaplanId,
-				description: parsed.description,
-				amount: roundToCent(parsed.amount),
-				recipientName: parsed.recipientName,
-				iban: parsed.iban,
-				receipts: parsed.receipts ?? null,
+				description: input.description,
+				amount: roundToCent(input.amount),
+				recipientName: input.recipientName,
+				iban: input.iban,
+				receipts: input.receipts ?? null,
 			})
 			.where(eq(kostenerstattungen.id, id));
-
-		revalidatePath("/kostenerstattung");
-		revalidatePath("/cc-kasse");
-		return { success: true as const };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error updating own reimbursement:", error);
-		return { success: false as const, error: "Fehler beim Speichern" };
-	}
-}
+	},
+);
 
 // ─── Treasury: approve / reject / pay / direct booking / queue ────────────────
 
-async function loadForTransition(id: string) {
-	return db.query.kostenerstattungen.findFirst({
+/** Checks that the request exists and may move on to `to`; throws otherwise. */
+async function checkTransition(
+	{ db }: TenantScope,
+	id: string,
+	to: ErstattungStatus,
+) {
+	const row = await db.query.kostenerstattungen.findFirst({
 		where: (t, { eq }) => eq(t.id, id),
 		columns: { id: true, status: true },
 	});
-}
-
-export async function approveReimbursement(id: string) {
-	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	const row = await loadForTransition(id);
 	if (!row) {
-		return { success: false as const, error: "Antrag nicht gefunden" };
+		throw new NotFoundError(REQUEST_NOT_FOUND);
 	}
-	if (!canTransition(row.status as ErstattungStatus, "Genehmigt")) {
-		return { success: false as const, error: "Ungültiger Statusübergang" };
+	if (!canTransition(row.status as ErstattungStatus, to)) {
+		throw new ConflictError("Ungültiger Statusübergang");
 	}
-
-	await db
-		.update(kostenerstattungen)
-		.set({
-			status: "Genehmigt",
-			approvedBy: guard.userId,
-			approvedAt: new Date(),
-		})
-		.where(eq(kostenerstattungen.id, id));
-	revalidatePath("/cc-kasse");
-	revalidatePath("/kostenerstattung");
-	return { success: true as const };
 }
 
-export async function rejectReimbursement(id: string, reason: string) {
-	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
+export const approveReimbursement = defineAction(
+	{
+		roles: TREASURY_ROLES,
+		schema: z.tuple([z.string()]),
+		revalidate: ["/cc-kasse", "/kostenerstattung"],
+		errorMessage: "Fehler beim Genehmigen",
+	},
+	async ([id], { tenant, user }) => {
+		await checkTransition(tenant, id, "Genehmigt");
+		await tenant.db
+			.update(kostenerstattungen)
+			.set({
+				status: "Genehmigt",
+				approvedBy: user.id,
+				approvedAt: tenant.now(),
+			})
+			.where(eq(kostenerstattungen.id, id));
+	},
+);
 
-	const trimmed = (reason ?? "").trim();
-	if (!trimmed) {
-		return { success: false as const, error: "Begründung ist erforderlich" };
-	}
+export const rejectReimbursement = defineAction(
+	{
+		roles: TREASURY_ROLES,
+		schema: z.tuple([z.string(), z.string().nullish()]),
+		revalidate: ["/cc-kasse", "/kostenerstattung"],
+		errorMessage: "Fehler beim Ablehnen",
+	},
+	async ([id, reason], { tenant, user }) => {
+		const trimmed = (reason ?? "").trim();
+		if (!trimmed) {
+			throw new ValidationError("Begründung ist erforderlich");
+		}
 
-	const row = await loadForTransition(id);
-	if (!row) {
-		return { success: false as const, error: "Antrag nicht gefunden" };
-	}
-	if (!canTransition(row.status as ErstattungStatus, "Abgelehnt")) {
-		return { success: false as const, error: "Ungültiger Statusübergang" };
-	}
+		await checkTransition(tenant, id, "Abgelehnt");
+		await tenant.db
+			.update(kostenerstattungen)
+			.set({
+				status: "Abgelehnt",
+				rejectionReason: trimmed.slice(0, 500),
+				rejectedBy: user.id,
+				rejectedAt: tenant.now(),
+			})
+			.where(eq(kostenerstattungen.id, id));
+	},
+);
 
-	await db
-		.update(kostenerstattungen)
-		.set({
-			status: "Abgelehnt",
-			rejectionReason: trimmed.slice(0, 500),
-			rejectedBy: guard.userId,
-			rejectedAt: new Date(),
-		})
-		.where(eq(kostenerstattungen.id, id));
-	revalidatePath("/cc-kasse");
-	revalidatePath("/kostenerstattung");
-	return { success: true as const };
-}
-
-export async function markReimbursementPaid(
-	id: string,
-	opts?: { paidAt?: Date },
-) {
-	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	const row = await loadForTransition(id);
-	if (!row) {
-		return { success: false as const, error: "Antrag nicht gefunden" };
-	}
-	if (!canTransition(row.status as ErstattungStatus, "Ausgezahlt")) {
-		return { success: false as const, error: "Ungültiger Statusübergang" };
-	}
-
-	await db
-		.update(kostenerstattungen)
-		.set({
-			status: "Ausgezahlt",
-			paidBy: guard.userId,
-			paidAt: opts?.paidAt ?? new Date(),
-		})
-		.where(eq(kostenerstattungen.id, id));
-	revalidatePath("/cc-kasse");
-	revalidatePath("/kostenerstattung");
-	return { success: true as const };
-}
+export const markReimbursementPaid = defineAction(
+	{
+		roles: TREASURY_ROLES,
+		schema: z.tuple([
+			z.string(),
+			z.object({ paidAt: z.date().optional() }).optional(),
+		]),
+		revalidate: ["/cc-kasse", "/kostenerstattung"],
+		errorMessage: "Fehler beim Auszahlen",
+	},
+	async ([id, opts], { tenant, user }) => {
+		await checkTransition(tenant, id, "Ausgezahlt");
+		await tenant.db
+			.update(kostenerstattungen)
+			.set({
+				status: "Ausgezahlt",
+				paidBy: user.id,
+				paidAt: opts?.paidAt ?? tenant.now(),
+			})
+			.where(eq(kostenerstattungen.id, id));
+	},
+);
 
 const directBookingSchema = z.object({
 	kostenpunktId: z.string().min(1, "Kostenpunkt ist erforderlich"),
@@ -361,135 +310,100 @@ const directBookingSchema = z.object({
 	expenseDate: z.date(),
 });
 
-export async function createDirectBooking(input: {
-	kostenpunktId: string;
-	description: string;
-	amount: number;
-	recipientName: string;
-	iban?: string | null;
-	receipts?: { url: string; name: string }[];
-	expenseDate: Date;
-}) {
-	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
+export const createDirectBooking = defineAction(
+	{
+		roles: TREASURY_ROLES,
+		schema: z.tuple([directBookingSchema]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Fehler beim Buchen",
+	},
+	async ([input], { tenant, user }) => {
+		await checkReceipts(input.receipts);
+		const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
 
-	try {
-		const parsed = directBookingSchema.parse(input);
-		if (!(await receiptsAllowed(parsed.receipts))) {
-			return { success: false as const, error: INVALID_RECEIPT };
-		}
-		const kp = await db.query.kostenpunkte.findFirst({
-			where: (t, { eq }) => eq(t.id, parsed.kostenpunktId),
-			columns: { id: true, etaplanId: true },
-		});
-		if (!kp) {
-			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
-		}
-
-		await db.insert(kostenerstattungen).values({
+		await tenant.db.insert(kostenerstattungen).values({
 			kostenpunktId: kp.id,
 			etaplanId: kp.etaplanId,
 			source: "Direktbuchung",
 			status: "Ausgezahlt",
-			description: parsed.description,
-			amount: roundToCent(parsed.amount),
+			description: input.description,
+			amount: roundToCent(input.amount),
 			submittedBy: null,
-			recipientName: parsed.recipientName,
-			iban: parsed.iban ?? null,
-			receipts: parsed.receipts ?? null,
-			expenseDate: parsed.expenseDate,
-			approvedBy: guard.userId,
-			approvedAt: parsed.expenseDate,
-			paidBy: guard.userId,
-			paidAt: parsed.expenseDate,
+			recipientName: input.recipientName,
+			iban: input.iban ?? null,
+			receipts: input.receipts ?? null,
+			expenseDate: input.expenseDate,
+			approvedBy: user.id,
+			approvedAt: input.expenseDate,
+			paidBy: user.id,
+			paidAt: input.expenseDate,
 		});
-
-		revalidatePath("/cc-kasse");
-		return { success: true as const };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error creating direct booking:", error);
-		return { success: false as const, error: "Fehler beim Buchen" };
-	}
-}
-
-export async function updateReimbursement(
-	id: string,
-	input: {
-		kostenpunktId?: string;
-		description?: string;
-		amount?: number;
-		recipientName?: string;
-		iban?: string | null;
-		expenseDate?: Date;
-		receipts?: { url: string; name: string }[];
 	},
-) {
-	const guard = await requireRoles(TREASURY_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
+);
 
-	const patch: Record<string, unknown> = {};
-	if (input.kostenpunktId !== undefined) {
-		const kp = await db.query.kostenpunkte.findFirst({
-			where: (t, { eq }) => eq(t.id, input.kostenpunktId as string),
-			columns: { id: true, etaplanId: true },
-		});
-		if (!kp) {
-			return { success: false as const, error: "Kostenpunkt nicht gefunden" };
-		}
-		patch.kostenpunktId = kp.id;
-		patch.etaplanId = kp.etaplanId;
-	}
-	if (input.description !== undefined) {
-		patch.description = input.description;
-	}
-	if (input.amount !== undefined) {
-		patch.amount = roundToCent(input.amount);
-	}
-	if (input.recipientName !== undefined) {
-		patch.recipientName = input.recipientName;
-	}
-	if (input.iban !== undefined) {
-		patch.iban = input.iban;
-	}
-	if (input.expenseDate !== undefined) {
-		patch.expenseDate = input.expenseDate;
-	}
-	if (input.receipts !== undefined) {
-		const parsed = receiptsSchema.safeParse(input.receipts);
-		const row = await db.query.kostenerstattungen.findFirst({
-			where: (t, { eq }) => eq(t.id, id),
-			columns: { receipts: true },
-		});
-		if (
-			!parsed.success ||
-			!(await receiptsAllowed(parsed.data, row?.receipts ?? null))
-		) {
-			return { success: false as const, error: INVALID_RECEIPT };
-		}
-		patch.receipts = parsed.data;
-	}
-	if (Object.keys(patch).length === 0) {
-		return { success: false as const, error: "Keine Änderungen" };
-	}
+// The receipts are checked in the body, so a malformed link answers
+// "Ungültiger Beleg" like a foreign one.
+const reimbursementPatchSchema = z.object({
+	kostenpunktId: z.string().optional(),
+	description: z.string().optional(),
+	amount: z.number().optional(),
+	recipientName: z.string().optional(),
+	iban: z.string().nullable().optional(),
+	expenseDate: z.date().optional(),
+	receipts: z.array(z.object({ url: z.string(), name: z.string() })).optional(),
+});
 
-	await db
-		.update(kostenerstattungen)
-		.set(patch)
-		.where(eq(kostenerstattungen.id, id));
-	revalidatePath("/cc-kasse");
-	revalidatePath("/kostenerstattung");
-	return { success: true as const };
-}
+export const updateReimbursement = defineAction(
+	{
+		roles: TREASURY_ROLES,
+		schema: z.tuple([z.string(), reimbursementPatchSchema]),
+		revalidate: ["/cc-kasse", "/kostenerstattung"],
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([id, input], { tenant }) => {
+		const patch: Partial<typeof kostenerstattungen.$inferInsert> = {};
+		if (input.kostenpunktId !== undefined) {
+			const kp = await bookableKostenpunkt(tenant, input.kostenpunktId);
+			patch.kostenpunktId = kp.id;
+			patch.etaplanId = kp.etaplanId;
+		}
+		if (input.description !== undefined) {
+			patch.description = input.description;
+		}
+		if (input.amount !== undefined) {
+			patch.amount = roundToCent(input.amount);
+		}
+		if (input.recipientName !== undefined) {
+			patch.recipientName = input.recipientName;
+		}
+		if (input.iban !== undefined) {
+			patch.iban = input.iban;
+		}
+		if (input.expenseDate !== undefined) {
+			patch.expenseDate = input.expenseDate;
+		}
+		if (input.receipts !== undefined) {
+			const parsed = receiptsSchema.safeParse(input.receipts);
+			if (!parsed.success) {
+				throw new ValidationError(INVALID_RECEIPT);
+			}
+			const row = await tenant.db.query.kostenerstattungen.findFirst({
+				where: (t, { eq }) => eq(t.id, id),
+				columns: { receipts: true },
+			});
+			await checkReceipts(parsed.data, row?.receipts ?? null);
+			patch.receipts = parsed.data;
+		}
+		if (Object.keys(patch).length === 0) {
+			throw new ValidationError("Keine Änderungen");
+		}
+
+		await tenant.db
+			.update(kostenerstattungen)
+			.set(patch)
+			.where(eq(kostenerstattungen.id, id));
+	},
+);
 
 export async function listReimbursementQueue(filter?: {
 	etaplanId?: string;
@@ -510,6 +424,7 @@ export async function listReimbursementQueue(filter?: {
 		conds.push(eq(kostenerstattungen.status, filter.status));
 	}
 
+	const { db } = await scopeOf(guard.tenantId);
 	return db.query.kostenerstattungen.findMany({
 		where: conds.length ? and(...conds) : undefined,
 		orderBy: (t) => [desc(t.createdAt)],

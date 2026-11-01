@@ -146,13 +146,15 @@ describe("exportEtaplanXlsx", () => {
 		const result = await exportEtaplanXlsx(plan.id);
 
 		expect(result).toMatchObject({
-			success: true,
-			fileName: "Etatplan_SS2026.xlsx",
+			ok: true,
+			data: { fileName: "Etatplan_SS2026.xlsx" },
 		});
-		if (!result.success) {
+		if (!result.ok) {
 			return;
 		}
-		const ws = (await loadWorkbook(result.base64)).getWorksheet(SHEET_NAME);
+		const ws = (await loadWorkbook(result.data.base64)).getWorksheet(
+			SHEET_NAME,
+		);
 		if (!ws) {
 			throw new Error("sheet missing");
 		}
@@ -206,10 +208,12 @@ describe("exportEtaplanXlsx", () => {
 		});
 
 		const result = await exportEtaplanXlsx(plan.id);
-		if (!result.success) {
+		if (!result.ok) {
 			throw new Error(result.error);
 		}
-		const ws = (await loadWorkbook(result.base64)).getWorksheet(SHEET_NAME);
+		const ws = (await loadWorkbook(result.data.base64)).getWorksheet(
+			SHEET_NAME,
+		);
 		if (!ws) {
 			throw new Error("sheet missing");
 		}
@@ -239,8 +243,11 @@ describe("exportEtaplanXlsx", () => {
 
 		const target = await createEtaplan({ semesterType: "WS", year: 2027 });
 		expect(
-			await importEtaplanXlsx({ etaplanId: target.id, base64: result.base64 }),
-		).toMatchObject({ success: true });
+			await importEtaplanXlsx({
+				etaplanId: target.id,
+				base64: result.data.base64,
+			}),
+		).toMatchObject({ ok: true });
 		expect(await snapshot(target.id)).toMatchObject([
 			{ category: "@Kneipen", name: '=HYPERLINK("http://x","Klick")' },
 			{ category: "Haus", name: "-Putzen" },
@@ -250,8 +257,9 @@ describe("exportEtaplanXlsx", () => {
 	test("reports an unknown plan", async () => {
 		await setup();
 		expect(await exportEtaplanXlsx("missing")).toEqual({
-			success: false,
+			ok: false,
 			error: "Etatplan nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });
@@ -285,22 +293,24 @@ describe("importEtaplanXlsx", () => {
 		});
 		const target = await createEtaplan();
 		const exported = await exportEtaplanXlsx(source.id);
-		if (!exported.success) {
+		if (!exported.ok) {
 			throw new Error(exported.error);
 		}
 
 		const result = await importEtaplanXlsx({
 			etaplanId: target.id,
-			base64: exported.base64,
+			base64: exported.data.base64,
 		});
 
 		expect(result).toMatchObject({
-			success: true,
-			created: 3,
-			updated: 0,
-			unchanged: 0,
-			errors: [],
-			note: undefined,
+			ok: true,
+			data: {
+				created: 3,
+				updated: 0,
+				unchanged: 0,
+				errors: [],
+				note: undefined,
+			},
 		});
 		expect(await snapshot(target.id)).toEqual(await snapshot(source.id));
 	});
@@ -318,11 +328,14 @@ describe("importEtaplanXlsx", () => {
 		});
 		const target = await createEtaplan();
 		const exported = await exportEtaplanXlsx(source.id);
-		if (!exported.success) {
+		if (!exported.ok) {
 			throw new Error(exported.error);
 		}
 
-		await importEtaplanXlsx({ etaplanId: target.id, base64: exported.base64 });
+		await importEtaplanXlsx({
+			etaplanId: target.id,
+			base64: exported.data.base64,
+		});
 
 		expect(await snapshot(target.id)).toEqual(await snapshot(source.id));
 	});
@@ -355,11 +368,13 @@ describe("importEtaplanXlsx", () => {
 		const result = await importEtaplanXlsx({ etaplanId: plan.id, base64 });
 
 		expect(result).toMatchObject({
-			success: true,
-			created: 1,
-			updated: 1,
-			unchanged: 1,
-			note: "1 bestehende Kostenpunkte waren nicht in der Datei und wurden beibehalten.",
+			ok: true,
+			data: {
+				created: 1,
+				updated: 1,
+				unchanged: 1,
+				note: "1 bestehende Kostenpunkte waren nicht in der Datei und wurden beibehalten.",
+			},
 		});
 		const [updated] = await tenantDb()
 			.select()
@@ -402,7 +417,7 @@ describe("importEtaplanXlsx", () => {
 
 		const result = await importEtaplanXlsx({ etaplanId: plan.id, base64 });
 
-		expect(result).toMatchObject({ success: true, created: 2 });
+		expect(result).toMatchObject({ ok: true, data: { created: 2 } });
 		expect(await snapshot(plan.id)).toEqual([
 			{
 				category: "Kneipen",
@@ -446,7 +461,7 @@ describe("importEtaplanXlsx", () => {
 			base64: await toBase64(wb),
 		});
 
-		expect(result).toMatchObject({ success: true, created: 1 });
+		expect(result).toMatchObject({ ok: true, data: { created: 1 } });
 		expect(await snapshot(plan.id)).toEqual([
 			expect.objectContaining({
 				name: "Kneipe",
@@ -471,15 +486,20 @@ describe("importEtaplanXlsx", () => {
 				base64: await sheet([["Summe SS2026"]]),
 			}),
 		).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Kostenpunkte in der Datei gefunden",
+			code: "INVALID_INPUT",
 		});
 		expect(
 			await importEtaplanXlsx({
 				etaplanId: "missing",
 				base64: await sheet([["X", null, null, 1]]),
 			}),
-		).toEqual({ success: false, error: "Etatplan nicht gefunden" });
+		).toEqual({
+			ok: false,
+			error: "Etatplan nicht gefunden",
+			code: "NOT_FOUND",
+		});
 		expect(await tenantDb().select().from(kostenpunkte)).toHaveLength(0);
 	});
 
@@ -492,7 +512,11 @@ describe("importEtaplanXlsx", () => {
 			base64: Buffer.from("not a workbook").toString("base64"),
 		});
 
-		expect(result).toEqual({ success: false, error: "Import fehlgeschlagen" });
+		expect(result).toEqual({
+			ok: false,
+			error: "Import fehlgeschlagen",
+			code: "INTERNAL",
+		});
 		expect(await tenantDb().select().from(kostenpunkte)).toHaveLength(0);
 	});
 });

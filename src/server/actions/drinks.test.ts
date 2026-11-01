@@ -63,13 +63,10 @@ describe("addDrink", () => {
 			isCurrentlyAvailable: false,
 		});
 
-		expect(result).toMatchObject({
-			success: true,
-			message: "Getränk erfolgreich hinzugefügt",
-		});
+		expect(result).toMatchObject({ ok: true });
 		expect(await tenantDb().select().from(drinks)).toEqual([
 			expect.objectContaining({
-				id: result.data?.id,
+				id: result.ok ? result.data?.id : undefined,
 				name: "Kölsch",
 				price: 1.2,
 				volume: 0.33,
@@ -87,7 +84,7 @@ describe("addDrink", () => {
 			isCurrentlyAvailable: true,
 		});
 
-		expect(result.data).toMatchObject({
+		expect(result.ok && result.data).toMatchObject({
 			volume: null,
 			kastengroesse: null,
 			picture: null,
@@ -107,18 +104,16 @@ describe("addDrink", () => {
 		[
 			"an invalid picture URL",
 			{ name: "Pils", price: 1, pictureUrl: "not a url" },
-			undefined,
+			"Ungültige Bild-Adresse",
 		],
 	])("rejects %s and writes nothing", async (_label, input, message) => {
 		const result = await addDrink({ isCurrentlyAvailable: true, ...input });
 
-		expect(result).toMatchObject({
-			success: false,
-			error: "Validierungsfehler",
+		expect(result).toEqual({
+			ok: false,
+			error: message,
+			code: "INVALID_INPUT",
 		});
-		if (message) {
-			expect(result.details?.map((d) => d.message)).toContain(message);
-		}
 		expect(await tenantDb().select().from(drinks)).toHaveLength(0);
 	});
 });
@@ -129,7 +124,7 @@ describe("updateDrink", () => {
 
 		const result = await updateDrink(drink.id, { price: 1.4, volume: 0.5 });
 
-		expect(result).toMatchObject({ success: true });
+		expect(result).toMatchObject({ ok: true });
 		const row = await drinkRow(drink.id);
 		expect(row).toMatchObject({ name: "Pils", price: 1.4, volume: 0.5 });
 		expect(row?.updatedAt).toBeInstanceOf(Date);
@@ -139,20 +134,23 @@ describe("updateDrink", () => {
 		const drink = await createDrink({ price: 1.2 });
 
 		expect(await updateDrink(drink.id, {})).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Daten zum Aktualisieren angegeben",
+			code: "INVALID_INPUT",
 		});
-		expect(await updateDrink(drink.id, { price: -1 })).toMatchObject({
-			success: false,
-			error: "Validierungsfehler",
+		expect(await updateDrink(drink.id, { price: -1 })).toEqual({
+			ok: false,
+			error: "Preis muss positiv sein",
+			code: "INVALID_INPUT",
 		});
 		expect((await drinkRow(drink.id))?.price).toBe(1.2);
 	});
 
 	test("reports unknown drinks", async () => {
 		expect(await updateDrink("deleted-drink", { price: 2 })).toEqual({
-			success: false,
+			ok: false,
 			error: "Getränk nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 
@@ -183,7 +181,7 @@ describe("updateDrink", () => {
 
 		const result = await updateDrink(drink.id, { pictureUrl: NEW_PICTURE });
 
-		expect(result.success).toBe(true);
+		expect(result.ok).toBe(true);
 		expect((await drinkRow(drink.id))?.picture).toBe(NEW_PICTURE);
 	});
 });
@@ -193,7 +191,7 @@ describe("deleteDrink", () => {
 		const drink = await createDrinkWithPicture();
 		const other = await createDrink();
 
-		expect((await deleteDrink(drink.id)).success).toBe(true);
+		expect((await deleteDrink(drink.id)).ok).toBe(true);
 
 		expect(del).toHaveBeenCalledExactlyOnceWith(OLD_PICTURE);
 		expect((await tenantDb().select().from(drinks)).map((d) => d.id)).toEqual([
@@ -205,7 +203,7 @@ describe("deleteDrink", () => {
 		const drink = await createDrinkWithPicture();
 		vi.mocked(del).mockRejectedValueOnce(new Error("blob store down"));
 
-		expect((await deleteDrink(drink.id)).success).toBe(true);
+		expect((await deleteDrink(drink.id)).ok).toBe(true);
 		expect(await drinkRow(drink.id)).toBeUndefined();
 	});
 
@@ -214,8 +212,9 @@ describe("deleteDrink", () => {
 		await createOrderRow({ drink });
 
 		expect(await deleteDrink(drink.id)).toEqual({
-			success: false,
+			ok: false,
 			error: IN_USE,
+			code: "DRINK_IN_USE",
 		});
 		expect(await drinkRow(drink.id)).toBeDefined();
 	});
@@ -225,8 +224,9 @@ describe("deleteDrink", () => {
 		await createInventory({ items: [{ drink, countedStock: 3 }] });
 
 		expect(await deleteDrink(drink.id)).toEqual({
-			success: false,
+			ok: false,
 			error: IN_USE,
+			code: "DRINK_IN_USE",
 		});
 		expect(await drinkRow(drink.id)).toBeDefined();
 	});
@@ -248,15 +248,16 @@ describe("deleteDrink", () => {
 		});
 
 		expect(await deleteDrink(drink.id)).toEqual({
-			success: false,
+			ok: false,
 			error: "Fehler beim Löschen des Getränks",
+			code: "INTERNAL",
 		});
 		expect(del).not.toHaveBeenCalled();
 		expect((await drinkRow(drink.id))?.picture).toBe(OLD_PICTURE);
 	});
 
 	test("succeeds without touching blob storage for an unknown drink", async () => {
-		expect((await deleteDrink("deleted-drink")).success).toBe(true);
+		expect((await deleteDrink("deleted-drink")).ok).toBe(true);
 		expect(del).not.toHaveBeenCalled();
 	});
 });
@@ -266,7 +267,7 @@ describe("toggleDrinkAvailability", () => {
 		const drink = await createDrink({ available: true });
 
 		const first = await toggleDrinkAvailability(drink.id);
-		expect(first.data?.isCurrentlyAvailable).toBe(false);
+		expect(first.ok && first.data?.isCurrentlyAvailable).toBe(false);
 		expect((await drinkRow(drink.id))?.isCurrentlyAvailable).toBe(false);
 
 		await toggleDrinkAvailability(drink.id);
@@ -275,8 +276,9 @@ describe("toggleDrinkAvailability", () => {
 
 	test("reports unknown drinks", async () => {
 		expect(await toggleDrinkAvailability("deleted-drink")).toEqual({
-			success: false,
+			ok: false,
 			error: "Getränk nicht gefunden",
+			code: "NOT_FOUND",
 		});
 	});
 });

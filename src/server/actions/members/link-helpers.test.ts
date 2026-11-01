@@ -115,10 +115,8 @@ describe("relinkMemberAccounts", () => {
 		await createMember({ email: "shared@example.test" });
 
 		expect(await relinkMemberAccounts()).toEqual({
-			success: true,
-			linked: 1,
-			ambiguous: 2,
-			linkedNames: ["Max Muster"],
+			ok: true,
+			data: { linked: 1, ambiguous: 2, linkedNames: ["Max Muster"] },
 		});
 		expect(await userIdOf(mMax.id)).toBe(max.id);
 	});
@@ -130,8 +128,9 @@ describe("relinkMemberAccounts", () => {
 		const m = await createMember({ email: "max@example.test" });
 
 		expect(await relinkMemberAccounts()).toEqual({
-			success: false,
+			ok: false,
 			error: "Keine Berechtigung",
+			code: "FORBIDDEN",
 		});
 		expect(await userIdOf(m.id)).toBeNull();
 	});

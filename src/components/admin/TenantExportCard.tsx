@@ -16,25 +16,23 @@ import { ConfirmAction } from "~/components/ui/confirm-action";
 import { formatDateTime } from "~/lib/format";
 import {
 	exportTenantData,
-	type TenantExportResult,
+	type TenantExport,
 } from "~/server/actions/admin/export";
-
-type Done = Extract<TenantExportResult, { success: true }>;
 
 const count = (n: number) => n.toLocaleString("de-DE");
 
 /** "Alle Daten exportieren": builds the ZIP and shows its download link. */
 export function TenantExportCard() {
 	const [isPending, startTransition] = useTransition();
-	const [result, setResult] = useState<Done | null>(null);
+	const [result, setResult] = useState<TenantExport | null>(null);
 
 	const runExport = () => {
 		setResult(null);
 		startTransition(async () => {
 			try {
 				const res = await exportTenantData();
-				if (res.success) {
-					setResult(res);
+				if (res.ok) {
+					setResult(res.data);
 					toast.success("Export fertig", {
 						description: "Der Download-Link steht bereit.",
 					});

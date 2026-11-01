@@ -33,13 +33,13 @@ export function DomainsSection({
 			const r = await addTenantDomainAction(tenantId, hostname, {
 				isPrimary,
 			});
-			if (r.success) {
+			if (r.ok) {
 				toast.success(`Added ${hostname}`);
 				setHostname("");
 				setIsPrimary(false);
 				onDone();
 			} else {
-				toast.error(r.error ?? "Failed to add domain");
+				toast.error(r.error);
 			}
 		});
 	};
@@ -47,11 +47,11 @@ export function DomainsSection({
 	const remove = (id: string, host: string) => {
 		startTransition(async () => {
 			const r = await removeTenantDomainAction(tenantId, id);
-			if (r.success) {
+			if (r.ok) {
 				toast.success(`Removed ${host}`);
 				onDone();
 			} else {
-				toast.error(r.error ?? "Failed to remove domain");
+				toast.error(r.error);
 			}
 		});
 	};

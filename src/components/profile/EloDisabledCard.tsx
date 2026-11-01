@@ -27,11 +27,11 @@ export function EloDisabledCard() {
 					onClick={() =>
 						startTransition(async () => {
 							const res = await setEloPreferenceAction({ enabled: true });
-							if ("success" in res && res.success) {
+							if (res.ok) {
 								toast.success("Elo wieder aktiviert");
 								window.location.reload();
 							} else {
-								toast.error("Aktion fehlgeschlagen");
+								toast.error(res.error);
 							}
 						})
 					}

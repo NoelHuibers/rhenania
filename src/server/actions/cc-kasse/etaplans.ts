@@ -1,12 +1,13 @@
 "use server";
 
 import { desc, eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { db } from "~/server/db";
 import { etaplans } from "~/server/db/schema";
-import { requireMember } from "~/server/lib/authz";
-import { EDIT_ROLES, requireRoles } from "./_guards";
+import { requireCaller } from "~/server/lib/authz";
+import { defineAction } from "~/server/lib/define-action";
+import { NotFoundError } from "~/server/lib/domain-error";
+import { scopeOf } from "~/server/lib/tenant-scope";
+import { EDIT_ROLES } from "./_guards";
 
 export type Etaplan = typeof etaplans.$inferSelect;
 
@@ -24,109 +25,72 @@ const baseSchema = z.object({
 	notes: z.string().max(1000).nullable().optional(),
 });
 
-export async function createEtaplan(input: {
-	name: string;
-	semesterType: "SS" | "WS";
-	year: number;
-	startDate?: Date | null;
-	endDate?: Date | null;
-	status?: "Aktiv" | "Abgeschlossen";
-	notes?: string | null;
-}) {
-	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
-
-	try {
-		const parsed = baseSchema.parse(input);
-
+/**
+ * Creates a plan. A second plan for the same semester is allowed, but the
+ * answer carries a warning about it.
+ */
+export const createEtaplan = defineAction(
+	{
+		roles: EDIT_ROLES,
+		schema: z.tuple([baseSchema]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Fehler beim Erstellen",
+	},
+	async ([input], { tenant, user }) => {
+		const { db } = tenant;
 		const duplicate = await db.query.etaplans.findFirst({
 			where: (t, { and, eq }) =>
-				and(eq(t.semesterType, parsed.semesterType), eq(t.year, parsed.year)),
+				and(eq(t.semesterType, input.semesterType), eq(t.year, input.year)),
 			columns: { id: true },
 		});
 
 		const [row] = await db
 			.insert(etaplans)
 			.values({
-				name: parsed.name,
-				semesterType: parsed.semesterType,
-				year: parsed.year,
-				startDate: parsed.startDate ?? null,
-				endDate: parsed.endDate ?? null,
-				status: parsed.status ?? "Aktiv",
-				notes: parsed.notes ?? null,
-				createdBy: guard.userId,
+				name: input.name,
+				semesterType: input.semesterType,
+				year: input.year,
+				startDate: input.startDate ?? null,
+				endDate: input.endDate ?? null,
+				status: input.status ?? "Aktiv",
+				notes: input.notes ?? null,
+				createdBy: user.id,
 			})
 			.returning();
 
-		revalidatePath("/cc-kasse");
 		return {
-			success: true as const,
-			data: row,
+			etaplan: row,
 			warning: duplicate
-				? `Es existiert bereits ein Etatplan für ${parsed.semesterType} ${parsed.year}.`
+				? `Es existiert bereits ein Etatplan für ${input.semesterType} ${input.year}.`
 				: undefined,
 		};
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-				details: error.issues,
-			};
-		}
-		console.error("Error creating etaplan:", error);
-		return { success: false as const, error: "Fehler beim Erstellen" };
-	}
-}
-
-export async function updateEtaplan(
-	id: string,
-	input: {
-		name?: string;
-		semesterType?: "SS" | "WS";
-		year?: number;
-		startDate?: Date | null;
-		endDate?: Date | null;
-		status?: "Aktiv" | "Abgeschlossen";
-		notes?: string | null;
 	},
-) {
-	const guard = await requireRoles(EDIT_ROLES);
-	if (!guard.ok) {
-		return { success: false as const, error: guard.error };
-	}
+);
 
-	try {
-		const parsed = baseSchema.partial().parse(input);
-		const [row] = await db
+export const updateEtaplan = defineAction(
+	{
+		roles: EDIT_ROLES,
+		schema: z.tuple([z.string(), baseSchema.partial()]),
+		revalidate: ["/cc-kasse"],
+		errorMessage: "Fehler beim Speichern",
+	},
+	async ([id, patch], { tenant }) => {
+		const [row] = await tenant.db
 			.update(etaplans)
-			.set(parsed)
+			.set(patch)
 			.where(eq(etaplans.id, id))
 			.returning();
 		if (!row) {
-			return { success: false as const, error: "Etatplan nicht gefunden" };
+			throw new NotFoundError("Etatplan nicht gefunden");
 		}
-
-		revalidatePath("/cc-kasse");
-		return { success: true as const, data: row };
-	} catch (error) {
-		if (error instanceof z.ZodError) {
-			return {
-				success: false as const,
-				error: error.issues[0]?.message ?? "Validierungsfehler",
-			};
-		}
-		console.error("Error updating etaplan:", error);
-		return { success: false as const, error: "Fehler beim Speichern" };
-	}
-}
+		return { etaplan: row };
+	},
+);
 
 export async function listEtaplans(): Promise<Etaplan[]> {
-	await requireMember();
+	const { tenantId } = await requireCaller();
 	try {
+		const { db } = await scopeOf(tenantId);
 		return await db
 			.select()
 			.from(etaplans)
@@ -142,8 +106,9 @@ export async function listEtaplans(): Promise<Etaplan[]> {
 }
 
 export async function getEtaplanById(id: string): Promise<Etaplan | null> {
-	await requireMember();
+	const { tenantId } = await requireCaller();
 	try {
+		const { db } = await scopeOf(tenantId);
 		const row = await db.query.etaplans.findFirst({
 			where: (t, { eq }) => eq(t.id, id),
 		});
@@ -155,8 +120,9 @@ export async function getEtaplanById(id: string): Promise<Etaplan | null> {
 }
 
 export async function getActiveEtaplan(): Promise<Etaplan | null> {
-	await requireMember();
+	const { tenantId } = await requireCaller();
 	try {
+		const { db } = await scopeOf(tenantId);
 		const [row] = await db
 			.select()
 			.from(etaplans)

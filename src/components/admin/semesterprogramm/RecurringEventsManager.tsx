@@ -3,6 +3,7 @@
 import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -138,8 +139,8 @@ export function RecurringEventsManager({
 			: await createRecurringEvent(input);
 
 		setLoading(false);
-		if (!result.success) {
-			setError(result.error ?? "Fehler aufgetreten");
+		if (!result.ok) {
+			setError(result.error);
 			return;
 		}
 		closeForm();
@@ -150,11 +151,12 @@ export function RecurringEventsManager({
 		setGenerating(id);
 		const result = await generateInstances(id);
 		setGenerating(null);
-		if (result.success) {
+		if (result.ok) {
+			const { created } = result.data;
 			const msg =
-				result.created === 0
+				created === 0
 					? "Alle Termine bereits vorhanden"
-					: `${result.created} Termine erstellt`;
+					: `${created} Termine erstellt`;
 			setGenerateResult((prev) => ({ ...prev, [id]: msg }));
 			router.refresh();
 			setTimeout(
@@ -164,13 +166,17 @@ export function RecurringEventsManager({
 		} else {
 			setGenerateResult((prev) => ({
 				...prev,
-				[id]: result.error ?? "Fehler",
+				[id]: result.error,
 			}));
 		}
 	}
 
 	async function handleToggleActive(id: string) {
-		await toggleRecurringEventActive(id);
+		const result = await toggleRecurringEventActive(id);
+		if (!result.ok) {
+			toast.error(result.error);
+			return;
+		}
 		router.refresh();
 	}
 
@@ -178,8 +184,12 @@ export function RecurringEventsManager({
 		if (!deleteId) {
 			return;
 		}
-		await deleteRecurringEvent(deleteId);
+		const result = await deleteRecurringEvent(deleteId);
 		setDeleteId(null);
+		if (!result.ok) {
+			toast.error(result.error);
+			return;
+		}
 		router.refresh();
 	}
 

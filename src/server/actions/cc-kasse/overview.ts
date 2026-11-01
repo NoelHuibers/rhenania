@@ -2,7 +2,6 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { roundToCent } from "~/lib/money";
-import { db } from "~/server/db";
 import {
 	einnahmen,
 	kostenerstattungen,
@@ -10,6 +9,7 @@ import {
 	semesterbeitragCharges,
 	semesterbeitragRuns,
 } from "~/server/db/schema";
+import { scopeOf } from "~/server/lib/tenant-scope";
 import { EDIT_ROLES, requireRoles } from "./_guards";
 
 export type BudgetStatus = "on-track" | "warning" | "over-budget";
@@ -96,6 +96,7 @@ export async function getEtaplanOverview(
 	}
 
 	try {
+		const { db } = await scopeOf(guard.tenantId);
 		const kps = await db
 			.select({
 				id: kostenpunkte.id,

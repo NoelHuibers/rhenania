@@ -67,7 +67,13 @@ export function EditUserDialog({
 				if (emailChanged) {
 					data.email = email.trim();
 				}
-				await updateUser(user.id, data);
+				const result = await updateUser(user.id, data);
+				if (!result.ok) {
+					toast.error("Fehler beim Aktualisieren", {
+						description: result.error,
+					});
+					return;
+				}
 				onUserUpdated(user.id, name.trim(), email.trim());
 				onOpenChange(false);
 				toast.success("Benutzer aktualisiert");

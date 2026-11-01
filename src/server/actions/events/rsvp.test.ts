@@ -52,7 +52,7 @@ describe("setRsvp", () => {
 		signInAs(me);
 
 		expect(await setRsvp(event.id, "maybe", "komme später")).toEqual({
-			success: true,
+			ok: true,
 		});
 		expect(await storedRsvp(event.id, me.id)).toEqual({
 			status: "maybe",
@@ -79,16 +79,19 @@ describe("setRsvp", () => {
 		});
 
 		expect(await setRsvp("missing", "yes")).toMatchObject({
-			error: "event_not_found",
+			ok: false,
+			code: "NOT_FOUND",
 		});
 		expect(await setRsvp(cancelled.id, "yes")).toMatchObject({
-			error: "event_cancelled",
+			ok: false,
+			code: "EVENT_CANCELLED",
 		});
-		expect(await setRsvp(closed.id, "yes")).toMatchObject({
-			error: "deadline_passed",
-			message: "Die Antwortfrist ist abgelaufen.",
+		expect(await setRsvp(closed.id, "yes")).toEqual({
+			ok: false,
+			error: "Die Antwortfrist ist abgelaufen.",
+			code: "DEADLINE_PASSED",
 		});
-		expect(await setRsvp(open.id, "yes")).toEqual({ success: true });
+		expect(await setRsvp(open.id, "yes")).toEqual({ ok: true });
 		expect(await tenantDb().select().from(eventRsvps)).toHaveLength(1);
 	});
 
@@ -97,11 +100,12 @@ describe("setRsvp", () => {
 		const event = await createEvent();
 
 		expect(await setRsvp(event.id, "yes")).toMatchObject({
-			success: false,
-			error: "unauthenticated",
+			ok: false,
+			code: "UNAUTHENTICATED",
 		});
 		expect(await removeRsvp(event.id)).toMatchObject({
-			error: "unauthenticated",
+			ok: false,
+			code: "UNAUTHENTICATED",
 		});
 	});
 
@@ -114,19 +118,21 @@ describe("setRsvp", () => {
 		await createRsvp({ event, user: c, status: "maybe" });
 
 		signInAs(c);
-		expect(await setRsvp(event.id, "yes")).toMatchObject({
-			error: "capacity_full",
+		expect(await setRsvp(event.id, "yes")).toEqual({
+			ok: false,
+			error: "Die Veranstaltung ist bereits voll.",
+			code: "CAPACITY_FULL",
 		});
-		expect(await setRsvp(event.id, "no")).toEqual({ success: true });
+		expect(await setRsvp(event.id, "no")).toEqual({ ok: true });
 
 		signInAs(a);
 		expect(await setRsvp(event.id, "yes", "bringe Wein mit")).toEqual({
-			success: true,
+			ok: true,
 		});
 		await setRsvp(event.id, "no");
 
 		signInAs(c);
-		expect(await setRsvp(event.id, "yes")).toEqual({ success: true });
+		expect(await setRsvp(event.id, "yes")).toEqual({ ok: true });
 	});
 
 	test("simultaneous yes answers never exceed the attendee limit (#147)", async () => {
@@ -142,9 +148,9 @@ describe("setRsvp", () => {
 		const second = setRsvp(event.id, "yes");
 		const results = await Promise.all([first, second]);
 
-		expect(results.filter((r) => r.success)).toHaveLength(1);
-		expect(results.filter((r) => !r.success)).toEqual([
-			expect.objectContaining({ error: "capacity_full" }),
+		expect(results.filter((r) => r.ok)).toHaveLength(1);
+		expect(results.filter((r) => !r.ok)).toEqual([
+			expect.objectContaining({ code: "CAPACITY_FULL" }),
 		]);
 		const counts = await getRsvpCountsForEvents([event.id]);
 		expect(counts.get(event.id)?.yes).toBe(1);
@@ -157,7 +163,7 @@ describe("setRsvp", () => {
 		signInAs(me);
 
 		expect(await setRsvp(event.id, "yes", "mit Begleitung")).toEqual({
-			success: true,
+			ok: true,
 		});
 
 		const [row] = await tenantDb().select().from(eventRsvps);
@@ -183,7 +189,7 @@ describe("removeRsvp", () => {
 		await createRsvp({ event, user: other, status: "yes" });
 		signInAs(me);
 
-		expect(await removeRsvp(event.id)).toEqual({ success: true });
+		expect(await removeRsvp(event.id)).toEqual({ ok: true });
 
 		expect(await storedRsvp(event.id, me.id)).toBeNull();
 		expect(await tenantDb().select().from(eventRsvps)).toHaveLength(1);
