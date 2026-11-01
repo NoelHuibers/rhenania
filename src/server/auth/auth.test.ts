@@ -242,7 +242,7 @@ describe("membership revocation (#20)", () => {
 		);
 		expect(
 			await addUser({ email: outsider.email, name: "Outsider" }),
-		).toMatchObject({ success: true });
+		).toMatchObject({ ok: true });
 
 		signInAs(outsider);
 		expect(await auth()).not.toBeNull();
