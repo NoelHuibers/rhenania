@@ -16,7 +16,6 @@ import {
 	switchTenant,
 	tenantDb,
 } from "../../../../test/harness";
-import { BEITRAG_ROLES } from "../members/_guards";
 import {
 	EDIT_ROLES,
 	requireAuth,
@@ -49,7 +48,7 @@ describe("role constants", () => {
 		for (const r of AHV_VORSTAND_ROLES) {
 			expect(ROLES.adressliste).toContain(r);
 		}
-		expect(BEITRAG_ROLES).toEqual(["CC-Kasse", "Admin"]);
+		expect(ROLES.ccKasse).toEqual(["CC-Kasse", "Admin"]);
 	});
 });
 

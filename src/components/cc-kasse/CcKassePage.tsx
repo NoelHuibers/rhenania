@@ -42,7 +42,7 @@ import type { EtaplanOverview } from "~/server/actions/cc-kasse/overview";
 import type {
 	BeitragRun,
 	ChargesForRun,
-} from "~/server/actions/members/semesterbeitrag";
+} from "~/server/modules/semesterbeitrag/actions";
 import { BeitraegeTab } from "./BeitraegeTab";
 import { EtaplanDialog } from "./EtaplanDialog";
 import { EtaplanEditorTab } from "./EtaplanEditorTab";

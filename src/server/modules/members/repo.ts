@@ -41,6 +41,18 @@ export async function allMembers(db: TenantDb): Promise<Member[]> {
 	return db.select().from(members);
 }
 
+/** Name, status and id of every member (who owes the Semesterbeitrag). */
+export async function memberStatusRows(db: TenantDb) {
+	return db
+		.select({
+			id: members.id,
+			firstName: members.firstName,
+			lastName: members.lastName,
+			status: members.status,
+		})
+		.from(members);
+}
+
 export async function insertMember(
 	db: TenantDb,
 	values: MemberInsert,

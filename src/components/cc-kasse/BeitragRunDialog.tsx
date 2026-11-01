@@ -22,7 +22,7 @@ import {
 } from "~/components/ui/select";
 import { parseDecimalInput } from "~/lib/decimal";
 import type { Etaplan } from "~/server/actions/cc-kasse/etaplans";
-import { createBeitragRun } from "~/server/actions/members/semesterbeitrag";
+import { createBeitragRun } from "~/server/modules/semesterbeitrag/actions";
 
 type KpOption = { id: string; name: string; category: string };
 

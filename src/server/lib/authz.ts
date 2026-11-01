@@ -27,6 +27,8 @@ export const ROLES = {
 	fotos: ["Fotowart", "Admin"],
 	events: ["Admin"],
 	konten: ["Admin", "Getränkewart", "CC-Kasse", "Aktivenkasse"],
+	/** The treasurers: Kostenerstattungen, Einnahmen, the Semesterbeitrag. */
+	ccKasse: ["CC-Kasse", "Admin"],
 	/** Admins and the AHV board: the Adressliste. */
 	adressliste: ADRESSLISTE_ROLES,
 } as const satisfies Record<string, readonly string[]>;

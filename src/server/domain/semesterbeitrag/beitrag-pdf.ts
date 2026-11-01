@@ -1,49 +1,54 @@
-// Server-only helpers, deliberately NOT "use server": the functions here
-// must not be callable from the browser as server actions.
-import "server-only";
+// beitrag-pdf.ts — a Semesterbeitrag invoice or reminder as PDF.
+//
+// Pure: the letter to the member with the amount, the due date and the
+// CC-Kasse's bank details. The Semesterbeitrag service reads the charge,
+// its run and member and the active CC-Kasse account.
 
-import { and, eq } from "drizzle-orm";
 import { jsPDF } from "jspdf";
 // formatDate prints the Berlin calendar day (`15.11.2026`), whatever the
 // server's time zone.
 import { formatDate, formatEUR } from "~/lib/format";
 import { normalizePaypalLink } from "~/lib/paypal";
-import { kontos } from "~/server/db/schema";
-import type { TenantDb } from "~/server/db/tenants";
-import { NotFoundError } from "~/server/lib/domain-error";
-import { getCurrentTenant } from "~/server/lib/tenant-context";
 
-/**
- * The Beitrag invoice (or reminder) of a charge as a PDF. Throws a
- * NotFoundError when the charge or an active CC-Kasse account is missing.
- */
-export async function generateBeitragPDF(
-	db: TenantDb,
-	chargeId: string,
-	opts?: { isMahnung?: boolean },
-): Promise<{ pdfContent: Buffer; fileName: string }> {
-	const charge = await db.query.semesterbeitragCharges.findFirst({
-		where: (t, { eq }) => eq(t.id, chargeId),
-		with: { run: true, member: true },
-	});
-	if (!charge?.run) {
-		throw new NotFoundError("Beitrag nicht gefunden");
-	}
-	const run = charge.run;
-	const member = charge.member;
+export type BeitragPdfInput = {
+	charge: {
+		memberName: string;
+		baseAmount: number;
+		mahnungAmount: number;
+		mahnungSentAt: Date | null;
+	};
+	run: { name: string; dueDate: Date; mahnungFee: number };
+	/** Null for a charge whose member is gone. */
+	member: {
+		street: string | null;
+		houseNumber: string | null;
+		addressLine2: string | null;
+		postalCode: string | null;
+		city: string | null;
+	} | null;
+	konto: {
+		iban: string;
+		bic: string;
+		bankName: string;
+		paypalLink: string | null;
+	};
+	/** The Corps' display name: sender, signature and account holder. */
+	tenantName: string;
+	/** The letter's date. */
+	today: Date;
+	isMahnung: boolean;
+};
 
-	const [konto] = await db
-		.select()
-		.from(kontos)
-		.where(and(eq(kontos.kasseType, "CC-Kasse"), eq(kontos.isActive, true)))
-		.limit(1);
-	if (!konto) {
-		throw new NotFoundError("Kein aktives CC-Kasse-Konto hinterlegt.");
-	}
-
-	const tenant = await getCurrentTenant();
-	const tenantName = tenant?.displayName ?? "Corps";
-	const isMahnung = opts?.isMahnung ?? false;
+/** The Beitrag invoice (or reminder) of a charge as a PDF. */
+export function renderBeitragPdf({
+	charge,
+	run,
+	member,
+	konto,
+	tenantName,
+	today,
+	isMahnung,
+}: BeitragPdfInput): { pdfContent: Buffer; fileName: string } {
 	// A reminder that has not been sent yet is built *before* the charge is
 	// switched to Gemahnt (so a failed send stays retryable), hence it shows
 	// the run's fee rather than the still-unset stored one.
@@ -63,7 +68,7 @@ export async function generateBeitragPDF(
 	doc.setFont("helvetica", "bold");
 	doc.text(tenantName, 20, 20);
 	doc.setFont("helvetica", "normal");
-	doc.text(`den ${formatDate(new Date())}`, 190, 20, { align: "right" });
+	doc.text(`den ${formatDate(today)}`, 190, 20, { align: "right" });
 
 	// Recipient address block
 	let y = 42;

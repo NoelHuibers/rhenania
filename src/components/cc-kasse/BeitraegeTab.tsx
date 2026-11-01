@@ -36,7 +36,7 @@ import {
 	downloadChargePdf,
 	sendBeitragEmails,
 	sendMahnungen,
-} from "~/server/actions/members/semesterbeitrag";
+} from "~/server/modules/semesterbeitrag/actions";
 import { BeitragRunDialog } from "./BeitragRunDialog";
 import { ChargeRow } from "./beitraege/ChargeRow";
 import { RunSummaryCard } from "./beitraege/RunSummaryCard";

@@ -38,7 +38,7 @@ import {
 	regenerateCharges,
 	sendBeitragEmails,
 	sendMahnungen,
-} from "./semesterbeitrag";
+} from "./actions";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 

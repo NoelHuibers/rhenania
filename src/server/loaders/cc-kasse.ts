@@ -17,7 +17,7 @@ import { getEtaplanOverview } from "~/server/actions/cc-kasse/overview";
 import {
 	listBeitragRuns,
 	listChargesForRun,
-} from "~/server/actions/members/semesterbeitrag";
+} from "~/server/modules/semesterbeitrag/actions";
 import { requirePageRoles } from "./page-access";
 
 const ALLOWED_ROLES = ["CC-Kasse", "Senior", "Admin"];

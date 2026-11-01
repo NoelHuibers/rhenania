@@ -77,6 +77,15 @@ export async function directory(tenant: TenantScope) {
 
 export type MemberListItem = Awaited<ReturnType<typeof directory>>[number];
 
+/** The members whose status owes the Semesterbeitrag. */
+export async function beitragspflichtigeMembers(tenant: TenantScope) {
+	const isBeitragspflichtig = makeBeitragspflichtigMatcher(
+		await memberStatuses(tenant),
+	);
+	const rows = await repo.memberStatusRows(tenant.db);
+	return rows.filter((m) => isBeitragspflichtig(m.status));
+}
+
 const str = z.string().max(255).nullable().optional();
 
 export const memberInputSchema = z.object({
