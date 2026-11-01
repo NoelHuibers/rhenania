@@ -184,7 +184,6 @@ describe("createNewBilling", () => {
 		const result = await runBilling();
 
 		expect(result).toMatchObject({
-			success: true,
 			billsCreated: 2,
 			eventBillsCreated: 0,
 			totalAmount: 10.5,
@@ -939,7 +938,7 @@ describe("Umlage (#10)", () => {
 
 		const run = await billWithLoss(40);
 
-		expect(run).toMatchObject({ success: true, billsCreated: 1 });
+		expect(run).toMatchObject({ billsCreated: 1 });
 		expect((await billsOf(member.id))[0]).toMatchObject({
 			umlage: 0,
 			total: 2,

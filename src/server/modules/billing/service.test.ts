@@ -175,7 +175,6 @@ describe("runGetraenkeBilling", () => {
 		});
 
 		expect(run).toMatchObject({
-			success: true,
 			billsCreated: 1,
 			totalAmount: 3,
 			billPeriod: { billNumber: "KW-43-26" },

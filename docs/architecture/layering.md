@@ -133,8 +133,8 @@ src/server/loaders/open-bill.ts              the open-bill banner/card
 - `lib/billing-batch.ts` and `lib/carried-bills.ts` stay shared with the
   Fuchsenladen and take the database they run on.
 - Request-bound entry points remain for code outside phase 2:
-  `lib/billing-run.ts` (Inventur + Rechnung reads its `{ success }`
-  result), `lib/getraenkekasse-payment.ts` (`resolveGetraenkeBillSender`,
+  `lib/billing-run.ts` (Inventur + Rechnung; a refused run throws its
+  DomainError), `lib/getraenkekasse-payment.ts` (`resolveGetraenkeBillSender`,
   Inventur) and `lib/getraenke-settings.ts` (`getDrinkPricingConfig`:
   orders, menu, challenges). They resolve the scope and call the services.
 - Reads that used to answer an outage with `[]` (bill periods, a period's

@@ -339,7 +339,7 @@ test("Getränke: two runs over the fixture write exactly these rows", async () =
 	// three active Hausbewohner (Hans is suspended), 1 ct not charged.
 	vi.setSystemTime(CLOCK["run 1"]);
 	const run1 = await runGetraenkeBilling({ inventoryLoss: 10 });
-	expect(run1.success).toBe(true);
+	expect(run1).toMatchObject({ billPeriod: expect.anything() });
 	const mails1 = mail.mock.calls.length;
 
 	// Between the runs: Anna pays, Bernd is deferred, more orders.

@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { billPeriods, bills, orders } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
+import { DomainError } from "~/server/lib/domain-error";
 import { sendTenantMail } from "~/server/lib/mailer";
 import { billPdf } from "~/server/modules/billing/service";
 import {
@@ -91,7 +92,7 @@ const run = () => runGetraenkeBilling({ inventoryLoss: 12.34 });
 async function budget() {
 	// Warm the tenant, feature and config caches with a first run.
 	await addMembers(1);
-	expect(await run()).toMatchObject({ success: true });
+	expect(await run()).toMatchObject({ billPeriod: expect.anything() });
 
 	await addMembers(2);
 	mail.mockClear();
@@ -114,8 +115,8 @@ describe("billing run query budget (#23)", () => {
 
 		const { small, smallMails, large, largeMails } = await budget();
 
-		expect(small.result).toMatchObject({ success: true, billsCreated: 3 });
-		expect(large.result).toMatchObject({ success: true, billsCreated: 23 });
+		expect(small.result).toMatchObject({ billsCreated: 3 });
+		expect(large.result).toMatchObject({ billsCreated: 23 });
 		// Mailed: every member bill, minus opt-outs; never a group bill.
 		expect(smallMails).toBe(3);
 		expect(largeMails).toBe(19);
@@ -166,7 +167,7 @@ test("5 and 200 members: the same round trips and one write batch (#23)", async 
 	// Nobody gets a mail, so no PDF is rendered for 200 bills.
 	const noMail = () => true;
 	await addMembers(1, noMail);
-	expect(await run()).toMatchObject({ success: true });
+	expect(await run()).toMatchObject({ billPeriod: expect.anything() });
 
 	await addMembers(5, noMail);
 	const small = await countQueries(run);
@@ -175,12 +176,10 @@ test("5 and 200 members: the same round trips and one write batch (#23)", async 
 
 	// The members of the runs before are carried along.
 	expect(small.result).toMatchObject({
-		success: true,
 		billsCreated: 6,
 		eventBillsCreated: 5,
 	});
 	expect(large.result).toMatchObject({
-		success: true,
 		billsCreated: 206,
 		eventBillsCreated: 200,
 	});
@@ -230,13 +229,9 @@ describe("data changed between reading and writing the run (#23)", () => {
 				.where(eq(bills.id, open.id)),
 		);
 
-		const result = await runGetraenkeBilling({ inventoryLoss: 0 });
-
-		expect(result).toMatchObject({
-			success: false,
-			billsCreated: 0,
-			message: expect.stringContaining("bitte die Abrechnung neu starten"),
-		});
+		await expect(runGetraenkeBilling({ inventoryLoss: 0 })).rejects.toThrow(
+			"bitte die Abrechnung neu starten",
+		);
 		expect(await tenantDb().select().from(billPeriods)).toEqual([
 			expect.objectContaining({ id: period.id, closedAt: null }),
 		]);
@@ -251,7 +246,6 @@ describe("data changed between reading and writing the run (#23)", () => {
 		expect(mail).not.toHaveBeenCalled();
 
 		expect(await runGetraenkeBilling({ inventoryLoss: 0 })).toMatchObject({
-			success: true,
 			billsCreated: 1,
 		});
 		expect((await billsOf(max.id))[1]).toMatchObject({
@@ -269,9 +263,9 @@ describe("data changed between reading and writing the run (#23)", () => {
 				.where(eq(bills.id, open.id)),
 		);
 
-		expect(await runGetraenkeBilling({ inventoryLoss: 0 })).toMatchObject({
-			success: false,
-		});
+		await expect(runGetraenkeBilling({ inventoryLoss: 0 })).rejects.toThrow(
+			DomainError,
+		);
 		expect(await tenantDb().select().from(bills)).toHaveLength(1);
 	});
 
@@ -282,15 +276,11 @@ describe("data changed between reading and writing the run (#23)", () => {
 			inner = await runGetraenkeBilling({ inventoryLoss: 0 });
 		});
 
-		const outer = await runGetraenkeBilling({ inventoryLoss: 0 });
+		const outer = runGetraenkeBilling({ inventoryLoss: 0 });
 
-		expect(inner).toMatchObject({ success: true, billsCreated: 1 });
 		// The bill number was taken: the later run writes nothing.
-		expect(outer).toMatchObject({
-			success: false,
-			billsCreated: 0,
-			error: expect.stringContaining("neu starten"),
-		});
+		await expect(outer).rejects.toThrow("neu starten");
+		expect(inner).toMatchObject({ billsCreated: 1 });
 		expect(await tenantDb().select().from(billPeriods)).toHaveLength(2);
 		expect((await billsOf(max.id)).map((b) => [b.status, b.total])).toEqual([
 			["Übertragen", 10],
@@ -304,14 +294,10 @@ describe("data changed between reading and writing the run (#23)", () => {
 			throw new Error("network down");
 		});
 
-		// The cause is logged; the result carries the user's message only.
-		expect(await runGetraenkeBilling({ inventoryLoss: 0 })).toEqual({
-			success: false,
-			message: "Fehler beim Erstellen der Rechnungen",
-			error: "Fehler beim Erstellen der Rechnungen",
-			billsCreated: 0,
-			totalAmount: 0,
-		});
+		// The cause is logged; the error carries the user's message only.
+		await expect(runGetraenkeBilling({ inventoryLoss: 0 })).rejects.toThrow(
+			new DomainError("Fehler beim Erstellen der Rechnungen", "BILLING_FAILED"),
+		);
 	});
 });
 
@@ -357,7 +343,7 @@ describe("mailed bills (#23)", () => {
 
 		const result = await runGetraenkeBilling({ inventoryLoss: 0 });
 
-		expect(result).toMatchObject({ success: true, billsCreated: 6 });
+		expect(result).toMatchObject({ billsCreated: 6 });
 		expect(mail).toHaveBeenCalledTimes(6);
 		const failures = vi
 			.mocked(console.error)

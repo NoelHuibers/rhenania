@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { billPeriods, inventories, orders } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
+import { DomainError } from "~/server/lib/domain-error";
 import {
 	billsOf,
 	setGetraenkeBillingProfile,
@@ -206,19 +207,15 @@ describe("closeInventoryAndBill", () => {
 
 	test("reports a failed billing run as a failure and keeps the inventory", async () => {
 		const { pils, running } = await seedRunningInventory();
-		billing.mockResolvedValueOnce({
-			success: false,
-			message: "Fehler beim Erstellen der Rechnungen",
-			error: "database is locked",
-			billsCreated: 0,
-			totalAmount: 0,
-		});
+		billing.mockRejectedValueOnce(
+			new DomainError("Fehler beim Erstellen der Rechnungen", "BILLING_FAILED"),
+		);
 
 		const result = await closeInventoryAndBill([
 			{ drinkId: pils.id, countedStock: 15, purchasedSince: 0 },
 		]);
 
-		// The run's message, not the raw database error.
+		// The refused run's message for the user.
 		expect(result).toEqual({
 			ok: false,
 			error:
