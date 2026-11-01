@@ -17,6 +17,10 @@ pnpm exec tsx scripts/dev/run.ts pnpm diag:tenant-health hassia
 pnpm exec tsx scripts/dev/run.ts pnpm db:migrate-tenants --dry-run
 ```
 
+Production is migrated by the deploy itself: `pnpm db:migrate:deploy`
+(`ops/deploy-migrate.ts`) runs after `next build` in Vercel's build command and
+only migrates when `VERCEL_ENV=production`. See the README, „Migrationen“.
+
 ## Pending one-off backfills
 
 | Command | Purpose |
