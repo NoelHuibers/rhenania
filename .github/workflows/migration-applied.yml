@@ -1,0 +1,76 @@
+name: Migration applied
+
+# Production databases are migrated by hand, before the deploy (README,
+# "Migrationen"). Nothing enforced that, so #230 shipped code reading a table
+# that didn't exist yet and /trinken broke. A PR that adds a tenant or control
+# migration now fails here until it carries the label `migration:applied`,
+# i.e. until the owner has run the migration against production.
+#
+# Own workflow (not a CI job) so adding the label re-runs only this check.
+# It runs on every PR and passes at once without new migrations, so it can be
+# a required status check.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-applied-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  applied:
+    name: Migrations applied to production
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The PR merge commit; HEAD^1 is the base branch as it is now.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - name: New migrations need the migration:applied label
+        env:
+          APPLIED: ${{ contains(github.event.pull_request.labels.*.name, 'migration:applied') }}
+        run: |
+          added=""
+          for dir in drizzle drizzle/control; do
+            journal="$dir/meta/_journal.json"
+            base=$(git show "HEAD^1:$journal" 2>/dev/null | jq -r '.entries[].tag' || true)
+            for tag in $(jq -r '.entries[].tag' "$journal"); do
+              if ! grep -qxF "$tag" <<<"$base"; then
+                added="$added $dir/$tag.sql"
+              fi
+            done
+          done
+
+          if [ -z "$added" ]; then
+            echo "No new migrations."
+            exit 0
+          fi
+
+          {
+            echo "### New migrations"
+            for f in $added; do echo "- \`$f\`"; done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$APPLIED" = "true" ]; then
+            echo "New migrations:$added — labelled migration:applied."
+            exit 0
+          fi
+
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+
+          Apply them to production **before merging** (the deploy follows the merge):
+
+          ```sh
+          pnpm db:migrate-tenants --dry-run
+          CONFIRM_PROD=<control-db-host> pnpm db:control:migrate   # drizzle/control
+          CONFIRM_PROD=<control-db-host> pnpm db:migrate-tenants   # drizzle
+          ```
+
+          Then label this PR `migration:applied`; the check re-runs by itself.
+          EOF
+          echo "::error::This PR adds migrations:$added. Apply them to production before merging, then label the PR migration:applied (see the job summary for the commands)."
+          exit 1
