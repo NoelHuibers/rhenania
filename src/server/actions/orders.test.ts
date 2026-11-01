@@ -1,7 +1,8 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 
 import { checkAndUnlockAchievements } from "~/server/actions/achievements/tracking";
-import { orders } from "~/server/db/schema";
+import { bookingAccounts, orders } from "~/server/db/schema";
 import { createOrderRow, daysAgo } from "../../../test/factories/inventory";
 import {
 	countQueries,
@@ -161,6 +162,47 @@ describe("createOrder", () => {
 
 		const [row] = await tenantDb().select().from(orders);
 		expect(row?.bookingFor).toBe("AHV");
+	});
+
+	test("Faxe still book on AHV once the account is archived", async () => {
+		await createTenant();
+		await tenantDb()
+			.update(bookingAccounts)
+			.set({ archived: true })
+			.where(eq(bookingAccounts.name, "AHV"));
+		signInAs(await createUser({ roles: ["Faxe"] }));
+		const drink = await createDrink();
+
+		const result = await createOrder({ ...baseOrder, drinkId: drink.id });
+
+		expect(result.success).toBe(true);
+	});
+
+	test("books only on the Getränkewart's active accounts", async () => {
+		await createTenant();
+		signInAs(await createUser());
+		const drink = await createDrink();
+		await tenantDb()
+			.insert(bookingAccounts)
+			.values({ name: "Kneipe mit Hassia" });
+		await tenantDb()
+			.update(bookingAccounts)
+			.set({ archived: true })
+			.where(eq(bookingAccounts.name, "RC"));
+
+		const book = (bookingFor: string) =>
+			createOrder({ ...baseOrder, drinkId: drink.id, bookingFor });
+
+		expect(await book("Kneipe mit Hassia")).toMatchObject({ success: true });
+		expect(await book("CBesuch")).toMatchObject({ success: true });
+		expect(await book("RC")).toEqual({
+			success: false,
+			error: "Unbekanntes Abrechnungskonto",
+		});
+		expect(await book("cbesuch")).toMatchObject({ success: false });
+		expect(
+			(await tenantDb().select().from(orders)).map((o) => o.bookingFor).sort(),
+		).toEqual(["CBesuch", "Kneipe mit Hassia"]);
 	});
 });
 

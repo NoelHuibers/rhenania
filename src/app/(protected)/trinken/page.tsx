@@ -8,24 +8,27 @@ import {
 import { auth } from "~/server/auth";
 import { getRecentDrinkIds } from "~/server/lib/recent-drinks";
 import { loadOpenBill } from "~/server/loaders/open-bill";
+import { getBookingAccounts } from "~/server/modules/booking-accounts/actions";
 
 // Loaded on the server so the menu is in the first HTML: no client fetch,
 // no spinner replacing the header (#74). loading.tsx covers navigation.
 export default async function Page() {
 	const session = await auth();
 	const userId = session?.user?.id;
-	const [drinks, markupPercent, recentDrinkIds, openBill] = await Promise.all([
-		getAllDrinksForMenu(),
-		getDrinkMarkupPercent(),
-		userId ? getRecentDrinkIds(userId).catch(() => []) : [],
-		// An unpaid bill is shown above the menu with its Bezahlen button (#80).
-		session
-			? loadOpenBill(session).catch((error) => {
-					console.error("Error loading the open bill:", error);
-					return null;
-				})
-			: null,
-	]);
+	const [drinks, markupPercent, bookingAccounts, recentDrinkIds, openBill] =
+		await Promise.all([
+			getAllDrinksForMenu(),
+			getDrinkMarkupPercent(),
+			getBookingAccounts(),
+			userId ? getRecentDrinkIds(userId).catch(() => []) : [],
+			// An unpaid bill is shown above the menu with its Bezahlen button (#80).
+			session
+				? loadOpenBill(session).catch((error) => {
+						console.error("Error loading the open bill:", error);
+						return null;
+					})
+				: null,
+		]);
 
 	return (
 		<>
@@ -39,6 +42,7 @@ export default async function Page() {
 				drinks={drinks}
 				markupPercent={markupPercent}
 				recentDrinkIds={recentDrinkIds}
+				bookingAccounts={bookingAccounts}
 			/>
 		</>
 	);

@@ -1092,6 +1092,32 @@ export const kasseConfig = createTable("kasse_config", (d) => ({
 		.references(() => users.id, { onDelete: "set null" }),
 }));
 
+// The group accounts a drink can be booked on ("Auf ein Konto buchen"),
+// managed by the Getränkewart. Orders keep the name in `order.bookingFor`
+// and billing groups them by it, so a name never changes: an account that
+// is no longer needed is archived (hidden from the menu, history intact).
+// `pinned` accounts are chips on the menu, the rest sit behind "Weitere".
+export const bookingAccounts = createTable(
+	"booking_account",
+	(d) => ({
+		id: d
+			.text({ length: 255 })
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => crypto.randomUUID()),
+		name: d.text({ length: 255 }).notNull(),
+		pinned: d.integer({ mode: "boolean" }).notNull().default(false),
+		archived: d.integer({ mode: "boolean" }).notNull().default(false),
+		sortOrder: d.integer().notNull().default(0),
+		createdAt: d
+			.integer({ mode: "timestamp" })
+			.default(sql`(unixepoch())`)
+			.notNull(),
+		updatedAt: d.integer({ mode: "timestamp" }).$onUpdate(() => new Date()),
+	}),
+	(t) => [uniqueIndex("booking_account_name_idx").on(t.name)],
+);
+
 // Singleton row with the sender of the Getränke bills (letterhead of the PDF)
 // and the holder of the Getränkekasse account. IBAN and PayPal stay on the
 // active Getränkekasse `konto`. Empty until the Getränkewart fills it in;
