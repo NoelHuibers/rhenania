@@ -86,7 +86,10 @@ work (cross-Corps games) builds a second scope explicitly with
   (`loaders/calendar.ts`).
 - **A TenantScope is the only way in.** There is no implicit tenant `db`:
   Biome `noRestrictedImports` refuses `~/server/db` and `~/server/db/index`
-  everywhere, and `getCurrentTenantDb` from `~/server/db/tenants`. App code
+  everywhere, and `getCurrentTenantDb` from `~/server/db/tenants`.
+  `test/no-implicit-tenant-db.test.ts` also catches what Biome's literal
+  match misses: relative paths to `src/server/db`, a re-created
+  `db/index.ts` and any `getCurrentTenantDb` in the code. App code
   takes the scope `defineAction` built, `scopeOf(tenantId)` with the
   guard's tenant (`requireCaller`, the session) or, for request-bound
   entry points without a guard of their own (the public website, the
@@ -494,8 +497,9 @@ src/server/loaders/preferences.ts   the profile's switches and ELO opt-out
   `getCurrentTenantDb` in `db/tenants.ts` are deleted. `getTenantClient`
   stays for the connection tests.
 - The import-count ratchet (`scripts/ci/proxy-db*`, `pnpm proxy-db:check`
-  and `:baseline`, the CI step) is gone with it; the Biome rule above
-  keeps the proxy and `getCurrentTenantDb` out instead, in `biome ci`.
+  and `:baseline`, the CI step) is gone with it; the Biome rule and
+  `test/no-implicit-tenant-db.test.ts` above keep the proxy and
+  `getCurrentTenantDb` out instead.
 - The tests no longer double the proxy (`test/setup.ts`). The real
   routing tests (`db/routing.test.ts`) and the harness test check the
   same things on `currentTenantScope()`: the request host's tenant, never

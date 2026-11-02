@@ -69,5 +69,6 @@ The implicit `src/server/db` proxy is gone. App code reaches a tenant's data
 through a `TenantScope` (`src/server/lib/tenant-scope.ts`); scripts name
 their database with `getScriptDb()` (`src/server/db/script.ts`) or build a
 scope with `tenantScope(id, db)`. Biome's `noRestrictedImports` refuses
-`~/server/db`, `~/server/db/index` and `getCurrentTenantDb`, so neither can
-come back unnoticed (see `docs/architecture/layering.md`).
+`~/server/db`, `~/server/db/index` and `getCurrentTenantDb`, and
+`test/no-implicit-tenant-db.test.ts` catches relative paths too, so neither
+can come back unnoticed (see `docs/architecture/layering.md`).
