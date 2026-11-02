@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.4.0](https://github.com/NoelHuibers/rhenania/compare/rhenania-v0.3.0...rhenania-v0.4.0) (2026-11-02)
+
+
+### Features
+
+* **auth:** per-tenant Better Auth at request time + one cached request context ([18aaa4c](https://github.com/NoelHuibers/rhenania/commit/18aaa4c618559955cd095a35d2d1c8db3daad214))
+* **auth:** resolve Better Auth per tenant at request time, not at boot ([879a4ff](https://github.com/NoelHuibers/rhenania/commit/879a4ff46bb19d5818977a7c572ed84e0546fb19)), closes [#27](https://github.com/NoelHuibers/rhenania/issues/27) [#20](https://github.com/NoelHuibers/rhenania/issues/20)
+* **getraenkekasse:** booking accounts managed by the Getränkewart ([04103c0](https://github.com/NoelHuibers/rhenania/commit/04103c04fee9ca74250fa73d02f8bbbf1c257b39))
+* **getraenkekasse:** booking accounts managed by the Getränkewart ([7d162e2](https://github.com/NoelHuibers/rhenania/commit/7d162e2f25495fefe5c0e374d3f4bc98299c690f))
+* **observability:** structured, tenant-tagged logs in billing, orders and auth ([3c89d7f](https://github.com/NoelHuibers/rhenania/commit/3c89d7f69a46429624c5b94dd1954b1f75e0c882)), closes [#34](https://github.com/NoelHuibers/rhenania/issues/34)
+* **observability:** tenant-aware structured logger ([07bd1ac](https://github.com/NoelHuibers/rhenania/commit/07bd1acb2495a05e79380e6de1c8418deb8a741a)), closes [#34](https://github.com/NoelHuibers/rhenania/issues/34)
+* **observability:** tenant-aware structured logs ([50c38ee](https://github.com/NoelHuibers/rhenania/commit/50c38ee17dc3180a7c6e0d7cca381fd2363431e9))
+* **ops:** migrate production as part of the Vercel deploy ([9ec5ff4](https://github.com/NoelHuibers/rhenania/commit/9ec5ff4861ff18b8fc2cfe9dc1bbde9d426f8f9f))
+* **ops:** migrate production as part of the Vercel deploy ([576d1ab](https://github.com/NoelHuibers/rhenania/commit/576d1ab9bf172abee34c5cb08db6053281701701))
+* **security:** collect CSP reports and drop unsafe-eval in production ([f019846](https://github.com/NoelHuibers/rhenania/commit/f019846e7ab3d268f607e9c039bdd8adb86cda9d)), closes [#91](https://github.com/NoelHuibers/rhenania/issues/91)
+* **superadmin:** name new tenant DBs after the Corps' full name ([a870374](https://github.com/NoelHuibers/rhenania/commit/a870374ee111c19cb8cc88f764e3733f3e0a1bcb))
+* **superadmin:** name new tenant DBs after the Corps' full name ([599b743](https://github.com/NoelHuibers/rhenania/commit/599b7437af5f0fd52c8b0aa75d8b8e3c2eaf0644)), closes [#224](https://github.com/NoelHuibers/rhenania/issues/224)
+
+
+### Bug Fixes
+
+* **auth:** return no session without an active tenant ([2d94653](https://github.com/NoelHuibers/rhenania/commit/2d946533ec90710fe0ac6ed453eff0e1d4a95a7a)), closes [#92](https://github.com/NoelHuibers/rhenania/issues/92)
+* **billing:** carry a member's credit exactly once in both runs ([4aecec7](https://github.com/NoelHuibers/rhenania/commit/4aecec797722d2f9f5c5d00c2a236f65ee98f59a))
+* **billing:** carry a member's credit exactly once in both runs ([ddfd86a](https://github.com/NoelHuibers/rhenania/commit/ddfd86a5685bcda7c8785c1242b4e4f08a64d049)), closes [#220](https://github.com/NoelHuibers/rhenania/issues/220)
+* **diag:** migration-journal accepts CRLF-hashed rows ([2c30da6](https://github.com/NoelHuibers/rhenania/commit/2c30da696923c965fd862e145480e0d05fc19e70))
+* **diag:** migration-journal accepts the CRLF hashes the migrator accepts ([bca35dd](https://github.com/NoelHuibers/rhenania/commit/bca35dd8a6642679d739930fb07f527584358295))
+* **export:** keep formula-like text cells text in the XLSX exports ([b79c5cb](https://github.com/NoelHuibers/rhenania/commit/b79c5cbe9528868efbd3e64c4abb30fe5bd53fbd)), closes [#91](https://github.com/NoelHuibers/rhenania/issues/91)
+* **games:** batch the recent-games feed and tighten cross-Corps discovery ([c626548](https://github.com/NoelHuibers/rhenania/commit/c62654836c54b61a3b0c32eb0831944dedd36840))
+* **games:** batch the recent-games feed and tighten cross-Corps discovery ([2162ba1](https://github.com/NoelHuibers/rhenania/commit/2162ba165af66fc447488168eca2f8ceb9a299fa)), closes [#244](https://github.com/NoelHuibers/rhenania/issues/244)
+* **getraenke:** stable drink list order for drinks created in the same second ([e8e0873](https://github.com/NoelHuibers/rhenania/commit/e8e08737c4f0fd86e9564dc2b95b6bc1936fc454))
+* **getraenke:** stable drink list order for drinks created in the same second ([12d6252](https://github.com/NoelHuibers/rhenania/commit/12d62528cf5504d8cb3ae472ff5055f4b1d1c44d))
+* **inventur:** purchases saved without a count no longer show or book as loss ([2f1e2fc](https://github.com/NoelHuibers/rhenania/commit/2f1e2fcd58d6a0eb11196a45aec5a74ab45e80ed))
+* **inventur:** purchases saved without a count no longer show or book as loss ([a21ade6](https://github.com/NoelHuibers/rhenania/commit/a21ade626ef539e70f25a5745b43c4f9b35450bf)), closes [#221](https://github.com/NoelHuibers/rhenania/issues/221)
+* **mail:** bill mails go out from their scope's tenant, not the request host ([a3b5f6c](https://github.com/NoelHuibers/rhenania/commit/a3b5f6c1a5d1f50a50adb83db58af5cc022059f8))
+* **mail:** bill mails go out from their scope's tenant, not the request host ([eaaf0cc](https://github.com/NoelHuibers/rhenania/commit/eaaf0ccd291c5038c1fb9aa6190f97626d7f0fac))
+* **menu:** failed drink reads throw instead of showing an empty menu ([3e1ac28](https://github.com/NoelHuibers/rhenania/commit/3e1ac28515690a9def4fb23ac1f9feb837114657))
+* **menu:** failed drink reads throw instead of showing an empty menu ([0de01da](https://github.com/NoelHuibers/rhenania/commit/0de01dae43310def4e58c80366afa0eeafad8b9b)), closes [#216](https://github.com/NoelHuibers/rhenania/issues/216)
+* **profile:** move avatar removal into the Bild ändern dialog ([311a57d](https://github.com/NoelHuibers/rhenania/commit/311a57da57834a3e0a7a6f0bb8dd6917480b7b3d))
+* **profile:** move avatar removal into the Bild ändern dialog ([cd8b221](https://github.com/NoelHuibers/rhenania/commit/cd8b22155c09fc8de9f9a546a53d33098b4485ee))
+* **security:** XLSX formula guard, CSP report endpoint, mail escaping test ([4baab1f](https://github.com/NoelHuibers/rhenania/commit/4baab1f6524608da0a301e0f059d7b826eae9ad7))
+* **seed:** seed the tenant named on the command line in its own database ([bb96b99](https://github.com/NoelHuibers/rhenania/commit/bb96b99201be31b16f668c51ee1fce752a2b7747))
+* small bugs found during the [#33](https://github.com/NoelHuibers/rhenania/issues/33) phase 6 refactor ([3d559a9](https://github.com/NoelHuibers/rhenania/commit/3d559a9809807c0fe94436b8e47d7fa40d51db01))
+* small bugs found during the [#33](https://github.com/NoelHuibers/rhenania/issues/33) phase 6 refactor ([7870962](https://github.com/NoelHuibers/rhenania/commit/78709625d09bf811c37a0c73c5901858ea3e31d4)), closes [#250](https://github.com/NoelHuibers/rhenania/issues/250)
+* **venues:** tell a taken short name apart from other errors ([13dffb6](https://github.com/NoelHuibers/rhenania/commit/13dffb62ad143d660f7bfbda401f5baf136f5640)), closes [#59](https://github.com/NoelHuibers/rhenania/issues/59)
+
+
+### Performance Improvements
+
+* **auth:** one cached request context; membership through the shared cache ([9689233](https://github.com/NoelHuibers/rhenania/commit/9689233c2444967f9dfef92965192659e88bdf21)), closes [#20](https://github.com/NoelHuibers/rhenania/issues/20)
+* **billing:** "Alle haben gezahlt" and Fuchsen status changes in one batch, fewer group bills ([55c2881](https://github.com/NoelHuibers/rhenania/commit/55c288142a1ab91a71c449ba735d3420307c88b7)), closes [#23](https://github.com/NoelHuibers/rhenania/issues/23) [#25](https://github.com/NoelHuibers/rhenania/issues/25)
+* **billing:** batched "Alle haben gezahlt" and Fuchsen status changes, bounded group bills ([18c8d23](https://github.com/NoelHuibers/rhenania/commit/18c8d239cbcf2bc9777c2ac3fd87c6d2b08b5779))
+* load profile and Rechnungen data on the server ([#24](https://github.com/NoelHuibers/rhenania/issues/24)) ([4e6080a](https://github.com/NoelHuibers/rhenania/commit/4e6080a14712add8893c634cd85822e6e1bb93bd))
+* **profile:** load the profile cards on the server ([e6c9ef1](https://github.com/NoelHuibers/rhenania/commit/e6c9ef1ca4fcbf71e2309f4c841fe09e28232ef1)), closes [#24](https://github.com/NoelHuibers/rhenania/issues/24)
+* **rechnungen:** load on the server, older periods on expand ([8738674](https://github.com/NoelHuibers/rhenania/commit/8738674eb2b660d007229319a995c2405af93fb4)), closes [#24](https://github.com/NoelHuibers/rhenania/issues/24)
+
 ## [0.3.0](https://github.com/NoelHuibers/rhenania/compare/rhenania-v0.2.0...rhenania-v0.3.0) (2026-10-27)
 
 
