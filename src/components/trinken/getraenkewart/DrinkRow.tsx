@@ -10,7 +10,7 @@ import { Input } from "~/components/ui/input";
 import { Progress } from "~/components/ui/progress";
 import { TableCell, TableRow } from "~/components/ui/table";
 import { formatEUR } from "~/lib/format";
-import type { Drink } from "~/server/actions/drinks";
+import type { Drink } from "~/server/modules/drinks/actions";
 import { DeleteButton } from "./Deletebutton";
 
 interface DrinkRowProps {

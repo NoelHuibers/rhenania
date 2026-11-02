@@ -29,7 +29,7 @@ import {
 	type InventoryCountItem,
 	type InventurEvent,
 	saveInventoryCount,
-} from "~/server/actions/inventur/inventur";
+} from "~/server/modules/inventur/actions";
 import type { StockStatusWithDetails } from "./utils";
 
 /**

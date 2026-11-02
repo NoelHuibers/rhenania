@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
 import { bookingAccounts, orders } from "~/server/db/schema";
 import { checkAndUnlockAchievements } from "~/server/modules/achievements/tracking";
-import { createOrderRow, daysAgo } from "../../../test/factories/inventory";
+import { createOrderRow, daysAgo } from "../../../../test/factories/inventory";
 import {
 	countQueries,
 	createDrink,
@@ -13,9 +13,9 @@ import {
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
-} from "../../../test/harness";
-import { testState } from "../../../test/state";
-import { createOrder, getMyOrdersPage } from "./orders";
+} from "../../../../test/harness";
+import { testState } from "../../../../test/state";
+import { createOrder, getMyOrdersPage } from "./actions";
 
 // Achievements run after the response; they have their own tests.
 vi.mock("~/server/modules/achievements/tracking", () => ({

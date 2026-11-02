@@ -121,29 +121,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getActiveImageBySection: "public",
 		getAllActiveImagesBySection: "public",
 	},
-	"src/server/actions/currentOrders.ts": {
-		getCurrentOrders: "member",
-	},
-	"src/server/actions/drinks.ts": {
-		addDrink: GETRAENKE,
-		updateDrink: GETRAENKE,
-		deleteDrink: GETRAENKE,
-		toggleDrinkAvailability: GETRAENKE,
-		getDrinks: GETRAENKE,
-	},
-	"src/server/actions/inventur/inventur.ts": {
-		getInventoryProfit: GETRAENKE,
-		getStockData: GETRAENKE,
-		getInventoryHistory: GETRAENKE,
-		saveInventoryCount: GETRAENKE,
-		closeInventoryAndBill: GETRAENKE,
-		saveQuickAdjustments: GETRAENKE,
-		getActiveEventInventory: GETRAENKE,
-		listInventurEvents: GETRAENKE,
-		listEtaplansWithKostenpunkte: GETRAENKE,
-		cancelEventInventory: GETRAENKE,
-		finishEventInventory: GETRAENKE,
-	},
 	// Kasse roles see and edit the Konto of their own Kasse (checked per Konto).
 	"src/server/actions/kontos/kontos.ts": {
 		getKontos: "member",
@@ -151,20 +128,11 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		updateKonto: "member",
 		deleteKonto: ADMIN,
 	},
-	"src/server/actions/menu.ts": {
-		getDrinkMarkupPercent: "member",
-		getAvailableDrinks: "member",
-		getAllDrinksForMenu: "member",
-	},
 	"src/server/actions/newuser/users.ts": {
 		createUser: ADMIN,
 	},
 	"src/server/actions/newuser/verifyEmail.ts": {
 		verifyEmailAndSetPassword: "public",
-	},
-	"src/server/actions/orders.ts": {
-		createOrder: "member",
-		getMyOrdersPage: "member",
 	},
 	"src/server/actions/profile/auth.ts": {
 		getConnectedAccountsAction: "member",
@@ -280,6 +248,16 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		exportEtaplanXlsx: CC_EDIT,
 		importEtaplanXlsx: CC_EDIT,
 	},
+	"src/server/modules/drinks/actions.ts": {
+		addDrink: GETRAENKE,
+		updateDrink: GETRAENKE,
+		deleteDrink: GETRAENKE,
+		toggleDrinkAvailability: GETRAENKE,
+		getDrinks: GETRAENKE,
+		getDrinkMarkupPercent: "member",
+		getAvailableDrinks: "member",
+		getAllDrinksForMenu: "member",
+	},
 	"src/server/modules/events/actions.ts": {
 		getUpcomingEvents: "member",
 		getPublicUpcomingEvents: "public",
@@ -383,6 +361,19 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		updateGetraenkeBillingProfile: GETRAENKE,
 		markAllMemberBillsPaid: GETRAENKE,
 	},
+	"src/server/modules/inventur/actions.ts": {
+		getInventoryProfit: GETRAENKE,
+		getStockData: GETRAENKE,
+		getInventoryHistory: GETRAENKE,
+		saveInventoryCount: GETRAENKE,
+		closeInventoryAndBill: GETRAENKE,
+		saveQuickAdjustments: GETRAENKE,
+		getActiveEventInventory: GETRAENKE,
+		listInventurEvents: GETRAENKE,
+		listEtaplansWithKostenpunkte: GETRAENKE,
+		cancelEventInventory: GETRAENKE,
+		finishEventInventory: GETRAENKE,
+	},
 	"src/server/modules/members/actions.ts": {
 		listMembers: ADRESSLISTE,
 		listMemberStatusOptions: ADRESSLISTE,
@@ -395,6 +386,11 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		importMembersXlsx: ADRESSLISTE,
 		getMyMember: "member",
 		updateMyMember: "member",
+	},
+	"src/server/modules/orders/actions.ts": {
+		createOrder: "member",
+		getMyOrdersPage: "member",
+		getCurrentOrders: "member",
 	},
 	"src/server/modules/semesterbeitrag/actions.ts": {
 		listBeitragRuns: CC_TREASURY,

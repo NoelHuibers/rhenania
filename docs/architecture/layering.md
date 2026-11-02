@@ -5,8 +5,8 @@ which the existing code moves there. Phase 1 (this document, the lint rule,
 the explicit script DB), phase 2 (billing and the Getränkekasse), phase 3
 (the Fuchsenladen and the mails), phase 4 (the CC-Kasse and
 Mitglieder/Semesterbeitrag) and phase 5 (achievements and games) are done;
-phase 6 (the rest, then the proxy goes) is under way: the Semesterprogramm
-has moved.
+phase 6 (the rest, then the proxy goes) is under way: the Semesterprogramm,
+drinks, orders and the Inventur have moved.
 
 ## Why
 
@@ -107,9 +107,9 @@ One domain per PR, each PR leaving behaviour, query counts (the
 4. **CC-Kasse and Mitglieder/Semesterbeitrag** (done, see below).
 5. **Achievements/tracking and games** (done, see below).
 6. **The rest** (in progress, see below): the Semesterprogramm (done),
-   drinks, orders and the drink leaderboard, then profile, images, roles
-   and Konten; then delete the proxy and `getCurrentTenantDb`, leaving
-   `TenantScope` as the only way in.
+   drinks, orders, the Inventur and the drink leaderboard (done), then
+   profile, images, roles and Konten; then delete the proxy and
+   `getCurrentTenantDb`, leaving `TenantScope` as the only way in.
 
 ## Phase 2: billing and Getränkekasse (done)
 
@@ -141,6 +141,8 @@ src/server/loaders/open-bill.ts              the open-bill banner/card
   DomainError), `lib/getraenkekasse-payment.ts` (`resolveGetraenkeBillSender`,
   Inventur) and `lib/getraenke-settings.ts` (`getDrinkPricingConfig`:
   orders, menu, challenges). They resolve the scope and call the services.
+  `lib/getraenke-settings.ts` is gone since phase 6: its callers ask
+  `drinkPricing` with their own scope.
 - Reads that used to answer an outage with `[]` (bill periods, a period's
   bills, the profile's bill, the billing profile) now fail.
 - The bill mails moved to `modules/mail` in phase 3.
@@ -370,3 +372,56 @@ src/server/loaders/sempro.ts             the PDF route's read
   range, a feed token's last use) is the scope's clock.
 - `rotateCalendarToken` has no UI yet; it is marked `@public` for knip
   instead of the old file-wide ignore.
+
+### Drinks, orders and the Inventur
+
+```
+src/server/modules/drinks/
+  repo.ts        the catalogue, the menu's reads with what was ordered of
+                 each drink, a member's most ordered drinks
+  service.ts     catalogue changes (Blob pictures, a drink in use can't be
+                 deleted), the menu, the recent drinks of /trinken
+  actions.ts     the catalogue and menu actions
+src/server/modules/orders/
+  repo.ts        booking an order, a member's order pages (one batch), the
+                 unbilled orders, the Literboard's sums
+  service.ts     booking (server-side price, Admin and Faxe rules), the
+                 profile's orders, the Rechnungen page's open orders, the
+                 Literboard
+  actions.ts     createOrder, getMyOrdersPage, getCurrentOrders
+src/server/modules/inventur/
+  repo.ts        inventories and their items, on the DB or an open
+                 transaction, with what they read of drinks, orders,
+                 events and the CC-Kasse
+  service.ts     the stock overview, counting and closing (one
+                 transaction), quick saves, the history with the markup
+                 profit, the Veranstaltungs-Inventur
+  actions.ts     every Inventur action
+src/server/domain/orders/open-orders.ts   unbilled orders per member and
+                                          account
+src/server/domain/orders/consumption.ts   the Literboard's months, chart
+                                          and change in percent
+src/server/loaders/recent-drinks.ts       "Zuletzt bestellt" on /trinken
+src/server/loaders/leaderboard.ts         the Literboard
+```
+
+- `actions/{drinks,menu,orders,currentOrders}.ts`, `actions/inventur/`,
+  `actions/leaderboard/`, `lib/recent-drinks.ts` and
+  `lib/getraenke-settings.ts` are gone. Five of them imported the proxy;
+  the baseline is 6.
+- The Literboard page has no guard of its own (the middleware sends
+  signed-out visitors away), so its loader uses the request's tenant
+  (`currentTenantScope`), as the proxy did. Its windows stay relative to
+  SQLite's clock (`unixepoch('now')`); the consumption chart's months
+  come from the scope's clock.
+- "Inventur + Rechnung" still checks the bill sender through
+  `lib/getraenkekasse-payment.ts` and runs the billing through
+  `lib/billing-run.ts`, unchanged, so its queries and its failure
+  messages stay the same. The markup feature of the Inventur reads is
+  still checked with `hasFeature` before the scope's queries.
+- The reads keep their old answers: `getDrinks` logs a failed read and
+  answers `[]`, the menu reads and `getStockData` throw,
+  `getCurrentOrders` logs and throws "Failed to fetch current orders".
+  The query counts are unchanged (`count-queries`, `page-queries`,
+  `rechnungen-queries`, the order page's batch).
+- The drink actions name their id parameter `drinkId`.

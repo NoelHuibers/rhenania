@@ -6,18 +6,20 @@
 
 import { eq } from "drizzle-orm";
 import { describe, expect, test, vi } from "vitest";
-import { getCurrentOrders } from "~/server/actions/currentOrders";
-import { getStockData } from "~/server/actions/inventur/inventur";
-import { getMyOrdersPage } from "~/server/actions/orders";
 import { fuchsenBills } from "~/server/db/schema";
 import { runGetraenkeBilling } from "~/server/lib/billing-run";
-import { getRecentDrinkIds } from "~/server/lib/recent-drinks";
 import { updateBillStatus } from "~/server/modules/billing/actions";
+import { recentDrinkIds } from "~/server/modules/drinks/service";
 import { updateFuchsenBillStatus } from "~/server/modules/fuchsenladen/actions";
 import {
 	getOpenEntityBills,
 	markAllMemberBillsPaid,
 } from "~/server/modules/getraenkekasse/actions";
+import { getStockData } from "~/server/modules/inventur/actions";
+import {
+	getCurrentOrders,
+	getMyOrdersPage,
+} from "~/server/modules/orders/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -34,6 +36,7 @@ import {
 	createUser,
 	setupTestDatabases,
 	signInAs,
+	testScope,
 } from "../../../test/harness";
 import { requireTenant } from "../../../test/state";
 
@@ -165,7 +168,7 @@ describe("hot query plans use the composite indexes (#25)", () => {
 		}
 
 		const recent = await plansOf(/from "order"/, () =>
-			getRecentDrinkIds(member.id),
+			recentDrinkIds(testScope(), member.id),
 		);
 		expectIndex(recent, "order_user_created_idx");
 		expect(recent[0]?.plan.join("\n")).toMatch(/userId=\? AND createdAt>\?/);

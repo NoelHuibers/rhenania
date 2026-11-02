@@ -23,7 +23,7 @@ import {
 } from "~/lib/drink-order";
 import { formatEUR } from "~/lib/format";
 import { roundToCent } from "~/lib/money";
-import type { MenuItem } from "~/server/actions/menu";
+import type { MenuItem } from "~/server/modules/drinks/actions";
 import type { BillingOption } from "./Billingselector";
 
 /** One opened drawer: the drink (priced for `billing`) and its gate key. */

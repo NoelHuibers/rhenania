@@ -18,8 +18,6 @@ import { eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { toCents } from "~/lib/money";
-import { closeInventoryAndBill } from "~/server/actions/inventur/inventur";
-import { createOrder } from "~/server/actions/orders";
 import { billItems, billPeriods, bills, orders } from "~/server/db/schema";
 import { sendTenantMail } from "~/server/lib/mailer";
 import { billPdf, periodCsv } from "~/server/modules/billing/service";
@@ -30,6 +28,8 @@ import {
 	setBillRecipient,
 	setMarkupPercent,
 } from "~/server/modules/getraenkekasse/actions";
+import { closeInventoryAndBill } from "~/server/modules/inventur/actions";
+import { createOrder } from "~/server/modules/orders/actions";
 import {
 	billsOf,
 	createBillPeriodRow,

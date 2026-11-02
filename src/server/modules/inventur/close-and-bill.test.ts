@@ -23,7 +23,7 @@ import {
 	signOut,
 	tenantDb,
 } from "../../../../test/harness";
-import { closeInventoryAndBill } from "./inventur";
+import { closeInventoryAndBill } from "./actions";
 
 vi.mock("~/server/lib/mailer", () => ({ sendTenantMail: vi.fn() }));
 // The real billing runs unless a test injects a failure.

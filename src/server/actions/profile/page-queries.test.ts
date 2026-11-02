@@ -3,7 +3,6 @@
 // member's history is. The order list is one page, never the whole history.
 
 import { describe, expect, test } from "vitest";
-import { getMyOrdersPage } from "~/server/actions/orders";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
 import { getUserProfile } from "~/server/actions/profile/profile";
 import { auth } from "~/server/auth";
@@ -21,6 +20,7 @@ import {
 	getMyFuchsenSummary,
 } from "~/server/modules/fuchsenladen/actions";
 import { getMyMember } from "~/server/modules/members/actions";
+import { getMyOrdersPage } from "~/server/modules/orders/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,

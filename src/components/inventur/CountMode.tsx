@@ -17,7 +17,7 @@ import {
 	closeInventoryAndBill,
 	type InventoryCountItem,
 	saveInventoryCount,
-} from "~/server/actions/inventur/inventur";
+} from "~/server/modules/inventur/actions";
 import type { StockStatusWithDetails } from "./utils";
 
 /** Toasts the outcome of a full inventory; true when it was saved. */

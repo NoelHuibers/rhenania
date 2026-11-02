@@ -12,7 +12,7 @@ import {
 	type MyOrder,
 	type MyOrdersPage,
 	type MyOrdersQuery,
-} from "~/server/actions/orders";
+} from "~/server/modules/orders/actions";
 import { RecentOrdersFilters } from "./RecentOrdersFilters";
 
 const ORDER_COLUMNS: DataListColumn<MyOrder>[] = [

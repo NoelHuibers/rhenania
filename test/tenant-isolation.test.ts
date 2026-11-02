@@ -173,7 +173,6 @@ async function seedForeignCorps(other: TestTenant) {
 		treasurerEmail: user.email,
 	};
 	const idByModule: Record<string, string> = {
-		"drinks.ts": drink.id,
 		"kontos/kontos.ts": konto.id,
 		// Every `id` of the Fuchsenladen module is an item id.
 		"src/server/modules/fuchsenladen/actions.ts": item.id,

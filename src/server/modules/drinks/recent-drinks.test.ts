@@ -1,17 +1,18 @@
 import { describe, expect, test } from "vitest";
 
-import { createOrderRow, daysAgo } from "../../../test/factories/inventory";
+import { createOrderRow, daysAgo } from "../../../../test/factories/inventory";
 import {
 	createDrink,
 	createTenant,
 	createUser,
 	setupTestDatabases,
-} from "../../../test/harness";
-import { getRecentDrinkIds } from "./recent-drinks";
+	testScope,
+} from "../../../../test/harness";
+import { recentDrinkIds } from "./service";
 
 setupTestDatabases();
 
-describe("getRecentDrinkIds", () => {
+describe("recentDrinkIds", () => {
 	test("the member's most ordered available drinks of the last 30 days", async () => {
 		await createTenant();
 		const max = await createUser({ name: "Max" });
@@ -45,7 +46,7 @@ describe("getRecentDrinkIds", () => {
 		});
 		await createOrderRow({ drink: mate, user: moritz, amount: 50 });
 
-		const ids = await getRecentDrinkIds(max.id);
+		const ids = await recentDrinkIds(testScope(), max.id);
 
 		// Ties (1 each) go to the most recently ordered; limit 4.
 		expect(ids).toHaveLength(4);
@@ -59,7 +60,7 @@ describe("getRecentDrinkIds", () => {
 		await createTenant();
 		const max = await createUser();
 		await createDrink();
-		expect(await getRecentDrinkIds(max.id)).toEqual([]);
+		expect(await recentDrinkIds(testScope(), max.id)).toEqual([]);
 	});
 
 	test("window and limit are adjustable", async () => {
@@ -75,7 +76,11 @@ describe("getRecentDrinkIds", () => {
 		});
 		await createOrderRow({ drink: weizen, user: max, amount: 1 });
 
-		expect(await getRecentDrinkIds(max.id, { days: 5 })).toEqual([weizen.id]);
-		expect(await getRecentDrinkIds(max.id, { limit: 1 })).toEqual([pils.id]);
+		expect(await recentDrinkIds(testScope(), max.id, { days: 5 })).toEqual([
+			weizen.id,
+		]);
+		expect(await recentDrinkIds(testScope(), max.id, { limit: 1 })).toEqual([
+			pils.id,
+		]);
 	});
 });

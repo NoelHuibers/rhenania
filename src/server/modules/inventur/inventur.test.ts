@@ -34,7 +34,7 @@ import {
 	listInventurEvents,
 	saveInventoryCount,
 	saveQuickAdjustments,
-} from "./inventur";
+} from "./actions";
 
 setupTestDatabases();
 

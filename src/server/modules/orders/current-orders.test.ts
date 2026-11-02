@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
 
-import { createOrderRow } from "../../../test/factories/inventory";
+import { createOrderRow } from "../../../../test/factories/inventory";
 import {
 	createDrink,
 	createTenant,
@@ -8,8 +8,8 @@ import {
 	setupTestDatabases,
 	signInAs,
 	type TestUser,
-} from "../../../test/harness";
-import { getCurrentOrders } from "./currentOrders";
+} from "../../../../test/harness";
+import { getCurrentOrders } from "./actions";
 
 setupTestDatabases();
 

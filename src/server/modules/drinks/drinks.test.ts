@@ -6,7 +6,7 @@ import { drinks } from "~/server/db/schema";
 import {
 	createInventory,
 	createOrderRow,
-} from "../../../test/factories/inventory";
+} from "../../../../test/factories/inventory";
 import {
 	createDrink,
 	createTenant,
@@ -14,14 +14,14 @@ import {
 	setupTestDatabases,
 	signInAs,
 	tenantDb,
-} from "../../../test/harness";
+} from "../../../../test/harness";
 import {
 	addDrink,
 	deleteDrink,
 	getDrinks,
 	toggleDrinkAvailability,
 	updateDrink,
-} from "./drinks";
+} from "./actions";
 
 vi.mock("@vercel/blob", () => ({ del: vi.fn() }));
 

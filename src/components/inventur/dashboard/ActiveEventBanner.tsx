@@ -3,7 +3,7 @@
 import { PartyPopper } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import { formatDateTime } from "~/lib/format";
-import type { ActiveEventInventory } from "~/server/actions/inventur/inventur";
+import type { ActiveEventInventory } from "~/server/modules/inventur/actions";
 
 /** Banner while an event inventory runs: finish it or cancel it. */
 export function ActiveEventBanner({

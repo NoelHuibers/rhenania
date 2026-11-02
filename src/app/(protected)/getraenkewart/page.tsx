@@ -6,14 +6,6 @@ import { DashboardTab } from "~/components/inventur/DashboardTab";
 import { HistoryTab } from "~/components/inventur/HistoryTab";
 import { GetraenkePage } from "~/components/trinken/getraenkewart/GetraenkePage";
 import { TableSkeleton } from "~/components/ui/page-skeleton";
-import {
-	getActiveEventInventory,
-	getInventoryHistory,
-	getInventoryProfit,
-	getStockData,
-	listEtaplansWithKostenpunkte,
-	listInventurEvents,
-} from "~/server/actions/inventur/inventur";
 import { getManagedBookingAccounts } from "~/server/modules/booking-accounts/actions";
 import {
 	getBankEntries,
@@ -25,6 +17,14 @@ import {
 	getOpenMemberBills,
 	getPfandWert,
 } from "~/server/modules/getraenkekasse/actions";
+import {
+	getActiveEventInventory,
+	getInventoryHistory,
+	getInventoryProfit,
+	getStockData,
+	listEtaplansWithKostenpunkte,
+	listInventurEvents,
+} from "~/server/modules/inventur/actions";
 
 // Each tab loads its own data inside its own Suspense boundary, so the header
 // and tab bar render at once and one slow tab does not hold back the others.

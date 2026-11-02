@@ -19,7 +19,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
-import { getInventoryHistory, saveInventoryCount } from "./inventur";
+import { getInventoryHistory, saveInventoryCount } from "./actions";
 
 setupTestDatabases();
 
