@@ -2,14 +2,18 @@ import { describe, expect, test } from "vitest";
 
 import { wallClockToUTC } from "~/lib/time";
 import { kontos, recurringEvents } from "~/server/db/schema";
-import { createEvent, setSemesterConfig } from "../../../test/factories/events";
+import {
+	createEvent,
+	setSemesterConfig,
+} from "../../../../test/factories/events";
 import {
 	createTenant,
 	createUser,
 	setupTestDatabases,
 	tenantDb,
-} from "../../../test/harness";
-import { getPDFData } from "./getPDFData";
+	testScope,
+} from "../../../../test/harness";
+import { semproPdfData } from "./service";
 
 setupTestDatabases();
 
@@ -20,14 +24,14 @@ const SEMESTER = {
 	endDate: wallClockToUTC("2027-02-14"),
 };
 
-describe("getPDFData", () => {
+describe("semproPdfData", () => {
 	test("returns null until the semester is configured", async () => {
 		await createTenant();
 
-		expect(await getPDFData()).toBeNull();
+		expect(await semproPdfData(testScope())).toBeNull();
 
 		await setSemesterConfig({ ...SEMESTER, name: "" });
-		expect(await getPDFData()).toBeNull();
+		expect(await semproPdfData(testScope())).toBeNull();
 	});
 
 	test("collects leaders by rank, the active CC-Kasse account and rule texts", async () => {
@@ -71,7 +75,7 @@ describe("getPDFData", () => {
 				{ title: "Stammtisch", type: "Stammtisch", recurrenceType: "biweekly" },
 			]);
 
-		const data = await getPDFData();
+		const data = await semproPdfData(testScope());
 
 		expect(data).toMatchObject({
 			semesterName: "Wintersemester 2026/27",
@@ -114,7 +118,7 @@ describe("getPDFData", () => {
 			date: wallClockToUTC("2027-02-20T20:00"),
 		});
 
-		const data = await getPDFData();
+		const data = await semproPdfData(testScope());
 
 		expect(data?.events).toEqual([
 			expect.objectContaining({
@@ -139,7 +143,7 @@ describe("getPDFData", () => {
 			date: wallClockToUTC("2027-02-14T18:00"),
 		});
 
-		const data = await getPDFData();
+		const data = await semproPdfData(testScope());
 
 		expect(data?.events.map((e) => e.title)).toEqual(["AbCC"]);
 	});
@@ -161,7 +165,7 @@ describe("getPDFData", () => {
 			date: wallClockToUTC("2026-10-26T00:00"),
 		});
 
-		const data = await getPDFData();
+		const data = await semproPdfData(testScope());
 
 		expect(data?.events.map((e) => e.title)).toEqual(["Spät am letzten Tag"]);
 	});

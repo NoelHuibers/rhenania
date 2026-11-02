@@ -19,7 +19,7 @@ import {
 	toggleEventCancelled,
 	toggleRecurringEventActive,
 	updateRecurringEvent,
-} from "./recurring";
+} from "./actions";
 
 setupTestDatabases();
 

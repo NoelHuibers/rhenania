@@ -2,8 +2,8 @@ import { createElement, isValidElement, type ReactNode } from "react";
 import { describe, expect, test } from "vitest";
 
 import { semproProfile } from "~/server/lib/tenant-profile";
-import type { PDFData } from "./getPDFData";
-import { SemProPDFDocument } from "./SemProPDF";
+import type { PDFData } from "./sempro";
+import { SemProPDFDocument } from "./sempro-pdf";
 
 const DATA: PDFData = {
 	semesterName: "Wintersemester 2026",

@@ -12,8 +12,7 @@ import {
 } from "~/components/ui/select";
 import { Switch } from "~/components/ui/switch";
 import { Textarea } from "~/components/ui/textarea";
-import type { RecurrenceType } from "~/server/actions/events/recurring";
-import type { Venue } from "~/server/actions/venues";
+import type { RecurrenceType, Venue } from "~/server/modules/events/actions";
 import { LocationCombobox } from "./LocationCombobox";
 import {
 	DAY_NAMES,

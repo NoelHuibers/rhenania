@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 } from "~/components/ui/dialog";
 import { formatDateWith } from "~/lib/format";
-import { getEventRsvps } from "~/server/actions/events/rsvp";
+import { getEventRsvps } from "~/server/modules/events/actions";
 
 type Row = Awaited<ReturnType<typeof getEventRsvps>>[number];
 

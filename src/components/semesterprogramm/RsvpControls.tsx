@@ -9,7 +9,7 @@ import {
 	type RsvpStatus,
 	removeRsvp,
 	setRsvp,
-} from "~/server/actions/events/rsvp";
+} from "~/server/modules/events/actions";
 
 type Props = {
 	eventId: string;

@@ -5,11 +5,13 @@ import { SemProGenerieren } from "~/components/admin/semesterprogramm/SemProGene
 import { VenuesManager } from "~/components/admin/semesterprogramm/VenuesManager";
 import { SiteHeader } from "~/components/trinken/SiteHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { getAllEvents } from "~/server/actions/events/events";
-import { getAllRecurringEvents } from "~/server/actions/events/recurring";
-import { getSemesterConfig } from "~/server/actions/semesterprogramm/semesterConfig";
-import { getVenues } from "~/server/actions/venues";
 import { protocolForHost } from "~/server/lib/local-host";
+import {
+	getAllEvents,
+	getAllRecurringEvents,
+	getSemesterConfig,
+	getVenues,
+} from "~/server/modules/events/actions";
 
 export const metadata = {
 	title: "Veranstaltungen",

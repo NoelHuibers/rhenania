@@ -131,7 +131,7 @@ describe("no Rhenania literals in shared code (#36)", () => {
 
 	test("scans the shared code, not the tenant folders", () => {
 		expect(files.length).toBeGreaterThan(300);
-		expect(files).toContain("src/server/sempro/SemProPDF.tsx");
+		expect(files).toContain("src/server/domain/events/sempro-pdf.tsx");
 		expect(files).toContain("src/components/footer/footercontent.tsx");
 		expect(files.some((f) => f.startsWith(TENANT_FOLDERS))).toBe(false);
 	});

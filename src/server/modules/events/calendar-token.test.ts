@@ -8,7 +8,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
-import { getOrCreateCalendarToken, rotateCalendarToken } from "./calendarToken";
+import { getOrCreateCalendarToken, rotateCalendarToken } from "./actions";
 
 setupTestDatabases();
 

@@ -7,11 +7,11 @@ import {
 	getActiveImageBySection,
 	getAllActiveImagesBySection,
 } from "~/server/actions/bilder/images";
+import { getCurrentTenant } from "~/server/lib/tenant-context";
 import {
 	getPublicPastEvents,
 	getPublicUpcomingEvents,
-} from "~/server/actions/events/events";
-import { getCurrentTenant } from "~/server/lib/tenant-context";
+} from "~/server/modules/events/actions";
 import { type LandingEvent, RhenaniaExperience } from "./experience";
 
 function relativeLabel(d: Date): string | null {

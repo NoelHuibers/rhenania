@@ -9,8 +9,8 @@ import { DatePicker } from "~/components/ui/date-picker";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { fileNameFromDisposition } from "~/lib/content-disposition";
-import type { SemesterConfig } from "~/server/actions/semesterprogramm/semesterConfig";
-import { upsertSemesterConfig } from "~/server/actions/semesterprogramm/semesterConfig";
+import type { SemesterConfig } from "~/server/modules/events/actions";
+import { upsertSemesterConfig } from "~/server/modules/events/actions";
 import { SemProQRCode } from "./SemProQRCode";
 
 export function SemProGenerieren({

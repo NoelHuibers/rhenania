@@ -49,9 +49,6 @@ const config: KnipConfig = {
 		// Layout constants that document the EtatplanWS workbook; excel.ts
 		// still addresses the title row and year cell by number.
 		"src/server/domain/cc-kasse/etaplan-excel.ts": ["exports"],
-		// rotateCalendarToken has no UI yet but is the only way to revoke a
-		// leaked calendar feed URL; keep it until the profile page offers it.
-		"src/server/actions/events/calendarToken.ts": ["exports"],
 		...(production && {
 			// Exports only used by tests are expected outside the server
 			// actions; the first (non-production) run covers those files.

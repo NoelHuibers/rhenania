@@ -17,13 +17,13 @@ import {
 import { Button } from "~/components/ui/button";
 import { utcToWallClockInput, wallClockToUTC } from "~/lib/time";
 import { defaultVenueName } from "~/lib/venues";
+import type { Venue } from "~/server/modules/events/actions";
 import {
 	createEvent,
 	deleteEvent,
+	toggleEventCancelled,
 	updateEvent,
-} from "~/server/actions/events/events";
-import { toggleEventCancelled } from "~/server/actions/events/recurring";
-import type { Venue } from "~/server/actions/venues";
+} from "~/server/modules/events/actions";
 import { EventFormCard } from "./EventFormCard";
 import { EventRow } from "./EventRow";
 import { type Event, emptyForm, type FormState } from "./event-constants";
