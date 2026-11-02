@@ -16,7 +16,7 @@ export default {
 		"src/server/domain/billing/plan.ts",
 		"src/server/modules/billing/run.ts",
 		"src/server/modules/billing/service.ts",
-		"src/server/actions/inventur/inventur.ts",
+		"src/server/modules/inventur/service.ts",
 		"src/server/modules/cc-kasse/service.ts",
 		"src/server/lib/elo.ts",
 	],
