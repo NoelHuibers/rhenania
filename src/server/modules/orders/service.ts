@@ -235,10 +235,10 @@ export type LeaderboardEntry = {
  * from the 31 days before.
  */
 export async function leaderboard(
-	{ db }: TenantScope,
+	{ db, now }: TenantScope,
 	limit = 10,
 ): Promise<LeaderboardEntry[]> {
-	const rows = await repo.topDrinkers(db, limit);
+	const rows = await repo.topDrinkers(db, limit, now());
 	return rows.map((r) => {
 		const liters = round2((r.liters ?? 0) as number);
 		const lastThirtyOneDaysLiters = round2(
@@ -260,8 +260,9 @@ export async function leaderboard(
 /** The change of personal litres from the 31 days before to the last 31. */
 export async function monthlyGrowthRate({
 	db,
+	now,
 }: TenantScope): Promise<number | null> {
-	const row = await repo.litresLastTwoMonths(db);
+	const row = await repo.litresLastTwoMonths(db, now());
 	return changePercent(
 		round2(Number(row?.lastThirtyOneDaysLiters ?? 0)),
 		round2(Number(row?.prevThirtyOneDaysLiters ?? 0)),
@@ -269,8 +270,11 @@ export async function monthlyGrowthRate({
 }
 
 /** Litres ordered in the last six months. */
-export async function totalConsumption({ db }: TenantScope): Promise<number> {
-	const rows = await repo.litresLastSixMonths(db);
+export async function totalConsumption({
+	db,
+	now,
+}: TenantScope): Promise<number> {
+	const rows = await repo.litresLastSixMonths(db, now());
 	return rows.reduce((sum, row) => sum + (row.totalLiters ?? 0), 0);
 }
 

@@ -33,11 +33,24 @@ import * as repo from "./repo";
 // ─── The member's own profile ────────────────────────────────────────────────
 
 /** The member's name, e-mail address, picture and role names. */
-export async function myProfile({ db }: TenantScope, userId: string) {
-	const userProfile = await repo.profileRow(db, userId);
-	if (!userProfile) {
-		throw new Error("User not found");
-	}
+export async function myProfile(
+	{ db }: TenantScope,
+	identity: {
+		id: string;
+		name: string | null;
+		email: string;
+		image: string | null;
+	},
+) {
+	const userId = identity.id;
+	// Without a mirror row (#35 drift) the signed-in identity says the same:
+	// the mirror is a copy of it. No mirror row means no roles here either.
+	const userProfile = (await repo.profileRow(db, userId)) ?? {
+		id: userId,
+		name: identity.name,
+		email: identity.email,
+		image: identity.image,
+	};
 	const userRoleRows = await repo.rolesWithDescriptions(db, userId);
 	return {
 		...userProfile,

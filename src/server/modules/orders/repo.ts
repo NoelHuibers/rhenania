@@ -122,18 +122,25 @@ export async function unbilledOrders(db: TenantDb) {
 
 // ─── The Literboard ──────────────────────────────────────────────────────────
 //
-// The periods are relative to SQLite's clock (`unixepoch('now')`).
+// The periods are relative to `at` (the scope's clock, #250), with
+// SQLite's calendar arithmetic for "-6 months".
 
-const sixMonthsAgo = sql<number>`unixepoch('now','-6 months')`;
-const now = sql<number>`unixepoch('now')`;
-const thirtyOneDaysAgo = sql<number>`unixepoch('now','-31 days')`;
-const sixtyTwoDaysAgo = sql<number>`unixepoch('now','-62 days')`;
+function periods(at: Date) {
+	const now = Math.floor(at.getTime() / 1000);
+	return {
+		now: sql<number>`${now}`,
+		sixMonthsAgo: sql<number>`unixepoch(${now}, 'unixepoch', '-6 months')`,
+		thirtyOneDaysAgo: sql<number>`unixepoch(${now}, 'unixepoch', '-31 days')`,
+		sixtyTwoDaysAgo: sql<number>`unixepoch(${now}, 'unixepoch', '-62 days')`,
+	};
+}
 
 /**
  * The members who drank most in the last six months (personal orders
  * only), with their litres of the last 31 days and of the 31 before.
  */
-export async function topDrinkers(db: TenantDb, limit: number) {
+export async function topDrinkers(db: TenantDb, limit: number, at: Date) {
+	const { now, sixMonthsAgo, thirtyOneDaysAgo, sixtyTwoDaysAgo } = periods(at);
 	// Previous 31 days data (62-31 days ago)
 	const prevByUser = db
 		.select({
@@ -177,7 +184,13 @@ export async function topDrinkers(db: TenantDb, limit: number) {
 		.leftJoin(drinks, eq(orders.drinkId, drinks.id))
 		.leftJoin(users, eq(orders.userId, users.id))
 		.leftJoin(prevByUser, eq(prevByUser.userId, orders.userId))
-		.where(and(gte(orders.createdAt, sixMonthsAgo), isNull(orders.bookingFor)))
+		.where(
+			and(
+				gte(orders.createdAt, sixMonthsAgo),
+				lt(orders.createdAt, now),
+				isNull(orders.bookingFor),
+			),
+		)
 		.groupBy(orders.userId)
 		.orderBy(
 			desc(
@@ -188,12 +201,14 @@ export async function topDrinkers(db: TenantDb, limit: number) {
 }
 
 /** Personal litres of the last 31 days and of the 31 before. */
-export async function litresLastTwoMonths(db: TenantDb) {
+export async function litresLastTwoMonths(db: TenantDb, at: Date) {
+	const { now, thirtyOneDaysAgo, sixtyTwoDaysAgo } = periods(at);
 	const [row] = await db
 		.select({
 			lastThirtyOneDaysLiters: sql<number>`
         SUM(
           CASE WHEN ${orders.createdAt} >= ${thirtyOneDaysAgo}
+                 AND ${orders.createdAt} < ${now}
                  AND ${drinks.volume} IS NOT NULL
                  AND ${orders.bookingFor} IS NULL
                THEN ${orders.amount} * ${drinks.volume}
@@ -219,7 +234,8 @@ export async function litresLastTwoMonths(db: TenantDb) {
 }
 
 /** Litres ordered in the last six months (all orders), one row. */
-export async function litresLastSixMonths(db: TenantDb) {
+export async function litresLastSixMonths(db: TenantDb, at: Date) {
+	const { now, sixMonthsAgo } = periods(at);
 	return db
 		.select({
 			totalLiters: sql<number>`

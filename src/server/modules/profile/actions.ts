@@ -26,7 +26,7 @@ export async function getUserProfile() {
 	try {
 		return await profile.myProfile(
 			await scopeOf(session.tenantId),
-			session.user.id,
+			session.user,
 		);
 	} catch (error) {
 		console.error("Error fetching user profile:", error);

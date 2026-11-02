@@ -1,5 +1,5 @@
-// The leaderboard windows are computed by SQLite (`unixepoch('now', …)`), so
-// these tests place orders relative to the real clock instead of faking it.
+// The leaderboard windows are relative to the scope's clock (#250), with
+// SQLite's calendar arithmetic; most tests place orders relative to the real clock.
 
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -286,5 +286,40 @@ describe("consumptionByDrink", () => {
 		expect(config[p]?.label).toBe("Pils");
 		expect(config[w]?.label).toBe("Wein");
 		expect(config[p]?.color).not.toBe(config[w]?.color);
+	});
+});
+
+describe("the scope's clock (#250)", () => {
+	test("the windows follow the scope's clock, not SQLite's", async () => {
+		const at = new Date("2026-03-15T12:00:00Z");
+		const day = (n: number) => daysAgo(n, at.getTime());
+		const max = await createUser({ name: "Max" });
+		const pils = await drinkWithVolume("Pils", 0.5);
+		await createOrderRow({
+			drink: pils,
+			user: max,
+			amount: 2,
+			createdAt: day(5),
+		});
+		await createOrderRow({
+			drink: pils,
+			user: max,
+			amount: 4,
+			createdAt: day(40),
+		});
+		// After `at`: not yet ordered as far as that clock is concerned.
+		await createOrderRow({
+			drink: pils,
+			user: max,
+			amount: 8,
+			createdAt: day(-3),
+		});
+
+		const scope = testScope({ now: at });
+
+		expect(await totalConsumption(scope)).toBe(3);
+		expect(await monthlyGrowthRate(scope)).toBe(-50);
+		const [entry] = await leaderboard(scope);
+		expect(entry).toMatchObject({ userName: "Max", changePct: -50 });
 	});
 });
