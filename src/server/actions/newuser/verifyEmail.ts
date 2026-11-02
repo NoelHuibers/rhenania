@@ -7,9 +7,8 @@ import { type ActionResult, fail, ok } from "~/lib/action-result";
 import { controlDb } from "~/server/db/control";
 import { accounts, users as controlUsers } from "~/server/db/control-schema";
 import { verificationTokens } from "~/server/db/schema";
-import { getTenantDb } from "~/server/db/tenants";
 import { log } from "~/server/lib/log";
-import { requireTenantId } from "~/server/lib/tenant-context";
+import { currentTenantScope } from "~/server/lib/tenant-scope";
 import { mirrorUserToAllMemberTenants } from "~/server/lib/user-mirror";
 
 // Public (see PUBLIC_ACTIONS in test/server-actions.ts): the invited person
@@ -43,8 +42,9 @@ export async function verifyEmailAndSetPassword(
 			);
 		}
 
-		const tenantId = await requireTenantId();
-		const tdb = await getTenantDb(tenantId);
+		// A public invite link: the Corps is the one whose host it was
+		// opened on, as the scope of the request says (#250).
+		const { db: tdb } = await currentTenantScope();
 		const lowerEmail = email.toLowerCase();
 
 		// Find and verify the invitation token (tenant-scoped).

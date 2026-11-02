@@ -114,8 +114,9 @@ export async function toggleRole(
 ) {
 	if (await repo.hasRole(db, userId, roleId)) {
 		await repo.unassignRole(db, userId, roleId);
-	} else if (!(await repo.hasRole(db, userId, roleId))) {
-		// Checked again right before the write, as before.
+	} else {
+		// A concurrent toggle may have assigned it meanwhile; the insert
+		// skips an existing assignment (#250).
 		await repo.assignRole(db, roleId, [userId]);
 	}
 }

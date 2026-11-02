@@ -100,13 +100,16 @@ export async function assignRole(
 	roleId: string,
 	userIds: string[],
 ) {
-	await db.insert(userRoles).values(
-		userIds.map((userId) => ({
-			userId,
-			roleId,
-			assignedAt: sql`(unixepoch())`,
-		})),
-	);
+	await db
+		.insert(userRoles)
+		.values(
+			userIds.map((userId) => ({
+				userId,
+				roleId,
+				assignedAt: sql`(unixepoch())`,
+			})),
+		)
+		.onConflictDoNothing();
 }
 
 export async function unassignRole(

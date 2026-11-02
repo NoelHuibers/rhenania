@@ -73,6 +73,21 @@ describe("getUserProfile", () => {
 		expect(profile.roles).toHaveLength(2);
 	});
 
+	test("falls back to the signed-in identity when the mirror row is missing (#250)", async () => {
+		await createTenant();
+		const member = await createUser({ name: "Max" });
+		await tenantDb().delete(users).where(eq(users.id, member.id));
+		signInAs(member);
+
+		expect(await getUserProfile()).toEqual({
+			id: member.id,
+			name: "Max",
+			email: member.email,
+			image: null,
+			roles: [],
+		});
+	});
+
 	test("redirects anonymous visitors to the sign-in page", async () => {
 		await createTenant();
 		await expect(getUserProfile()).rejects.toThrow("NEXT_REDIRECT");
@@ -88,17 +103,6 @@ describe("getUserProfile", () => {
 		expect(await updateUserName(form({ name: "x" }))).toEqual(denied);
 		expect(await refreshProfile()).toEqual(denied);
 		expect(await syncFromMicrosoft()).toEqual(denied);
-	});
-
-	test("fails when the member has no mirror in this tenant", async () => {
-		await createTenant();
-		const member = await createUser();
-		await tenantDb().delete(users).where(eq(users.id, member.id));
-		signInAs(member);
-
-		await expect(getUserProfile()).rejects.toThrow(
-			"Failed to fetch user profile",
-		);
 	});
 });
 
