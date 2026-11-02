@@ -2,15 +2,14 @@ import { eq } from "drizzle-orm";
 import { describe, expect, test } from "vitest";
 
 import { auth } from "~/server/auth";
-import { db } from "~/server/db";
 import { drinks } from "~/server/db/schema";
-import { getCurrentTenantDb } from "~/server/db/tenants";
 import { hasFeature } from "~/server/lib/features";
 import {
 	getCurrentTenant,
 	getTenantId,
 	resolveTenantByHost,
 } from "~/server/lib/tenant-context";
+import { currentTenantScope } from "~/server/lib/tenant-scope";
 import {
 	controlDb,
 	countQueries,
@@ -43,18 +42,19 @@ describe("test harness", () => {
 		expect(await tenantDb(b.id).select().from(drinks)).toHaveLength(0);
 	});
 
-	test("the shared db proxy and getCurrentTenantDb follow the request tenant", async () => {
+	test("currentTenantScope follows the request tenant", async () => {
 		const a = await createTenant();
 		const b = await createTenant();
 		await createDrink({ name: "Pils" }, a.id);
 
 		switchTenant(a);
-		expect(await db.select().from(drinks)).toHaveLength(1);
-		switchTenant(b);
-		expect(await db.select().from(drinks)).toHaveLength(0);
 		expect(
-			await (await getCurrentTenantDb()).select().from(drinks),
-		).toHaveLength(0);
+			await (await currentTenantScope()).db.select().from(drinks),
+		).toHaveLength(1);
+		switchTenant(b);
+		const scope = await currentTenantScope();
+		expect(scope.tenantId).toBe(b.id);
+		expect(await scope.db.select().from(drinks)).toHaveLength(0);
 	});
 
 	test("real tenant context resolves hosts and feature flags from the control DB", async () => {
@@ -101,12 +101,15 @@ describe("test harness", () => {
 		testState.headers["x-tenant-id"] = b.id;
 
 		expect(await getTenantId()).toBe(a.id);
-		expect(await db.select().from(drinks)).toHaveLength(0);
+		expect(
+			await (await currentTenantScope()).db.select().from(drinks),
+		).toHaveLength(0);
 	});
 
 	test("countQueries counts round trips per database, batches as one", async () => {
 		await createTenant();
 		const drink = await createDrink({ name: "Pils" });
+		const db = tenantDb();
 
 		const counted = await countQueries(async () => {
 			await db.select().from(drinks);

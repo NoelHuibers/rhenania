@@ -1,7 +1,8 @@
 // tenants.ts — per-tenant DB clients.
 //
 // `getTenantDb(tenantId)` returns a drizzle instance bound to that tenant's
-// Turso DB. `connect()` below is the only place that builds tenant clients.
+// Turso DB; app code reaches it through a TenantScope
+// (`src/server/lib/tenant-scope.ts`). `connect()` below is the only place that builds tenant clients.
 // Clients are cached per process, but every call checks the tenant's
 // current config (status and credentials, served by the tenant-config
 // service): a suspended tenant gets no client, and a rotated URL or token
@@ -97,32 +98,9 @@ export async function getTenantDb(tenantId: string): Promise<TenantDb> {
 	return (await connect(tenantId)).db;
 }
 
-/**
- * The raw libSQL `Client` behind `getTenantDb(tenantId)`. Used by the
- * `client` proxy in `./index.ts` to dispatch network calls to the right
- * tenant.
- */
+/** The raw libSQL `Client` behind `getTenantDb(tenantId)`. */
 export async function getTenantClient(tenantId: string): Promise<Client> {
 	return (await connect(tenantId)).client;
-}
-
-// `requireTenantId` is imported lazily in `getCurrentTenantDb` to avoid
-// circular module loading — tenant-context.ts imports from this module
-// transitively via the type definition.
-async function _requireTenantId(): Promise<string> {
-	const { requireTenantId } = await import("~/server/lib/tenant-context");
-	return requireTenantId();
-}
-
-/**
- * Convenience wrapper for request-scoped code: resolves the current request's
- * tenant from the middleware-set `x-tenant-id` header and returns that
- * tenant's drizzle instance. Throws if called outside a request context (use
- * `getTenantDb(id)` directly in scripts).
- */
-export async function getCurrentTenantDb(): Promise<TenantDb> {
-	const tenantId = await _requireTenantId();
-	return getTenantDb(tenantId);
 }
 
 /** Closes and forgets cached clients right away (one tenant or all). */

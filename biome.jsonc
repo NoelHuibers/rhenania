@@ -70,7 +70,15 @@
 					"options": {
 						"paths": {
 							"@radix-ui/react-label": "Import from the \"radix-ui\" package instead.",
-							"@radix-ui/react-slot": "Import from the \"radix-ui\" package instead."
+							"@radix-ui/react-slot": "Import from the \"radix-ui\" package instead.",
+							// The implicit tenant `db` proxy is gone (#33) and must not come
+							// back: a tenant's data is reached through a TenantScope.
+							"~/server/db": "There is no implicit tenant db (#33): take a TenantScope (src/server/lib/tenant-scope.ts), see docs/architecture/layering.md.",
+							"~/server/db/index": "There is no implicit tenant db (#33): take a TenantScope (src/server/lib/tenant-scope.ts), see docs/architecture/layering.md.",
+							"~/server/db/tenants": {
+								"importNames": ["getCurrentTenantDb"],
+								"message": "The request's tenant comes from the guard (requireCaller / defineAction) or currentTenantScope(), see docs/architecture/layering.md."
+							}
 						}
 					}
 				}

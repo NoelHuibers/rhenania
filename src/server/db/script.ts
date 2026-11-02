@@ -1,7 +1,7 @@
 // script.ts — the explicit database for CLI scripts.
 //
-// App code gets its tenant database from the request (`getTenantDb`,
-// `getCurrentTenantDb`). One-shot scripts (`pnpm db:seed`,
+// App code gets its tenant database from a TenantScope
+// (`src/server/lib/tenant-scope.ts`). One-shot scripts (`pnpm db:seed`,
 // `pnpm db:control:seed`, ...) instead name the database they work on:
 // `getScriptDb()` connects to DATABASE_URL from the environment, which in
 // `.env` is PRODUCTION; run a script through `scripts/dev/run.ts` to point
@@ -11,7 +11,6 @@ import type { Client } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 
 import { env } from "~/env";
-import { runWithDb } from "./index";
 import { createClient } from "./libsql";
 import * as schema from "./schema";
 import type { TenantDb } from "./tenants";
@@ -35,12 +34,4 @@ export function getScriptDb(): ScriptDb {
 		scriptDb = { client, db: drizzle(client, { schema }) };
 	}
 	return scriptDb;
-}
-
-/**
- * Runs `fn` with the proxy `db` from `~/server/db` bound to the script
- * database, for scripts that call app code still built on the proxy.
- */
-export function runWithScriptDb<T>(fn: () => Promise<T>): Promise<T> {
-	return runWithDb(getScriptDb().client, fn);
 }

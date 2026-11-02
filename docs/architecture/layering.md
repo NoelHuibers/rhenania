@@ -1,20 +1,19 @@
 # Server layering (#33)
 
 Where server code lives, how it gets its tenant database, and the order in
-which the existing code moves there. Phase 1 (this document, the lint rule,
-the explicit script DB), phase 2 (billing and the Getränkekasse), phase 3
-(the Fuchsenladen and the mails), phase 4 (the CC-Kasse and
-Mitglieder/Semesterbeitrag) and phase 5 (achievements and games) are done;
-phase 6 (the rest, then the proxy goes) is under way: the Semesterprogramm,
-drinks, orders, the Inventur, profiles, preferences, pictures, members and
-roles and the Konten have moved; only the proxy itself is left.
+which the existing code moved there. All six phases are done: phase 1 (this
+document, the lint rule, the explicit script DB), phase 2 (billing and the
+Getränkekasse), phase 3 (the Fuchsenladen and the mails), phase 4 (the
+CC-Kasse and Mitglieder/Semesterbeitrag), phase 5 (achievements and games)
+and phase 6 (the rest; the implicit proxy `db` and `getCurrentTenantDb` are
+gone, a `TenantScope` is the only way into a tenant's data).
 
 ## Why
 
-Action files today mix input parsing, auth, business rules, raw Drizzle,
-cross-DB writes, `revalidatePath` and error swallowing. They get their
+Action files used to mix input parsing, auth, business rules, raw Drizzle,
+cross-DB writes, `revalidatePath` and error swallowing. They got their
 database in three ways: the implicit proxy `db` from `~/server/db`,
-`getCurrentTenantDb()` and `getTenantDb(id)`. The proxy hides which tenant a
+`getCurrentTenantDb()` and `getTenantDb(id)`. The proxy hid which tenant a
 query hits (the root of the cross-tenant challenge bugs), and errors turned
 into `[]`/`false` make an outage look like "no bills".
 
@@ -85,16 +84,20 @@ work (cross-Corps games) builds a second scope explicitly with
   Biome can't restrict an import to `import type`). Route handlers under
   `src/app/api` follow the same rule; their reads live in loaders too
   (`loaders/calendar.ts`).
-- **No implicit production fallback.** Outside a request the proxy `db`
-  throws `NoDbContextError`. Scripts name their database:
-  `getScriptDb()` from `~/server/db/script`, or `runWithScriptDb(fn)` when
-  they call app code still built on the proxy. Importing a db module opens
-  no connection.
-- **The proxy only shrinks.** `pnpm proxy-db:check` (CI lint job) prints the
-  files that still import the proxy and fails if the count rises above
-  `scripts/ci/proxy-db-baseline.json`. After moving files off the proxy, run
-  `pnpm proxy-db:baseline` and commit the lower number. When it reaches 0,
-  delete the proxy.
+- **A TenantScope is the only way in.** There is no implicit tenant `db`:
+  Biome `noRestrictedImports` refuses `~/server/db` and `~/server/db/index`
+  everywhere, and `getCurrentTenantDb` from `~/server/db/tenants`.
+  `test/no-implicit-tenant-db.test.ts` also catches what Biome's literal
+  match misses: relative paths to `src/server/db`, a re-created
+  `db/index.ts` and any `getCurrentTenantDb` in the code. App code
+  takes the scope `defineAction` built, `scopeOf(tenantId)` with the
+  guard's tenant (`requireCaller`, the session) or, for request-bound
+  entry points without a guard of their own (the public website, the
+  Literboard), `currentTenantScope()`.
+- **No implicit production fallback.** Outside a request
+  `currentTenantScope()` throws. Scripts name their database:
+  `getScriptDb()` from `~/server/db/script`, and `tenantScope(id, db)` when
+  they call services. Importing a db module opens no connection.
 
 ## Migration order
 
@@ -102,15 +105,15 @@ One domain per PR, each PR leaving behaviour, query counts (the
 `countQueries` tests) and rendered output unchanged:
 
 1. **Foundation** (done): explicit script DB, no fallback, lint rule, page
-   loaders, import-count ratchet, this document.
+   loaders, import-count ratchet (removed with the proxy), this document.
 2. **Billing + Getränkekasse** (done, see below).
 3. **Fuchsenladen + mails** (done, see below).
 4. **CC-Kasse and Mitglieder/Semesterbeitrag** (done, see below).
 5. **Achievements/tracking and games** (done, see below).
-6. **The rest** (in progress, see below): the Semesterprogramm, drinks,
-   orders, the Inventur and the drink leaderboard, profile, preferences,
-   images, roles and Konten (done); then delete the proxy and
-   `getCurrentTenantDb`, leaving `TenantScope` as the only way in.
+6. **The rest** (done, see below): the Semesterprogramm, drinks, orders,
+   the Inventur and the drink leaderboard, profile, preferences, images,
+   roles and Konten; then the proxy and `getCurrentTenantDb` were deleted,
+   leaving `TenantScope` as the only way in.
 
 ## Phase 2: billing and Getränkekasse (done)
 
@@ -332,7 +335,7 @@ src/server/loaders/elo-stats.ts         the ELO card of /profile
   litres ordered and charts consumption per drink, from orders and drinks
   only. It moves with the drinks and orders in phase 6.
 
-## Phase 6: the rest (in progress)
+## Phase 6: the rest (done)
 
 ### Semesterprogramm
 
@@ -486,3 +489,19 @@ src/server/loaders/preferences.ts   the profile's switches and ELO opt-out
   action's scope, `getTenantDb(id)` or the control DB) and therefore left
   for later: `admin/export.ts`, `newuser/`, `profile/{auth,avatar}.ts`,
   `superadmin/` and `transactions/`.
+
+### The proxy is gone
+
+- `src/server/db/index.ts` (the proxy `db` and `client`, `runWithDb`,
+  `NoDbContextError`), `runWithScriptDb` in `db/script.ts` and
+  `getCurrentTenantDb` in `db/tenants.ts` are deleted. `getTenantClient`
+  stays for the connection tests.
+- The import-count ratchet (`scripts/ci/proxy-db*`, `pnpm proxy-db:check`
+  and `:baseline`, the CI step) is gone with it; the Biome rule and
+  `test/no-implicit-tenant-db.test.ts` above keep the proxy and
+  `getCurrentTenantDb` out instead.
+- The tests no longer double the proxy (`test/setup.ts`). The real
+  routing tests (`db/routing.test.ts`) and the harness test check the
+  same things on `currentTenantScope()`: the request host's tenant, never
+  a forged `x-tenant-id`, a loud failure for an unknown host; the script
+  test checks that the request's scope has no fallback outside a request.
