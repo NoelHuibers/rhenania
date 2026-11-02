@@ -82,7 +82,7 @@
 		"nodemailer": "^10.2.1",
 		"qrcode": "^1.5.4",
 		"qrcode.react": "^4.2.0",
-		"radix-ui": "^1.5.0",
+		"radix-ui": "^1.8.1",
 		"react": "^19.2.7",
 		"react-day-picker": "^10.0.1",
 		"react-dom": "^19.2.7",
