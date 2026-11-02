@@ -1,5 +1,5 @@
-import { getUserProfile } from "~/server/actions/profile/profile";
 import { getCurrentTenant } from "~/server/lib/tenant-context";
+import { getUserProfile } from "~/server/modules/profile/actions";
 import { AppSidebarClient } from "./AppSidebarClient";
 
 export interface AppSidebarProps {

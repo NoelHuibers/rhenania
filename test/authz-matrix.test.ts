@@ -93,40 +93,8 @@ type Entry = Access | { access: Access; args: (ctx: Ctx) => unknown[] };
 
 const MATRIX: Record<string, Record<string, Entry>> = {
 	"src/lib/formSubmit.ts": { onSubmitAction: "public" },
-	"src/server/actions/admin/admin.ts": {
-		getUsersWithRoles: ADMIN,
-		getRolesWithUserCount: ADMIN,
-		initializeRoles: ADMIN,
-		toggleUserRole: ADMIN,
-		updateUser: ADMIN,
-		bulkSetRoleUsers: ADMIN,
-		deleteUser: ADMIN,
-	},
 	"src/server/actions/admin/export.ts": {
 		exportTenantData: { roles: ADMIN, orSuperadmin: true },
-	},
-	"src/server/actions/admin/userRoles.ts": {
-		// Self or Admin; asked about somebody else here.
-		getUserRoles: { access: ADMIN, args: (c) => [c.other.id] },
-		hasAnyRole: { access: ADMIN, args: (c) => [c.other.id, ["Admin"]] },
-	},
-	"src/server/actions/bilder/homepageImages.ts": {
-		saveHomepageImage: FOTOS,
-		getAllHomepageImages: FOTOS,
-		toggleImageActive: FOTOS,
-		deleteHomepageImage: FOTOS,
-		updateImageOrder: FOTOS,
-	},
-	"src/server/actions/bilder/images.ts": {
-		getActiveImageBySection: "public",
-		getAllActiveImagesBySection: "public",
-	},
-	// Kasse roles see and edit the Konto of their own Kasse (checked per Konto).
-	"src/server/actions/kontos/kontos.ts": {
-		getKontos: "member",
-		createKonto: ADMIN,
-		updateKonto: "member",
-		deleteKonto: ADMIN,
 	},
 	"src/server/actions/newuser/users.ts": {
 		createUser: ADMIN,
@@ -146,37 +114,6 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 	"src/server/actions/profile/avatar.ts": {
 		updateUserAvatarUrl: "member",
 		deleteUserAvatar: "member",
-	},
-	"src/server/actions/profile/preferences.ts": {
-		getUserPreference: "member",
-		setEloPreferenceAction: {
-			access: "member",
-			args: () => [{ enabled: true }],
-		},
-		setPublicProfilePreferenceAction: {
-			access: "member",
-			args: () => [{ enabled: true }],
-		},
-		getChallengeNotificationPreferenceAction: "member",
-		setChallengeNotificationPreferenceAction: {
-			access: "member",
-			args: () => [{ enabled: true }],
-		},
-		setEmailNotificationPreferenceAction: {
-			access: "member",
-			args: () => [{ enabled: true }],
-		},
-		getHiddenEventTypes: "member",
-		setHiddenEventTypes: "member",
-	},
-	"src/server/actions/profile/profile.ts": {
-		getUserProfile: "member",
-		updateUserName: "member",
-		syncFromMicrosoft: "member",
-		refreshProfile: "member",
-	},
-	"src/server/actions/profile/public-profile.ts": {
-		getPublicProfile: "member",
 	},
 	"src/server/actions/superadmin/tenants.ts": {
 		listTenantsAction: "superadmin",
@@ -361,6 +298,15 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		updateGetraenkeBillingProfile: GETRAENKE,
 		markAllMemberBillsPaid: GETRAENKE,
 	},
+	"src/server/modules/images/actions.ts": {
+		getActiveImageBySection: "public",
+		getAllActiveImagesBySection: "public",
+		saveHomepageImage: FOTOS,
+		getAllHomepageImages: FOTOS,
+		toggleImageActive: FOTOS,
+		deleteHomepageImage: FOTOS,
+		updateImageOrder: FOTOS,
+	},
 	"src/server/modules/inventur/actions.ts": {
 		getInventoryProfit: GETRAENKE,
 		getStockData: GETRAENKE,
@@ -373,6 +319,13 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		listEtaplansWithKostenpunkte: GETRAENKE,
 		cancelEventInventory: GETRAENKE,
 		finishEventInventory: GETRAENKE,
+	},
+	"src/server/modules/konten/actions.ts": {
+		getKontos: "member",
+		createKonto: ADMIN,
+		// Kasse roles see and edit the Konto of their own Kasse (checked per Konto).
+		updateKonto: "member",
+		deleteKonto: ADMIN,
 	},
 	"src/server/modules/members/actions.ts": {
 		listMembers: ADRESSLISTE,
@@ -392,6 +345,35 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		getMyOrdersPage: "member",
 		getCurrentOrders: "member",
 	},
+	"src/server/modules/preferences/actions.ts": {
+		getUserPreference: "member",
+		setEloPreferenceAction: {
+			access: "member",
+			args: () => [{ enabled: true }],
+		},
+		setPublicProfilePreferenceAction: {
+			access: "member",
+			args: () => [{ enabled: true }],
+		},
+		getChallengeNotificationPreferenceAction: "member",
+		setChallengeNotificationPreferenceAction: {
+			access: "member",
+			args: () => [{ enabled: true }],
+		},
+		setEmailNotificationPreferenceAction: {
+			access: "member",
+			args: () => [{ enabled: true }],
+		},
+		getHiddenEventTypes: "member",
+		setHiddenEventTypes: "member",
+	},
+	"src/server/modules/profile/actions.ts": {
+		getUserProfile: "member",
+		updateUserName: "member",
+		syncFromMicrosoft: "member",
+		refreshProfile: "member",
+		getPublicProfile: "member",
+	},
 	"src/server/modules/semesterbeitrag/actions.ts": {
 		listBeitragRuns: CC_TREASURY,
 		createBeitragRun: CC_TREASURY,
@@ -404,6 +386,18 @@ const MATRIX: Record<string, Record<string, Entry>> = {
 		sendBeitragEmails: CC_TREASURY,
 		sendMahnungen: CC_TREASURY,
 		downloadChargePdf: CC_TREASURY,
+	},
+	"src/server/modules/users/actions.ts": {
+		getUsersWithRoles: ADMIN,
+		getRolesWithUserCount: ADMIN,
+		initializeRoles: ADMIN,
+		toggleUserRole: ADMIN,
+		updateUser: ADMIN,
+		bulkSetRoleUsers: ADMIN,
+		deleteUser: ADMIN,
+		// Self or Admin; asked about somebody else here.
+		getUserRoles: { access: ADMIN, args: (c) => [c.other.id] },
+		hasAnyRole: { access: ADMIN, args: (c) => [c.other.id, ["Admin"]] },
 	},
 };
 

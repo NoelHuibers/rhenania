@@ -2,9 +2,9 @@
 
 import "server-only";
 
-import { getHiddenEventTypesForUser } from "~/server/lib/preferences";
 import { scopeOf } from "~/server/lib/tenant-scope";
 import * as events from "~/server/modules/events/service";
+import { hiddenEventTypes } from "~/server/modules/preferences/service";
 
 /** The tenant's public events (date order) and venues, for /api/calendar. */
 export async function loadPublicCalendar(tenantId: string) {
@@ -24,7 +24,7 @@ export async function loadMemberCalendar(tenantId: string, token: string) {
 	}
 	const [feed, hiddenTypes] = await Promise.all([
 		events.memberCalendar(tenant),
-		getHiddenEventTypesForUser(owner.userId),
+		hiddenEventTypes(tenant, owner.userId),
 	]);
 	return { owner, ...feed, hiddenTypes };
 }

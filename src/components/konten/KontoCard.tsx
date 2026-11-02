@@ -4,7 +4,7 @@ import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent } from "~/components/ui/card";
 import { IconButton } from "~/components/ui/icon-button";
-import type { Konto } from "~/server/actions/kontos/kontos";
+import type { Konto } from "~/server/modules/konten/actions";
 
 /** One bank account with its edit and (admin-only) delete actions. */
 export function KontoCard({

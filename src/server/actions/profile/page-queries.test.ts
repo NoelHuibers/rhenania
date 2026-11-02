@@ -4,14 +4,13 @@
 
 import { describe, expect, test } from "vitest";
 import { getConnectedAccountsAction } from "~/server/actions/profile/auth";
-import { getUserProfile } from "~/server/actions/profile/profile";
 import { auth } from "~/server/auth";
-import {
-	getProfilePreferencesForUser,
-	isEloEnabledForUser,
-} from "~/server/lib/preferences";
 import { loadEloStats } from "~/server/loaders/elo-stats";
 import { loadOpenBill } from "~/server/loaders/open-bill";
+import {
+	loadEloEnabled,
+	loadProfilePreferences,
+} from "~/server/loaders/preferences";
 import { getUserAchievements } from "~/server/modules/achievements/actions";
 import { getUserBillingData } from "~/server/modules/billing/actions";
 import { getMyPaymentInfo } from "~/server/modules/cc-kasse/actions";
@@ -21,6 +20,7 @@ import {
 } from "~/server/modules/fuchsenladen/actions";
 import { getMyMember } from "~/server/modules/members/actions";
 import { getMyOrdersPage } from "~/server/modules/orders/actions";
+import { getUserProfile } from "~/server/modules/profile/actions";
 import {
 	createBillPeriodRow,
 	createBillRow,
@@ -72,7 +72,7 @@ async function loadProfilePage() {
 	] = await Promise.all([
 		getUserProfile(),
 		getConnectedAccountsAction(),
-		getProfilePreferencesForUser(userId),
+		loadProfilePreferences(session),
 		getMyPaymentInfo(),
 		getMyMember(),
 		getUserBillingData(),
@@ -86,9 +86,7 @@ async function loadProfilePage() {
 			if (!s) {
 				throw new Error("not signed in");
 			}
-			return (await isEloEnabledForUser(s.user.id))
-				? await loadEloStats(s)
-				: null;
+			return (await loadEloEnabled(s)) ? await loadEloStats(s) : null;
 		})(),
 	]);
 	return {

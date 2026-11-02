@@ -2,7 +2,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
+import type { HomepageSection } from "~/server/modules/images/actions";
 
 export interface DropZoneProps {
 	section: HomepageSection;

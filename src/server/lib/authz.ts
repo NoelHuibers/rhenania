@@ -66,17 +66,21 @@ export async function requireRole(roles: readonly string[]): Promise<Member> {
 	return (await requireCaller(roles)).member;
 }
 
-/** The caller, if they are `userId` themselves or hold one of `roles`. */
+/**
+ * The caller and their tenant, if they are `userId` themselves or hold one
+ * of `roles` there.
+ */
 export async function requireSelfOrRole(
 	userId: string,
 	roles: readonly string[],
-): Promise<Member> {
-	const member = await requireMember();
+): Promise<{ member: Member; tenantId: string }> {
+	const caller = await requireCaller();
+	const { member } = caller;
 	if (
 		member.id !== userId &&
 		!roles.some((role) => member.roles.includes(role))
 	) {
 		throw new AuthzError("FORBIDDEN");
 	}
-	return member;
+	return caller;
 }

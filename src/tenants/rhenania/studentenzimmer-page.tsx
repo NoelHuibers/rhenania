@@ -11,7 +11,7 @@ import {
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { getAllActiveImagesBySection } from "~/server/actions/bilder/images";
+import { getAllActiveImagesBySection } from "~/server/modules/images/actions";
 import { SiteFooter } from "~/tenants/rhenania/sections/site-footer";
 import { SiteHeader } from "~/tenants/rhenania/sections/site-header";
 import {

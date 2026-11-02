@@ -3,7 +3,7 @@
 import { Search } from "lucide-react";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { bulkSetRoleUsers } from "../../server/actions/admin/admin";
+import { bulkSetRoleUsers } from "~/server/modules/users/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";

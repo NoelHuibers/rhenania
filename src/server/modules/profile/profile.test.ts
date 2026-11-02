@@ -18,7 +18,7 @@ import {
 	refreshProfile,
 	syncFromMicrosoft,
 	updateUserName,
-} from "./profile";
+} from "./actions";
 
 vi.mock("~/server/auth/microsoft-tokens", () => ({
 	getGraphAccessToken: vi.fn(),

@@ -5,7 +5,7 @@ import { ImageIcon, Plus, Upload } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Badge } from "~/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
-import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
+import type { HomepageSection } from "~/server/modules/images/actions";
 import { DeleteConfirmDialog } from "./DeleteConfirmDialog";
 import { DropZone } from "./Dropzone";
 import { type ImageItem, OptimizedImagePreview } from "./OptimizedImagePreview";

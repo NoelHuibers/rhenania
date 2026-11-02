@@ -6,7 +6,8 @@ the explicit script DB), phase 2 (billing and the Getränkekasse), phase 3
 (the Fuchsenladen and the mails), phase 4 (the CC-Kasse and
 Mitglieder/Semesterbeitrag) and phase 5 (achievements and games) are done;
 phase 6 (the rest, then the proxy goes) is under way: the Semesterprogramm,
-drinks, orders and the Inventur have moved.
+drinks, orders, the Inventur, profiles, preferences, pictures, members and
+roles and the Konten have moved; only the proxy itself is left.
 
 ## Why
 
@@ -106,9 +107,9 @@ One domain per PR, each PR leaving behaviour, query counts (the
 3. **Fuchsenladen + mails** (done, see below).
 4. **CC-Kasse and Mitglieder/Semesterbeitrag** (done, see below).
 5. **Achievements/tracking and games** (done, see below).
-6. **The rest** (in progress, see below): the Semesterprogramm (done),
-   drinks, orders, the Inventur and the drink leaderboard (done), then
-   profile, images, roles and Konten; then delete the proxy and
+6. **The rest** (in progress, see below): the Semesterprogramm, drinks,
+   orders, the Inventur and the drink leaderboard, profile, preferences,
+   images, roles and Konten (done); then delete the proxy and
    `getCurrentTenantDb`, leaving `TenantScope` as the only way in.
 
 ## Phase 2: billing and Getränkekasse (done)
@@ -234,7 +235,7 @@ src/server/domain/semesterbeitrag/beitrag-pdf.ts  the Beitrag letter
 - The Konten (`actions/kontos/kontos.ts`) stay where they are: every
   Kasse's bank accounts, managed per Kasse role, not part of the CC-Kasse
   or the Adressliste. They are already on an explicit scope and belong
-  to phase 6.
+  to phase 6 (`modules/konten` since then).
 - The actions name their id parameters (`etaplanId`, `kostenpunktId`,
   `einnahmeId`, `reimbursementId`, `memberId`), so the tenant-isolation
   test passes each a foreign row of the right kind.
@@ -425,3 +426,63 @@ src/server/loaders/leaderboard.ts         the Literboard
   The query counts are unchanged (`count-queries`, `page-queries`,
   `rechnungen-queries`, the order page's batch).
 - The drink actions name their id parameter `drinkId`.
+
+### Profiles, preferences, pictures, members and Konten
+
+```
+src/server/modules/profile/
+  repo.ts          the member's mirror row and roles, what a public
+                   profile reads (achievements, litres)
+  service.ts       the own profile, renaming and the Microsoft sync (on the
+                   global identity), another member's public profile
+  actions.ts       getUserProfile, updateUserName, syncFromMicrosoft,
+                   refreshProfile, getPublicProfile
+src/server/modules/preferences/
+  repo.ts          stored values per user and key
+  service.ts       the profile's switches, the public profile and ELO
+                   opt-outs (lib/elo-preference.ts), the hidden event types
+  actions.ts       the caller's own preferences
+src/server/modules/images/
+  repo.ts          the website's pictures
+  service.ts       the public reads, the Fotowart's changes (Blob files,
+                   single-picture sections)
+  actions.ts       the public reads and the Fotowart's actions
+src/server/modules/users/
+  repo.ts          members with roles, role assignments, a member's data
+                   in this Corps
+  control-repo.ts  identities and memberships in the control DB
+  service.ts       the Admin page: roles, renaming, removing a member
+  actions.ts       the Admin page's actions, getUserRoles, hasAnyRole
+src/server/modules/konten/
+  repo.ts, service.ts, actions.ts   the Kassen's bank accounts
+src/server/loaders/preferences.ts   the profile's switches and ELO opt-out
+```
+
+- `lib/preferences.ts`, `actions/profile/{profile,public-profile,preferences}.ts`,
+  `actions/bilder/`, `actions/kontos/` and `actions/admin/{admin,userRoles}.ts`
+  are gone. Five of those files imported the proxy; the baseline is 1
+  (`db/script.ts`, whose `runWithScriptDb` nobody calls).
+- The last `getCurrentTenantDb()` callers moved to explicit scopes: the
+  Admin page's reads use the guard's tenant, `requirePageRoles`
+  (`loaders/page-access.ts`) the session's, and the tenant export
+  (`actions/admin/export.ts`, which a superadmin who is no member may
+  call) the request's Corps by id.
+- The server components of /profile hand the page's session to
+  `loadProfilePreferences` and `loadEloEnabled`, as they already did to
+  `loadOpenBill` and `loadEloStats`; the personal calendar feed reads the
+  hidden types through the preferences service with its own scope. The
+  public website's pictures need no session and use the request host
+  (`currentTenantScope`).
+- `requireSelfOrRole` returns the caller's tenant too, like
+  `requireCaller`.
+- The reads keep their old answers: the public pictures log a failed
+  read and answer no picture, the preference getters answer the default
+  for anonymous callers, the own profile and the Admin page's lists
+  throw their old messages. The profile page's query budget is
+  unchanged.
+- The actions name their id parameters (`kontoId`), so the isolation test
+  passes a foreign Konto.
+- Still in `src/server/actions`, already on explicit databases (the
+  action's scope, `getTenantDb(id)` or the control DB) and therefore left
+  for later: `admin/export.ts`, `newuser/`, `profile/{auth,avatar}.ts`,
+  `superadmin/` and `transactions/`.

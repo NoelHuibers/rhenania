@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "~/server/auth";
 import { roles, userRoles } from "~/server/db/schema";
-import { getCurrentTenantDb } from "~/server/db/tenants";
+import { scopeOf } from "~/server/lib/tenant-scope";
 
 /**
  * The signed-in member's role names in the current tenant. Sends signed-out
@@ -22,7 +22,7 @@ export async function requirePageRoles(
 		redirect("/auth/signin");
 	}
 
-	const db = await getCurrentTenantDb();
+	const { db } = await scopeOf(session.tenantId);
 	const rows = await db
 		.select({ name: roles.name })
 		.from(userRoles)

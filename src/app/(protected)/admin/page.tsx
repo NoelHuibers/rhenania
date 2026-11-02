@@ -6,7 +6,7 @@ import {
 	getRolesWithUserCount,
 	getUsersWithRoles,
 	initializeRoles,
-} from "~/server/actions/admin/admin";
+} from "~/server/modules/users/actions";
 
 const DashboardSkeleton = () => (
 	<div className="min-h-screen bg-background">

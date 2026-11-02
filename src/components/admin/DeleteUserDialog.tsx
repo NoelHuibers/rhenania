@@ -1,7 +1,7 @@
 import { Loader2, TriangleAlert } from "lucide-react";
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { deleteUser } from "../../server/actions/admin/admin";
+import { deleteUser } from "~/server/modules/users/actions";
 import { Button } from "../ui/button";
 import {
 	Dialog,

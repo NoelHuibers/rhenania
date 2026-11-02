@@ -2,7 +2,7 @@
 "use client";
 
 import { Progress } from "~/components/ui/progress";
-import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
+import type { HomepageSection } from "~/server/modules/images/actions";
 
 interface UploadProgressProps {
 	uploading: HomepageSection | null;

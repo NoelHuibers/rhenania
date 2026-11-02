@@ -15,7 +15,7 @@ import {
 import {
 	type EventTypeName,
 	setHiddenEventTypes,
-} from "~/server/actions/profile/preferences";
+} from "~/server/modules/preferences/actions";
 
 const ALL_EVENT_TYPES: EventTypeName[] = [
 	"Intern",

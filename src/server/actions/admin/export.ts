@@ -5,11 +5,11 @@ import { del, list, put } from "@vercel/blob";
 import { unstable_rethrow } from "next/navigation";
 import { type ActionResult, fail, ok } from "~/lib/action-result";
 import { auth, getIdentity } from "~/server/auth";
-import { getCurrentTenantDb } from "~/server/db/tenants";
 import { log } from "~/server/lib/log";
 import { isSuperAdmin } from "~/server/lib/super-admin";
 import { requireCurrentTenant } from "~/server/lib/tenant-context";
 import { buildTenantExport } from "~/server/lib/tenant-export";
+import { scopeOf } from "~/server/lib/tenant-scope";
 
 /**
  * How long a download link is meant to live. Vercel Blob URLs don't expire
@@ -100,7 +100,8 @@ export async function exportTenantData(): Promise<ActionResult<TenantExport>> {
 	const removed = await deleteExpiredExports(prefix, now);
 
 	try {
-		const db = await getCurrentTenantDb();
+		// The request's Corps: a superadmin need not be a member of it.
+		const { db } = await scopeOf(tenant.id);
 		const { stream, summary } = buildTenantExport(db, {
 			tenantName: tenant.displayName,
 			now,

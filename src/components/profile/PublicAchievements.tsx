@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/components/ui/card";
 import { ChipGroup } from "~/components/ui/chip-group";
-import type { PublicAchievement } from "~/server/actions/profile/public-profile";
+import type { PublicAchievement } from "~/server/modules/profile/actions";
 import { AchievementCard, CATEGORIES } from "./achievement-ui";
 
 interface PublicAchievementsProps {

@@ -18,7 +18,7 @@ import {
 	signInAs,
 	tenantDb,
 } from "../../../../test/harness";
-import { getPublicProfile } from "./public-profile";
+import { getPublicProfile } from "./actions";
 
 setupTestDatabases();
 

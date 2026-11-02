@@ -4,7 +4,7 @@
 import { Loader2, Trash2 } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 import { IconButton } from "~/components/ui/icon-button";
-import type { HomepageSection } from "~/server/actions/bilder/homepageImages";
+import type { HomepageSection } from "~/server/modules/images/actions";
 
 export interface ImageItem {
 	id: string;

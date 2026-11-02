@@ -20,9 +20,9 @@ export const PUBLIC_ACTIONS: Record<string, string> = {
 	"src/lib/formSubmit.ts#onSubmitAction": "public contact form",
 	"src/server/actions/newuser/verifyEmail.ts#verifyEmailAndSetPassword":
 		"invite link; authorised by the single-use token",
-	"src/server/actions/bilder/images.ts#getActiveImageBySection":
+	"src/server/modules/images/actions.ts#getActiveImageBySection":
 		"images of the public website",
-	"src/server/actions/bilder/images.ts#getAllActiveImagesBySection":
+	"src/server/modules/images/actions.ts#getAllActiveImagesBySection":
 		"images of the public website",
 	"src/server/modules/events/actions.ts#getPublicUpcomingEvents":
 		"public events on the website",
